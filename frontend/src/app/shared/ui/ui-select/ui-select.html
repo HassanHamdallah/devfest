@@ -1,0 +1,57 @@
+<div class="ui-select-field">
+  <label
+    class="ui-select-field__label"
+    [class.ui-select-field__label--compact]="compact()"
+    [attr.for]="selectId"
+  >
+    {{ label() }} @if (required()) {
+    <span class="ui-select-field__required" aria-hidden="true">*</span>
+    }
+  </label>
+
+  <div class="ui-select-field__control-wrap">
+    <select
+      class="ui-select-field__control"
+      [class.ui-select-field__control--compact]="compact()"
+      [id]="selectId"
+      [required]="required()"
+      [disabled]="isDisabled()"
+      [value]="value()"
+      [attr.aria-invalid]="error() ? 'true' : null"
+      [attr.aria-describedby]="describedById()"
+      (change)="handleChange($event)"
+      (blur)="handleBlur()"
+    >
+      @if (placeholder()) {
+      <option value="" disabled [selected]="!value()">
+        {{ placeholder() }}
+      </option>
+      } @for (option of options(); track option.value) {
+      <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+    <span class="ui-select-field__arrow" aria-hidden="true">
+      <svg
+        width="12"
+        height="8"
+        viewBox="0 0 12 8"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M1 1.5L6 6.5L11 1.5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </span>
+  </div>
+
+  @if (error(); as message) {
+  <p class="ui-select-field__error" [id]="selectId + '-error'">{{ message }}</p>
+  } @else if (hint(); as message) {
+  <p class="ui-select-field__hint" [id]="selectId + '-hint'">{{ message }}</p>
+  }
+</div>

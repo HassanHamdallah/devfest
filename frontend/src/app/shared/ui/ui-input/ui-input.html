@@ -1,0 +1,39 @@
+<div class="ui-input-field">
+  <label
+    class="ui-input-field__label"
+    [class.ui-input-field__label--compact]="compact()"
+    [class.ui-input-field__label--visually-hidden]="labelHidden()"
+    [attr.for]="inputId"
+  >
+    {{ label() }} @if (required()) {
+    <span class="ui-input-field__required" aria-hidden="true">*</span>
+    }
+  </label>
+
+  <div class="ui-input-field__control-wrap">
+    <input
+      class="ui-input-field__control"
+      [class.ui-input-field__control--compact]="compact()"
+      [id]="inputId"
+      [type]="type()"
+      [placeholder]="placeholder()"
+      [required]="required()"
+      [disabled]="isDisabled()"
+      [autocomplete]="autocomplete()"
+      [value]="value()"
+      [attr.aria-invalid]="error() ? 'true' : null"
+      [attr.aria-describedby]="describedById()"
+      (input)="handleInput($event)"
+      (blur)="handleBlur()"
+    />
+    <span class="ui-input-field__suffix">
+      <ng-content select="[ui-input-suffix]" />
+    </span>
+  </div>
+
+  @if (error(); as message) {
+  <p class="ui-input-field__error" [id]="inputId + '-error'">{{ message }}</p>
+  } @else if (hint(); as message) {
+  <p class="ui-input-field__hint" [id]="inputId + '-hint'">{{ message }}</p>
+  }
+</div>

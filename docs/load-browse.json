@@ -1,0 +1,16 @@
+{
+  "mode": "browse",
+  "users": 80,
+  "seconds": 30.69,
+  "requests": 3600,
+  "apiP50Ms": 0.0,
+  "apiP95Ms": 31.000000002677552,
+  "apiP99Ms": 62.999999998282874,
+  "errors": [],
+  "acknowledgedSubmissions": 0,
+  "preservedSubmissions": 0,
+  "completedEvaluations": 0,
+  "throughputEvaluationsPerSecond": 0.0,
+  "evaluationTimings": [],
+  "pass": true
+}

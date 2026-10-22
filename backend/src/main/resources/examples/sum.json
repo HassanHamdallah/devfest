@@ -1,0 +1,42 @@
+{
+  "title": "A · Two Numbers",
+  "statement": "Read two signed integers and print their sum.",
+  "inputFormat": "One line containing two integers a and b.",
+  "outputFormat": "Print a + b followed by a newline.",
+  "constraints": "-1,000,000,000 ≤ a, b ≤ 1,000,000,000.",
+  "examples": [
+    {
+      "input": "2 3\n",
+      "output": "5\n"
+    }
+  ],
+  "tests": [
+    {
+      "input": "2 3\n",
+      "output": "5\n"
+    },
+    {
+      "input": "-5 8\n",
+      "output": "3\n"
+    },
+    {
+      "input": "0 0\n",
+      "output": "0\n"
+    },
+    {
+      "input": "1000000000 1000000000\n",
+      "output": "2000000000\n"
+    },
+    {
+      "input": "-1000000000 -1000000000\n",
+      "output": "-2000000000\n"
+    }
+  ],
+  "languages": [
+    "CPP",
+    "JAVA",
+    "PYTHON"
+  ],
+  "cpuSeconds": 3,
+  "memoryKb": 524288
+}

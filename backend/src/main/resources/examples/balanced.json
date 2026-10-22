@@ -1,0 +1,46 @@
+{
+  "title": "B · Balanced Brackets",
+  "statement": "Decide whether a string of round brackets is balanced. Every closing bracket must match a preceding opening bracket, and every opening bracket must be closed.",
+  "inputFormat": "One non-empty line of ( and ) characters.",
+  "outputFormat": "Print YES if balanced, otherwise NO.",
+  "constraints": "1 ≤ string length ≤ 60,000.",
+  "examples": [
+    {
+      "input": "(())()\n",
+      "output": "YES\n"
+    },
+    {
+      "input": ")(\n",
+      "output": "NO\n"
+    }
+  ],
+  "tests": [
+    {
+      "input": "()\n",
+      "output": "YES\n"
+    },
+    {
+      "input": "(())()\n",
+      "output": "YES\n"
+    },
+    {
+      "input": ")(\n",
+      "output": "NO\n"
+    },
+    {
+      "input": "(()\n",
+      "output": "NO\n"
+    },
+    {
+      "input": "())(\n",
+      "output": "NO\n"
+    }
+  ],
+  "languages": [
+    "CPP",
+    "JAVA",
+    "PYTHON"
+  ],
+  "cpuSeconds": 3,
+  "memoryKb": 524288
+}

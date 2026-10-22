@@ -1,0 +1,16 @@
+{
+  "mode": "draft",
+  "users": 80,
+  "seconds": 30.39,
+  "requests": 1600,
+  "apiP50Ms": 14.999999999417923,
+  "apiP95Ms": 63.00000000192085,
+  "apiP99Ms": 141.00000000325963,
+  "errors": [],
+  "acknowledgedSubmissions": 0,
+  "preservedSubmissions": 0,
+  "completedEvaluations": 0,
+  "throughputEvaluationsPerSecond": 0.0,
+  "evaluationTimings": [],
+  "pass": true
+}

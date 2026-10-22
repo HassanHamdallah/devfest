@@ -1,0 +1,69 @@
+{
+  "elapsedSeconds": 13.1858375,
+  "destination": "devfest_restore_20261022223034",
+  "tables": [
+    {
+      "table": "app_user",
+      "matches": true,
+      "rows": 5
+    },
+    {
+      "table": "room",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "room_manager",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "team",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "investigation_settings",
+      "matches": true,
+      "rows": 1
+    },
+    {
+      "table": "investigation_challenge",
+      "matches": true,
+      "rows": 4
+    },
+    {
+      "table": "investigation_lifecycle",
+      "matches": true,
+      "rows": 4
+    },
+    {
+      "table": "investigation_draft",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "investigation_submission",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "investigation_score",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "investigation_score_history",
+      "matches": true,
+      "rows": 2
+    },
+    {
+      "table": "audit_event",
+      "matches": true,
+      "rows": 26
+    }
+  ],
+  "scope": "Local PostgreSQL logical restore in a separate database; not a hosting-platform backup verification.",
+  "verifiedAt": "2026-10-22T22:30:47.5688570Z",
+  "source": "devfest_test"
+}

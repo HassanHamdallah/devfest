@@ -1,0 +1,133 @@
+:host {
+  display: block;
+}
+
+.ui-input-field__label {
+  display: block;
+  margin-block-end: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.ui-input-field__required {
+  color: var(--color-error);
+}
+
+.ui-input-field__control-wrap {
+  position: relative;
+}
+
+.ui-input-field__control {
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--space-3);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+/* type="color": the native swatch fills the field instead of sitting inside
+   text padding. */
+.ui-input-field__control[type="color"] {
+  padding: var(--space-1);
+  cursor: pointer;
+}
+
+.ui-input-field__control[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ui-input-field__control[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.ui-input-field__control[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+}
+
+.ui-input-field__control:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.ui-input-field__control[aria-invalid="true"] {
+  border-color: var(--color-error);
+}
+
+.ui-input-field__control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Opt-in compact sizing for tight layouts — see the `compact` input. */
+.ui-input-field__label--compact {
+  margin-block-end: var(--space-1);
+}
+
+/* Kept for assistive tech, removed from visual flow — see the `labelHidden` input. */
+.ui-input-field__label--visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ui-input-field__control--compact {
+  min-block-size: 40px;
+  padding-block: 6px;
+}
+
+/* Chromium Edge draws its own native reveal/clear icons inside password inputs,
+   which doubles up with our custom [ui-input-suffix] eye toggle. Suppress the
+   native ones everywhere so only our toggle button shows. */
+.ui-input-field__control::-ms-reveal,
+.ui-input-field__control::-ms-clear {
+  display: none;
+}
+
+/* Optional trailing content (e.g. a password-visibility toggle) projected via
+   [ui-input-suffix]. Collapses to nothing when the slot is unused. */
+.ui-input-field__suffix {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-input-field__suffix:empty {
+  display: none;
+}
+
+.ui-input-field__control-wrap:has(.ui-input-field__suffix:not(:empty))
+  .ui-input-field__control {
+  padding-inline-end: calc(var(--space-3) + 28px);
+}
+
+.ui-input-field__error,
+.ui-input-field__hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.ui-input-field__error {
+  color: var(--color-error);
+}
+
+.ui-input-field__hint {
+  color: var(--color-text-muted);
+}

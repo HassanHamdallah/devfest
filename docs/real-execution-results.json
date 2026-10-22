@@ -1,0 +1,140 @@
+{
+  "provider": "configured Judge0; synthetic examples only",
+  "records": [
+    {
+      "case": "custom input",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 4.06,
+      "id": "45933966-be49-4e1e-a0c9-173d1a060724",
+      "tests": 1,
+      "stdoutMatches": true
+    },
+    {
+      "case": "sum PYTHON",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 14.09,
+      "id": "93aaf977-5771-45fc-a268-3d3d6a20ed19",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "sum CPP",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 14.08,
+      "id": "a8416078-ab68-4794-9b2c-05285cd9879e",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "sum JAVA",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 8.06,
+      "id": "d250ac61-bdd1-4251-9ffb-4710463f0f37",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "balanced PYTHON",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 14.05,
+      "id": "255b77e5-261b-490f-980f-e3b1ee7da353",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "balanced CPP",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 14.14,
+      "id": "fc289508-d68c-4f87-abb4-8981b0af6b0d",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "balanced JAVA",
+      "expected": "ACCEPTED",
+      "actual": "ACCEPTED",
+      "passed": true,
+      "seconds": 8.06,
+      "id": "1a6f7272-2946-4dd2-b82a-67d858608988",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "wrong answer",
+      "expected": "WRONG_ANSWER",
+      "actual": "WRONG_ANSWER",
+      "passed": true,
+      "seconds": 4.03,
+      "id": "88eb67cb-c95f-4a8d-8e35-7e9719f81977",
+      "tests": 5,
+      "stdoutMatches": null
+    },
+    {
+      "case": "compile error",
+      "expected": "COMPILATION_ERROR",
+      "actual": "COMPILATION_ERROR",
+      "passed": true,
+      "seconds": 4.05,
+      "id": "c652d4ca-020a-4aca-810d-30b6e9fdd17e",
+      "tests": 1,
+      "stdoutMatches": null
+    },
+    {
+      "case": "runtime error",
+      "expected": "RUNTIME_ERROR",
+      "actual": "RUNTIME_ERROR",
+      "passed": true,
+      "seconds": 4.03,
+      "id": "4cc0b40a-419e-4120-9544-1891a1898ea7",
+      "tests": 1,
+      "stdoutMatches": null
+    },
+    {
+      "case": "infinite loop",
+      "expected": "TIME_LIMIT_EXCEEDED",
+      "actual": "TIME_LIMIT_EXCEEDED",
+      "passed": true,
+      "seconds": 6.03,
+      "id": "c0fe4e0e-b3c1-4567-ab24-eb1ab6aee485",
+      "tests": 1,
+      "stdoutMatches": null
+    },
+    {
+      "case": "excessive output",
+      "expected": "RUNTIME_ERROR",
+      "actual": "RUNTIME_ERROR",
+      "passed": true,
+      "seconds": 4.05,
+      "id": "4bb17b12-b2ec-40a0-9d5e-8b38b5346dbf",
+      "tests": 1,
+      "stdoutMatches": null
+    },
+    {
+      "case": "excessive memory",
+      "expected": "MEMORY_LIMIT_EXCEEDED",
+      "actual": "MEMORY_LIMIT_EXCEEDED",
+      "passed": true,
+      "seconds": 4.03,
+      "id": "7303145a-445c-486f-b119-9dc0662fd7bd",
+      "tests": 1,
+      "stdoutMatches": null
+    },
+    {
+      "case": "real rejudge",
+      "actual": "ACCEPTED",
+      "passed": true
+    }
+  ]
+}

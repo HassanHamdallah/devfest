@@ -1,0 +1,21 @@
+<div class="ui-pagination">
+  <ui-button
+    variant="secondary"
+    size="sm"
+    [disabled]="disabled() || isFirst()"
+    (click)="previous()"
+  >
+    ← Previous
+  </ui-button>
+
+  <span class="ui-pagination__summary">{{ summary() }}</span>
+
+  <ui-button
+    variant="secondary"
+    size="sm"
+    [disabled]="disabled() || isLast()"
+    (click)="next()"
+  >
+    Next →
+  </ui-button>
+</div>

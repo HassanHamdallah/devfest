@@ -1,0 +1,161 @@
+<header class="page-heading">
+  <span class="eyebrow">ORGANIZER DESK</span>
+  <h1>{{section}}</h1>
+  <p>Keep the contest clear, fair, and moving.</p>
+</header>
+@if(error()){
+<p role="alert" class="error-banner">{{error()}}</p>
+}@if(success()){
+<p role="status">{{success()}}</p>
+}@if(busy()){
+<p role="status">Working…</p>
+} @if(section==='Overview'){<ui-card
+  ><h2>Contest operations</h2>
+  <pre>{{overview()|json}}</pre>
+  <ui-button variant="secondary" (click)="load()">Refresh overview</ui-button
+  ><ui-button (click)="download()">Export results CSV</ui-button></ui-card
+>} @if(section==='Participants'){
+<div class="admin-grid">
+  <ui-card
+    ><h2>Create participant</h2>
+    <form [formGroup]="participant" (ngSubmit)="createParticipant()">
+      <ui-input label="Name" formControlName="name" /><ui-input
+        label="Email"
+        type="email"
+        formControlName="email"
+      /><ui-input
+        label="Initial password"
+        type="password"
+        formControlName="password"
+        hint="At least 12 characters. Share directly with the participant."
+      /><ui-button
+        type="submit"
+        [disabled]="participant.invalid"
+        [loading]="busy()"
+        >Create participant</ui-button
+      >
+    </form></ui-card
+  >
+  <section>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Participant</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for(u of users();track u.id){
+          <tr>
+            <td>{{u.name}}<br /><small>{{u.email}}</small></td>
+            <td>{{u.active?'Active':'Inactive'}}</td>
+            <td>
+              <ui-button variant="secondary" size="sm" (click)="toggle(u)"
+                >{{u.active?'Deactivate':'Activate'}}</ui-button
+              ><ui-button variant="ghost" size="sm" (click)="resetUser=u.id"
+                >Reset password</ui-button
+              >
+            </td>
+          </tr>
+          }@empty{
+          <tr>
+            <td colspan="3">No participants yet.</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if(resetUser!==null){<ui-input
+      label="New participant password"
+      type="password"
+      [formControl]="resetPassword"
+    /><ui-button (click)="reset()">Set password and end sessions</ui-button>}
+    <div class="actions">
+      <ui-button
+        variant="secondary"
+        [disabled]="page===0"
+        (click)="page=page-1;load()"
+        >Previous</ui-button
+      ><ui-button
+        variant="secondary"
+        [disabled]="users().length<50"
+        (click)="page=page+1;load()"
+        >Next</ui-button
+      >
+    </div>
+  </section>
+</div>
+} @if(section==='Contest Settings'){<ui-card
+  ><form [formGroup]="settings" (ngSubmit)="saveSettings()">
+    <ui-input label="Contest title" formControlName="title" /><ui-input
+      label="Start time (ISO 8601 with timezone)"
+      formControlName="startAt"
+      hint="Example: 2026-11-01T10:00:00+02:00"
+    /><ui-input
+      label="End time (ISO 8601 with timezone)"
+      formControlName="endAt"
+    />
+    <p>
+      Submissions are accepted from the start time up to, but excluding, the end
+      time. Saved submissions can finish afterward.
+    </p>
+    <ui-button type="submit" [loading]="busy()"
+      >Save contest settings</ui-button
+    >
+  </form></ui-card
+>} @if(section==='Problems'){
+<div class="actions">
+  <ui-button variant="secondary" (click)="editing=null;problem.reset()"
+    >New problem</ui-button
+  >@for(p of problems();track p.id){<ui-button
+    variant="ghost"
+    (click)="edit(p.id)"
+    >Edit {{p.title}}</ui-button
+  >}
+</div>
+<ui-card
+  ><h2>{{editing?'Edit problem '+editing:'Create problem'}}</h2>
+  <form [formGroup]="problem" (ngSubmit)="saveProblem()">
+    <ui-input label="Title" formControlName="title" /><ui-textarea
+      label="Statement"
+      formControlName="statement"
+    />
+    <div class="cards">
+      <ui-textarea
+        label="Input format"
+        formControlName="inputFormat"
+        [rows]="3"
+      /><ui-textarea
+        label="Output format"
+        formControlName="outputFormat"
+        [rows]="3"
+      />
+    </div>
+    <ui-textarea label="Constraints" formControlName="constraints" [rows]="3" />
+    <div class="cards">
+      <ui-input
+        label="CPU time (seconds, 0.1–5)"
+        formControlName="cpuSeconds"
+      /><ui-input
+        label="Memory (KiB, 32768–524288)"
+        formControlName="memoryKb"
+      /><ui-input
+        label="Allowed languages (CPP,JAVA,PYTHON)"
+        formControlName="languages"
+      />
+    </div>
+    <ui-textarea
+      label="Public examples (JSON array)"
+      formControlName="examples"
+      hint='Format: [{"input":"2 3\n","output":"5\n"}]'
+    /><ui-textarea
+      label="Hidden tests (JSON array, up to 20)"
+      formControlName="tests"
+      hint="Visible only to administrators. Each edit creates a new problem version."
+    /><ui-button type="submit" [loading]="busy()"
+      >Save problem version</ui-button
+    >
+  </form></ui-card
+>}

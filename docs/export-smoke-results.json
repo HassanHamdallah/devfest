@@ -1,0 +1,10 @@
+{
+  "adminExport": 200,
+  "participantExport": 403,
+  "anonymousExport": 401,
+  "csvHeaderValid": true,
+  "csvRowsValid": true,
+  "participantRows": 81,
+  "frontendHttp": 200,
+  "passed": true
+}

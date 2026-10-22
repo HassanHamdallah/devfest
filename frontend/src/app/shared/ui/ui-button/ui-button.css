@@ -1,0 +1,112 @@
+:host {
+  display: inline-block;
+  max-inline-size: 100%;
+}
+
+:host(.ui-button-host--full-width) {
+  display: block;
+  inline-size: 100%;
+}
+
+.ui-button-el {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding-inline: var(--space-4);
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.ui-button-el:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.ui-button-el:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Sizes: block-size floor stays 44px for the touch target; padding/font shrink. */
+.ui-button-el--sm {
+  padding-inline: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.ui-button-el--md {
+  font-size: var(--font-size-base);
+}
+
+.ui-button-el--lg {
+  padding-inline: var(--space-6);
+  font-size: var(--font-size-lg);
+}
+
+/* Variants */
+.ui-button-el--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.ui-button-el--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.ui-button-el--primary:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+.ui-button-el--secondary {
+  background: var(--color-surface);
+  color: var(--color-primary-text);
+  border-color: var(--color-border);
+}
+
+.ui-button-el--secondary:hover:not(:disabled) {
+  background: var(--color-primary-subtle);
+}
+
+.ui-button-el--ghost {
+  background: transparent;
+  color: var(--color-primary-text);
+}
+
+.ui-button-el--ghost:hover:not(:disabled) {
+  background: var(--color-primary-subtle);
+}
+
+.ui-button-el--danger {
+  background: var(--color-error-solid);
+  color: var(--color-on-error);
+}
+
+.ui-button-el--danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+/* Loading: label stays laid out (just hidden) so the button never resizes. */
+.ui-button-el__label--hidden {
+  visibility: hidden;
+}
+
+.ui-button-el__spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}

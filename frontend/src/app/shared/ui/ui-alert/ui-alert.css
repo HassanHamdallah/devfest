@@ -1,0 +1,62 @@
+:host {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border-inline-start: 3px solid transparent;
+  font-size: var(--font-size-sm);
+}
+
+:host(.ui-alert-host--info) {
+  background: var(--color-primary-subtle);
+  border-inline-start-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+:host(.ui-alert-host--success) {
+  background: var(--color-success-subtle);
+  border-inline-start-color: var(--color-success);
+  color: var(--color-success);
+}
+
+:host(.ui-alert-host--warning) {
+  background: var(--color-warning-subtle);
+  border-inline-start-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+:host(.ui-alert-host--error) {
+  background: var(--color-error-subtle);
+  border-inline-start-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.ui-alert__content {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ui-alert__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  cursor: pointer;
+}
+
+.ui-alert__dismiss:hover {
+  background: color-mix(in srgb, currentcolor 12%, transparent);
+}
+
+.ui-alert__dismiss:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}

@@ -1,0 +1,36 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-2);
+  padding-block: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+:host(.ui-badge-host--neutral) {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+:host(.ui-badge-host--primary) {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-text);
+}
+
+:host(.ui-badge-host--success) {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+:host(.ui-badge-host--warning) {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+:host(.ui-badge-host--danger) {
+  background: var(--color-error-subtle);
+  color: var(--color-error);
+}

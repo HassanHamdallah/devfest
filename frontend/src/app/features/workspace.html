@@ -1,0 +1,115 @@
+@if(error()){
+<p role="alert" class="error-banner">{{error()}}</p>
+} @if(!problem()){
+<p role="status">Loading workspace…</p>
+}@else{
+<header class="workspace-heading">
+  <div>
+    <span class="eyebrow">PROBLEM {{problem()!.id}}</span>
+    <h1>{{problem()!.title}}</h1>
+  </div>
+  <span class="muted"
+    >{{problem()!.cpuSeconds}} s · {{problem()!.memoryKb/1024}} MiB</span
+  >
+</header>
+<div class="workspace">
+  <article class="statement">
+    <h2>The challenge</h2>
+    <p class="preserve">{{problem()!.statement}}</p>
+    <h3>Input</h3>
+    <p class="preserve">{{problem()!.inputFormat}}</p>
+    <h3>Output</h3>
+    <p class="preserve">{{problem()!.outputFormat}}</p>
+    <h3>Constraints</h3>
+    <p class="preserve">{{problem()!.constraints}}</p>
+    <h3>Examples</h3>
+    @for(example of problem()!.examples;track $index){
+    <h4>Input {{$index+1}}</h4>
+    <pre>{{example.input}}</pre>
+    <h4>Output</h4>
+    <pre>{{example.output}}</pre>
+    }
+  </article>
+  <section class="coding">
+    <div class="editor-toolbar">
+      <ui-select
+        label="Language"
+        [formControl]="language"
+        [options]="options"
+        (change)="switchLanguage()"
+        [disabled]="saving"
+      /><span role="status" aria-live="polite">{{saveState()}}</span>
+    </div>
+    @if(conflict()){
+    <div class="error-banner">
+      <p>A different server draft exists. Choose which version to keep.</p>
+      <ui-button variant="secondary" (click)="keepLocal()"
+        >Save my local version</ui-button
+      ><ui-button variant="ghost" (click)="useServer()"
+        >Load server version</ui-button
+      >
+      <details>
+        <summary>Preview server code</summary>
+        <pre>{{conflict()!.source}}</pre>
+      </details>
+    </div>
+    } @if(ready()){<code-editor
+      [source]="source()"
+      [language]="editorLanguage"
+      (changed)="edit($event)"
+    />}@else{
+    <p>Loading draft…</p>
+    }
+    <ui-textarea
+      label="Custom input"
+      [rows]="3"
+      [formControl]="stdin"
+      hint="Used by Run. Submit is checked against the contest tests."
+    />
+    <div class="actions">
+      <ui-button
+        variant="secondary"
+        [loading]="busy()"
+        [disabled]="!ready()||!!pendingRequest()"
+        (click)="execute('runs')"
+        >▷ Run</ui-button
+      ><ui-button
+        [loading]="busy()"
+        [disabled]="!ready()||!!pendingRequest()"
+        (click)="execute('submissions')"
+        >Submit solution →</ui-button
+      >
+    </div>
+    @if(pendingRequest()){
+    <p>
+      Your previous request needs confirmation. Retrying sends the same code
+      once.
+    </p>
+    <ui-button [loading]="busy()" (click)="sendPending()"
+      >Retry previous request</ui-button
+    >} @if(result();as r){
+    <section class="result" aria-live="polite">
+      <h3>
+        {{r.kind==='RUN'&&r.state==='ACCEPTED'?'Run completed':label(r.state)}}
+      </h3>
+      <p class="muted">ID: {{r.id}}</p>
+      @if(r.state==='SYSTEM_ERROR'){
+      <p>
+        Evaluation could not finish. Your submission is saved. Contact an
+        organizer.
+      </p>
+      }@if(r.kind==='RUN'){
+      <h4>Standard output</h4>
+      <pre>{{r.stdout||'(empty)'}}</pre>
+      <h4>Standard error</h4>
+      <pre>{{r.stderr||'(none)'}}</pre>
+      <h4>Compilation</h4>
+      <pre>{{r.compileOutput||'(no compilation messages)'}}</pre>
+      }@else{
+      <p>{{r.passed}} / {{r.total}} tests passed.</p>
+      }
+    </section>
+    }
+  </section>
+</div>
+}

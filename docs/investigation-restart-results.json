@@ -1,0 +1,16 @@
+{
+  "receipt": "003b801f-f341-4161-8338-c6dd07b1cc4d",
+  "scope": "Actual local Java process termination, restart, new sign-in and database read; ephemeral rehearsal signing key rotated.",
+  "persistedFields": [
+    "id",
+    "teamId",
+    "challengeId",
+    "receivedAt",
+    "report",
+    "points",
+    "scoreVersion",
+    "challengeSnapshot"
+  ],
+  "verifiedAt": "2026-10-22T22:30:29.3309960Z",
+  "passed": true
+}

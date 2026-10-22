@@ -1,0 +1,19 @@
+<button
+  class="ui-button-el ui-button-el--{{ variant() }} ui-button-el--{{ size() }}"
+  [type]="type()"
+  [disabled]="isDisabled"
+  [attr.aria-busy]="loading() ? 'true' : null"
+  [attr.aria-pressed]="pressed() === null ? null : pressed()"
+>
+  @if (loading()) {
+  <span class="ui-button-el__spinner" aria-hidden="true">
+    <ui-spinner size="sm" />
+  </span>
+  }
+  <span
+    class="ui-button-el__label"
+    [class.ui-button-el__label--hidden]="loading()"
+  >
+    <ng-content />
+  </span>
+</button>

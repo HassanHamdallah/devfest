@@ -1,0 +1,232 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">DEVFEST</span>
+    <h1>Investigation</h1>
+    <p>Your rooms, teams and competition controls.</p>
+  </div>
+  <ui-button
+    variant="secondary"
+    [disabled]="busy()"
+    (click)="action(load.bind(this))"
+    >Refresh</ui-button
+  >
+</div>
+@if(error()) {
+<p class="error" role="alert">{{error()}}</p>
+} @if(success()) {
+<p role="status">{{success()}}</p>
+} @if(busy()) {
+<p role="status">Loading or saving…</p>
+}
+<div class="investigation-grid">
+  @for(r of rooms();track r.id) {
+  <ui-card
+    ><h2>{{r.name}}</h2>
+    <p>{{r.archived?'Archived':'Active room'}}</p>
+    <a [routerLink]="['/investigation/rooms',r.id]">Open room →</a> @if(admin) {
+    <ui-button variant="ghost" (click)="editRoom(r)">Edit room</ui-button>
+    }</ui-card
+  >
+  } @empty {
+  <p>No rooms assigned. Contact an organizer.</p>
+  }
+</div>
+<h2>{{admin?'Teams':'Your teams'}}</h2>
+@for(t of teams();track t.id) {
+<p>
+  {{t.name}} · {{roomName(t.roomId)}} · {{t.archived?'Archived':'Active'}}
+  @if(admin) {
+  <ui-button variant="ghost" (click)="editTeam(t)">Edit team</ui-button> }
+</p>
+} @if(settings();as s) {
+<ui-card
+  ><h2>Investigation rules</h2>
+  <p>{{s.rules}}</p>
+  <p>
+    {{s.rulesConfirmed?'Confirmed by organizer':'Awaiting organizer
+    confirmation'}} · Results {{s.resultsPublished?'published':'private'}}
+  </p>
+  @if(admin) { @if(!s.rulesConfirmed) {
+  <ui-button [disabled]="busy()" (click)="confirmRules()"
+    >Confirm these rules</ui-button
+  >
+  }
+  <ui-button
+    variant="secondary"
+    [disabled]="busy() || !s.rulesConfirmed"
+    (click)="publish()"
+    >{{s.resultsPublished?'Unpublish results':'Publish results'}}</ui-button
+  >
+  }
+</ui-card>
+} @if(admin) {
+<ui-card
+  ><h2>Organizer preflight</h2>
+  <p>API and database: {{health()}}</p>
+  <ul>
+    @for(issue of issues();track $index) {
+    <li>{{issue}}</li>
+    } @empty {
+    <li>
+      Assignments and final challenges are present. Complete the operational
+      rehearsal before the event.
+    </li>
+    }
+  </ul>
+  <ui-button variant="secondary" [disabled]="busy()" (click)="download()"
+    >Export investigation records</ui-button
+  ></ui-card
+>
+<div class="investigation-grid">
+  <ui-card
+    ><h2>{{roomId?'Edit room':'Create room'}}</h2>
+    <form (ngSubmit)="saveRoom()">
+      <ui-input
+        label="Room name"
+        name="roomName"
+        [(ngModel)]="room.name"
+        [required]="true"
+      /><label
+        ><input
+          type="checkbox"
+          name="roomArchived"
+          [(ngModel)]="room.archived"
+        />
+        Archived</label
+      ><ui-button type="submit" [disabled]="busy() || !room.name.trim()"
+        >Save room</ui-button
+      >
+    </form></ui-card
+  >
+  <ui-card
+    ><h2>{{teamId?'Edit team':'Create team'}}</h2>
+    <form (ngSubmit)="saveTeam()">
+      <ui-input
+        label="Team name"
+        name="teamName"
+        [(ngModel)]="team.name"
+      /><ui-select
+        label="Team room"
+        name="teamRoom"
+        [(ngModel)]="team.roomId"
+        [options]="roomOptions"
+        placeholder="Choose a room"
+      /><ui-select
+        label="Representative"
+        name="representative"
+        [(ngModel)]="team.representativeId"
+        [options]="representatives"
+        placeholder="Unassigned"
+      /><label
+        ><input
+          type="checkbox"
+          name="teamArchived"
+          [(ngModel)]="team.archived"
+        />
+        Archived</label
+      ><ui-button
+        type="submit"
+        [disabled]="busy() || !team.name.trim() || !team.roomId"
+        >Save team</ui-button
+      >
+    </form></ui-card
+  >
+  <ui-card
+    ><h2>Create account</h2>
+    <form (ngSubmit)="createAccount()">
+      <ui-input
+        label="Account name"
+        name="name"
+        [(ngModel)]="account.name"
+      /><ui-input
+        label="Account email"
+        type="email"
+        name="email"
+        [(ngModel)]="account.email"
+      /><ui-input
+        label="Initial password (12–72 bytes)"
+        type="password"
+        name="password"
+        [(ngModel)]="account.password"
+      /><ui-select
+        label="Account role"
+        name="role"
+        [(ngModel)]="account.role"
+        [options]="roles"
+      /><ui-button
+        type="submit"
+        [disabled]="busy() || !account.name || !account.email || account.password.length < 12"
+        >Create account</ui-button
+      >
+    </form></ui-card
+  >
+  <ui-card
+    ><h2>Assign room managers</h2>
+    <form (ngSubmit)="assign()">
+      <ui-select
+        label="Managed room"
+        name="assignmentRoom"
+        [(ngModel)]="assignmentRoom"
+        (ngModelChange)="selectRoom()"
+        [options]="roomOptions"
+        placeholder="Choose a room"
+      />
+      @for(m of managers;track m.id) {
+      <label
+        ><input
+          type="checkbox"
+          [checked]="managerIds.includes(m.id)"
+          (change)="managerChanged(m.id,$event)"
+        />
+        {{m.name}}</label
+      >
+      }
+      <ui-button type="submit" [disabled]="busy() || !assignmentRoom"
+        >Save managers</ui-button
+      >
+    </form></ui-card
+  >
+  <ui-card
+    ><h2>Organizer-assisted recovery</h2>
+    <form (ngSubmit)="reset()">
+      <ui-select
+        label="Reset account"
+        name="resetId"
+        [(ngModel)]="resetId"
+        [options]="accountOptions"
+        placeholder="Choose account"
+      /><ui-input
+        label="Replacement password"
+        type="password"
+        name="resetPassword"
+        [(ngModel)]="resetPassword"
+      /><ui-button
+        type="submit"
+        [disabled]="busy() || !resetId || resetPassword.length < 12"
+        >Reset password</ui-button
+      >
+    </form></ui-card
+  >
+</div>
+<h2>Accounts</h2>
+@for(a of accounts();track a.id) {
+<p>
+  {{a.name}} · {{a.email}} · {{a.role}} · {{a.active?'Active':'Disabled'}}
+  @if(a.role!=='ADMIN') {
+  <ui-button variant="ghost" [disabled]="busy()" (click)="toggle(a)"
+    >{{a.active?'Disable':'Enable'}}</ui-button
+  >
+  }
+</p>
+}
+<details>
+  <summary>Recent audit events</summary>
+  @for(event of events();track event.id) {
+  <p>
+    {{event.created_at | date:'medium'}} · Actor {{event.actor_id ?? 'system'}}
+    · {{event.action}} · {{event.target}}
+  </p>
+  }
+  <p>The complete audit history is included in the export.</p>
+</details>
+}

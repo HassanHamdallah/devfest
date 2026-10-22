@@ -1,0 +1,73 @@
+{
+  "testedAt": "2026-10-22T22:32:19.011874+00:00",
+  "environment": "Local Windows, PostgreSQL, API 8082. Synthetic investigation traffic; no code execution or WAN latency.",
+  "scope": "One synchronized browse/draft/submit/retry/history cycle per team, at 80 and 160 teams. Not a sustained event capacity certification.",
+  "scenarios": [
+    {
+      "concurrentTeams": 80,
+      "elapsedSeconds": 0.83,
+      "uniqueReceipts": 80,
+      "failures": [],
+      "operations": {
+        "browse": {
+          "requests": 80,
+          "p95Ms": 336.13,
+          "maxMs": 527.1
+        },
+        "draft": {
+          "requests": 80,
+          "p95Ms": 298.6,
+          "maxMs": 382.05
+        },
+        "submit": {
+          "requests": 80,
+          "p95Ms": 257.68,
+          "maxMs": 401.79
+        },
+        "retry": {
+          "requests": 80,
+          "p95Ms": 218.31,
+          "maxMs": 260.75
+        },
+        "history": {
+          "requests": 80,
+          "p95Ms": 145.9,
+          "maxMs": 163.24
+        }
+      }
+    },
+    {
+      "concurrentTeams": 160,
+      "elapsedSeconds": 0.93,
+      "uniqueReceipts": 160,
+      "failures": [],
+      "operations": {
+        "browse": {
+          "requests": 160,
+          "p95Ms": 181.15,
+          "maxMs": 522.14
+        },
+        "draft": {
+          "requests": 160,
+          "p95Ms": 377.26,
+          "maxMs": 568.24
+        },
+        "submit": {
+          "requests": 160,
+          "p95Ms": 310.84,
+          "maxMs": 396.84
+        },
+        "retry": {
+          "requests": 160,
+          "p95Ms": 300.11,
+          "maxMs": 402.12
+        },
+        "history": {
+          "requests": 160,
+          "p95Ms": 249.62,
+          "maxMs": 403.05
+        }
+      }
+    }
+  ]
+}

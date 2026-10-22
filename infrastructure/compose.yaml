@@ -1,0 +1,25 @@
+name: devfest
+services:
+  database:
+    image: postgres:18.3
+    environment:
+      POSTGRES_DB: devfest
+      POSTGRES_USER: devfest
+      POSTGRES_PASSWORD: ${DEVFEST_DB_PASSWORD:?Set a DevFest-only password}
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["devfest-data:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devfest -d devfest"]
+      interval: 5s
+      retries: 10
+  test-database:
+    image: postgres:18.3
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: devfest_test
+      POSTGRES_USER: devfest_test
+      POSTGRES_PASSWORD: ${DEVFEST_TEST_DB_PASSWORD:?Set a separate test password}
+    ports: ["127.0.0.1:55433:5432"]
+    tmpfs: ["/var/lib/postgresql"]
+volumes:
+  devfest-data:
