@@ -181,12 +181,15 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
   const member = await openRolePage(browser, "member", PHONE);
   const manager = await openRolePage(browser, "manager", DESKTOP);
   const adminApi = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
-  const teamApi = await EventApiSession.signIn(accounts.members[0], accounts.seedPassword);
+  let teamApi: EventApiSession | null = null;
   try {
     await test.step("admin starts round 1 and opens the AI room", () => startFirstRound(admin.page));
     await test.step("team submits a wrong, then the correct AI clue", () => submitAiClues(member.page));
     await test.step("AI manager passes the team and adds a hint penalty", () => judgeAiRoom(manager.page));
-    await test.step("helper plays rounds 2-3 and finishes the rooms", () => playRemainingRooms(adminApi, teamApi));
+    // One device per team: the helper borrows the browser's session instead of signing in again.
+    teamApi = await EventApiSession.fromPage(member.page);
+    const team = teamApi;
+    await test.step("helper plays rounds 2-3 and finishes the rooms", () => playRemainingRooms(adminApi, team));
     await test.step("team home shows three collected clues", () => confirmThreeClues(member.page));
     await test.step("admin opens the final", () => openFinal(admin.page));
     await test.step("team recovers the missing Hardware clue", () => recoverMissingClue(member.page));
@@ -194,7 +197,7 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
     await test.step("admin sees Team 01 first and publishes", () => publishResults(admin.page));
     await test.step("team opens the published ranking", () => viewResults(member.page));
   } finally {
-    await Promise.all([adminApi.dispose(), teamApi.dispose()]);
+    await Promise.all([adminApi.dispose(), teamApi?.dispose()]);
     await Promise.all([admin, member, manager].map((role) => role.page.context().close()));
   }
   expect([...admin.problems, ...member.problems, ...manager.problems]).toEqual([]);

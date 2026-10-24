@@ -4,7 +4,7 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "--config",
+      "-c",
       "playwright.event.config.ts"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
@@ -35,6 +35,7 @@
         "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
         "testIgnore": [],
         "testMatch": [
+          "event-teams.spec.ts",
           "event.spec.ts"
         ],
         "timeout": 300000
@@ -54,7 +55,10 @@
         "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "testIgnore": [],
-        "testMatch": "event.spec.ts",
+        "testMatch": [
+          "event-teams.spec.ts",
+          "event.spec.ts"
+        ],
         "timeout": 300000,
         "use": {
           "baseURL": "http://localhost:4202",
@@ -95,6 +99,74 @@
   },
   "suites": [
     {
+      "title": "event-teams.spec.ts",
+      "file": "event-teams.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "teams: planned count, generated sign-ins, one device per team and organizer sign-out",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14130,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "admin sets the planned team count",
+                      "duration": 410
+                    },
+                    {
+                      "title": "admin generates two teams and sees the one-time sign-ins",
+                      "duration": 549
+                    },
+                    {
+                      "title": "the team signs in on device A",
+                      "duration": 644
+                    },
+                    {
+                      "title": "signing in on device B sends device A to the login page",
+                      "duration": 10175
+                    },
+                    {
+                      "title": "admin sees the team signed in and signs it out",
+                      "duration": 339
+                    },
+                    {
+                      "title": "device B is sent to the login page with the organizer message",
+                      "duration": 111
+                    }
+                  ],
+                  "startTime": "2026-10-24T01:09:31.729Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "21e4fe48a1ebb93cd219-8930282f2a80e68703d0",
+          "file": "event-teams.spec.ts",
+          "line": 93,
+          "column": 5
+        }
+      ]
+    },
+    {
       "title": "event.spec.ts",
       "file": "event.spec.ts",
       "column": 0,
@@ -116,7 +188,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 7266,
+                  "duration": 6323,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
@@ -124,35 +196,35 @@
                   "steps": [
                     {
                       "title": "admin starts round 1 and opens the AI room",
-                      "duration": 1096
+                      "duration": 889
                     },
                     {
                       "title": "team submits a wrong, then the correct AI clue",
-                      "duration": 943
+                      "duration": 928
                     },
                     {
                       "title": "AI manager passes the team and adds a hint penalty",
-                      "duration": 1533
+                      "duration": 1584
                     },
                     {
                       "title": "helper plays rounds 2-3 and finishes the rooms",
-                      "duration": 170
+                      "duration": 157
                     },
                     {
                       "title": "team home shows three collected clues",
-                      "duration": 194
+                      "duration": 197
                     },
                     {
                       "title": "admin opens the final",
-                      "duration": 328
+                      "duration": 321
                     },
                     {
                       "title": "team recovers the missing Hardware clue",
-                      "duration": 427
+                      "duration": 387
                     },
                     {
                       "title": "team accuses wrongly, then solves the case",
-                      "duration": 238
+                      "duration": 260
                     },
                     {
                       "title": "admin sees Team 01 first and publishes",
@@ -160,10 +232,10 @@
                     },
                     {
                       "title": "team opens the published ranking",
-                      "duration": 241
+                      "duration": 233
                     }
                   ],
-                  "startTime": "2026-10-24T00:14:15.232Z",
+                  "startTime": "2026-10-24T01:09:46.082Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -181,9 +253,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-24T00:14:14.884Z",
-    "duration": 9196.235999999999,
-    "expected": 1,
+    "startTime": "2026-10-24T01:09:31.369Z",
+    "duration": 21375.093,
+    "expected": 2,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

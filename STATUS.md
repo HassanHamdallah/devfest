@@ -27,6 +27,18 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-10-24: organizer-controlled team count and one device per team
+
+- V6: `event_state.planned_team_count`, `auth_session.revoked_reason` and `last_seen_at`. Planned team count N
+  (1–64) with group cap ceil(N / 4) and balance warnings; bulk team generation with one-time passwords; groups
+  locked from round 1; MEMBER accounts keep one session (latest sign-in wins); 401 responses name the reason;
+  admin sees signed-in / last-seen per team and can sign a team out; seed size via `DEVFEST_EVENT_SEED_TEAMS`.
+- Tested: `test-backend.ps1` → `Tests run: 111, Failures: 0, Errors: 0, Skipped: 0` (new: EventSessionTest 6,
+  5 more EventOrganizationTest cases, GroupCapacityTest 5, RoundRobinGroupsTest 4); backend package and
+  frontend build succeed; Playwright event suite 2 passed (new `e2e/event-teams.spec.ts` + the journey); manual
+  API check: second sign-in → first token 401 `REPLACED`; 1× load check 1 468 requests, 0 errors, worst p95
+  28.0 ms ([docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md)).
+
 ### Not yet verified
 
 - No deployment, HTTPS/reverse proxy, or event hardware/Wi-Fi measurement.

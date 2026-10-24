@@ -54,12 +54,16 @@ public class SecurityConfig {
                 List.of(new SimpleGrantedAuthority("ROLE_" + p.role()))
               )
             );
+          } catch (SessionEndedException e) {
+            SecurityContextHolder.clearContext();
+            req.setAttribute(SessionEndedException.ATTRIBUTE, e.reason);
           } catch (
             io.jsonwebtoken.JwtException
             | IllegalArgumentException
             | dev.devfest.api.Errors.ApiException ignored
           ) {
             SecurityContextHolder.clearContext();
+            req.setAttribute(SessionEndedException.ATTRIBUTE, SessionEnd.EXPIRED);
           }
         }
         chain.doFilter(req, res);
@@ -99,13 +103,28 @@ public class SecurityConfig {
       )
       .exceptionHandling(c ->
         c
-          .authenticationEntryPoint((q, r, e) ->
-            error(r, 401, "Please sign in again.")
-          )
+          .authenticationEntryPoint((q, r, e) -> unauthorized(q, r))
           .accessDeniedHandler((q, r, e) -> error(r, 403, "Access denied."))
       )
       .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
       .build();
+  }
+
+  /** A rejected bearer token names why its session ended; a request without a token gets the plain 401. */
+  private static void unauthorized(
+    jakarta.servlet.http.HttpServletRequest q,
+    jakarta.servlet.http.HttpServletResponse r
+  ) throws java.io.IOException {
+    if (!(q.getAttribute(SessionEndedException.ATTRIBUTE) instanceof SessionEnd reason)) {
+      error(r, 401, "Please sign in again.");
+      return;
+    }
+    r.setStatus(401);
+    r.setContentType("application/problem+json");
+    // Messages are fixed constants without quotes or backslashes, so plain concatenation is valid JSON.
+    r.getWriter().write(
+      "{\"status\":401,\"detail\":\"" + reason.message() + "\",\"reason\":\"" + reason.name() + "\"}"
+    );
   }
 
   private static void error(

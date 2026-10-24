@@ -734,6 +734,12 @@ th {
 .login p {
   color: #667085;
 }
+.login .login__banner {
+  padding: 12px 14px;
+  background: #fff3ef;
+  color: #8f3824;
+  border-radius: 8px;
+}
 .language-pills {
   font-weight: 700;
   color: #166b50;

@@ -4,8 +4,10 @@ import static dev.devfest.event.repository.EventJdbc.nullableLong;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -65,8 +67,9 @@ public class EventAccountRepository {
     db.update("UPDATE app_user SET active = ? WHERE id = ? AND role IN ('MANAGER', 'MEMBER')", active, accountId);
   }
 
-  public void revokeSessions(long accountId) {
-    db.update("UPDATE auth_session SET revoked = TRUE WHERE user_id = ?", accountId);
+  /** Emails of any role that start with {@code prefix}; it holds only lower-case letters and digits. */
+  public Set<String> emailsStartingWith(String prefix) {
+    return new HashSet<>(db.queryForList("SELECT email FROM app_user WHERE email LIKE ?", String.class, prefix + "%"));
   }
 
   private static EventAccountRecord map(ResultSet rs, int row) throws SQLException {

@@ -32,9 +32,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class EventAdminBoardService {
 
-  private static final String TEAMS_PAGE = "/event/admin/teams";
   private static final String CONTENT_PAGE = "/event/admin/content";
-  private static final int TEAMS_PER_GROUP = 4;
 
   private final EventAccessPolicy access;
   private final EventStateRepository states;
@@ -66,7 +64,7 @@ public class EventAdminBoardService {
     List<AdminRoomStatsRecord> rooms = boards.adminRooms();
     List<EventTeamRecord> activeTeams = teams.findActive();
     List<RankingRow> rows = ranking.ranking().stream().map(EventAdminBoardService::rankingRow).toList();
-    List<AdminAlert> alerts = alerts(rooms, teams.activeGroupSizes());
+    List<AdminAlert> alerts = alerts(rooms, state.plannedTeamCount(), teams.activeGroupSizes());
     EventContentGaps.find(boards.contentStatus(), rooms).forEach(gap ->
       alerts.add(new AdminAlert(gap.code(), gap.message(), CONTENT_PAGE))
     );
@@ -120,23 +118,19 @@ public class EventAdminBoardService {
       .toList();
   }
 
-  private static List<AdminAlert> alerts(List<AdminRoomStatsRecord> rooms, List<GroupSizeRecord> groups) {
+  private static List<AdminAlert> alerts(
+    List<AdminRoomStatsRecord> rooms,
+    int plannedTeams,
+    List<GroupSizeRecord> groups
+  ) {
     List<AdminAlert> alerts = new ArrayList<>();
     for (AdminRoomStatsRecord room : rooms) {
       if (room.managerId() == null) {
-        alerts.add(new AdminAlert("ROOM_WITHOUT_MANAGER", "Room " + room.name() + " has no manager.", TEAMS_PAGE));
+        String message = "Room " + room.name() + " has no manager.";
+        alerts.add(new AdminAlert("ROOM_WITHOUT_MANAGER", message, EventViews.TEAMS_PAGE));
       }
     }
-    for (GroupSizeRecord group : groups) {
-      if (group.activeTeams() != TEAMS_PER_GROUP) {
-        String message = "Group %s has %d active teams (needs %d).".formatted(
-          group.groupCode(),
-          group.activeTeams(),
-          TEAMS_PER_GROUP
-        );
-        alerts.add(new AdminAlert("GROUP_SIZE", message, TEAMS_PAGE));
-      }
-    }
+    alerts.addAll(EventViews.groupWarnings(plannedTeams, groups));
     return alerts;
   }
 

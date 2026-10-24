@@ -13,11 +13,28 @@ declare global {
   }
 }
 export const BASE = (window.DEVFEST_API_URL || "/api/v1").replace(/\/$/, "");
+
+/**
+ * The server's reason on a 401 for an ended session (null when absent). Only EXPIRED is renewed with the
+ * refresh token; every other reason (REPLACED, ORGANIZER, DEACTIVATED, …) means the session is gone.
+ */
+export function sessionEndReason(e: unknown): string | null {
+  if (!(e instanceof HttpErrorResponse) || e.status !== 401) return null;
+  const reason: unknown = e.error?.reason;
+  return typeof reason === "string" ? reason : null;
+}
+
+function isFinalSessionEnd(e: unknown): boolean {
+  const reason = sessionEndReason(e);
+  return reason !== null && reason !== "EXPIRED";
+}
 @Injectable({ providedIn: "root" })
 export class Api {
   private http = inject(HttpClient);
   private router = inject(Router);
   user = signal<User | null>(null);
+  /** Why the last session ended (e.g. signed in on another device); shown once on the login page. */
+  readonly sessionNotice = signal<string | null>(null);
   private renewing: Promise<Tokens> | null = null;
   request<T>(
     method: string,
@@ -34,6 +51,7 @@ export class Api {
       email,
       password,
     });
+    this.sessionNotice.set(null);
     this.store(t);
   }
   private store(t: Tokens) {
@@ -53,7 +71,8 @@ export class Api {
           return t;
         })
         .catch((e) => {
-          this.clear();
+          if (isFinalSessionEnd(e)) this.endSession(message(e));
+          else this.clear();
           throw e;
         })
         .finally(() => (this.renewing = null));
@@ -76,6 +95,15 @@ export class Api {
     } finally {
       this.clear();
     }
+  }
+  /**
+   * The server ended this session (another device signed in, an organizer signed the team out, …):
+   * sign out locally and explain why on the login page. Pending team requests in localStorage are kept.
+   */
+  endSession(notice: string) {
+    if (!this.user() && !sessionStorage.getItem("devfest.refresh")) return;
+    this.sessionNotice.set(notice);
+    this.clear();
   }
   clear() {
     sessionStorage.removeItem("devfest.access");
@@ -119,6 +147,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((e) => {
       if (!(e instanceof HttpErrorResponse) || e.status !== 401)
         return throwError(() => e);
+      if (isFinalSessionEnd(e)) {
+        api.endSession(message(e));
+        return throwError(() => e);
+      }
       return from(api.refresh()).pipe(
         switchMap((t) =>
           next(

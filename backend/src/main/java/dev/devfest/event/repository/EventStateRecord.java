@@ -12,7 +12,8 @@ public record EventStateRecord(
   Instant finalClosedAt,
   boolean resultsPublished,
   long revision,
-  Instant updatedAt
+  Instant updatedAt,
+  int plannedTeamCount
 ) {
   public boolean finalEverOpened() {
     return finalStartedAt != null;

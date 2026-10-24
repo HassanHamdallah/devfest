@@ -14,6 +14,7 @@ import {
   EventHome,
   EventRevision,
   EventStateView,
+  GenerateTeamsRequest,
   JudgementRequest,
   JudgementView,
   Organization,
@@ -32,6 +33,7 @@ import {
   SuspectRequest,
   SuspectView,
   TeamBoard,
+  TeamCredential,
   TeamFinal,
   TeamView,
   UpdateTeamRequest,
@@ -171,6 +173,18 @@ export class EventApi {
   }
   updateTeam(teamId: number, body: UpdateTeamRequest) {
     return this.send<TeamView>("PUT", `/admin/teams/${teamId}`, body);
+  }
+  setPlannedTeamCount(plannedCount: number) {
+    return this.send<Organization>("PUT", "/admin/teams/planned-count", {
+      plannedCount,
+    });
+  }
+  /** The response holds one-time passwords; callers keep it only while the dialog is open. */
+  generateTeams(body: GenerateTeamsRequest) {
+    return this.send<TeamCredential[]>("POST", "/admin/teams/generate", body);
+  }
+  signOutTeam(teamId: number) {
+    return this.send<TeamView>("POST", `/admin/teams/${teamId}/sign-out`);
   }
   assignRoomManager(roomId: number, managerId: number | null) {
     return this.send<RoomManagerView>("PUT", `/admin/rooms/${roomId}/manager`, {

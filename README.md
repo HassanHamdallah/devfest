@@ -17,12 +17,13 @@ Both are **local prototypes, not deployed**. See [STATUS.md](STATUS.md) for what
    ```properties
    DEVFEST_DEVELOPMENT=true
    DEVFEST_EVENT_SEED_PASSWORD=<choose a 12+ character password for the seeded event accounts>
+   DEVFEST_EVENT_SEED_TEAMS=16
    DEVFEST_WORKER_ENABLED=false
    JUDGE0_URL=
    DEVFEST_SEED=false
    ```
-   `DEVFEST_ADMIN_EMAIL` / `DEVFEST_ADMIN_PASSWORD` (already generated) create the organizer account once. The event seed runs only when `DEVFEST_EVENT_SEED_PASSWORD` is set **and** `DEVFEST_DEVELOPMENT=true` (the backend refuses to start if the seed password is set outside development), and only while no team exists. Remove the seed password after the first start.
-3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V5).
+   `DEVFEST_ADMIN_EMAIL` / `DEVFEST_ADMIN_PASSWORD` (already generated) create the organizer account once. The event seed runs only when `DEVFEST_EVENT_SEED_PASSWORD` is set **and** `DEVFEST_DEVELOPMENT=true` (the backend refuses to start if the seed password is set outside development), and only while no team exists. `DEVFEST_EVENT_SEED_TEAMS` (default 16, allowed 1–64) is the number of seeded teams and also becomes the planned team count. Remove the seed password after the first start.
+3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V6).
 4. Frontend: `cd frontend; npm ci; npm start` and open http://localhost:4201.
 
 Seeded development accounts (all use the seed password; nothing secret is in the repository):
@@ -31,9 +32,17 @@ Seeded development accounts (all use the seed password; nothing secret is in the
 |---|---|
 | Organizer (ADMIN) | the `DEVFEST_ADMIN_EMAIL` from `backend/.env` |
 | Room managers | `manager.ai@event.test`, `manager.ps@event.test`, `manager.linux@event.test`, `manager.hw@event.test` |
-| Teams (MEMBER) | `team01@event.test` … `team16@event.test` → Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
+| Teams (MEMBER) | `team01@event.test` … `teamNN@event.test` (NN = `DEVFEST_EVENT_SEED_TEAMS`) in balanced consecutive blocks; with 16: Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
 
 The seed also sets practice clue keys, recovery challenges, six suspects, the correct suspect and a practice encrypted message. Replace all of it with real content on the Content page before the event.
+
+### Event: teams, sign-ins and devices
+
+- **Planned teams.** On **Teams & accounts**, enter the number of teams taking part (1–64) and press **Save**. A group may then hold at most ceil(N / 4) active teams; the page and the control screen warn when the team count or group balance is off (rules 14 in `docs/EVENT-RULES.md`).
+- **Generate teams and hand out sign-ins.** Under **Generate teams**, enter how many teams to create and a name prefix (default "Team") and confirm. You get teams "Team 01", … in the smallest groups first, with sign-in emails `team01@event.local`, … and random 16-character passwords. The passwords are shown **once**, in a dialog with **Copy all** and **Download CSV** (`event-team-credentials.csv`: team, group, email, password, built in the browser). Print or share each team's line privately, then delete the file. The server keeps only BCrypt hashes; a lost password is replaced with **Reset password** in the accounts table.
+- **One device per team.** A team account can be signed in on one device; signing in elsewhere signs the earlier device out with a message. Organizer and room manager accounts are not limited.
+- **Sign out team.** Each team row shows "Signed in" / "Not signed in" (seen within the last 2 minutes) and the last-seen time; reload the page for the latest presence. **Sign out team** (with confirmation) ends the team's session, for example when a team signed in on the wrong laptop; the device shows "An organizer signed your team out." and the team can sign in again.
+- Team groups can be changed only before round 1 starts.
 
 ## Event: tests, rehearsal, browser journey and load check
 

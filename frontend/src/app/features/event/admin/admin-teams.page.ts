@@ -10,7 +10,7 @@ import { GroupCounters } from "./teams/group-counters";
 import { ManagerAssignment } from "./teams/manager-assignment";
 import { TeamsSection } from "./teams/teams-section";
 
-/** Event setup from GET /admin/organization: group sizes, room managers, accounts and teams. */
+/** Event setup from GET /admin/organization: planned teams and groups, room managers, accounts and teams. */
 @Component({
   imports: [
     AccountForm,
@@ -38,7 +38,7 @@ import { TeamsSection } from "./teams/teams-section";
             >Showing the last loaded data. {{ error }}</ui-alert
           >
         }
-        <app-group-counters [organization]="org" />
+        <app-group-counters [organization]="org" (changed)="reload()" />
         <section aria-labelledby="managers-heading">
           <h2 id="managers-heading">Room managers</h2>
           <div class="event-grid">
