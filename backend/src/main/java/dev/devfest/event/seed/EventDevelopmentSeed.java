@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Practice data for local rehearsals: 4 managers, app.event-seed-teams teams (default 16, 1..64; also the
+ * Practice data for local rehearsals (no clue keys): 4 managers, app.event-seed-teams teams (default 16, 1..64; also the
  * planned team count), room content and suspects. Runs only when app.event-seed-password is set, only in
  * development mode, and only while no team exists.
  */
@@ -32,19 +32,20 @@ public class EventDevelopmentSeed implements CommandLineRunner {
   private static final String CORRECT_SUSPECT = "Leila Nasser";
   private static final String ENCRYPTED_MESSAGE = "WKH SUDFWLFH FOXH SRLQWV WR WKH OLEUDUB";
 
-  private record RoomSeed(RoomCode room, String managerEmail, String managerName, String clueKey,
-                          String recoveryPrompt, String recoveryAnswer) {}
+  /** No clue key: managers set their room's key at runtime, so the seed leaves every key empty. */
+  private record RoomSeed(RoomCode room, String managerEmail, String managerName, String recoveryPrompt,
+                          String recoveryAnswer) {}
 
   private record SuspectSeed(String name, String description) {}
 
   private static final List<RoomSeed> ROOMS = List.of(
-    new RoomSeed(RoomCode.AI, "manager.ai@event.test", "AI manager", "WHITE VAN",
+    new RoomSeed(RoomCode.AI, "manager.ai@event.test", "AI manager",
       "Practice: what is 2 + 2? Answer in words.", "FOUR"),
-    new RoomSeed(RoomCode.PROBLEM_SOLVING, "manager.ps@event.test", "Problem solving manager", "RED CLAY",
+    new RoomSeed(RoomCode.PROBLEM_SOLVING, "manager.ps@event.test", "Problem solving manager",
       "Practice: next number in 2, 4, 8, 16?", "32"),
-    new RoomSeed(RoomCode.LINUX, "manager.linux@event.test", "Linux manager", "WEST TOWER",
+    new RoomSeed(RoomCode.LINUX, "manager.linux@event.test", "Linux manager",
       "Practice: which command prints the working directory?", "pwd"),
-    new RoomSeed(RoomCode.HARDWARE, "manager.hw@event.test", "Hardware manager", "+970-59-881",
+    new RoomSeed(RoomCode.HARDWARE, "manager.hw@event.test", "Hardware manager",
       "Practice: how many bits are in a byte?", "8")
   );
 
@@ -119,7 +120,7 @@ public class EventDevelopmentSeed implements CommandLineRunner {
       .findByCode(seed.room())
       .orElseThrow(() -> new IllegalStateException("Room " + seed.room() + " is missing; check migration V5."));
     rooms.assignManager(room.id(), managerId);
-    rooms.updateContent(room.id(), room.version(), seed.clueKey(), seed.recoveryPrompt(), seed.recoveryAnswer());
+    rooms.updateContent(room.id(), room.version(), "", seed.recoveryPrompt(), seed.recoveryAnswer());
   }
 
   /**

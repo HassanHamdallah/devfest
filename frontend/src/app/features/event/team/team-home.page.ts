@@ -39,7 +39,7 @@ export class EventTeamHomePage {
   protected readonly loader = new BoardLoader<TeamBoard>(() =>
     this.eventApi.teamBoard(),
   );
-  // Receipts only change through this page's own submissions, so they reload after those, not on revisions.
+  // Receipts change with this page's own submissions and when a manager re-checks answers (revision bump).
   protected readonly receipts = new BoardLoader<Receipt[]>(() =>
     this.eventApi.teamSubmissions(),
   );
@@ -57,7 +57,7 @@ export class EventTeamHomePage {
   );
 
   constructor() {
-    reloadOnRevisionChange(() => void this.loader.load());
+    reloadOnRevisionChange(() => this.reloadAll());
     void this.loader.load();
     void this.receipts.load();
   }

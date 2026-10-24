@@ -13,6 +13,12 @@ export type ControlAction =
   | { kind: "closeFinal" }
   | { kind: "setPublication"; published: boolean };
 
+/** A room action the server refused, with its message (e.g. "Set the clue key for this room before opening it."). */
+export interface RoomActionError {
+  roomId: number;
+  message: string;
+}
+
 export interface ConfirmationCopy {
   title: string;
   message: string;

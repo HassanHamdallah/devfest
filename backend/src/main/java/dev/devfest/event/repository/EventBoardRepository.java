@@ -4,6 +4,7 @@ import static dev.devfest.event.repository.EventJdbc.instant;
 import static dev.devfest.event.repository.EventJdbc.nullableLong;
 import static dev.devfest.event.repository.EventJdbc.uuid;
 
+import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.JudgeStatus;
 import dev.devfest.event.domain.RoomCode;
@@ -22,13 +23,16 @@ public class EventBoardRepository {
     SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open,
            COALESCE(j.status, 'PENDING') AS judgement,
            c.room_id IS NOT NULL AS clue_collected,
-           ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct
+           ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct,
+           ls.effective_correct AS last_effective_correct
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
     LEFT JOIN collected_clue c ON c.room_id = r.id AND c.team_id = t.id
     LEFT JOIN LATERAL (
-      SELECT s.id, s.received_at, s.clue_correct FROM room_submission s
+      SELECT s.id, s.received_at, s.clue_correct, COALESCE(v.effective_correct, s.clue_correct) AS effective_correct
+      FROM room_submission s
+      LEFT JOIN submission_clue_verdict v ON v.submission_id = s.id
       WHERE s.team_id = t.id AND s.room_id = r.id
       ORDER BY s.received_at DESC, s.id DESC LIMIT 1
     ) ls ON TRUE
@@ -39,6 +43,8 @@ public class EventBoardRepository {
     SELECT t.id AS team_id, t.name AS team_name, t.group_code, r.id AS room_id, r.code AS room_code,
            ls.id AS s_id, ls.round, ls.technical_output, ls.clue_answer, ls.clue_correct, ls.received_at,
            ls.idempotency_key, ls.request_hash, cnt.submissions,
+           v.auto_correct, v.override, v.effective_correct, v.override_by, ou.name AS override_by_name,
+           v.override_at, v.version AS verdict_version,
            j.status, j.hints, j.note, j.version, j.reviewer_id, u.name AS reviewer_name, j.updated_at
     FROM event_team t
     JOIN event_room r ON r.id = ?
@@ -47,6 +53,8 @@ public class EventBoardRepository {
       WHERE s.team_id = t.id AND s.room_id = r.id
       ORDER BY s.received_at DESC, s.id DESC LIMIT 1
     ) ls ON TRUE
+    LEFT JOIN submission_clue_verdict v ON v.submission_id = ls.id
+    LEFT JOIN app_user ou ON ou.id = v.override_by
     CROSS JOIN LATERAL (
       SELECT count(*) AS submissions FROM room_submission s WHERE s.team_id = t.id AND s.room_id = r.id
     ) cnt
@@ -126,17 +134,20 @@ public class EventBoardRepository {
       rs.getBoolean("clue_collected"),
       lastId,
       instant(rs, "last_received_at"),
-      lastId == null ? null : rs.getBoolean("last_clue_correct")
+      lastId == null ? null : rs.getBoolean("last_clue_correct"),
+      lastId == null ? null : rs.getBoolean("last_effective_correct")
     );
   }
 
   private static RoomTeamProgressRecord mapRoomTeam(ResultSet rs, int row) throws SQLException {
     long teamId = rs.getLong("team_id");
+    RoomSubmissionRecord latest = latestSubmission(rs, teamId);
     return new RoomTeamProgressRecord(
       teamId,
       rs.getString("team_name"),
       GroupCode.valueOf(rs.getString("group_code")),
-      latestSubmission(rs, teamId),
+      latest,
+      latest == null ? null : latestVerdict(rs, latest),
       rs.getInt("submissions"),
       judgement(rs, teamId)
     );
@@ -156,7 +167,23 @@ public class EventBoardRepository {
       rs.getBoolean("clue_correct"),
       instant(rs, "received_at"),
       uuid(rs, "idempotency_key"),
-      rs.getString("request_hash")
+      rs.getString("request_hash"),
+      rs.getBoolean("effective_correct")
+    );
+  }
+
+  private static ClueVerdictRecord latestVerdict(ResultSet rs, RoomSubmissionRecord latest) throws SQLException {
+    return new ClueVerdictRecord(
+      latest.id(),
+      latest.teamId(),
+      latest.roomId(),
+      rs.getBoolean("auto_correct"),
+      ClueOverride.fromStored(rs.getString("override")),
+      rs.getBoolean("effective_correct"),
+      nullableLong(rs, "override_by"),
+      rs.getString("override_by_name"),
+      instant(rs, "override_at"),
+      rs.getLong("verdict_version")
     );
   }
 

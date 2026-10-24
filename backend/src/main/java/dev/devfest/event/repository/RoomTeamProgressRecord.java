@@ -8,6 +8,7 @@ public record RoomTeamProgressRecord(
   String teamName,
   GroupCode groupCode,
   RoomSubmissionRecord latestSubmission,
+  ClueVerdictRecord latestVerdict,
   int submissionCount,
   RoomJudgementRecord judgement
 ) {}

@@ -13,15 +13,17 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Append-only room submissions (the table rejects UPDATE and DELETE). */
+/** Append-only room submissions (the table rejects UPDATE and DELETE), read with their current clue verdict. */
 @Repository
 public class RoomSubmissionRepository {
 
   private static final String SELECT = """
     SELECT s.id, s.team_id, s.room_id, r.code AS room_code, s.round, s.technical_output, s.clue_answer,
-           s.clue_correct, s.received_at, s.idempotency_key, s.request_hash
+           s.clue_correct, s.received_at, s.idempotency_key, s.request_hash,
+           COALESCE(v.effective_correct, s.clue_correct) AS effective_correct
     FROM room_submission s
     JOIN event_room r ON r.id = s.room_id
+    LEFT JOIN submission_clue_verdict v ON v.submission_id = s.id
     """;
 
   private final JdbcTemplate db;
@@ -30,7 +32,7 @@ public class RoomSubmissionRepository {
     this.db = db;
   }
 
-  /** {@code roomCode} of the argument is ignored; it is derived from {@code roomId}. */
+  /** {@code roomCode} and {@code effectiveCorrect} of the argument are ignored; the verdict row is separate. */
   public void insert(RoomSubmissionRecord submission) {
     db.update(
       """
@@ -85,7 +87,8 @@ public class RoomSubmissionRepository {
       rs.getBoolean("clue_correct"),
       instant(rs, "received_at"),
       uuid(rs, "idempotency_key"),
-      rs.getString("request_hash")
+      rs.getString("request_hash"),
+      rs.getBoolean("effective_correct")
     );
   }
 }

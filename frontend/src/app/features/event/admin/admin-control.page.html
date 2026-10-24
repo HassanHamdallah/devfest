@@ -41,6 +41,7 @@
   <app-room-cards
     [rooms]="data.rooms"
     [busy]="actionState.busy()"
+    [roomError]="roomError()"
     (action)="request($event)"
   />
   <app-rotation-table [board]="data" />

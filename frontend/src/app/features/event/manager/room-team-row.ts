@@ -80,12 +80,15 @@ import { EventTeamSubmission } from "./team-submission";
     <section>
       <h4>Submission</h4>
       <event-team-submission
+        [roomId]="roomId()"
         [submission]="row().latestSubmission"
         [submissionCount]="row().submissionCount"
+        [editable]="contentEditable()"
+        (changed)="changed.emit()"
       />
     </section>
     <section>
-      <h4>Review</h4>
+      <h4>Technical output — your decision</h4>
       <event-judgement-controls
         [roomId]="roomId()"
         [judgement]="row().judgement"
@@ -113,6 +116,8 @@ import { EventTeamSubmission } from "./team-submission";
 export class EventRoomTeamRow {
   readonly roomId = input.required<number>();
   readonly row = input.required<RoomTeamRow>();
+  /** False once the final has opened: clue verdicts are then final. */
+  readonly contentEditable = input.required<boolean>();
   /** Any write in this row finished; the page reloads its board. */
   readonly changed = output<void>();
 

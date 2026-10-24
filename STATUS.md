@@ -27,6 +27,19 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-10-24: room managers own the clue key; results follow key changes
+
+- **Managers must set their room's clue key on the room board before the admin opens the room**; the seed and
+  the application contain no keys. V7 adds `submission_clue_verdict` (+ history): saving a changed key
+  re-checks every answer of the room (4 SQL statements, any count) and recomputes ROOM clues (RECOVERY clues
+  untouched); managers can Accept / Reject / Automatic per answer; teams see only Correct / Incorrect and
+  "Updated after review". Technical output stays the manager's Pass / Fail decision.
+- Tested: `test-backend.ps1` → `Tests run: 124, Failures: 0, Errors: 0, Skipped: 0` (new: EventClueReviewTest 6,
+  EventClueRecheckStatementsTest 1, ClueCheckTest 3, ClueVerdictTest 3); backend package and frontend build
+  succeed; Playwright event suite 3 passed, then `--repeat-each=3` 9 passed (each test restarts the rehearsal
+  backend on reset data); 1× load check 1 465 requests, 0 errors, worst p95 26.7 ms; no practice key in
+  `backend/src/main`, `frontend/src` or the migrations.
+
 ### Change set 2026-10-24: organizer-controlled team count and one device per team
 
 - V6: `event_state.planned_team_count`, `auth_session.revoked_reason` and `last_seen_at`. Planned team count N

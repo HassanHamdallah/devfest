@@ -1,13 +1,16 @@
 package dev.devfest.event.service;
 
 import dev.devfest.event.domain.GroupCapacity;
+import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.dto.AdminAlert;
+import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.JudgementView;
 import dev.devfest.event.dto.PenaltyView;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.RoomContentView;
 import dev.devfest.event.dto.RoundClock;
+import dev.devfest.event.repository.ClueVerdictRecord;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.GroupSizeRecord;
@@ -16,6 +19,7 @@ import dev.devfest.event.repository.RoomJudgementRecord;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Record → response mappings shared by several event services. */
 public final class EventViews {
@@ -52,7 +56,18 @@ public final class EventViews {
   }
 
   public static Receipt receipt(RoomSubmissionRecord submission) {
-    return new Receipt(submission.id(), submission.roomCode(), submission.receivedAt(), submission.clueCorrect());
+    return receipt(
+      submission.id(),
+      submission.roomCode(),
+      submission.receivedAt(),
+      submission.clueCorrect(),
+      submission.effectiveCorrect()
+    );
+  }
+
+  /** The team sees only the effective result, and whether it changed since the submission. */
+  public static Receipt receipt(UUID id, RoomCode roomCode, Instant receivedAt, boolean atSubmission, boolean effective) {
+    return new Receipt(id, roomCode, receivedAt, effective, effective != atSubmission);
   }
 
   public static JudgementView judgement(RoomJudgementRecord judgement) {
@@ -86,6 +101,10 @@ public final class EventViews {
   }
 
   public static RoomContentView roomContent(EventRoomRecord room) {
+    return roomContent(room, 0);
+  }
+
+  public static RoomContentView roomContent(EventRoomRecord room, int recheckedSubmissions) {
     return new RoomContentView(
       room.id(),
       room.code(),
@@ -93,7 +112,21 @@ public final class EventViews {
       room.clueKey(),
       room.recoveryPrompt(),
       room.recoveryAnswer(),
-      room.version()
+      room.version(),
+      recheckedSubmissions
+    );
+  }
+
+  public static ClueVerdictView clueVerdict(ClueVerdictRecord verdict) {
+    return new ClueVerdictView(
+      verdict.submissionId(),
+      verdict.teamId(),
+      verdict.autoCorrect(),
+      verdict.override(),
+      verdict.effectiveCorrect(),
+      verdict.version(),
+      verdict.overrideByName(),
+      verdict.overrideAt()
     );
   }
 }

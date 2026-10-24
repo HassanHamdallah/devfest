@@ -5,6 +5,7 @@ import static dev.devfest.event.service.EventText.requireMaxBytes;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.dto.AdminContent;
 import dev.devfest.event.dto.AdminContentRequest;
 import dev.devfest.event.dto.RoomContentRequest;
@@ -14,6 +15,7 @@ import dev.devfest.event.dto.SuspectView;
 import dev.devfest.event.repository.AccusationRepository;
 import dev.devfest.event.repository.EventContentRecord;
 import dev.devfest.event.repository.EventContentRepository;
+import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
@@ -36,6 +38,7 @@ public class EventContentService {
   private final EventContentRepository content;
   private final SuspectRepository suspects;
   private final AccusationRepository accusations;
+  private final EventClueReviewService clueReview;
   private final AuditLog audit;
 
   public EventContentService(
@@ -45,6 +48,7 @@ public class EventContentService {
     EventContentRepository content,
     SuspectRepository suspects,
     AccusationRepository accusations,
+    EventClueReviewService clueReview,
     AuditLog audit
   ) {
     this.access = access;
@@ -53,6 +57,7 @@ public class EventContentService {
     this.content = content;
     this.suspects = suspects;
     this.accusations = accusations;
+    this.clueReview = clueReview;
     this.audit = audit;
   }
 
@@ -121,7 +126,11 @@ public class EventContentService {
     if (lockedState.finalEverOpened()) throw fail(409, "Event content is read-only after the final opens.");
   }
 
-  /** A manager edits only their own room (ADMIN any room); the clue key and recovery answer are never logged. */
+  /**
+   * A manager edits only their own room (ADMIN any room); the clue key and recovery answer are never logged.
+   * An open room keeps a non-empty key. When the key accepts different answers than before, every submission
+   * of the room is re-checked in this transaction (EventClueReviewService.recheckRoom).
+   */
   @Transactional
   public RoomContentView updateRoomContent(Principal principal, long roomId, RoomContentRequest request) {
     access.requireManagerOf(principal, roomId);
@@ -129,7 +138,10 @@ public class EventContentService {
     requireMaxBytes(request.recoveryPrompt(), 4000, "Recovery prompt");
     requireMaxBytes(request.recoveryAnswer(), 500, "Recovery answer");
     requireContentEditable(states.lockForUpdate());
-    rooms.lockForUpdate(roomId).orElseThrow(() -> fail(404, "Room not found."));
+    EventRoomRecord room = rooms.lockForUpdate(roomId).orElseThrow(() -> fail(404, "Room not found."));
+    if (room.open() && !ClueCheck.hasKey(request.clueKey())) {
+      throw fail(409, "Close the room before removing its clue key.");
+    }
     boolean written = rooms.updateContent(
       roomId,
       request.version(),
@@ -138,8 +150,13 @@ public class EventContentService {
       request.recoveryAnswer()
     );
     if (!written) throw fail(409, "This room content was changed by someone else. Reload and try again.");
+    int rechecked = 0;
+    if (ClueCheck.keyChanged(room.clueKey(), request.clueKey())) {
+      rechecked = clueReview.recheckRoom(roomId, request.clueKey());
+      audit.record(principal.id(), "EVENT_CLUE_KEY_CHANGED", "room:" + roomId + " rechecked:" + rechecked);
+    }
     changed(principal, "EVENT_ROOM_CONTENT", "room:" + roomId);
-    return EventViews.roomContent(rooms.find(roomId).orElseThrow());
+    return EventViews.roomContent(rooms.find(roomId).orElseThrow(), rechecked);
   }
 
   private AdminContent currentContent(EventStateRecord state) {

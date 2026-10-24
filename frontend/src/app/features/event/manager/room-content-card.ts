@@ -22,7 +22,7 @@ import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiInput } from "../../../shared/ui/ui-input/ui-input";
 import { UiTextarea } from "../../../shared/ui/ui-textarea/ui-textarea";
 
-type ContentField = "clueKey" | "recoveryPrompt" | "recoveryAnswer";
+type ContentField = "recoveryPrompt" | "recoveryAnswer";
 
 const toDraft = (room: RoomBoardRoom): RoomContentRequest => ({
   clueKey: room.clueKey,
@@ -31,7 +31,7 @@ const toDraft = (room: RoomBoardRoom): RoomContentRequest => ({
   version: room.version,
 });
 
-/** The room's clue key and recovery challenge; editable until the final opens. */
+/** The room's recovery challenge; editable until the final opens. The clue key has its own card. */
 @Component({
   selector: "event-room-content-card",
   imports: [FormsModule, UiAlert, UiButton, UiCard, UiInput, UiTextarea],
@@ -83,10 +83,11 @@ export class EventRoomContentCard {
     this.saving.set(true);
     this.error.set(null);
     try {
-      const content = await this.eventApi.saveRoomContent(
-        this.room().id,
-        this.draft(),
-      );
+      // The key is edited in the clue key card; always send the current one so this save never changes it.
+      const content = await this.eventApi.saveRoomContent(this.room().id, {
+        ...this.draft(),
+        clueKey: this.room().clueKey,
+      });
       this.draft.set({
         clueKey: content.clueKey,
         recoveryPrompt: content.recoveryPrompt,

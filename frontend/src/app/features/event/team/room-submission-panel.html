@@ -32,7 +32,7 @@
   <p>{{ state.reason }}</p>
   } }
   <event-attempt-status [attempt]="attempt" (retry)="retry()" />
-  @if (receipt(); as saved) {
+  @if (shownReceipt(); as saved) {
   <section
     class="receipt"
     aria-labelledby="submission-receipt-heading"
@@ -47,6 +47,9 @@
         }}</ui-status-chip
       >
     </div>
+    @if (saved.updatedAfterReview) {
+    <span class="event-muted">Updated after review</span>
+    }
   </section>
   }
 </ui-card>

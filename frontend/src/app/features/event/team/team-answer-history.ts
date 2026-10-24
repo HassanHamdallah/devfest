@@ -18,6 +18,7 @@ interface HistoryEntry {
   roomName: string;
   time: string;
   clueCorrect: boolean;
+  updatedAfterReview: boolean;
 }
 
 /** The team's own submission receipts, newest first as the server returns them. */
@@ -60,6 +61,9 @@ interface HistoryEntry {
             [variant]="entry.clueCorrect ? 'success' : 'danger'"
             >{{ entry.clueCorrect ? "Correct" : "Incorrect" }}</ui-status-chip
           >
+          @if (entry.updatedAfterReview) {
+            <span class="event-muted">Updated after review</span>
+          }
           <code>{{ entry.id }}</code>
         </li>
       } @empty {
@@ -82,6 +86,7 @@ export class EventTeamAnswerHistory {
       roomName: names.get(receipt.roomCode) ?? receipt.roomCode,
       time: formatTime(receipt.receivedAt),
       clueCorrect: receipt.clueCorrect,
+      updatedAfterReview: receipt.updatedAfterReview,
     }));
   });
 }

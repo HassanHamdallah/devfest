@@ -21,6 +21,8 @@ export type PenaltyKind =
   | "WRONG_ACCUSATION";
 export type EventRole = "ADMIN" | "MANAGER" | "MEMBER";
 export type EventAccountRole = "MANAGER" | "MEMBER";
+/** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
+export type ClueOverride = "ACCEPT" | "REJECT" | "AUTOMATIC";
 
 /** Room codes in position order (0..3) and group codes in index order (0..3). */
 export const ROOM_CODES: readonly RoomCode[] = [
@@ -104,7 +106,10 @@ export interface Receipt {
   id: string;
   roomCode: RoomCode;
   receivedAt: string;
+  /** The current result (it can change after a key fix or a manager's review). */
   clueCorrect: boolean;
+  /** The current result differs from the result shown when the answer was submitted. */
+  updatedAfterReview: boolean;
 }
 
 export interface RoomSubmissionRequest {
@@ -185,6 +190,8 @@ export interface RoomBoardRoom {
   recoveryAnswer: string;
   version: number;
   contentEditable: boolean;
+  /** False while the clue key is empty; the room cannot open. */
+  clueKeySet: boolean;
 }
 
 export interface RoomCounters {
@@ -208,8 +215,33 @@ export interface LatestSubmission {
   round: number;
   technicalOutput: string;
   clueAnswer: string;
+  /** Result at submission time (history). */
   clueCorrect: boolean;
   receivedAt: string;
+  /** Result against the current clue key. */
+  autoCorrect: boolean;
+  override: ClueOverride;
+  /** What the team sees: the override if any, else autoCorrect. */
+  effectiveCorrect: boolean;
+  verdictVersion: number;
+  overrideByName: string | null;
+  overrideAt: string | null;
+}
+
+export interface ClueOverrideRequest {
+  override: ClueOverride;
+  version: number;
+}
+
+export interface ClueVerdictView {
+  submissionId: string;
+  teamId: number;
+  autoCorrect: boolean;
+  override: ClueOverride;
+  effectiveCorrect: boolean;
+  version: number;
+  overrideByName: string | null;
+  overrideAt: string | null;
 }
 
 export interface RoomTeamRow {
@@ -284,6 +316,8 @@ export interface RoomContentView {
   recoveryPrompt: string;
   recoveryAnswer: string;
   version: number;
+  /** Answers re-checked by this save because the clue key changed (0 otherwise). */
+  recheckedSubmissions: number;
 }
 
 // ---- Admin ----

@@ -1,6 +1,8 @@
 package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
+import dev.devfest.event.dto.ClueOverrideRequest;
+import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.JudgementRequest;
 import dev.devfest.event.dto.JudgementView;
 import dev.devfest.event.dto.PenaltyRequest;
@@ -9,11 +11,13 @@ import dev.devfest.event.dto.RoomBoard;
 import dev.devfest.event.dto.RoomContentRequest;
 import dev.devfest.event.dto.RoomContentView;
 import dev.devfest.event.dto.VoidPenaltyRequest;
+import dev.devfest.event.service.EventClueReviewService;
 import dev.devfest.event.service.EventContentService;
 import dev.devfest.event.service.EventJudgingService;
 import dev.devfest.event.service.EventPenaltyService;
 import dev.devfest.event.service.EventRoomBoardService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,17 +36,30 @@ public class EventManagerController {
   private final EventJudgingService judging;
   private final EventPenaltyService penalties;
   private final EventContentService content;
+  private final EventClueReviewService clueReview;
 
   public EventManagerController(
     EventRoomBoardService boards,
     EventJudgingService judging,
     EventPenaltyService penalties,
-    EventContentService content
+    EventContentService content,
+    EventClueReviewService clueReview
   ) {
     this.boards = boards;
     this.judging = judging;
     this.penalties = penalties;
     this.content = content;
+    this.clueReview = clueReview;
+  }
+
+  @PutMapping("/rooms/{roomId}/submissions/{submissionId}/clue-override")
+  ClueVerdictView setClueOverride(
+    @PathVariable long roomId,
+    @PathVariable UUID submissionId,
+    @Valid @RequestBody ClueOverrideRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return clueReview.setOverride(principal, roomId, submissionId, request);
   }
 
   @GetMapping("/rooms/{roomId}/board")

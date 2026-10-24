@@ -17,8 +17,8 @@ There are exactly four rooms, always in this order:
 
 - Each room has at most one manager, and a manager can manage only one room.
 - Each room is either **open** or **closed**. Only the admin opens and closes rooms.
-- Each room holds one **clue key** (the answer teams must find) and one **recovery challenge**
-  (a question plus its answer, used only in the final; see rule 9).
+- Each room holds one **clue key** (the answer teams must find), set by the room's manager at runtime
+  (rule 5), and one **recovery challenge** (a question plus its answer, used only in the final; see rule 9).
 
 ## 2. Groups and rotation
 
@@ -52,6 +52,8 @@ A team may submit to a room only when **all** of these are true, checked in this
 1. A round (1–4) is running — otherwise "Rooms are not running right now."
 2. The room is the team's scheduled room this round — otherwise "This is not your team's room in the current round."
 3. The room is open — otherwise "This room is closed."
+4. The room has a clue key — otherwise "This room is not ready yet. Ask the organizer." (A room without a key
+   cannot be opened, so this is only a safety net.)
 
 - A submission contains the **technical output** (up to 4000 bytes) and the **clue answer** (up to 500 bytes).
 - Every submission is kept, and a team may resubmit as often as it likes while the conditions hold
@@ -60,28 +62,51 @@ A team may submit to a room only when **all** of these are true, checked in this
   team's screen shows "Retry"; retrying sends the identical request and returns the **same** receipt, so
   nothing is ever counted twice.
 
-## 5. Clue checking
+## 5. Clue keys and clue checking
 
-The system compares the team's clue answer with the room's clue key after normalizing both:
-leading and trailing spaces are removed, every run of spaces/tabs/newlines becomes one space, and
-letters become upper case. **Punctuation is kept.** An empty clue key never matches.
+1. **Technical output is the manager's decision.** The system never checks technical output. The room's
+   manager reads it and records Pass or Fail (rule 6); the manager board labels this "Technical output —
+   your decision".
+2. **Managers own the clue key.** The clue key of a room is set only at runtime, by the room's manager (or
+   the admin), on the room board. No key exists in the application or its default data; the practice setup
+   leaves every key empty.
+3. **No key, no room.** A room cannot be opened while its key is empty ("Set the clue key for this room
+   before opening it."), and the key of an open room cannot be cleared ("Close the room before removing its
+   clue key."). The admin control screen lists every room without a key.
+4. **Checking.** The system compares the team's clue answer with the key after normalizing both: leading and
+   trailing spaces are removed, every run of spaces/tabs/newlines becomes one space, and letters become upper
+   case. **Punctuation is kept.** An empty key never matches.
 
-| Clue key | Team answer | Result |
-|---|---|---|
-| `WHITE VAN` | `  white   van ` | Correct |
-| `WHITE VAN` | `White Van` | Correct |
-| `WHITE VAN` | `WHITE-VAN` | Incorrect (punctuation differs) |
-| `WHITE VAN` | `WHITEVAN` | Incorrect (space missing) |
-| `+970-59-881` | `+970-59-881` | Correct |
-| `+970-59-881` | `97059881` | Incorrect |
+   | Clue key | Team answer | Result |
+   |---|---|---|
+   | `BLUE DOOR` | `  blue   door ` | Correct |
+   | `BLUE DOOR` | `Blue Door` | Correct |
+   | `BLUE DOOR` | `BLUE-DOOR` | Incorrect (punctuation differs) |
+   | `BLUE DOOR` | `BLUEDOOR` | Incorrect (space missing) |
+   | `+44-20-123` | `+44-20-123` | Correct |
+   | `+44-20-123` | `4420123` | Incorrect |
 
-The result is decided when the submission arrives and is never recalculated, even if the clue key is
-edited later.
+5. **Changing the key re-checks answers.** When a manager saves a key that accepts different answers (until
+   the final opens, rule 13), every answer already submitted to that room is checked again against the new
+   key, at once. The board says how many ("Saved. Re-checked 3 answers."). Each team then collects the room's
+   clue if **any** of its answers there is now correct, and loses a clue that came from that room if none is.
+   A clue won through the recovery challenge is never removed. The result shown when the answer was submitted
+   stays on record.
+6. **Manual override.** For each answer the manager can choose **Automatic** (follow the key, the default),
+   **Accept** or **Reject**. An override wins over the key and stays in force through later key changes until
+   it is set back to Automatic. Every change records who made it, when, and the old and new verdict, and is
+   refused once the final opens ("Clue verdicts cannot change after the final opens."). If two people change
+   the same verdict at once, the second change is refused ("This clue verdict was changed by someone else.
+   Reload and try again.").
+7. **What teams see.** The room's manager and the admin see the key, the automatic result and any override.
+   A team sees only its own result, Correct or Incorrect — never the key and never whether a person or the
+   key decided it. When a result changes after submission, the team's screen shows it at its next refresh
+   with "Updated after review".
 
 ## 6. Judging
 
-- For every team in their room, the manager records a status: **Pending**, **Passed** or **Failed**,
-  a hint count (0–50) and an optional note (up to 1000 bytes).
+- For every team in their room, the manager records a status for the technical output: **Pending**,
+  **Passed** or **Failed**, a hint count (0–50) and an optional note (up to 1000 bytes).
 - Judging is separate from clue collection: Passed or Failed **never** blocks a team from the final.
 - If two people judge the same team at the same time, the second save is refused with
   "Someone else changed this judgement. Reload and try again." Saving exactly what is already stored is
@@ -91,9 +116,10 @@ edited later.
 
 ## 7. Collected clues
 
-- A team **collects** a room's clue the first time it submits the correct clue for that room.
-- A later wrong answer never removes a collected clue.
-- A clue can also be collected in the final through the recovery challenge (rule 9).
+- A team **collects** a room's clue when one of its answers for that room is correct (by the key or by the
+  manager's Accept). A later wrong answer never removes it; only a key change or an override can (rule 5).
+- A clue can also be collected in the final through the recovery challenge (rule 9); such a clue is never
+  removed.
 - Teams see "*n* of 4 clues collected" on their home screen.
 
 ## 8. Penalties

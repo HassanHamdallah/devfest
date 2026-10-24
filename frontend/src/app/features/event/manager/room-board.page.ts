@@ -18,6 +18,7 @@ import { UiMetricTile } from "../../../shared/ui/ui-metric-tile/ui-metric-tile";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "./board-loader";
+import { EventClueKeyCard } from "./clue-key-card";
 import { EventRefreshError } from "./refresh-error";
 import { EventRoomContentCard } from "./room-content-card";
 import { EventRoomTeamRow } from "./room-team-row";
@@ -41,6 +42,7 @@ const FILTER_MATCHES: Record<TeamFilter, (row: RoomTeamRow) => boolean> = {
 /** /event/room/:roomId: the room manager's live board (an ADMIN may open any room). */
 @Component({
   imports: [
+    EventClueKeyCard,
     EventRefreshError,
     EventRoomContentCard,
     EventRoomTeamRow,

@@ -6,7 +6,6 @@ import dev.devfest.event.domain.FinalStageResolver;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.domain.TeamRoomStatus;
-import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.TeamBoard;
 import dev.devfest.event.dto.TeamBoard.ScheduledRoom;
 import dev.devfest.event.dto.TeamRoomCard;
@@ -89,7 +88,13 @@ public class EventTeamBoardService {
       TeamRoomStatus.of(room.judgement(), room.hasSubmission()),
       room.clueCollected(),
       room.hasSubmission()
-        ? new Receipt(room.lastSubmissionId(), room.code(), room.lastReceivedAt(), room.lastClueCorrect())
+        ? EventViews.receipt(
+          room.lastSubmissionId(),
+          room.code(),
+          room.lastReceivedAt(),
+          room.lastClueCorrect(),
+          room.lastEffectiveCorrect()
+        )
         : null
     );
   }

@@ -23,7 +23,7 @@ Both are **local prototypes, not deployed**. See [STATUS.md](STATUS.md) for what
    DEVFEST_SEED=false
    ```
    `DEVFEST_ADMIN_EMAIL` / `DEVFEST_ADMIN_PASSWORD` (already generated) create the organizer account once. The event seed runs only when `DEVFEST_EVENT_SEED_PASSWORD` is set **and** `DEVFEST_DEVELOPMENT=true` (the backend refuses to start if the seed password is set outside development), and only while no team exists. `DEVFEST_EVENT_SEED_TEAMS` (default 16, allowed 1–64) is the number of seeded teams and also becomes the planned team count. Remove the seed password after the first start.
-3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V6).
+3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V7).
 4. Frontend: `cd frontend; npm ci; npm start` and open http://localhost:4201.
 
 Seeded development accounts (all use the seed password; nothing secret is in the repository):
@@ -34,7 +34,13 @@ Seeded development accounts (all use the seed password; nothing secret is in the
 | Room managers | `manager.ai@event.test`, `manager.ps@event.test`, `manager.linux@event.test`, `manager.hw@event.test` |
 | Teams (MEMBER) | `team01@event.test` … `teamNN@event.test` (NN = `DEVFEST_EVENT_SEED_TEAMS`) in balanced consecutive blocks; with 16: Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
 
-The seed also sets practice clue keys, recovery challenges, six suspects, the correct suspect and a practice encrypted message. Replace all of it with real content on the Content page before the event.
+The seed also sets practice recovery challenges, six suspects, the correct suspect and a practice encrypted message; replace them on the Content page before the event. It sets **no clue keys**.
+
+### Event: clue keys (room managers, before each room opens)
+
+- Each room manager sets their room's **clue key** on their room board (card "Clue key" → **Set clue key** → **Save key**). Until then the card shows "Not set — the room cannot open", and the admin's **Open room** is refused with "Set the clue key for this room before opening it." and a link to that room's board.
+- Fixing the key later (until the final opens) re-checks every answer already submitted to the room; the card confirms "Saved. Re-checked N answers." and teams see the new result at their next refresh, marked "Updated after review".
+- For a single answer, the manager can choose **Accept**, **Reject** or **Automatic** under the clue answer. Technical output is never checked automatically: Pass / Fail ("Technical output — your decision") is the manager's call.
 
 ### Event: teams, sign-ins and devices
 
@@ -50,8 +56,8 @@ The seed also sets practice clue keys, recovery challenges, six suspects, the co
 .\infrastructure\test-backend.ps1        # all backend tests on the disposable devfest_test database
 cd backend; .\mvnw.cmd -DskipTests package; cd ..
 cd frontend; npm run build; cd ..
-pwsh -File .\infrastructure\start-event-rehearsal.ps1   # PowerShell 7; API 8082, UI 4202; resets ONLY event tables + app_user in devfest_test and seeds
-cd frontend; npx playwright test --config playwright.event.config.ts; cd ..   # screenshots go to docs/event-*.png
+pwsh -File .\infrastructure\start-event-rehearsal.ps1   # PowerShell 7; API 8082, UI 4202; resets ONLY event tables + app_user in devfest_test and seeds (no clue keys; add -PracticeKeys for a manual rehearsal)
+cd frontend; npx playwright test --config playwright.event.config.ts; cd ..   # each test restarts the rehearsal backend on reset data (-ResetBackend); screenshots go to docs/event-*.png
 python load-tests/event_load.py --scale 1 --seconds 300   # 21 clients; --scale 3 simulates 48 teams; refuses non-local URLs
 pwsh -File .\infrastructure\stop-event-rehearsal.ps1    # stops only the recorded rehearsal processes
 ```
