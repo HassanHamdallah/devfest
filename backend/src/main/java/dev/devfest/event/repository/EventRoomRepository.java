@@ -58,6 +58,10 @@ public class EventRoomRepository {
     return db.query(WITH_MANAGER + "WHERE r.id = ?", EventRoomRepository::mapManager, roomId).stream().findFirst();
   }
 
+  public void closeAll() {
+    db.update("UPDATE event_room SET is_open = FALSE WHERE is_open");
+  }
+
   public void setOpen(long roomId, boolean open) {
     db.update("UPDATE event_room SET is_open = ? WHERE id = ?", open, roomId);
   }

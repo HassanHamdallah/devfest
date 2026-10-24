@@ -35,21 +35,46 @@ There are exactly four rooms, always in this order:
 | C | Linux | Hardware | AI | Problem solving |
 | D | Hardware | AI | Problem solving | Linux |
 
-## 3. Rounds
+## 3. Rounds and the round timer
 
-- The event round is one of: **Not started** (0), **Round 1 of 4** … **Round 4 of 4**, or
-  **Rooms finished** (5).
-- Starting a round (1–4) starts its countdown on the server. The round length defaults to 25 minutes and
-  can be set from 1 to 180 minutes. The countdown is information only: **nothing closes automatically**
-  when it reaches "Time is up". The admin closes rooms and advances rounds.
-- "Next round" asks the server for one specific round number, so pressing it twice by accident cannot
-  skip a round, and repeating the current round does not restart its timer.
+The event round is one of: **Not started** (0), **Round 1 of 4** … **Round 4 of 4**, or **Rooms finished** (5).
+
+1. **Phases.** Every running round (1–4) is in one phase: **Assigned** (teams are told which room to go to;
+   the timer has not started), **Running** (the timer counts down), **Paused** (the timer is frozen) or
+   **Time's up** (the timer was started and no time remains, or the admin ended the round). Rounds 0 and 5
+   have no phase.
+2. **Next round never starts the timer.** "Next round" (or "Set round") moves to the new round in phase
+   Assigned, with the default round length (25 minutes unless changed; 1–180 minutes). If the current round is
+   still running or paused with time left, the screen asks for confirmation first. "Next round" asks for one
+   specific round number, so a double click cannot skip a round.
+3. **The admin's timer controls**, each recorded in the audit log: **Start timer** (Assigned → Running),
+   **Pause**, **Resume**, **Add time** (+1 min, +5 min, or 1–60 minutes; in Time's up the round continues with
+   the added time — running if it was running, paused if it was paused), **Remove time** (1–60 minutes; never
+   below the time already used — removing more ends the round), and **End round now** (with confirmation).
+   Changing the default round length affects only rounds that begin later. Pressing Pause on a paused timer
+   (or Start/Resume on a running one) changes nothing.
+4. **Time's up stops answers.** In Time's up the server refuses new room answers: "Time is up for this
+   round." Adding time accepts them again. Retrying an answer that was accepted before time ran out still
+   returns its original receipt.
+5. **Answers only while running.** Room answers are accepted only while the timer runs (and rule 4 holds):
+   in Assigned "The timer has not started yet.", in Paused "The round is paused."
+6. **Arrival check.** While the round is Assigned, each room manager sees the teams expected in the room and
+   presses **All teams are here** (and can undo it until the timer starts). The admin sees each room as
+   **Ready ✓** (with the manager and the time) or **Waiting**. Start timer works even if rooms are waiting, but
+   asks first ("2 rooms are not ready. Start anyway?"). Every new round starts with all rooms waiting.
+7. **One clock: the server's.** The server computes the remaining time from stored values and its own clock;
+   screens only display it, counting down locally from the server's value and correcting at every refresh. The
+   ticking itself never changes the event's revision; only admin and manager actions do.
+8. **Rooms stay manual.** Opening and closing rooms is separate from the timer, exactly as before. Start timer
+   warns — without blocking — when a room is closed or has no clue key.
 
 ## 4. Room submissions
 
 A team may submit to a room only when **all** of these are true, checked in this order:
 
 1. A round (1–4) is running — otherwise "Rooms are not running right now."
+   Its timer is running (rule 3) — otherwise "The timer has not started yet.", "The round is paused." or
+   "Time is up for this round."
 2. The room is the team's scheduled room this round — otherwise "This is not your team's room in the current round."
 3. The room is open — otherwise "This room is closed."
 4. The room has a clue key — otherwise "This room is not ready yet. Ask the organizer." (A room without a key
@@ -242,3 +267,40 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
    out." and the team can sign in again.
 4. A submission that was still waiting to be sent when a device was signed out stays saved on that device and
    can be retried after signing in again on it.
+
+## 16. Admin overrides
+
+Manual fixes for real-world problems; details and examples in
+[EVENT-ADMIN-OVERRIDES.md](EVENT-ADMIN-OVERRIDES.md). Every override is **admin only**, needs a **reason**
+(3–500 characters) recorded in the audit log, asks for confirmation stating the exact consequence, and applies at
+once in a single transaction.
+
+1. **Swap two teams** (any round): the two active teams exchange groups. Before confirming, the admin sees a
+   preview of the rooms each team already visited, the rooms of its remaining rounds after the swap, and warnings
+   "will miss <room>" / "will visit <room> twice". Warnings do not block. Group sizes do not change.
+2. **Move a team to another group**: the same preview and warnings; the group limit ceil(N / 4) still applies (a
+   full group is refused — swap instead). After round 1 starts, the move needs the admin's explicit confirmation of
+   the impact; without it the server refuses ("Groups are locked after round 1 starts. …").
+3. **Room exception** (current round only): team X is sent to room Y for this round. Its home screen says "This
+   round your team goes to the Y room.", the room boards list it in room Y, and it may submit only to room Y. From
+   the next round the rotation applies again. The admin is warned if room Y is closed, has no clue key, or the team
+   already collected room Y's clue. Exceptions can be cleared.
+4. **Manual clue**: grant (marked *Manual* for admins only) or revoke the clue of room R for team T. Revoking never
+   removes a clue won in the recovery challenge unless the admin explicitly asks for it. Allowed before and during
+   the final; the team sees its new final stage at the next refresh. Submissions and verdicts do not change.
+5. **Time adjustment**: −60 to +60 minutes (never 0) on a team's adjusted final time, shown as "Time adjustment".
+   It counts in adjusted time but not as a penalty in the "fewer penalties" tie-break, and can be voided.
+6. **Disqualify / reinstate**: a disqualified team stays signed in and keeps its records, but cannot submit
+   anything ("Your team has been disqualified. Contact the organizer.") and is listed last in the ranking, marked
+   *Disqualified*, without a rank and outside the rank numbering. Reinstating restores normal play.
+7. **Reset final**: all final progress is deleted (recovery attempts, accusations, finish times, recovery clues,
+   automatic recovery and wrong-accusation penalties); the final closes and may be opened again, and content becomes
+   editable again. Room-phase data stays.
+8. **Reset one team**: all of the team's progress is deleted; the team, its account and its group stay, and its
+   device is signed out ("An organizer signed your team out.").
+9. **Reset the whole event**: all progress of all teams is deleted, the event returns to *Not started* with all
+   rooms closed and results unpublished; accounts, teams, groups, the planned team count, rooms, managers, clue keys
+   and all content stay. Requires typing **RESET** and the admin's own password (a wrong password changes nothing).
+10. **Snapshots**: every reset first saves a snapshot of all rows it deletes and of the event state, in the same
+    transaction — if the snapshot fails, nothing changes. The admin can take a snapshot at any time, list all
+    snapshots and download each as a JSON file. Snapshots are never deleted; restoring one is not supported.

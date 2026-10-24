@@ -32,6 +32,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/admin/overrides",
+    canActivate: [eventAdminGuard],
+    loadComponent: () =>
+      import("./app/features/event/admin/admin-overrides.page").then(
+        (m) => m.EventAdminOverridesPage,
+      ),
+  },
+  {
     path: "event/admin/content",
     canActivate: [eventAdminGuard],
     loadComponent: () =>

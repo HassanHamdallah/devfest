@@ -1,6 +1,7 @@
 package dev.devfest.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -68,6 +69,39 @@ class EventRankingTest extends EventIntegrationTest {
     List<Integer> adjusted = board.json("$.ranking[0:3].adjustedSeconds");
     assertEquals(List.of(600, 600, 600), adjusted);
     assertEquals(0, (int) board.json("$.ranking[0].penaltyMinutes"));
+  }
+
+  @Test
+  void aTimeAdjustmentChangesAdjustedTimeButNotThePenaltyCount() {
+    TestTeam team = team("Compensated", GroupCode.A);
+    finish(team, 1000);
+    penalty(team, 5, false);
+    String body = "{\"teamId\":%d,\"minutes\":-5,\"reason\":\"Wi-Fi was down for five minutes\"}".formatted(team.id());
+    expectOk(post("/admin/overrides/time-adjustment", admin, body));
+    Response board = expectOk(get("/admin/board", admin));
+    assertEquals(1000, (int) board.json("$.ranking[0].adjustedSeconds"), "+5 penalty and -5 adjustment cancel out");
+    assertEquals(1, (int) board.json("$.ranking[0].penaltyEntries"), "the adjustment is not a penalty entry");
+    assertEquals(0, (int) board.json("$.ranking[0].penaltyMinutes"));
+
+    long adjustment = db.queryForObject("SELECT id FROM penalty WHERE kind = 'TIME_ADJUSTMENT'", Long.class);
+    expectOk(post("/penalties/" + adjustment + "/void", admin, "{\"reason\":\"Entered for the wrong team\"}"));
+    assertEquals(1300, (int) expectOk(get("/admin/board", admin)).json("$.ranking[0].adjustedSeconds"));
+  }
+
+  @Test
+  void aDisqualifiedTeamIsListedLastWithoutARank() {
+    TestTeam fastest = team("Fastest", GroupCode.A);
+    TestTeam second = team("Second", GroupCode.B);
+    finish(fastest, 500);
+    finish(second, 900);
+    expectOk(post("/admin/teams/" + fastest.id() + "/disqualify", admin, "{\"reason\":\"Shared answers with another team\"}"));
+    Response board = expectOk(get("/admin/board", admin));
+    assertEquals(List.of("Second", "Fastest"), board.json("$.ranking[*].teamName"));
+    assertEquals(1, (int) board.json("$.ranking[0].rank"));
+    assertNull(board.json("$.ranking[1].rank"));
+    assertEquals(true, board.json("$.ranking[1].disqualified"));
+    expectOk(put("/admin/publication", admin, "{\"published\":true}"));
+    assertEquals(List.of(false, true), expectOk(get("/results", second.token())).json("$.rows[*].disqualified"));
   }
 
   @Test

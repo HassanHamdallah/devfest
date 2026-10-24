@@ -52,6 +52,7 @@ export const PENALTY_KIND_LABELS: Record<PenaltyKind, string> = {
   ANSWER_SHARING: "Answer sharing",
   RECOVERY: "Recovery",
   WRONG_ACCUSATION: "Wrong accusation",
+  TIME_ADJUSTMENT: "Time adjustment",
 };
 
 export const PENALTY_KIND_MINUTES: Record<PenaltyKind, number> = {
@@ -62,6 +63,8 @@ export const PENALTY_KIND_MINUTES: Record<PenaltyKind, number> = {
   ANSWER_SHARING: 5,
   RECOVERY: 5,
   WRONG_ACCUSATION: 3,
+  /** Signed minutes per entry (set by the admin), so no fixed cost. */
+  TIME_ADJUSTMENT: 0,
 };
 
 /** Kinds a manager or admin may add by hand; RECOVERY and WRONG_ACCUSATION are automatic. */

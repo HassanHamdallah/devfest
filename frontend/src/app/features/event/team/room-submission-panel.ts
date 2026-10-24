@@ -1,13 +1,19 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
+  inject,
   input,
   linkedSignal,
   output,
   signal,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import {
+  effectivePhase,
+  remainingSeconds,
+} from "../../../core/event/countdown";
 import { roomSubmissionPath } from "../../../core/event/event-api";
 import {
   Receipt,
@@ -72,8 +78,21 @@ export class EventRoomSubmissionPanel {
     RoomSubmissionRequest,
     Receipt
   >("submission");
+  private readonly now = signal(Date.now());
+  private readonly receivedAt = linkedSignal({
+    source: this.board,
+    computation: () => Date.now(),
+  });
+  /** The board's phase, followed locally: a running round shows "Time is up" as soon as it reaches 0. */
+  private readonly phase = computed(() => {
+    const clock = this.board().clock;
+    return effectivePhase(
+      clock,
+      remainingSeconds(clock, this.receivedAt(), this.now()),
+    );
+  });
   protected readonly availability = computed(() =>
-    submissionAvailability(this.board()),
+    submissionAvailability(this.board(), this.phase()),
   );
   private readonly openRoomId = computed(() => {
     const availability = this.availability();
@@ -108,6 +127,11 @@ export class EventRoomSubmissionPanel {
   protected readonly receiptTime = computed(() =>
     formatTime(this.shownReceipt()?.receivedAt ?? null),
   );
+
+  constructor() {
+    const timer = setInterval(() => this.now.set(Date.now()), 1000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+  }
 
   protected async submit(): Promise<void> {
     const roomId = this.openRoomId();

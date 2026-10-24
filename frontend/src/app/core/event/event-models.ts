@@ -18,7 +18,8 @@ export type PenaltyKind =
   | "CHEATING"
   | "ANSWER_SHARING"
   | "RECOVERY"
-  | "WRONG_ACCUSATION";
+  | "WRONG_ACCUSATION"
+  | "TIME_ADJUSTMENT";
 export type EventRole = "ADMIN" | "MANAGER" | "MEMBER";
 export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
@@ -33,10 +34,15 @@ export const ROOM_CODES: readonly RoomCode[] = [
 ];
 export const GROUP_CODES: readonly GroupCode[] = ["A", "B", "C", "D"];
 
+/** Phase of a running round; TIME_UP is computed by the server. Rounds 0 and 5 have none. */
+export type RoundPhase = "ASSIGNED" | "RUNNING" | "PAUSED" | "TIME_UP";
+
+/** The round countdown as the server computed it at `serverNow`; the client only counts down locally. */
 export interface RoundClock {
   currentRound: number;
-  roundStartedAt: string | null;
-  roundMinutes: number;
+  phase: RoundPhase | null;
+  remainingSeconds: number | null;
+  durationSeconds: number | null;
   serverNow: string;
 }
 
@@ -65,6 +71,8 @@ export interface PublicRankingRow {
   penaltyMinutes: number;
   finished: boolean;
   adjustedSeconds: number | null;
+  /** Listed last, never ranked. */
+  disqualified: boolean;
 }
 
 // ---- Member ----
@@ -74,6 +82,8 @@ export interface ScheduledRoom {
   code: RoomCode;
   name: string;
   open: boolean;
+  /** The organizer sent the team to this room for this round instead of its rotation room. */
+  exception: boolean;
 }
 
 export interface TeamBoard {
@@ -87,6 +97,8 @@ export interface TeamBoard {
   finalOpen: boolean;
   resultsPublished: boolean;
   revision: number;
+  /** The organizer disqualified the team: it keeps its records but cannot submit. */
+  disqualified: boolean;
 }
 
 export interface TeamRoomCard {
@@ -208,6 +220,9 @@ export interface RoomBoard {
   counters: RoomCounters;
   teams: RoomTeamRow[];
   revision: number;
+  /** Null in rounds 0 and 5. */
+  arrival: RoomArrivalView | null;
+  teamsExpectedNow: string[];
 }
 
 export interface LatestSubmission {
@@ -248,6 +263,9 @@ export interface RoomTeamRow {
   teamId: number;
   teamName: string;
   groupCode: GroupCode;
+  disqualified: boolean;
+  /** This round's room exception (the team was sent to that room), or null. */
+  exceptionRoom: RoomCode | null;
   scheduledNow: boolean;
   scheduledRound: number;
   latestSubmission: LatestSubmission | null;
@@ -322,11 +340,12 @@ export interface RoomContentView {
 
 // ---- Admin ----
 
-export interface EventStateView {
-  currentRound: number;
+/** The admin's event state; the RoundClock fields describe the current round's timer. */
+export interface EventStateView extends RoundClock {
+  /** When the timer was first started in this round; null while ASSIGNED. */
   roundStartedAt: string | null;
+  /** Default length of rounds that begin later. */
   roundMinutes: number;
-  serverNow: string;
   finalOpen: boolean;
   finalStartedAt: string | null;
   finalClosedAt: string | null;
@@ -348,6 +367,9 @@ export interface AdminRoomCard {
   failed: number;
   pending: number;
   totalTeams: number;
+  hasClueKey: boolean;
+  /** Null in rounds 0 and 5. */
+  arrival: RoomArrivalView | null;
 }
 
 export interface RotationRow {
@@ -367,6 +389,7 @@ export interface RankingRow {
   finished: boolean;
   finishedAt: string | null;
   adjustedSeconds: number | null;
+  disqualified: boolean;
 }
 
 export interface AdminAlert {
@@ -375,12 +398,70 @@ export interface AdminAlert {
   link: string;
 }
 
+/** "All teams are here" for a room in the current round. */
+export interface RoomArrivalView {
+  ready: boolean;
+  by: string | null;
+  at: string | null;
+}
+
 export interface AdminBoard {
   state: EventStateView;
   rooms: AdminRoomCard[];
   rotation: RotationRow[];
   ranking: RankingRow[];
   alerts: AdminAlert[];
+  /** Closed rooms and rooms without a clue key; shown before starting the timer, never blocking. */
+  startWarnings: string[];
+  teamFlags: TeamFlagsView[];
+  /** The last 20 admin overrides with their reasons. */
+  recentOverrides: OverrideAuditView[];
+}
+
+// ---- Admin overrides ----
+
+export interface TeamFlagsView {
+  teamId: number;
+  teamName: string;
+  disqualified: boolean;
+  exceptionRoom: RoomCode | null;
+  manualClues: number;
+  timeAdjustmentMinutes: number;
+}
+
+export interface OverrideAuditView {
+  at: string;
+  by: string | null;
+  action: string;
+  target: string;
+  reason: string | null;
+}
+
+/** One team in a swap or move preview. */
+export interface RotationPreviewView {
+  teamId: number;
+  teamName: string;
+  fromGroup: GroupCode;
+  toGroup: GroupCode;
+  visited: RoomCode[];
+  remaining: { round: number; room: RoomCode }[];
+  warnings: string[];
+}
+
+export interface OverrideOutcome {
+  message: string;
+  warnings: string[];
+  snapshotId: number | null;
+}
+
+export interface SnapshotView {
+  id: number;
+  createdAt: string;
+  createdBy: string;
+  kind: "RESET_FINAL" | "RESET_TEAM" | "RESET_EVENT" | "MANUAL";
+  reason: string;
+  teamId: number | null;
+  teamName: string | null;
 }
 
 export interface RoomOpenView {
@@ -448,6 +529,9 @@ export interface TeamView {
   /** An open session of the team account was seen in the last 2 minutes. */
   signedIn: boolean;
   lastSeenAt: string | null;
+  disqualified: boolean;
+  /** The current round's room exception, or null. */
+  exceptionRoom: RoomCode | null;
 }
 
 export interface CreateAccountRequest {

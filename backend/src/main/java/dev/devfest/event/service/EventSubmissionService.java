@@ -8,7 +8,9 @@ import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.ClueVerdict;
+import dev.devfest.event.domain.RoomAssignment;
 import dev.devfest.event.domain.RoomCode;
+import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.SubmissionRequest;
@@ -19,6 +21,7 @@ import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import dev.devfest.event.repository.RoomSubmissionRepository;
+import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.service.TeamWriteGate.TeamWrite;
 import java.time.Instant;
 import java.util.List;
@@ -42,6 +45,7 @@ public class EventSubmissionService {
   private final RoomSubmissionRepository submissions;
   private final CollectedClueRepository clues;
   private final ClueVerdictRepository verdicts;
+  private final TeamRoomExceptionRepository exceptions;
   private final EventStateRepository states;
   private final AuditLog audit;
   private final EventClock clock;
@@ -53,6 +57,7 @@ public class EventSubmissionService {
     RoomSubmissionRepository submissions,
     CollectedClueRepository clues,
     ClueVerdictRepository verdicts,
+    TeamRoomExceptionRepository exceptions,
     EventStateRepository states,
     AuditLog audit,
     EventClock clock
@@ -63,6 +68,7 @@ public class EventSubmissionService {
     this.submissions = submissions;
     this.clues = clues;
     this.verdicts = verdicts;
+    this.exceptions = exceptions;
     this.states = states;
     this.audit = audit;
     this.clock = clock;
@@ -77,9 +83,11 @@ public class EventSubmissionService {
       TeamWriteGate.requireSameRequest(previous.get().requestHash(), write);
       return EventViews.receipt(previous.get());
     }
+    TeamWriteGate.requireNotDisqualified(write);
     requireMaxBytes(request.technicalOutput(), 4000, "Technical output");
     requireMaxBytes(request.clueAnswer(), 500, "Clue answer");
-    requireAcceptingSubmissions(write, room);
+    Optional<RoomCode> exception = exceptions.find(write.state().currentRound(), write.team().id());
+    requireAcceptingSubmissions(write, room, clock.now(), exception);
     RoomSubmissionRecord submission = store(write, room, idempotencyKey, request);
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_ROOM_SUBMISSION", "submission:" + submission.id());
@@ -100,13 +108,28 @@ public class EventSubmissionService {
   }
 
   /**
-   * Contract order: rooms running, then the team's scheduled room, then the room being open, then its clue key
-   * being set (a room cannot open without one, so the last check is only a safety net).
+   * Contract order: rooms running, then the round's timer running (not ASSIGNED, PAUSED or TIME_UP, judged at
+   * {@code now} under the event_state lock), then the team's scheduled room, then the room being open, then its
+   * clue key being set (a room cannot open without one, so the last check is only a safety net). Exact retries
+   * are answered before these checks, so a receipt issued before time ran out is still returned.
    */
-  private static void requireAcceptingSubmissions(TeamWrite write, EventRoomRecord room) {
+  private static void requireAcceptingSubmissions(
+    TeamWrite write,
+    EventRoomRecord room,
+    Instant now,
+    Optional<RoomCode> exception
+  ) {
     int round = write.state().currentRound();
     if (!Rotation.isRunningRound(round)) throw fail(409, "Rooms are not running right now.");
-    Optional<RoomCode> scheduled = Rotation.roomFor(write.team().groupCode(), round);
+    RoundPhase phase = write.state().timer().map(timer -> timer.effectivePhase(now)).orElse(RoundPhase.TIME_UP);
+    switch (phase) {
+      case ASSIGNED -> throw fail(409, "The timer has not started yet.");
+      case PAUSED -> throw fail(409, "The round is paused.");
+      case TIME_UP -> throw fail(409, "Time is up for this round.");
+      case RUNNING -> {}
+    }
+    // The admin's room exception for this round replaces the rotation (RoomAssignment is the one resolver).
+    Optional<RoomCode> scheduled = RoomAssignment.roomFor(write.team().groupCode(), round, exception);
     if (scheduled.isEmpty() || scheduled.get() != room.code()) {
       throw fail(409, "This is not your team's room in the current round.");
     }

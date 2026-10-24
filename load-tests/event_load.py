@@ -268,10 +268,12 @@ def set_clue_keys(api, managers):
 
 
 def prepare_round_one(api, admin):
-    """Round 1 with every room open gives every group an open scheduled room for the whole run."""
+    """Round 1 with every room open and its timer running (25 min by default, longer than any run) gives every
+    group an open scheduled room for the whole run. A new round is only ASSIGNED, so the timer is started here."""
     api.setup("POST", "/event/admin/round", admin, {"round": 1})
     for room in api.setup("GET", "/event/admin/board", admin)["rooms"]:
         api.setup("POST", f"/event/admin/rooms/{room['id']}/open", admin)
+    api.setup("POST", "/event/admin/round/timer/start", admin)
 
 
 def build_clients(run, admin, managers, teams, scale):

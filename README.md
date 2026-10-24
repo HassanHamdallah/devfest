@@ -23,7 +23,7 @@ Both are **local prototypes, not deployed**. See [STATUS.md](STATUS.md) for what
    DEVFEST_SEED=false
    ```
    `DEVFEST_ADMIN_EMAIL` / `DEVFEST_ADMIN_PASSWORD` (already generated) create the organizer account once. The event seed runs only when `DEVFEST_EVENT_SEED_PASSWORD` is set **and** `DEVFEST_DEVELOPMENT=true` (the backend refuses to start if the seed password is set outside development), and only while no team exists. `DEVFEST_EVENT_SEED_TEAMS` (default 16, allowed 1–64) is the number of seeded teams and also becomes the planned team count. Remove the seed password after the first start.
-3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V7).
+3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V9).
 4. Frontend: `cd frontend; npm ci; npm start` and open http://localhost:4201.
 
 Seeded development accounts (all use the seed password; nothing secret is in the repository):
@@ -35,6 +35,26 @@ Seeded development accounts (all use the seed password; nothing secret is in the
 | Teams (MEMBER) | `team01@event.test` … `teamNN@event.test` (NN = `DEVFEST_EVENT_SEED_TEAMS`) in balanced consecutive blocks; with 16: Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
 
 The seed also sets practice recovery challenges, six suspects, the correct suspect and a practice encrypted message; replace them on the Content page before the event. It sets **no clue keys**.
+
+### Event-day round procedure (admin)
+
+1. **Next round** — the round begins *Assigned*: teams see "Go to the … room. The timer starts soon." and
+   cannot submit yet. Open the rooms as usual.
+2. **Wait for 4 × Ready** — each room manager presses **All teams are here** on their board; the control
+   screen's timer panel shows *Ready ✓* or *Waiting* per room.
+3. **Start timer** — if rooms are still waiting, closed or without a clue key, you are asked to confirm.
+4. **Pause / Resume / +1 min / +5 min / Adjust…** as needed; teams see "The round is paused." while paused.
+5. **End round** (or let the timer reach 0) — teams see "Time is up for this round." and answers stop; adding
+   time reopens them.
+6. **Next round** — repeat. Changing "Round minutes" only affects rounds that begin later.
+
+### Event: admin overrides
+
+The **Overrides** page (admin only) fixes real-world problems: swap or move teams (with a preview of missed or
+repeated rooms), send a team to another room for the current round, grant or revoke a clue, adjust a team's time,
+disqualify or reinstate a team, take and download snapshots, and — in the red danger zone — reset the final, one
+team, or the whole event (type RESET and your password). Every override needs a reason and is audited; every reset
+saves a snapshot first. See [docs/EVENT-ADMIN-OVERRIDES.md](docs/EVENT-ADMIN-OVERRIDES.md).
 
 ### Event: clue keys (room managers, before each room opens)
 

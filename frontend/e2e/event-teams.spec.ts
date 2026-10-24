@@ -1,7 +1,7 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 import path from "node:path";
 import { EventApiSession, RehearsalAccounts, readRehearsalAccounts, resetRehearsal } from "./event-api-helper";
-import { DESKTOP, PHONE, openRolePage, signIn } from "./event-ui-helper";
+import { DESKTOP, PHONE, openRolePage, saveScreenshot, signIn } from "./event-ui-helper";
 
 let accounts: RehearsalAccounts;
 const docs = path.resolve("..", "docs");
@@ -111,7 +111,7 @@ test("teams: planned count, generated sign-ins, one device per team and organize
     await test.step("signing in on device B sends device A to the login page", async () => {
       await signIn(deviceB.page, team.email, team.password);
       await expectSentToLogin(deviceA.page, ANOTHER_DEVICE);
-      await deviceA.page.screenshot({ path: path.join(docs, "event-another-device.png") });
+      await saveScreenshot(deviceA.page, path.join(docs, "event-another-device.png"), false);
     });
     await test.step("admin sees the team signed in and signs it out", () => signOutTeam(admin.page, team.teamName));
     await test.step("device B is sent to the login page with the organizer message", () =>

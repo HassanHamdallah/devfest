@@ -35,6 +35,21 @@ class PenaltyRulesTest {
   }
 
   @Test
+  void timeAdjustmentsCountInMinutesButNotAsPenaltyEntries() {
+    List<Penalty> penalties = List.of(
+      Penalty.active(PenaltyKind.HINT),
+      new Penalty(PenaltyKind.TIME_ADJUSTMENT, -5, false),
+      new Penalty(PenaltyKind.TIME_ADJUSTMENT, 10, true),
+      Penalty.voided(PenaltyKind.CHEATING)
+    );
+    assertEquals(-3, PenaltyRules.activeMinutes(penalties));
+    assertEquals(1, PenaltyRules.penaltyEntries(penalties));
+    assertFalse(PenaltyKind.TIME_ADJUSTMENT.penaltyEntry());
+    assertFalse(PenaltyKind.TIME_ADJUSTMENT.managerEntered());
+    assertTrue(PenaltyKind.WRONG_ACCUSATION.penaltyEntry());
+  }
+
+  @Test
   void automaticKindsCannotBeEnteredByHand() {
     var recovery = assertThrows(EventRuleException.class, () -> PenaltyRules.requireManagerEntered(PenaltyKind.RECOVERY));
     assertEquals("This penalty kind is added automatically.", recovery.getMessage());

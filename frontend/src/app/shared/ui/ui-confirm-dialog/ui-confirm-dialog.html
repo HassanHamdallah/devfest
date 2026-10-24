@@ -22,6 +22,7 @@
     <ui-button
       [variant]="confirmVariant()"
       [loading]="busy()"
+      [disabled]="confirmDisabled()"
       (click)="confirmed.emit()"
       >Confirm</ui-button
     >

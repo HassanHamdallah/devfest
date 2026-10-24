@@ -7,8 +7,10 @@ import static dev.devfest.event.repository.EventJdbc.uuid;
 import dev.devfest.event.domain.RoomCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -59,6 +61,19 @@ public class RoomSubmissionRepository {
   /** Scoped to the team so another team's id behaves exactly like an unknown id. */
   public Optional<RoomSubmissionRecord> findForTeam(long teamId, UUID submissionId) {
     return single(SELECT + "WHERE s.team_id = ? AND s.id = ?", teamId, submissionId);
+  }
+
+  /** Codes of the rooms the team ever submitted to. */
+  public Set<RoomCode> submittedRooms(long teamId) {
+    Set<RoomCode> rooms = EnumSet.noneOf(RoomCode.class);
+    db
+      .queryForList(
+        "SELECT DISTINCT r.code FROM room_submission s JOIN event_room r ON r.id = s.room_id WHERE s.team_id = ?",
+        String.class,
+        teamId
+      )
+      .forEach(code -> rooms.add(RoomCode.valueOf(code)));
+    return rooms;
   }
 
   /** Newest first. */

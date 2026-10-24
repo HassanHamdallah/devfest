@@ -40,7 +40,7 @@ public class EventBoardRepository {
     """;
 
   private static final String ROOM_TEAMS_SQL = """
-    SELECT t.id AS team_id, t.name AS team_name, t.group_code, r.id AS room_id, r.code AS room_code,
+    SELECT t.id AS team_id, t.name AS team_name, t.group_code, t.disqualified, r.id AS room_id, r.code AS room_code,
            ls.id AS s_id, ls.round, ls.technical_output, ls.clue_answer, ls.clue_correct, ls.received_at,
            ls.idempotency_key, ls.request_hash, cnt.submissions,
            v.auto_correct, v.override, v.effective_correct, v.override_by, ou.name AS override_by_name,
@@ -90,6 +90,18 @@ public class EventBoardRepository {
     FROM event_content c WHERE c.id = 1
     """;
 
+  private static final String TEAM_FLAGS_SQL = """
+    SELECT t.id, t.name, t.disqualified, er.code AS exception_room,
+           (SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id AND c.source = 'MANUAL') AS manual_clues,
+           (SELECT COALESCE(sum(p.minutes), 0) FROM penalty p
+            WHERE p.team_id = t.id AND p.kind = 'TIME_ADJUSTMENT' AND p.voided_at IS NULL) AS time_adjustment
+    FROM event_team t
+    LEFT JOIN team_room_exception e ON e.team_id = t.id AND e.round = ?
+    LEFT JOIN event_room er ON er.id = e.room_id
+    WHERE t.active
+    ORDER BY t.name
+    """;
+
   private final JdbcTemplate db;
 
   public EventBoardRepository(JdbcTemplate db) {
@@ -108,6 +120,23 @@ public class EventBoardRepository {
 
   public List<AdminRoomStatsRecord> adminRooms() {
     return db.query(ADMIN_ROOMS_SQL, EventBoardRepository::mapAdminRoom);
+  }
+
+  /** Every active team (by name) with its override markers for {@code round}. */
+  public List<TeamFlagsRecord> teamFlags(int round) {
+    return db.query(
+      TEAM_FLAGS_SQL,
+      (rs, row) ->
+        new TeamFlagsRecord(
+          rs.getLong("id"),
+          rs.getString("name"),
+          rs.getBoolean("disqualified"),
+          rs.getString("exception_room") == null ? null : RoomCode.valueOf(rs.getString("exception_room")),
+          rs.getInt("manual_clues"),
+          rs.getInt("time_adjustment")
+        ),
+      round
+    );
   }
 
   public ContentStatusRecord contentStatus() {
@@ -146,6 +175,7 @@ public class EventBoardRepository {
       teamId,
       rs.getString("team_name"),
       GroupCode.valueOf(rs.getString("group_code")),
+      rs.getBoolean("disqualified"),
       latest,
       latest == null ? null : latestVerdict(rs, latest),
       rs.getInt("submissions"),

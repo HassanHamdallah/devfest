@@ -19,5 +19,6 @@ public record RankedTeamRecord(
   Instant finishedAt,
   Long adjustedSeconds,
   boolean recoveryUsed,
-  int accusationAttempts
+  int accusationAttempts,
+  boolean disqualified
 ) {}

@@ -126,7 +126,8 @@ public abstract class EventIntegrationTest {
     db.update(
       "UPDATE event_state SET current_round = 0, round_started_at = NULL, round_minutes = 25, final_open = FALSE, " +
       "final_started_at = NULL, final_closed_at = NULL, results_published = FALSE, revision = 1, " +
-      "planned_team_count = 16 WHERE id = 1"
+      "planned_team_count = 16, round_phase = NULL, round_duration_seconds = NULL, " +
+      "round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE WHERE id = 1"
     );
     managers.clear();
     managerIds.clear();
@@ -250,8 +251,19 @@ public abstract class EventIntegrationTest {
 
   // ---- admin actions through the API -------------------------------------------------------------
 
+  /** Moves to the round and, for rounds 1..4, starts its timer, so teams can submit right away. */
   protected void setRound(int round) {
+    assignRound(round);
+    if (round >= 1 && round <= 4) startTimer();
+  }
+
+  /** Moves to the round without starting the timer: a running round stays ASSIGNED. */
+  protected void assignRound(int round) {
     expectOk(post("/admin/round", admin, "{\"round\":" + round + "}"));
+  }
+
+  protected void startTimer() {
+    expectOk(post("/admin/round/timer/start", admin, null));
   }
 
   protected void openRoom(RoomCode code) {

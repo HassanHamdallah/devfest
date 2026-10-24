@@ -129,6 +129,7 @@ public class EventFinalService {
       TeamWriteGate.requireSameRequest(previous.get().requestHash(), write);
       return recoveryResult(previous.get(), currentStage(write));
     }
+    TeamWriteGate.requireNotDisqualified(write);
     requireMaxBytes(request.answer(), 500, "Recovery answer");
     TeamFinalSummaryRecord summary = finals.summary(write.team().id());
     requireFinalOpen(write.state());
@@ -150,6 +151,7 @@ public class EventFinalService {
       TeamWriteGate.requireSameRequest(previous.get().requestHash(), write);
       return accusationResult(previous.get(), currentStage(write));
     }
+    TeamWriteGate.requireNotDisqualified(write);
     requireMaxBytes(request.decryptedMessage(), 4000, "Decrypted message");
     requireMaxBytes(request.evidence(), 4000, "Evidence");
     requireAccusationsAllowed(write);

@@ -7,6 +7,7 @@ import {
 } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute } from "@angular/router";
+import { PHASE_LABELS } from "../../../core/event/countdown";
 import { EventApi } from "../../../core/event/event-api";
 import { RoomBoard, RoomTeamRow } from "../../../core/event/event-models";
 import { roundStatusLabel } from "../../../core/event/format";
@@ -18,6 +19,7 @@ import { UiMetricTile } from "../../../shared/ui/ui-metric-tile/ui-metric-tile";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "./board-loader";
+import { EventArrivalCard } from "./arrival-card";
 import { EventClueKeyCard } from "./clue-key-card";
 import { EventRefreshError } from "./refresh-error";
 import { EventRoomContentCard } from "./room-content-card";
@@ -42,6 +44,7 @@ const FILTER_MATCHES: Record<TeamFilter, (row: RoomTeamRow) => boolean> = {
 /** /event/room/:roomId: the room manager's live board (an ADMIN may open any room). */
 @Component({
   imports: [
+    EventArrivalCard,
     EventClueKeyCard,
     EventRefreshError,
     EventRoomContentCard,
@@ -91,6 +94,11 @@ export class EventRoomBoardPage {
     return board.scheduledGroup
       ? `${round} · group ${board.scheduledGroup} in this room`
       : round;
+  });
+  /** "Round phase: Assigned" etc.; null outside rounds 1..4. */
+  protected readonly phaseLabel = computed(() => {
+    const phase = this.board()?.clock.phase;
+    return phase ? PHASE_LABELS[phase] : null;
   });
   protected readonly inRoomHint = computed(() => {
     const group = this.board()?.scheduledGroup;

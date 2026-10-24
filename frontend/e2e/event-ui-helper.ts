@@ -1,4 +1,5 @@
 import { Browser, Locator, Page, expect } from "@playwright/test";
+import fs from "node:fs";
 
 export const DESKTOP = { width: 1280, height: 900 };
 export const PHONE = { width: 390, height: 844 };
@@ -57,10 +58,27 @@ export async function expectFitsPhone(page: Page) {
   if (restore) await page.setViewportSize(restore);
 }
 
+/**
+ * Saves a screenshot into docs/. OneDrive may hold a just-written file open for a moment ("UNKNOWN: open"), so
+ * the image is captured first and its write is retried briefly; a capture failure still fails the test.
+ */
+export async function saveScreenshot(page: Page, file: string, fullPage = true) {
+  const image = await page.screenshot({ fullPage });
+  for (let attempt = 1; ; attempt++) {
+    try {
+      fs.writeFileSync(file, image);
+      return;
+    } catch (error) {
+      if (attempt >= 10) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+}
+
 export async function screenshotPhone(page: Page, file: string) {
   const restore = page.viewportSize();
   await page.setViewportSize(PHONE);
-  await page.screenshot({ path: file, fullPage: true });
+  await saveScreenshot(page, file);
   if (restore) await page.setViewportSize(restore);
 }
 

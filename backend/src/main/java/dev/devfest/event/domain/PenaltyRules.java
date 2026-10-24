@@ -26,6 +26,11 @@ public final class PenaltyRules {
     return penalties.stream().filter(p -> !p.voided()).mapToInt(CountedPenalty::minutes).sum();
   }
 
+  /** Active rows that count for the ranking's "fewer penalties" tie-break (time adjustments do not). */
+  public static int penaltyEntries(Collection<? extends CountedPenalty> penalties) {
+    return (int) penalties.stream().filter(p -> !p.voided() && p.kind().penaltyEntry()).count();
+  }
+
   public static int activeCount(Collection<? extends CountedPenalty> penalties, PenaltyKind kind) {
     return (int) penalties.stream().filter(p -> !p.voided() && p.kind() == kind).count();
   }

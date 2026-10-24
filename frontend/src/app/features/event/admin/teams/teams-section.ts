@@ -11,6 +11,7 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
+import { RouterLink } from "@angular/router";
 import { EventApi } from "../../../../core/event/event-api";
 import { Organization, TeamView } from "../../../../core/event/event-models";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
@@ -31,6 +32,7 @@ import { lastSeenLabel } from "./teams-view";
   imports: [
     ActionStatus,
     GenerateTeamsForm,
+    RouterLink,
     TeamForm,
     UiButton,
     UiConfirmDialog,
@@ -71,11 +73,19 @@ import { lastSeenLabel } from "./teams-view";
               <td>{{ team.groupCode }}</td>
               <td>{{ team.accountEmail }}</td>
               <td>
-                @if (team.active) {
-                  <ui-status-chip variant="success">Active</ui-status-chip>
-                } @else {
-                  <ui-status-chip variant="warning">Inactive</ui-status-chip>
-                }
+                <div class="teams-section__device">
+                  @if (team.active) {
+                    <ui-status-chip variant="success">Active</ui-status-chip>
+                  } @else {
+                    <ui-status-chip variant="warning">Inactive</ui-status-chip>
+                  }
+                  @if (team.disqualified) {
+                    <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+                  }
+                  @if (team.exceptionRoom) {
+                    <ui-status-chip variant="accent">Exception: {{ roomName(team) }}</ui-status-chip>
+                  }
+                </div>
               </td>
               <td>
                 <div class="teams-section__device">
@@ -101,6 +111,21 @@ import { lastSeenLabel } from "./teams-view";
                     (click)="signingOut.set(team)"
                     >Sign out team</ui-button
                   >
+                  <details class="team-menu">
+                    <summary [attr.aria-label]="'Overrides for ' + team.name">…</summary>
+                    <ul>
+                      @for (item of menu; track item.fragment) {
+                        <li>
+                          <a
+                            routerLink="/event/admin/overrides"
+                            [queryParams]="{ team: team.id }"
+                            [fragment]="item.fragment"
+                            >{{ item.label }}</a
+                          >
+                        </li>
+                      }
+                    </ul>
+                  </details>
                 </div>
               </td>
             </tr>
@@ -139,6 +164,30 @@ import { lastSeenLabel } from "./teams-view";
     td:last-child {
       white-space: nowrap;
     }
+    .team-menu {
+      position: relative;
+    }
+    .team-menu summary {
+      padding: 0 var(--space-2);
+      cursor: pointer;
+      list-style: none;
+      font-weight: var(--font-weight-semibold);
+    }
+    .team-menu ul {
+      position: absolute;
+      right: 0;
+      z-index: 2;
+      display: grid;
+      gap: var(--space-1);
+      min-width: 12rem;
+      margin: 0;
+      padding: var(--space-2) var(--space-3);
+      list-style: none;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-lg);
+    }
     th[scope="row"] {
       font-size: inherit;
       letter-spacing: normal;
@@ -172,6 +221,21 @@ export class TeamsSection {
         }),
       { injector: this.injector },
     );
+  }
+
+  /** Entries of the row's "…" menu: the matching section of the Overrides page with this team preselected. */
+  protected readonly menu = [
+    { label: "Swap with…", fragment: "swap" },
+    { label: "Move to group…", fragment: "move" },
+    { label: "Room exception…", fragment: "room-exception" },
+    { label: "Grant/Revoke clue…", fragment: "clue" },
+    { label: "Time adjustment…", fragment: "time-adjustment" },
+    { label: "Disqualify/Reinstate…", fragment: "disqualify" },
+    { label: "Reset team…", fragment: "reset-team" },
+  ];
+
+  protected roomName(team: TeamView): string {
+    return this.organization().rooms.find((room) => room.code === team.exceptionRoom)?.name ?? "";
   }
 
   protected lastSeen(team: TeamView): string | null {

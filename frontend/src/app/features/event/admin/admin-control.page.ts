@@ -5,13 +5,11 @@ import {
   inject,
   signal,
 } from "@angular/core";
-import { isRoundRunning } from "../../../core/event/countdown";
 import { EventApi } from "../../../core/event/event-api";
 import { roundStatusLabel } from "../../../core/event/format";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
-import { UiCountdown } from "../../../shared/ui/ui-countdown/ui-countdown";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { AlertsList } from "./control/alerts-list";
@@ -27,6 +25,7 @@ import {
 import { finalStatus } from "./control/control-view";
 import { RankingPanel } from "./control/ranking-panel";
 import { RoomCards } from "./control/room-cards";
+import { RoundTimerPanel } from "./control/round-timer-panel";
 import { RotationTable } from "./control/rotation-table";
 import { RoundSettings } from "./control/round-settings";
 import { ActionState } from "./shared/action-state";
@@ -47,11 +46,11 @@ const NO_CONFIRMATION: ConfirmationCopy = {
     ControlBar,
     RankingPanel,
     RoomCards,
+    RoundTimerPanel,
     RotationTable,
     RoundSettings,
     UiAlert,
     UiConfirmDialog,
-    UiCountdown,
     UiPageState,
     UiStatusChip,
   ],
@@ -82,10 +81,6 @@ export class EventAdminControlPage {
   protected readonly roundLabel = computed(() => {
     const board = this.board.data();
     return board ? roundStatusLabel(board.state.currentRound) : "";
-  });
-  protected readonly roundRunning = computed(() => {
-    const board = this.board.data();
-    return board !== null && isRoundRunning(board.state);
   });
   protected readonly finalChip = computed(() => {
     const board = this.board.data();

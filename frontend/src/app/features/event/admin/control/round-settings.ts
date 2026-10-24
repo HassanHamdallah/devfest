@@ -40,7 +40,7 @@ import { ROUND_OPTIONS } from "./control-view";
         <ui-input
           label="Round minutes"
           type="number"
-          hint="Countdown only; rooms never close by themselves."
+          hint="Length of rounds that begin later; the current round keeps its time."
           [error]="minutesError()"
           [formControl]="minutes"
         />

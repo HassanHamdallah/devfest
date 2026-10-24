@@ -64,6 +64,21 @@ public class PenaltyRepository {
     );
   }
 
+  /** The admin's signed time adjustment (−60..60, never 0); no room, the reason as note. */
+  public long insertTimeAdjustment(long teamId, int minutes, String note, long createdBy, Instant createdAt) {
+    return db.queryForObject(
+      """
+      INSERT INTO penalty(team_id, room_id, kind, minutes, note, created_by, created_at)
+      VALUES (?, NULL, 'TIME_ADJUSTMENT', ?, ?, ?, ?) RETURNING id""",
+      Long.class,
+      teamId,
+      minutes,
+      note,
+      createdBy,
+      timestamp(createdAt)
+    );
+  }
+
   /** The team's single RECOVERY penalty; empty when the team already has one. */
   public Optional<Long> insertRecoveryOnce(long teamId, long roomId, long createdBy, Instant createdAt) {
     return db.queryForList(

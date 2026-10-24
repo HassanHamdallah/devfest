@@ -10,5 +10,6 @@ public record PublicRankingRow(
   int clues,
   int penaltyMinutes,
   boolean finished,
-  Long adjustedSeconds
+  Long adjustedSeconds,
+  boolean disqualified
 ) {}

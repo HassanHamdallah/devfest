@@ -81,9 +81,12 @@ export class ControlBar {
 
   protected nextRound(): void {
     if (this.nextRoundReason() || this.busy()) return;
+    const state = this.state();
+    const timeLeft = state.phase === "RUNNING" || state.phase === "PAUSED";
     this.action.emit({
       kind: "setRound",
-      round: this.state().currentRound + 1,
+      round: state.currentRound + 1,
+      secondsLeft: timeLeft ? state.remainingSeconds : null,
     });
   }
 

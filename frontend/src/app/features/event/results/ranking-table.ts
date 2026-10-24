@@ -20,10 +20,10 @@ interface RankingLine {
   finished: boolean;
 }
 
-/** Display text of one ranking row: rank "—" and "Not finished" for teams still playing. */
+/** Display text of one ranking row: rank "—" for teams still playing, "Disqualified" (never ranked). */
 function toRankingLine(row: PublicRankingRow): RankingLine {
   return {
-    rank: row.rank === null ? "—" : String(row.rank),
+    rank: row.disqualified ? "Disqualified" : row.rank === null ? "—" : String(row.rank),
     teamName: row.teamName,
     groupCode: row.groupCode,
     clues: `${row.clues} of 4`,

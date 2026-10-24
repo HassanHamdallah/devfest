@@ -17,9 +17,11 @@ import {
   EventRevision,
   EventStateView,
   GenerateTeamsRequest,
+  GroupCode,
   JudgementRequest,
   JudgementView,
   Organization,
+  OverrideOutcome,
   PenaltyRequest,
   PenaltyView,
   Receipt,
@@ -28,9 +30,12 @@ import {
   ResultsView,
   RoomBoard,
   RoomContentRequest,
+  RoomArrivalView,
   RoomContentView,
   RoomManagerView,
   RoomOpenView,
+  RotationPreviewView,
+  SnapshotView,
   RoomSubmissionRequest,
   SuspectRequest,
   SuspectView,
@@ -116,6 +121,11 @@ export class EventApi {
   saveRoomContent(roomId: number, body: RoomContentRequest) {
     return this.send<RoomContentView>("PUT", `/rooms/${roomId}/content`, body);
   }
+  setArrival(roomId: number, ready: boolean) {
+    return this.send<RoomArrivalView>("PUT", `/rooms/${roomId}/arrival`, {
+      ready,
+    });
+  }
   setClueOverride(
     roomId: number,
     submissionId: string,
@@ -131,6 +141,27 @@ export class EventApi {
   // ---- Admin: control ----
   adminBoard() {
     return this.get<AdminBoard>("/admin/board");
+  }
+  startTimer() {
+    return this.send<EventStateView>("POST", "/admin/round/timer/start", {});
+  }
+  pauseTimer() {
+    return this.send<EventStateView>("POST", "/admin/round/timer/pause", {});
+  }
+  resumeTimer() {
+    return this.send<EventStateView>("POST", "/admin/round/timer/resume", {});
+  }
+  /** Not idempotent by nature: the key makes a repeated request (same key, same round) a no-op. */
+  adjustTimer(deltaSeconds: number, idempotencyKey: string) {
+    return this.api.request<EventStateView>(
+      "POST",
+      `${EVENT}/admin/round/timer/adjust`,
+      { deltaSeconds },
+      { "Idempotency-Key": idempotencyKey },
+    );
+  }
+  endRound() {
+    return this.send<EventStateView>("POST", "/admin/round/timer/end", {});
   }
   openRoom(roomId: number) {
     return this.send<RoomOpenView>("POST", `/admin/rooms/${roomId}/open`, {});
@@ -218,6 +249,74 @@ export class EventApi {
   }
   deleteSuspect(suspectId: number) {
     return this.send<AdminContent>("DELETE", `/admin/suspects/${suspectId}`);
+  }
+
+  // ---- Admin: overrides ----
+  swapPreview(teamA: number, teamB: number) {
+    return this.send<RotationPreviewView[]>("POST", "/admin/overrides/swap-preview", { teamA, teamB });
+  }
+  swapTeams(teamA: number, teamB: number, reason: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/overrides/swap", { teamA, teamB, reason });
+  }
+  movePreview(teamId: number, group: GroupCode) {
+    return this.send<RotationPreviewView[]>("POST", "/admin/overrides/move-preview", { teamId, group });
+  }
+  moveTeam(teamId: number, group: GroupCode, reason: string, confirmImpact: boolean) {
+    return this.send<OverrideOutcome>("PUT", `/admin/teams/${teamId}/group`, { group, reason, confirmImpact });
+  }
+  roomExceptionPreview(teamId: number, roomId: number) {
+    return this.send<string[]>("POST", "/admin/overrides/room-exception/preview", { teamId, roomId });
+  }
+  setRoomException(teamId: number, roomId: number, reason: string) {
+    return this.send<OverrideOutcome>("PUT", "/admin/overrides/room-exception", { teamId, roomId, reason });
+  }
+  clearRoomException(teamId: number, reason: string) {
+    return this.send<OverrideOutcome>("DELETE", `/admin/overrides/room-exception/${teamId}`, { reason });
+  }
+  manualClue(teamId: number, roomId: number, action: "GRANT" | "REVOKE", alsoRemoveRecovery: boolean, reason: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/overrides/clue", {
+      teamId,
+      roomId,
+      action,
+      alsoRemoveRecovery,
+      reason,
+    });
+  }
+  timeAdjustment(teamId: number, minutes: number, reason: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/overrides/time-adjustment", { teamId, minutes, reason });
+  }
+  setDisqualified(teamId: number, disqualified: boolean, reason: string) {
+    const action = disqualified ? "disqualify" : "reinstate";
+    return this.send<OverrideOutcome>("POST", `/admin/teams/${teamId}/${action}`, { reason });
+  }
+  resetFinal(reason: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/reset/final", { reason });
+  }
+  resetTeam(teamId: number, reason: string) {
+    return this.send<OverrideOutcome>("POST", `/admin/reset/team/${teamId}`, { reason });
+  }
+  /** The password is checked by the server and never stored by the page. */
+  resetEvent(reason: string, confirmText: string, password: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/reset/event", { reason, confirmText, password });
+  }
+  takeSnapshot(reason: string) {
+    return this.send<OverrideOutcome>("POST", "/admin/snapshots", { reason });
+  }
+  snapshots() {
+    return this.get<SnapshotView[]>("/admin/snapshots");
+  }
+
+  /** Saves GET /admin/snapshots/{id}/download as event-snapshot-<id>.json. */
+  async downloadSnapshot(snapshotId: number): Promise<void> {
+    const json = await firstValueFrom(
+      this.http.get(`${BASE}${EVENT}/admin/snapshots/${snapshotId}/download`, { responseType: "text" }),
+    );
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `event-snapshot-${snapshotId}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   /** Downloads GET /admin/export.csv as a file named devfest-event-results.csv. */

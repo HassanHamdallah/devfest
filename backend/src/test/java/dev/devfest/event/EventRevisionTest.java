@@ -21,7 +21,8 @@ class EventRevisionTest extends EventIntegrationTest {
 
   @Test
   void writesBumpTheRevision() {
-    assertBumps(() -> setRound(1));
+    assertBumps(() -> assignRound(1));
+    assertBumps(this::startTimer);
     assertBumps(() -> openRoom(RoomCode.AI));
     assertBumps(() -> expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "WHITE VAN")));
     String judgement = "/rooms/" + rooms.get(RoomCode.AI) + "/judgements/" + alpha.id();

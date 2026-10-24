@@ -14,5 +14,6 @@ public record RankingRow(
   int penaltyEntries,
   boolean finished,
   Instant finishedAt,
-  Long adjustedSeconds
+  Long adjustedSeconds,
+  boolean disqualified
 ) {}
