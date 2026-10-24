@@ -1,0 +1,45 @@
+<header class="event-page-header"><h1>Final</h1></header>
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the final…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (final(); as view) {
+<div class="event-stack">
+  @if (loader.refreshError(); as error) {
+  <event-refresh-error [error]="error" (retry)="reload()" />
+  } @switch (view.stage) { @case ("LOCKED") {
+  <ui-card>
+    <div class="event-inline">
+      <ui-status-chip variant="warning">Locked</ui-status-chip>
+    </div>
+    <p>The final opens for all teams at the same time.</p>
+    <p class="event-muted">{{ cluesLine() }}</p>
+  </ui-card>
+  } @case ("NOT_ENOUGH_CLUES") {
+  <ui-card>
+    <h2 ui-card-header>Better luck next time</h2>
+    <p>{{ cluesLine() }}</p>
+    <p class="event-muted">
+      The final needs at least 3 clues, so your team cannot take part in it.
+      Thank you for playing.
+    </p>
+  </ui-card>
+  } @case ("RECOVERY") { @if (view.recovery; as recovery) {
+  <event-final-recovery-form [recovery]="recovery" (changed)="reload()" />
+  } } @case ("MESSAGE") {
+  <event-final-accusation-form [final]="view" (changed)="reload()" />
+  } @case ("FINISHED") {
+  <event-final-finished [final]="view" />
+  } @case ("CLOSED") {
+  <ui-card>
+    <div class="event-inline">
+      <ui-status-chip variant="warning">Closed</ui-status-chip>
+    </div>
+    <p>The final is closed.</p>
+    <p class="event-muted">No more answers or accusations are accepted.</p>
+  </ui-card>
+  } }
+</div>
+}

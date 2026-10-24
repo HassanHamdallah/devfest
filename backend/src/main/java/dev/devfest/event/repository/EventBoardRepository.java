@@ -1,0 +1,196 @@
+package dev.devfest.event.repository;
+
+import static dev.devfest.event.repository.EventJdbc.instant;
+import static dev.devfest.event.repository.EventJdbc.nullableLong;
+import static dev.devfest.event.repository.EventJdbc.uuid;
+
+import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.JudgeStatus;
+import dev.devfest.event.domain.RoomCode;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+/** Aggregated board reads: each method is ONE statement whatever the number of teams. */
+@Repository
+public class EventBoardRepository {
+
+  private static final String TEAM_ROOMS_SQL = """
+    SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open,
+           COALESCE(j.status, 'PENDING') AS judgement,
+           c.room_id IS NOT NULL AS clue_collected,
+           ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct
+    FROM event_room r
+    JOIN event_team t ON t.id = ?
+    LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
+    LEFT JOIN collected_clue c ON c.room_id = r.id AND c.team_id = t.id
+    LEFT JOIN LATERAL (
+      SELECT s.id, s.received_at, s.clue_correct FROM room_submission s
+      WHERE s.team_id = t.id AND s.room_id = r.id
+      ORDER BY s.received_at DESC, s.id DESC LIMIT 1
+    ) ls ON TRUE
+    ORDER BY r.position
+    """;
+
+  private static final String ROOM_TEAMS_SQL = """
+    SELECT t.id AS team_id, t.name AS team_name, t.group_code, r.id AS room_id, r.code AS room_code,
+           ls.id AS s_id, ls.round, ls.technical_output, ls.clue_answer, ls.clue_correct, ls.received_at,
+           ls.idempotency_key, ls.request_hash, cnt.submissions,
+           j.status, j.hints, j.note, j.version, j.reviewer_id, u.name AS reviewer_name, j.updated_at
+    FROM event_team t
+    JOIN event_room r ON r.id = ?
+    LEFT JOIN LATERAL (
+      SELECT s.* FROM room_submission s
+      WHERE s.team_id = t.id AND s.room_id = r.id
+      ORDER BY s.received_at DESC, s.id DESC LIMIT 1
+    ) ls ON TRUE
+    CROSS JOIN LATERAL (
+      SELECT count(*) AS submissions FROM room_submission s WHERE s.team_id = t.id AND s.room_id = r.id
+    ) cnt
+    LEFT JOIN room_judgement j ON j.team_id = t.id AND j.room_id = r.id
+    LEFT JOIN app_user u ON u.id = j.reviewer_id
+    WHERE t.active
+    ORDER BY t.name
+    """;
+
+  // "~ '\\S'" = contains a non-whitespace character, i.e. the field is really filled in.
+  private static final String ADMIN_ROOMS_SQL = """
+    SELECT r.id, r.code, r.name, r.position, r.is_open, r.manager_id, u.name AS manager_name,
+           r.clue_key ~ '\\S' AS has_clue_key,
+           r.recovery_prompt ~ '\\S' AND r.recovery_answer ~ '\\S' AS has_recovery,
+           count(t.id) FILTER (WHERE j.status = 'PASS') AS passed,
+           count(t.id) FILTER (WHERE j.status = 'FAIL') AS failed,
+           count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending
+    FROM event_room r
+    LEFT JOIN app_user u ON u.id = r.manager_id
+    LEFT JOIN event_team t ON t.active
+    LEFT JOIN room_judgement j ON j.team_id = t.id AND j.room_id = r.id
+    LEFT JOIN LATERAL (
+      SELECT TRUE AS submitted FROM room_submission s WHERE s.team_id = t.id AND s.room_id = r.id LIMIT 1
+    ) sub ON TRUE
+    GROUP BY r.id, u.name
+    ORDER BY r.position
+    """;
+
+  private static final String CONTENT_STATUS_SQL = """
+    SELECT c.encrypted_message ~ '\\S' AS has_message,
+           c.correct_suspect_id IS NOT NULL AS has_correct_suspect,
+           (SELECT count(*) FROM suspect) AS suspects
+    FROM event_content c WHERE c.id = 1
+    """;
+
+  private final JdbcTemplate db;
+
+  public EventBoardRepository(JdbcTemplate db) {
+    this.db = db;
+  }
+
+  /** The four rooms in position order with the team's own judgement, clue and latest receipt. */
+  public List<TeamRoomProgressRecord> teamRooms(long teamId) {
+    return db.query(TEAM_ROOMS_SQL, EventBoardRepository::mapTeamRoom, teamId);
+  }
+
+  /** Every active team (by name) with its latest submission, count and judgement in the room. */
+  public List<RoomTeamProgressRecord> roomTeams(long roomId) {
+    return db.query(ROOM_TEAMS_SQL, EventBoardRepository::mapRoomTeam, roomId);
+  }
+
+  public List<AdminRoomStatsRecord> adminRooms() {
+    return db.query(ADMIN_ROOMS_SQL, EventBoardRepository::mapAdminRoom);
+  }
+
+  public ContentStatusRecord contentStatus() {
+    return db.queryForObject(
+      CONTENT_STATUS_SQL,
+      (rs, row) ->
+        new ContentStatusRecord(
+          rs.getBoolean("has_message"),
+          rs.getBoolean("has_correct_suspect"),
+          rs.getInt("suspects")
+        )
+    );
+  }
+
+  private static TeamRoomProgressRecord mapTeamRoom(ResultSet rs, int row) throws SQLException {
+    UUID lastId = uuid(rs, "last_id");
+    return new TeamRoomProgressRecord(
+      rs.getLong("room_id"),
+      RoomCode.valueOf(rs.getString("code")),
+      rs.getString("name"),
+      rs.getInt("position"),
+      rs.getBoolean("is_open"),
+      JudgeStatus.valueOf(rs.getString("judgement")),
+      rs.getBoolean("clue_collected"),
+      lastId,
+      instant(rs, "last_received_at"),
+      lastId == null ? null : rs.getBoolean("last_clue_correct")
+    );
+  }
+
+  private static RoomTeamProgressRecord mapRoomTeam(ResultSet rs, int row) throws SQLException {
+    long teamId = rs.getLong("team_id");
+    return new RoomTeamProgressRecord(
+      teamId,
+      rs.getString("team_name"),
+      GroupCode.valueOf(rs.getString("group_code")),
+      latestSubmission(rs, teamId),
+      rs.getInt("submissions"),
+      judgement(rs, teamId)
+    );
+  }
+
+  private static RoomSubmissionRecord latestSubmission(ResultSet rs, long teamId) throws SQLException {
+    UUID id = uuid(rs, "s_id");
+    if (id == null) return null;
+    return new RoomSubmissionRecord(
+      id,
+      teamId,
+      rs.getLong("room_id"),
+      RoomCode.valueOf(rs.getString("room_code")),
+      rs.getInt("round"),
+      rs.getString("technical_output"),
+      rs.getString("clue_answer"),
+      rs.getBoolean("clue_correct"),
+      instant(rs, "received_at"),
+      uuid(rs, "idempotency_key"),
+      rs.getString("request_hash")
+    );
+  }
+
+  private static RoomJudgementRecord judgement(ResultSet rs, long teamId) throws SQLException {
+    long roomId = rs.getLong("room_id");
+    String status = rs.getString("status");
+    if (status == null) return RoomJudgementRecord.pending(teamId, roomId);
+    return new RoomJudgementRecord(
+      teamId,
+      roomId,
+      JudgeStatus.valueOf(status),
+      rs.getInt("hints"),
+      rs.getString("note"),
+      rs.getLong("version"),
+      nullableLong(rs, "reviewer_id"),
+      rs.getString("reviewer_name"),
+      instant(rs, "updated_at")
+    );
+  }
+
+  private static AdminRoomStatsRecord mapAdminRoom(ResultSet rs, int row) throws SQLException {
+    return new AdminRoomStatsRecord(
+      rs.getLong("id"),
+      RoomCode.valueOf(rs.getString("code")),
+      rs.getString("name"),
+      rs.getInt("position"),
+      rs.getBoolean("is_open"),
+      nullableLong(rs, "manager_id"),
+      rs.getString("manager_name"),
+      rs.getBoolean("has_clue_key"),
+      rs.getBoolean("has_recovery"),
+      rs.getInt("passed"),
+      rs.getInt("failed"),
+      rs.getInt("pending")
+    );
+  }
+}

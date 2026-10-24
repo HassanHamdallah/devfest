@@ -1,5 +1,9 @@
 # Architecture
 
+> The investigation event (package `dev.devfest.event`, migration V5, Angular `features/event`) is described in
+> [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md). The generic investigation module of V2–V4 was removed.
+> This document covers the legacy coding contest; its authentication and audit pieces are shared with the event.
+
 ## Modules
 
 One standalone Angular application, one modular Spring Boot application and a DevFest PostgreSQL database. Judge0 is an external execution boundary. No company, tenant, discussion, Question/Answer, reputation or voting model remains.

@@ -214,7 +214,7 @@ public class AdminController {
     return out.toString();
   }
 
-  static String csvCell(String value) {
+  public static String csvCell(String value) {
     String safe =
       !value.isEmpty() && "=+-@\t\r\n".indexOf(value.charAt(0)) >= 0
         ? "'" + value

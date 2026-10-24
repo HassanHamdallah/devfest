@@ -1,0 +1,36 @@
+<ui-card fill>
+  <div ui-card-header class="room-content__header">
+    <h3>{{ room().name }}</h3>
+    <ui-status-chip [variant]="status().variant"
+      >{{ status().text }}</ui-status-chip
+    >
+  </div>
+  <form [attr.aria-label]="formLabel()" [formGroup]="form" (ngSubmit)="save()">
+    <ui-input
+      [label]="labels.clueKey"
+      hint="Matching ignores letter case and extra spaces; punctuation must match."
+      [error]="error('clueKey')"
+      formControlName="clueKey"
+    />
+    <ui-textarea
+      [label]="labels.recoveryPrompt"
+      [rows]="3"
+      hint="Shown in the final to a team that missed this room's clue."
+      [error]="error('recoveryPrompt')"
+      formControlName="recoveryPrompt"
+    />
+    <ui-input
+      [label]="labels.recoveryAnswer"
+      [error]="error('recoveryAnswer')"
+      formControlName="recoveryAnswer"
+    />
+    @if (!readOnly()) {
+    <ui-button type="submit" [loading]="state.busy()">Save room</ui-button>
+    }
+    <app-action-status
+      [state]="state"
+      [reloadable]="true"
+      (reload)="discardEdits()"
+    />
+  </form>
+</ui-card>

@@ -2,6 +2,7 @@ package dev.devfest.contest;
 
 import static dev.devfest.api.Errors.fail;
 
+import dev.devfest.audit.AuditLog;
 import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
@@ -33,11 +34,18 @@ public class ContestService {
   private final JdbcTemplate db;
   private final ObjectMapper json;
   private final Clock clock;
+  private final AuditLog auditLog;
 
-  public ContestService(JdbcTemplate db, ObjectMapper json, Clock clock) {
+  public ContestService(
+    JdbcTemplate db,
+    ObjectMapper json,
+    Clock clock,
+    AuditLog auditLog
+  ) {
     this.db = db;
     this.json = json;
     this.clock = clock;
+    this.auditLog = auditLog;
   }
 
   public Contest contest() {
@@ -216,11 +224,6 @@ public class ContestService {
   }
 
   public void audit(long actor, String action, String target) {
-    db.update(
-      "INSERT INTO audit_event(actor_id,action,target) VALUES(?,?,?)",
-      actor,
-      action,
-      target
-    );
+    auditLog.record(actor, action, target);
   }
 }

@@ -1,0 +1,52 @@
+<ui-card>
+  <h2 ui-card-header>Room answer</h2>
+  @if (availability(); as state) { @if (state.open) {
+  <form (ngSubmit)="submit()">
+    <p class="event-muted">
+      Answer for the {{ state.room.name }} room. You can submit again while the
+      room is open; every answer is kept.
+    </p>
+    <ui-textarea
+      label="Technical output"
+      name="technicalOutput"
+      [rows]="5"
+      [required]="true"
+      [(ngModel)]="technicalOutput"
+    />
+    <ui-input
+      label="Clue answer"
+      name="clueAnswer"
+      [required]="true"
+      [(ngModel)]="clueAnswer"
+    />
+    @if (validationError(); as text) {
+    <ui-alert variant="error">{{ text }}</ui-alert>
+    }
+    <div>
+      <ui-button type="submit" [loading]="attempt.sending()"
+        >Submit answer</ui-button
+      >
+    </div>
+  </form>
+  } @else {
+  <p>{{ state.reason }}</p>
+  } }
+  <event-attempt-status [attempt]="attempt" (retry)="retry()" />
+  @if (receipt(); as saved) {
+  <section
+    class="receipt"
+    aria-labelledby="submission-receipt-heading"
+    aria-live="polite"
+  >
+    <h3 id="submission-receipt-heading">Receipt</h3>
+    <span>ID: <code>{{ saved.id }}</code></span>
+    <span>Received at {{ receiptTime() }}</span>
+    <div>
+      <ui-status-chip [variant]="saved.clueCorrect ? 'success' : 'danger'"
+        >{{ saved.clueCorrect ? "Correct" : "Incorrect — try again"
+        }}</ui-status-chip
+      >
+    </div>
+  </section>
+  }
+</ui-card>

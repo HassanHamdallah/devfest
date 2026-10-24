@@ -1,0 +1,5 @@
+<span class="ui-metric-tile__label" [id]="labelId">{{ label() }}</span>
+<strong class="ui-metric-tile__value">{{ value() }}</strong>
+@if (hint(); as text) {
+<span class="ui-metric-tile__hint">{{ text }}</span>
+}

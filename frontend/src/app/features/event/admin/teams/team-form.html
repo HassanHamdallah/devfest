@@ -1,0 +1,43 @@
+<ui-card>
+  <h3 ui-card-header>{{ heading() }}</h3>
+  <form [attr.aria-label]="heading()" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="team-form__fields">
+      <ui-input
+        label="Team name"
+        formControlName="name"
+        [error]="nameError()"
+      />
+      <ui-select
+        label="Group"
+        [options]="groupOptions"
+        formControlName="groupCode"
+      />
+      <ui-select
+        label="Member account"
+        placeholder="Choose a team representative"
+        [options]="accountOptions()"
+        [error]="accountError()"
+        [hint]="accountHint()"
+        formControlName="accountId"
+      />
+    </div>
+    @if (team()) {
+    <label class="team-form__check">
+      <input type="checkbox" formControlName="active" />
+      Active
+    </label>
+    <p class="team-form__note event-muted">
+      Only active teams count toward their group and can play.
+    </p>
+    }
+    <div class="event-inline">
+      <ui-button type="submit" [loading]="state.busy()"
+        >{{ submitLabel() }}</ui-button
+      >
+      @if (team()) {
+      <ui-button variant="ghost" (click)="cancelled.emit()">Cancel</ui-button>
+      }
+    </div>
+    <app-action-status [state]="state" />
+  </form>
+</ui-card>

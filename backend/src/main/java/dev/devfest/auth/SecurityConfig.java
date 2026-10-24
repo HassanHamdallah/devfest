@@ -31,7 +31,7 @@ public class SecurityConfig {
   ) throws Exception {
     var cors = new CorsConfiguration();
     cors.setAllowedOrigins(Arrays.asList(origins.split(",")));
-    cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "OPTIONS"));
+    cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     cors.setAllowedHeaders(
       List.of("Authorization", "Content-Type", "Idempotency-Key")
     );
@@ -88,7 +88,9 @@ public class SecurityConfig {
           .hasRole("ADMIN")
           .requestMatchers("/api/v1/auth/**")
           .authenticated()
-          .requestMatchers("/api/v1/investigation/**")
+          .requestMatchers("/api/v1/event/admin/**")
+          .hasRole("ADMIN")
+          .requestMatchers("/api/v1/event/**")
           .hasAnyRole("ADMIN", "MANAGER", "MEMBER")
           .requestMatchers("/api/v1/**")
           .hasAnyRole("ADMIN", "PARTICIPANT")

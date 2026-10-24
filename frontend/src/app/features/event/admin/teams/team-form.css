@@ -1,0 +1,33 @@
+h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.team-form__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+}
+
+.team-form__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.team-form__check input {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  accent-color: var(--color-event-accent);
+}
+
+.team-form__note {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  font-size: var(--font-size-sm);
+}
