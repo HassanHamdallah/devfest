@@ -1,0 +1,58 @@
+form {
+  display: grid;
+  gap: var(--space-3);
+}
+.closed-reason {
+  margin: 0;
+  padding: var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+/* The receipt reads as a result card: red-tinted until the clue is correct, then green. */
+.receipt {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-error-subtle);
+  border: var(--border-outline-thin);
+  border-inline-start: 6px solid var(--brand-red);
+  border-radius: var(--radius-card);
+}
+.receipt--correct {
+  background: var(--color-success-subtle);
+  border-inline-start-color: var(--brand-green);
+}
+.receipt__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.receipt h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.receipt__review {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.receipt__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.receipt__facts dt {
+  color: var(--color-text-muted);
+}
+.receipt__facts dd {
+  margin: 0;
+  min-inline-size: 0;
+}
+.receipt code {
+  overflow-wrap: anywhere;
+}

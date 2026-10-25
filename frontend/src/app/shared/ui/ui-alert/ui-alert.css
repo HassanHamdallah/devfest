@@ -3,38 +3,43 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  border-inline-start: 3px solid transparent;
+  border: 1px solid transparent;
+  border-inline-start-width: 4px;
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
+  color: var(--color-text);
 }
 
 :host(.ui-alert-host--info) {
   background: var(--color-primary-subtle);
-  border-inline-start-color: var(--color-primary);
-  color: var(--color-primary-text);
+  border-color: color-mix(in srgb, var(--brand-blue) 40%, transparent);
+  border-inline-start-color: var(--brand-blue);
 }
 
 :host(.ui-alert-host--success) {
   background: var(--color-success-subtle);
-  border-inline-start-color: var(--color-success);
-  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--brand-green) 40%, transparent);
+  border-inline-start-color: var(--brand-green);
 }
 
+/* Yellow is a fill and border only; the text stays ink-dark. */
 :host(.ui-alert-host--warning) {
   background: var(--color-warning-subtle);
-  border-inline-start-color: var(--color-warning);
-  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--brand-yellow) 60%, transparent);
+  border-inline-start-color: var(--brand-yellow);
 }
 
 :host(.ui-alert-host--error) {
   background: var(--color-error-subtle);
-  border-inline-start-color: var(--color-error);
+  border-color: color-mix(in srgb, var(--brand-red) 40%, transparent);
+  border-inline-start-color: var(--brand-red);
   color: var(--color-error);
 }
 
 .ui-alert__content {
   flex: 1;
   min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .ui-alert__dismiss {
@@ -42,12 +47,13 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  inline-size: 28px;
-  block-size: 28px;
+  inline-size: 32px;
+  block-size: 32px;
+  margin: -4px -6px -4px 0;
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   color: inherit;
   cursor: pointer;
 }
@@ -58,5 +64,5 @@
 
 .ui-alert__dismiss:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  box-shadow: var(--focus-shadow);
 }

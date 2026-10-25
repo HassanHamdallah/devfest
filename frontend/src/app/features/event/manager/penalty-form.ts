@@ -15,6 +15,7 @@ import {
   PENALTY_KIND_LABELS,
   PENALTY_KIND_MINUTES,
 } from "../../../core/event/format";
+import { ToastService } from "../../../shared/ui/toast/toast.service";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiInput } from "../../../shared/ui/ui-input/ui-input";
@@ -59,7 +60,7 @@ const KIND_OPTIONS: readonly UiSelectOption[] = MANUAL_PENALTY_KINDS.map(
       [(ngModel)]="note"
     />
     @if (error(); as text) {
-      <ui-alert variant="error">{{ text }}</ui-alert>
+      <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
     }
     <div class="event-inline">
       <ui-button
@@ -77,6 +78,7 @@ const KIND_OPTIONS: readonly UiSelectOption[] = MANUAL_PENALTY_KINDS.map(
 })
 export class EventPenaltyForm {
   private readonly eventApi = inject(EventApi);
+  private readonly toasts = inject(ToastService);
 
   readonly roomId = input.required<number>();
   readonly teamId = input.required<number>();
@@ -107,6 +109,7 @@ export class EventPenaltyForm {
       });
       this.note.set("");
       this.saved.set(true);
+      this.toasts.show(`${PENALTY_KIND_LABELS[this.kind()]} penalty added`);
       this.changed.emit();
     } catch (e) {
       this.error.set(message(e));

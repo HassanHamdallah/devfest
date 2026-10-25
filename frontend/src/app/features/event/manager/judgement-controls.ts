@@ -12,6 +12,7 @@ import { message } from "../../../core/api";
 import { EventApi } from "../../../core/event/event-api";
 import { JudgeStatus, JudgementView } from "../../../core/event/event-models";
 import { JUDGE_STATUS_LABELS, formatTime } from "../../../core/event/format";
+import { ToastService } from "../../../shared/ui/toast/toast.service";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import {
@@ -27,6 +28,9 @@ const STATUS_VARIANTS: Record<JudgeStatus, UiStatusChipVariant> = {
   FAIL: "danger",
 };
 
+/** Which half to render: the row summary shows the decision, the expanded details the hint counter. */
+export type JudgementPart = "decision" | "hints";
+
 /** Pass / Fail and the hint counter for one team. Every save carries the version the manager saw. */
 @Component({
   selector: "event-judgement-controls",
@@ -37,62 +41,73 @@ const STATUS_VARIANTS: Record<JudgeStatus, UiStatusChipVariant> = {
       display: grid;
       gap: var(--space-2);
     }
+    .decision {
+      flex-wrap: nowrap;
+    }
+    .hints {
+      font-variant-numeric: tabular-nums;
+    }
   `,
-  template: `<div class="event-inline">
-      <ui-status-chip [variant]="statusVariant()">{{
-        statusLabel()
-      }}</ui-status-chip>
-      <ui-button
-        size="sm"
-        variant="secondary"
-        [pressed]="judgement().status === 'PASS'"
-        [disabled]="saving()"
-        (click)="save('PASS', judgement().hints)"
-        >Pass</ui-button
-      >
-      <ui-button
-        size="sm"
-        variant="secondary"
-        [pressed]="judgement().status === 'FAIL'"
-        [disabled]="saving()"
-        (click)="save('FAIL', judgement().hints)"
-        >Fail</ui-button
-      >
-    </div>
-    <div class="event-inline">
-      <span>Hints: {{ judgement().hints }}</span>
-      <ui-button
-        size="sm"
-        variant="ghost"
-        [disabled]="saving() || judgement().hints >= maxHints"
-        (click)="save(judgement().status, judgement().hints + 1)"
-        >Add hint</ui-button
-      >
-      <ui-button
-        size="sm"
-        variant="ghost"
-        [disabled]="saving() || judgement().hints <= 0"
-        (click)="save(judgement().status, judgement().hints - 1)"
-        >Remove hint</ui-button
-      >
-    </div>
-    @if (hintPenaltyMismatch()) {
-      <ui-alert variant="warning"
-        >The hint count does not match the active Hint penalties in this room.
-        Add or void a Hint penalty so the time penalty matches.</ui-alert
-      >
+  template: `@if (part() === "decision") {
+      <div class="event-inline decision">
+        <ui-status-chip [variant]="statusVariant()">{{
+          statusLabel()
+        }}</ui-status-chip>
+        <ui-button
+          size="sm"
+          variant="secondary"
+          [pressed]="judgement().status === 'PASS'"
+          [disabled]="saving()"
+          (click)="save('PASS', judgement().hints)"
+          >Pass</ui-button
+        >
+        <ui-button
+          size="sm"
+          variant="secondary"
+          [pressed]="judgement().status === 'FAIL'"
+          [disabled]="saving()"
+          (click)="save('FAIL', judgement().hints)"
+          >Fail</ui-button
+        >
+      </div>
+    } @else {
+      <div class="event-inline">
+        <span class="hints">Hints: {{ judgement().hints }}</span>
+        <ui-button
+          size="sm"
+          variant="ghost"
+          [disabled]="saving() || judgement().hints >= maxHints"
+          (click)="save(judgement().status, judgement().hints + 1)"
+          >Add hint</ui-button
+        >
+        <ui-button
+          size="sm"
+          variant="ghost"
+          [disabled]="saving() || judgement().hints <= 0"
+          (click)="save(judgement().status, judgement().hints - 1)"
+          >Remove hint</ui-button
+        >
+      </div>
+      @if (hintPenaltyMismatch()) {
+        <ui-alert variant="warning"
+          >The hint count does not match the active Hint penalties in this room.
+          Add or void a Hint penalty so the time penalty matches.</ui-alert
+        >
+      }
+      <span class="event-muted" aria-live="polite">{{ statusLine() }}</span>
     }
     @if (error(); as text) {
-      <ui-alert variant="error">{{ text }}</ui-alert>
-    }
-    <span class="event-muted" aria-live="polite">{{ statusLine() }}</span>`,
+      <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
+    }`,
 })
 export class EventJudgementControls {
   private readonly eventApi = inject(EventApi);
+  private readonly toasts = inject(ToastService);
 
   readonly roomId = input.required<number>();
   readonly judgement = input.required<JudgementView>();
   readonly hintPenaltyMismatch = input.required<boolean>();
+  readonly part = input<JudgementPart>("decision");
   /** A save finished (or conflicted): the page reloads its board. */
   readonly changed = output<void>();
 
@@ -126,6 +141,11 @@ export class EventJudgementControls {
         note: current.note,
         version: current.version,
       });
+      this.toasts.show(
+        hints === current.hints
+          ? `Decision saved: ${JUDGE_STATUS_LABELS[status]}`
+          : `Hints: ${hints}`,
+      );
     } catch (e) {
       this.error.set(describeSaveError(e));
     } finally {

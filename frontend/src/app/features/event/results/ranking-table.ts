@@ -2,15 +2,21 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
 } from "@angular/core";
 import { PublicRankingRow } from "../../../core/event/event-models";
+import { TeamDrawerService } from "../../../core/shell/team-drawer.service";
 import {
   formatAdjustedSeconds,
   formatPenaltyMinutes,
 } from "../../../core/event/format";
 
+/** The admin's rows also carry the team id, which lets the team name open the team drawer. */
+type RankingInput = PublicRankingRow & { teamId?: number };
+
 interface RankingLine {
+  teamId: number | null;
   rank: string;
   teamName: string;
   groupCode: string;
@@ -21,8 +27,9 @@ interface RankingLine {
 }
 
 /** Display text of one ranking row: rank "—" for teams still playing, "Disqualified" (never ranked). */
-function toRankingLine(row: PublicRankingRow): RankingLine {
+function toRankingLine(row: RankingInput): RankingLine {
   return {
+    teamId: row.teamId ?? null,
     rank: row.disqualified ? "Disqualified" : row.rank === null ? "—" : String(row.rank),
     teamName: row.teamName,
     groupCode: row.groupCode,
@@ -57,8 +64,20 @@ function toRankingLine(row: PublicRankingRow): RankingLine {
       <tbody>
         @for (line of lines(); track $index) {
           <tr [attr.data-team]="line.teamName">
-            <td>{{ line.rank }}</td>
-            <th scope="row">{{ line.teamName }}</th>
+            <td class="event-num" [class.ranking-table__podium]="line.rank === '1'">{{ line.rank }}</td>
+            <th scope="row">
+              @if (line.teamId !== null) {
+                <button
+                  type="button"
+                  class="event-link-button"
+                  (click)="drawer.open(line.teamId)"
+                >
+                  {{ line.teamName }}<span class="event-sr-only">: show details</span>
+                </button>
+              } @else {
+                {{ line.teamName }}
+              }
+            </th>
             <td>{{ line.groupCode }}</td>
             <td>{{ line.clues }}</td>
             <td>{{ line.penalties }}</td>
@@ -91,10 +110,17 @@ function toRankingLine(row: PublicRankingRow): RankingLine {
     .ranking-table__empty {
       color: var(--color-text-muted);
     }
+    .ranking-table__podium {
+      font-weight: var(--font-weight-bold);
+    }
+    td:nth-child(n + 4) {
+      font-variant-numeric: tabular-nums;
+    }
   `,
 })
 export class RankingTable {
-  readonly rows = input.required<readonly PublicRankingRow[]>();
+  protected readonly drawer = inject(TeamDrawerService);
+  readonly rows = input.required<readonly RankingInput[]>();
 
   protected readonly lines = computed(() => this.rows().map(toRankingLine));
 }

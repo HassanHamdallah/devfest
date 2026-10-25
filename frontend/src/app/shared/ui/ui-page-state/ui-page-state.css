@@ -6,15 +6,6 @@
   display: none;
 }
 
-.ui-page-state__loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-4);
-  color: var(--color-text-muted);
-}
-
 .ui-page-state__error {
   display: grid;
   justify-items: start;

@@ -18,12 +18,14 @@ import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
     .open-final {
       display: inline-flex;
       align-items: center;
-      min-height: 44px;
-      padding: 0 var(--space-4);
+      min-height: 52px;
+      padding: 0 var(--space-6);
+      font-size: var(--font-size-lg);
       font-weight: var(--font-weight-semibold);
       color: var(--color-on-primary);
       background: var(--color-primary);
-      border-radius: var(--radius-md);
+      border: var(--border-outline);
+      border-radius: var(--radius-full);
     }
     .open-final:hover {
       text-decoration: none;

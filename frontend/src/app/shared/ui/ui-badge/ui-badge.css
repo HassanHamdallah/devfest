@@ -11,7 +11,7 @@
 }
 
 :host(.ui-badge-host--neutral) {
-  background: var(--color-border);
+  background: var(--color-surface-subtle);
   color: var(--color-text-muted);
 }
 
@@ -27,7 +27,7 @@
 
 :host(.ui-badge-host--warning) {
   background: var(--color-warning-subtle);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 :host(.ui-badge-host--danger) {

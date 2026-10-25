@@ -1,0 +1,177 @@
+<section class="event-stack" aria-labelledby="teams-heading">
+  <h2 id="teams-heading">Teams</h2>
+  <details class="teams-section__bulk" open>
+    <summary>
+      <app-nav-icon name="chevron" [size]="18" />
+      Bulk generation
+    </summary>
+    <app-generate-teams-form
+      [organization]="organization()"
+      (changed)="changed.emit()"
+    />
+  </details>
+  <app-team-form
+    [organization]="organization()"
+    [team]="editingTeam()"
+    (saved)="stopEditing()"
+    (cancelled)="stopEditing()"
+  />
+  <div class="teams-section__filters" role="search" aria-label="Filter teams">
+    <ui-input
+      label="Search teams"
+      type="search"
+      placeholder="Name or email"
+      [compact]="true"
+      [ngModel]="query().search"
+      (ngModelChange)="setQuery({ search: $event })"
+    />
+    <ui-select
+      label="Filter by group"
+      [compact]="true"
+      [options]="groupOptions"
+      [ngModel]="query().group"
+      (ngModelChange)="setQuery({ group: $event })"
+    />
+    <ui-select
+      label="Filter by device"
+      [compact]="true"
+      [options]="deviceOptions"
+      [ngModel]="query().device"
+      (ngModelChange)="setQuery({ device: $event })"
+    />
+    <ui-select
+      label="Filter by status"
+      [compact]="true"
+      [options]="statusOptions"
+      [ngModel]="query().status"
+      (ngModelChange)="setQuery({ status: $event })"
+    />
+  </div>
+  <div class="teams-section__count">
+    <span class="event-muted event-num"
+      >Showing {{ rows().length }} of {{ organization().teams.length }} teams</span
+    >
+    @if (filtered()) {
+    <ui-button variant="ghost" size="sm" (click)="clearFilters()"
+      >Clear filters</ui-button
+    >
+    }
+  </div>
+  <div class="event-table-wrap">
+    <table>
+      <caption>
+        Teams
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" [attr.aria-sort]="ariaSort('name')">
+            <button type="button" class="teams-section__sort" (click)="sortBy('name')">
+              Team<span class="teams-section__arrow" aria-hidden="true">{{ ariaSort("name") === "descending" ? "↓" : ariaSort("name") ? "↑" : "↕" }}</span>
+            </button>
+          </th>
+          <th scope="col" [attr.aria-sort]="ariaSort('group')">
+            <button type="button" class="teams-section__sort" (click)="sortBy('group')">
+              Group<span class="teams-section__arrow" aria-hidden="true">{{ ariaSort("group") === "descending" ? "↓" : ariaSort("group") ? "↑" : "↕" }}</span>
+            </button>
+          </th>
+          <th scope="col">Member account</th>
+          <th scope="col">Status</th>
+          <th scope="col" [attr.aria-sort]="ariaSort('device')">
+            <button type="button" class="teams-section__sort" (click)="sortBy('device')">
+              Device<span class="teams-section__arrow" aria-hidden="true">{{ ariaSort("device") === "descending" ? "↓" : ariaSort("device") ? "↑" : "↕" }}</span>
+            </button>
+          </th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (team of rows(); track team.id) {
+        <tr [attr.data-team]="team.name">
+          <th scope="row">
+            <button
+              type="button"
+              class="event-link-button"
+              (click)="drawer.open(team.id)"
+            >
+              {{ team.name }}<span class="event-sr-only">: show details</span>
+            </button>
+          </th>
+          <td>{{ team.groupCode }}</td>
+          <td class="teams-section__email">{{ team.accountEmail }}</td>
+          <td>
+            <div class="teams-section__device">
+              @if (team.active) {
+              <ui-status-chip variant="success">Active</ui-status-chip>
+              } @else {
+              <ui-status-chip variant="warning">Inactive</ui-status-chip>
+              } @if (team.disqualified) {
+              <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+              } @if (team.exceptionRoom) {
+              <ui-status-chip variant="accent"
+                >Exception: {{ roomName(team) }}</ui-status-chip
+              >
+              }
+            </div>
+          </td>
+          <td>
+            <div class="teams-section__device">
+              @if (team.signedIn) {
+              <ui-status-chip variant="success">Signed in</ui-status-chip>
+              } @else {
+              <ui-status-chip>Not signed in</ui-status-chip>
+              } @if (lastSeen(team); as seen) {
+              <span class="event-muted event-num">last seen {{ seen }}</span>
+              }
+            </div>
+          </td>
+          <td>
+            <div class="event-inline teams-section__actions">
+              <ui-button variant="secondary" size="sm" (click)="edit(team)"
+                >Edit</ui-button
+              >
+              <ui-button
+                variant="ghost"
+                size="sm"
+                [disabled]="signOut.busy()"
+                (click)="signingOut.set(team)"
+                >Sign out team</ui-button
+              >
+              <details class="team-menu">
+                <summary [attr.aria-label]="'Overrides for ' + team.name">…</summary>
+                <ul>
+                  @for (item of menu; track item.fragment) {
+                  <li>
+                    <a
+                      routerLink="/event/admin/overrides"
+                      [queryParams]="{ team: team.id }"
+                      [fragment]="item.fragment"
+                      >{{ item.label }}</a
+                    >
+                  </li>
+                  }
+                </ul>
+              </details>
+            </div>
+          </td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="6" class="event-muted">
+            {{ organization().teams.length ? "No teams match these filters." : "No teams yet. Generate them above." }}
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <app-action-status [state]="signOut" />
+  <ui-confirm-dialog
+    [open]="signingOut() !== null"
+    [title]="'Sign out ' + (signingOut()?.name ?? '') + '?'"
+    message="The team's device is signed out at its next request and shows that an organizer signed it out. The team can sign in again."
+    confirmVariant="danger"
+    [busy]="signOut.busy()"
+    (confirmed)="confirmSignOut()"
+    (cancelled)="closeSignOut()"
+  />
+</section>

@@ -8,6 +8,7 @@
   inline-size: 100%;
 }
 
+/* Capsules with a dark outline, like the shapes in the GDG logo. */
 .ui-button-el {
   position: relative;
   display: inline-flex;
@@ -16,27 +17,28 @@
   gap: var(--space-2);
   inline-size: 100%;
   min-block-size: 44px;
-  padding-inline: var(--space-4);
+  padding-inline: var(--space-5);
   font-family: var(--font-family-base);
   font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
   text-align: center;
   text-decoration: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition:
-    background-color 0.15s,
-    border-color 0.15s,
-    color 0.15s;
+    background-color var(--duration-fast),
+    border-color var(--duration-fast),
+    color var(--duration-fast);
 }
 
 .ui-button-el:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  box-shadow: var(--focus-shadow);
 }
 
 .ui-button-el:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -51,7 +53,7 @@
 
 /* Sizes: block-size floor stays 44px for the touch target; padding/font shrink. */
 .ui-button-el--sm {
-  padding-inline: var(--space-3);
+  padding-inline: var(--space-4);
   font-size: var(--font-size-sm);
 }
 
@@ -60,6 +62,7 @@
 }
 
 .ui-button-el--lg {
+  min-block-size: 52px;
   padding-inline: var(--space-6);
   font-size: var(--font-size-lg);
 }
@@ -67,6 +70,7 @@
 /* Variants */
 .ui-button-el--primary {
   background: var(--color-primary);
+  border-color: var(--color-outline);
   color: var(--color-on-primary);
 }
 
@@ -80,12 +84,12 @@
 
 .ui-button-el--secondary {
   background: var(--color-surface);
-  color: var(--color-primary-text);
-  border-color: var(--color-border);
+  border: var(--border-outline-thin);
+  color: var(--color-text);
 }
 
 .ui-button-el--secondary:hover:not(:disabled) {
-  background: var(--color-primary-subtle);
+  background: var(--color-surface-subtle);
 }
 
 .ui-button-el--ghost {
@@ -99,11 +103,23 @@
 
 .ui-button-el--danger {
   background: var(--color-error-solid);
+  border-color: var(--color-outline);
   color: var(--color-on-error);
 }
 
 .ui-button-el--danger:hover:not(:disabled) {
-  filter: brightness(0.92);
+  background: color-mix(in srgb, var(--color-error-solid) 86%, var(--color-outline));
+}
+
+/* Toggle buttons (filters, verdicts, Pass/Fail): the chosen one is filled with ink. */
+.ui-button-el[aria-pressed="true"] {
+  background: var(--color-text);
+  border-color: var(--color-outline);
+  color: var(--color-surface);
+}
+
+.ui-button-el[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--color-text);
 }
 
 /* Loading: label stays laid out (just hidden) so the button never resizes. */

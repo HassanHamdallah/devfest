@@ -1,0 +1,53 @@
+<dialog
+  #dialogEl
+  class="quick-jump"
+  aria-labelledby="quick-jump-title"
+  (cancel)="handleCancel($event)"
+  (click)="handleBackdrop($event)"
+>
+  <div class="quick-jump__panel">
+    <h2 id="quick-jump-title" class="event-sr-only">Quick jump</h2>
+    <div class="quick-jump__search">
+      <app-nav-icon name="search" />
+      <input
+        #searchEl
+        type="text"
+        role="combobox"
+        aria-label="Search pages, rooms and teams"
+        aria-autocomplete="list"
+        aria-controls="quick-jump-results"
+        [attr.aria-expanded]="results().length > 0"
+        [attr.aria-activedescendant]="activeId()"
+        placeholder="Search pages, rooms and teams"
+        autocomplete="off"
+        [value]="query()"
+        (input)="search(searchEl.value)"
+        (keydown)="handleKey($event)"
+      />
+      <kbd>Esc</kbd>
+    </div>
+    <ul id="quick-jump-results" role="listbox" aria-label="Results">
+      @for (item of results(); track item.key; let index = $index) {
+      <li
+        role="option"
+        [id]="'quick-jump-' + index"
+        [attr.aria-selected]="index === active()"
+        [class.quick-jump__item--active]="index === active()"
+        (mousemove)="active.set(index)"
+        (click)="choose(item)"
+      >
+        @if (item.roomCode) {
+        <ui-room-chip size="sm" [code]="item.roomCode" [name]="item.label" />
+        } @else {
+        <span class="quick-jump__label">{{ item.label }}</span>
+        }
+        <span class="quick-jump__hint">{{ item.hint }}</span>
+      </li>
+      } @empty {
+      <li class="quick-jump__empty" role="option" aria-disabled="true">
+        No page, room or team matches “{{ query() }}”.
+      </li>
+      }
+    </ul>
+  </div>
+</dialog>

@@ -20,36 +20,44 @@
       [(ngModel)]="clueAnswer"
     />
     @if (validationError(); as text) {
-    <ui-alert variant="error">{{ text }}</ui-alert>
+    <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
     }
-    <div>
-      <ui-button type="submit" [loading]="attempt.sending()"
-        >Submit answer</ui-button
-      >
-    </div>
+    <ui-button
+      type="submit"
+      size="lg"
+      [fullWidth]="true"
+      [loading]="attempt.sending()"
+      >Submit answer</ui-button
+    >
   </form>
   } @else {
-  <p>{{ state.reason }}</p>
+  <p class="closed-reason">{{ state.reason }}</p>
   } }
   <event-attempt-status [attempt]="attempt" (retry)="retry()" />
   @if (shownReceipt(); as saved) {
   <section
     class="receipt"
+    [class.receipt--correct]="saved.clueCorrect"
     aria-labelledby="submission-receipt-heading"
     aria-live="polite"
   >
-    <h3 id="submission-receipt-heading">Receipt</h3>
-    <span>ID: <code>{{ saved.id }}</code></span>
-    <span>Received at {{ receiptTime() }}</span>
-    <div>
+    <div class="receipt__head">
+      <h3 id="submission-receipt-heading">Receipt</h3>
       <ui-status-chip [variant]="saved.clueCorrect ? 'success' : 'danger'"
         >{{ saved.clueCorrect ? "Correct" : "Incorrect — try again"
         }}</ui-status-chip
       >
     </div>
     @if (saved.updatedAfterReview) {
-    <span class="event-muted">Updated after review</span>
+    <span class="receipt__review">Updated after review</span>
     }
+    <dl class="receipt__facts">
+      <dt>Received at</dt>
+      <dd class="event-num">{{ receiptTime() }}</dd>
+      <dt>ID</dt>
+      <dd><code>{{ saved.id }}</code></dd>
+    </dl>
+    <ui-copy-button [text]="saved.id" label="Copy receipt ID" />
   </section>
   }
 </ui-card>

@@ -1,27 +1,20 @@
 <ui-page-state
   [loading]="loader.loading()"
   loadingLabel="Loading your team…"
+  [skeletonCards]="2"
   [error]="loader.initialError()"
   (retry)="reloadAll()"
 />
 @if (board(); as view) {
-<header class="event-page-header">
-  <h1>{{ view.teamName }}</h1>
-  <div class="event-page-header__meta">
-    <ui-status-chip>Group {{ view.groupCode }}</ui-status-chip>
-    <ui-countdown [clock]="view.clock" />
-  </div>
-</header>
-<div class="event-stack">
+<div class="event-stack team-home">
+  <event-team-hero
+    [board]="view"
+    [roomLine]="roomLine()"
+    [cluesLine]="cluesLine()"
+  />
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reloadAll()" />
   }
-  <div>
-    <p>{{ roomLine() }}</p>
-    <p>
-      <strong>{{ cluesLine() }}</strong>
-    </p>
-  </div>
   <event-room-submission-panel [board]="view" (changed)="reloadAll()" />
   <section aria-labelledby="team-rooms-heading">
     <h2 id="team-rooms-heading">Rooms</h2>

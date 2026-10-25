@@ -11,190 +11,58 @@ import {
   signal,
   viewChild,
 } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 import { EventApi } from "../../../../core/event/event-api";
 import { Organization, TeamView } from "../../../../core/event/event-models";
+import { NavIcon } from "../../../../core/shell/nav-icon";
+import {
+  TEAM_OVERRIDE_LINKS,
+  TeamDrawerService,
+} from "../../../../core/shell/team-drawer.service";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiConfirmDialog } from "../../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
+import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
+import { UiSelect } from "../../../../shared/ui/ui-select/ui-select";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { ActionState } from "../shared/action-state";
 import { ActionStatus } from "../shared/action-status";
 import { GenerateTeamsForm } from "./generate-teams-form";
 import { TeamForm } from "./team-form";
-import { lastSeenLabel } from "./teams-view";
+import {
+  DEFAULT_TEAM_QUERY,
+  DEVICE_FILTER_OPTIONS,
+  GROUP_FILTER_OPTIONS,
+  STATUS_FILTER_OPTIONS,
+  TeamSortKey,
+  TeamTableQuery,
+  lastSeenLabel,
+  visibleTeams,
+} from "./teams-view";
 
 /**
- * Teams table (`data-team="<name>"` rows) with bulk generation and one create/edit form above it. Each
- * row shows whether the team's device is signed in and can sign it out.
+ * Teams table (`data-team="<name>"` rows) with search, filters and sortable columns, bulk generation in a
+ * collapsible panel, and one create/edit form. Each row shows whether the team's device is signed in and can
+ * sign it out; the team name opens the team drawer.
  */
 @Component({
   selector: "app-teams-section",
   imports: [
     ActionStatus,
+    FormsModule,
     GenerateTeamsForm,
+    NavIcon,
     RouterLink,
     TeamForm,
     UiButton,
     UiConfirmDialog,
+    UiInput,
+    UiSelect,
     UiStatusChip,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<section class="event-stack" aria-labelledby="teams-heading">
-    <h2 id="teams-heading">Teams</h2>
-    <app-generate-teams-form
-      [organization]="organization()"
-      (changed)="changed.emit()"
-    />
-    <app-team-form
-      [organization]="organization()"
-      [team]="editingTeam()"
-      (saved)="stopEditing()"
-      (cancelled)="stopEditing()"
-    />
-    <div class="event-table-wrap">
-      <table>
-        <caption>
-          Teams
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Team</th>
-            <th scope="col">Group</th>
-            <th scope="col">Member account</th>
-            <th scope="col">Status</th>
-            <th scope="col">Device</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (team of organization().teams; track team.id) {
-            <tr [attr.data-team]="team.name">
-              <th scope="row">{{ team.name }}</th>
-              <td>{{ team.groupCode }}</td>
-              <td>{{ team.accountEmail }}</td>
-              <td>
-                <div class="teams-section__device">
-                  @if (team.active) {
-                    <ui-status-chip variant="success">Active</ui-status-chip>
-                  } @else {
-                    <ui-status-chip variant="warning">Inactive</ui-status-chip>
-                  }
-                  @if (team.disqualified) {
-                    <ui-status-chip variant="danger">Disqualified</ui-status-chip>
-                  }
-                  @if (team.exceptionRoom) {
-                    <ui-status-chip variant="accent">Exception: {{ roomName(team) }}</ui-status-chip>
-                  }
-                </div>
-              </td>
-              <td>
-                <div class="teams-section__device">
-                  @if (team.signedIn) {
-                    <ui-status-chip variant="success">Signed in</ui-status-chip>
-                  } @else {
-                    <ui-status-chip>Not signed in</ui-status-chip>
-                  }
-                  @if (lastSeen(team); as seen) {
-                    <span class="event-muted">last seen {{ seen }}</span>
-                  }
-                </div>
-              </td>
-              <td>
-                <div class="event-inline">
-                  <ui-button variant="secondary" size="sm" (click)="edit(team)"
-                    >Edit</ui-button
-                  >
-                  <ui-button
-                    variant="ghost"
-                    size="sm"
-                    [disabled]="signOut.busy()"
-                    (click)="signingOut.set(team)"
-                    >Sign out team</ui-button
-                  >
-                  <details class="team-menu">
-                    <summary [attr.aria-label]="'Overrides for ' + team.name">…</summary>
-                    <ul>
-                      @for (item of menu; track item.fragment) {
-                        <li>
-                          <a
-                            routerLink="/event/admin/overrides"
-                            [queryParams]="{ team: team.id }"
-                            [fragment]="item.fragment"
-                            >{{ item.label }}</a
-                          >
-                        </li>
-                      }
-                    </ul>
-                  </details>
-                </div>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="event-muted">No teams yet.</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <app-action-status [state]="signOut" />
-    <ui-confirm-dialog
-      [open]="signingOut() !== null"
-      [title]="'Sign out ' + (signingOut()?.name ?? '') + '?'"
-      message="The team's device is signed out at its next request and shows that an organizer signed it out. The team can sign in again."
-      confirmVariant="danger"
-      [busy]="signOut.busy()"
-      (confirmed)="confirmSignOut()"
-      (cancelled)="closeSignOut()"
-    />
-  </section>`,
-  styles: `
-    h2 {
-      margin: 0;
-    }
-    .event-stack {
-      gap: var(--space-4);
-    }
-    .teams-section__device {
-      display: grid;
-      justify-items: start;
-      gap: var(--space-1);
-      font-size: var(--font-size-sm);
-    }
-    td:last-child {
-      white-space: nowrap;
-    }
-    .team-menu {
-      position: relative;
-    }
-    .team-menu summary {
-      padding: 0 var(--space-2);
-      cursor: pointer;
-      list-style: none;
-      font-weight: var(--font-weight-semibold);
-    }
-    .team-menu ul {
-      position: absolute;
-      right: 0;
-      z-index: 2;
-      display: grid;
-      gap: var(--space-1);
-      min-width: 12rem;
-      margin: 0;
-      padding: var(--space-2) var(--space-3);
-      list-style: none;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-card);
-      box-shadow: var(--shadow-lg);
-    }
-    th[scope="row"] {
-      font-size: inherit;
-      letter-spacing: normal;
-      color: var(--color-text);
-      background: none;
-    }
-  `,
+  templateUrl: "./teams-section.html",
+  styleUrl: "./teams-section.css",
 })
 export class TeamsSection {
   readonly organization = input.required<Organization>();
@@ -202,6 +70,7 @@ export class TeamsSection {
 
   private readonly eventApi = inject(EventApi);
   private readonly injector = inject(Injector);
+  protected readonly drawer = inject(TeamDrawerService);
   protected readonly signOut = new ActionState();
   /** The team whose sign-out awaits confirmation. */
   protected readonly signingOut = signal<TeamView | null>(null);
@@ -211,6 +80,43 @@ export class TeamsSection {
     const id = this.editingId();
     return this.organization().teams.find((team) => team.id === id) ?? null;
   });
+
+  protected readonly groupOptions = GROUP_FILTER_OPTIONS;
+  protected readonly deviceOptions = DEVICE_FILTER_OPTIONS;
+  protected readonly statusOptions = STATUS_FILTER_OPTIONS;
+  protected readonly query = signal<TeamTableQuery>(DEFAULT_TEAM_QUERY);
+  protected readonly rows = computed(() =>
+    visibleTeams(this.organization().teams, this.query()),
+  );
+  protected readonly filtered = computed(
+    () => this.rows().length !== this.organization().teams.length,
+  );
+
+  /** Entries of the row's "…" menu: the matching section of the Overrides page with this team preselected. */
+  protected readonly menu = TEAM_OVERRIDE_LINKS;
+
+  protected setQuery(change: Partial<TeamTableQuery>): void {
+    this.query.update((query) => ({ ...query, ...change }));
+  }
+
+  protected clearFilters(): void {
+    const { sort, descending } = this.query();
+    this.query.set({ ...DEFAULT_TEAM_QUERY, sort, descending });
+  }
+
+  protected sortBy(sort: TeamSortKey): void {
+    this.query.update((query) => ({
+      ...query,
+      sort,
+      descending: query.sort === sort ? !query.descending : false,
+    }));
+  }
+
+  protected ariaSort(key: TeamSortKey): "ascending" | "descending" | null {
+    const { sort, descending } = this.query();
+    if (sort !== key) return null;
+    return descending ? "descending" : "ascending";
+  }
 
   protected edit(team: TeamView): void {
     this.editingId.set(team.id);
@@ -222,17 +128,6 @@ export class TeamsSection {
       { injector: this.injector },
     );
   }
-
-  /** Entries of the row's "…" menu: the matching section of the Overrides page with this team preselected. */
-  protected readonly menu = [
-    { label: "Swap with…", fragment: "swap" },
-    { label: "Move to group…", fragment: "move" },
-    { label: "Room exception…", fragment: "room-exception" },
-    { label: "Grant/Revoke clue…", fragment: "clue" },
-    { label: "Time adjustment…", fragment: "time-adjustment" },
-    { label: "Disqualify/Reinstate…", fragment: "disqualify" },
-    { label: "Reset team…", fragment: "reset-team" },
-  ];
 
   protected roomName(team: TeamView): string {
     return this.organization().rooms.find((room) => room.code === team.exceptionRoom)?.name ?? "";

@@ -6,6 +6,9 @@
   padding: var(--space-8) var(--space-4);
   text-align: center;
   color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-card);
 }
 
 .ui-empty-state__icon {
@@ -19,13 +22,13 @@
 .ui-empty-state__title {
   margin: 0;
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text);
 }
 
 .ui-empty-state__description {
   margin: 0;
-  max-inline-size: 40ch;
+  max-inline-size: 44ch;
   font-size: var(--font-size-sm);
 }
 

@@ -25,7 +25,7 @@
 }
 
 .ui-card__body {
-  padding: var(--space-card-inline);
+  padding: var(--space-3) var(--space-card-inline) var(--space-card-inline);
 }
 
 .ui-card__footer {

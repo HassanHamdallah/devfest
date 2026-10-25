@@ -1,5 +1,12 @@
-import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  untracked,
+} from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
+import { EventLiveStore } from "../../../core/event/event-live-store";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
@@ -81,6 +88,11 @@ export class EventAdminTeamsPage {
   );
 
   constructor() {
+    const live = inject(EventLiveStore);
+    effect(() => {
+      const organization = this.organization.data();
+      if (organization) untracked(() => live.publishOrganization(organization));
+    });
     reloadOnRevisionChange(() => this.reload());
     this.reload();
   }

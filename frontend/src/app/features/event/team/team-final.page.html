@@ -2,20 +2,36 @@
 <ui-page-state
   [loading]="loader.loading()"
   loadingLabel="Loading the final…"
+  [skeletonCards]="1"
   [error]="loader.initialError()"
   (retry)="reload()"
 />
 @if (final(); as view) {
-<div class="event-stack">
+<div class="event-stack final">
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
-  } @switch (view.stage) { @case ("LOCKED") {
+  }
+  @if (step(); as current) {
+  <ol class="final-steps" aria-label="Final steps">
+    @for (label of steps; track label; let index = $index) {
+    <li
+      [class.final-steps__done]="index + 1 < current"
+      [class.final-steps__now]="index + 1 === current"
+      [attr.aria-current]="index + 1 === current ? 'step' : null"
+    >
+      <span class="final-steps__number" aria-hidden="true">{{ index + 1 }}</span>
+      {{ label }}
+    </li>
+    }
+  </ol>
+  }
+  @switch (view.stage) { @case ("LOCKED") {
   <ui-card>
-    <div class="event-inline">
+    <div class="final-state">
       <ui-status-chip variant="warning">Locked</ui-status-chip>
+      <p class="final-state__title">The final opens for all teams at the same time.</p>
+      <p class="event-muted">{{ cluesLine() }}</p>
     </div>
-    <p>The final opens for all teams at the same time.</p>
-    <p class="event-muted">{{ cluesLine() }}</p>
   </ui-card>
   } @case ("NOT_ENOUGH_CLUES") {
   <ui-card>
@@ -34,11 +50,11 @@
   <event-final-finished [final]="view" />
   } @case ("CLOSED") {
   <ui-card>
-    <div class="event-inline">
+    <div class="final-state">
       <ui-status-chip variant="warning">Closed</ui-status-chip>
+      <p class="final-state__title">The final is closed.</p>
+      <p class="event-muted">No more answers or accusations are accepted.</p>
     </div>
-    <p>The final is closed.</p>
-    <p class="event-muted">No more answers or accusations are accepted.</p>
   </ui-card>
   } }
 </div>

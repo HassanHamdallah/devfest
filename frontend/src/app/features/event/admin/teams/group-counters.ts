@@ -25,9 +25,9 @@ import { groupCounters } from "./teams-view";
       [organization]="organization()"
       (changed)="changed.emit()"
     />
-    <div class="event-grid event-grid--metrics">
+    <ul class="group-counters" aria-label="Active teams per group">
       @for (group of counters(); track group.groupCode) {
-        <div
+        <li
           class="group-counter"
           role="group"
           [attr.aria-label]="'Group ' + group.groupCode"
@@ -39,9 +39,9 @@ import { groupCounters } from "./teams-view";
           <ui-status-chip [variant]="group.variant">{{
             group.hint
           }}</ui-status-chip>
-        </div>
+        </li>
       }
-    </div>
+    </ul>
     @if (organization().warnings.length) {
       <ui-alert variant="warning" class="group-warnings">
         <ul>
@@ -56,24 +56,34 @@ import { groupCounters } from "./teams-view";
     h2 {
       margin: 0 0 var(--space-3);
     }
+    .group-counters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
     .group-counter {
-      display: grid;
-      justify-items: start;
-      gap: var(--space-1);
-      padding: var(--space-4);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-block-size: 44px;
+      padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
       background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-card);
+      border: var(--border-outline-thin);
+      border-radius: var(--radius-full);
     }
     .group-counter--warning {
-      border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
+      background: var(--color-error-subtle);
     }
     .group-counter__label {
       font-size: var(--font-size-sm);
-      color: var(--color-text-muted);
+      font-weight: var(--font-weight-semibold);
     }
     .group-counter__value {
-      font-size: var(--font-size-xl);
+      font-size: var(--font-size-lg);
+      font-variant-numeric: tabular-nums;
     }
     app-planned-teams-form {
       display: block;

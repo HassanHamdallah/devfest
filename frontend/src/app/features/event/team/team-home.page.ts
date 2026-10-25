@@ -7,29 +7,35 @@ import {
 import { EventApi } from "../../../core/event/event-api";
 import { Receipt, TeamBoard } from "../../../core/event/event-models";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
-import { UiCountdown } from "../../../shared/ui/ui-countdown/ui-countdown";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
-import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../manager/board-loader";
 import { EventRefreshError } from "../manager/refresh-error";
 import { EventRoomSubmissionPanel } from "./room-submission-panel";
 import { currentRoomLine } from "./submission-availability";
 import { EventTeamAnswerHistory } from "./team-answer-history";
 import { EventTeamFinalCard } from "./team-final-card";
+import { EventTeamHero } from "./team-hero";
 import { EventTeamRoomCard } from "./team-room-card";
 
-/** /event/team: the team's rooms, the answer form for the current room, receipts and the way to the final. */
+/**
+ * /event/team: where the team must be now and its clues on top, the answer form for the current room right
+ * under it, then the four rooms, the way to the final and the answer history.
+ */
 @Component({
   imports: [
     EventRefreshError,
     EventRoomSubmissionPanel,
     EventTeamAnswerHistory,
     EventTeamFinalCard,
+    EventTeamHero,
     EventTeamRoomCard,
-    UiCountdown,
     UiPageState,
-    UiStatusChip,
   ],
+  styles: `
+    .team-home {
+      gap: var(--space-5);
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: "./team-home.page.html",
 })

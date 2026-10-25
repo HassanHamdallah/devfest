@@ -1,7 +1,7 @@
 @if (loading()) {
-<div class="ui-page-state__loading">
-  <ui-spinner />
-  <span aria-hidden="true">{{ loadingLabel() }}</span>
+<div class="ui-page-state__loading" role="status">
+  <span class="event-sr-only">{{ loadingLabel() }}</span>
+  <ui-skeleton [cards]="skeletonCards()" [lines]="3" />
 </div>
 } @else if (error(); as text) {
 <div class="ui-page-state__error">

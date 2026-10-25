@@ -2,16 +2,17 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
-import { roundStatusLabel } from "../../../core/event/format";
+import { EventLiveStore } from "../../../core/event/event-live-store";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
-import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { AlertsList } from "./control/alerts-list";
 import { ControlBar } from "./control/control-bar";
 import {
@@ -22,7 +23,6 @@ import {
   performControlAction,
   successNotice,
 } from "./control/control-actions";
-import { finalStatus } from "./control/control-view";
 import { RankingPanel } from "./control/ranking-panel";
 import { RoomCards } from "./control/room-cards";
 import { RoundTimerPanel } from "./control/round-timer-panel";
@@ -52,22 +52,9 @@ const NO_CONFIRMATION: ConfirmationCopy = {
     UiAlert,
     UiConfirmDialog,
     UiPageState,
-    UiStatusChip,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: "./admin-control.page.html",
-  styles: `
-    .control-title {
-      gap: var(--space-2);
-    }
-    .control-title h1 {
-      margin: 0;
-    }
-    .control-round {
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-text);
-    }
-  `,
 })
 export class EventAdminControlPage {
   private readonly eventApi = inject(EventApi);
@@ -78,14 +65,6 @@ export class EventAdminControlPage {
   protected readonly roomError = signal<RoomActionError | null>(null);
   private readonly pendingAction = signal<ControlAction | null>(null);
 
-  protected readonly roundLabel = computed(() => {
-    const board = this.board.data();
-    return board ? roundStatusLabel(board.state.currentRound) : "";
-  });
-  protected readonly finalChip = computed(() => {
-    const board = this.board.data();
-    return board ? finalStatus(board.state) : null;
-  });
   protected readonly confirmOpen = computed(
     () => this.pendingAction() !== null,
   );
@@ -95,6 +74,11 @@ export class EventAdminControlPage {
   });
 
   constructor() {
+    const live = inject(EventLiveStore);
+    effect(() => {
+      const board = this.board.data();
+      if (board) untracked(() => live.publishAdminBoard(board));
+    });
     reloadOnRevisionChange(() => this.reload());
     this.reload();
   }

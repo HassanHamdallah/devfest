@@ -48,6 +48,73 @@ export function groupCounters(org: Organization): GroupCounter[] {
   });
 }
 
+export type TeamSortKey = "name" | "group" | "device";
+export type TeamDeviceFilter = "" | "signed-in" | "signed-out";
+export type TeamStatusFilter = "" | "disqualified" | "playing";
+
+export interface TeamTableQuery {
+  search: string;
+  group: string;
+  device: TeamDeviceFilter;
+  status: TeamStatusFilter;
+  sort: TeamSortKey;
+  descending: boolean;
+}
+
+export const DEFAULT_TEAM_QUERY: TeamTableQuery = {
+  search: "",
+  group: NO_SELECTION,
+  device: "",
+  status: "",
+  sort: "name",
+  descending: false,
+};
+
+export const GROUP_FILTER_OPTIONS: readonly UiSelectOption[] = [
+  { value: NO_SELECTION, label: "All groups" },
+  ...GROUP_OPTIONS,
+];
+
+export const DEVICE_FILTER_OPTIONS: readonly UiSelectOption[] = [
+  { value: "", label: "Any device" },
+  { value: "signed-in", label: "Signed in" },
+  { value: "signed-out", label: "Not signed in" },
+];
+
+export const STATUS_FILTER_OPTIONS: readonly UiSelectOption[] = [
+  { value: "", label: "Any status" },
+  { value: "disqualified", label: "Disqualified" },
+  { value: "playing", label: "Not disqualified" },
+];
+
+const TEAM_SORTERS: Record<TeamSortKey, (a: TeamView, b: TeamView) => number> = {
+  name: (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }),
+  group: (a, b) => a.groupCode.localeCompare(b.groupCode),
+  device: (a, b) => Number(b.signedIn) - Number(a.signedIn),
+};
+
+/** The teams table after search, filters and sorting (ties keep name order). */
+export function visibleTeams(
+  teams: readonly TeamView[],
+  query: TeamTableQuery,
+): TeamView[] {
+  const text = query.search.trim().toLowerCase();
+  const rows = teams.filter(
+    (team) =>
+      (!text ||
+        team.name.toLowerCase().includes(text) ||
+        team.accountEmail.toLowerCase().includes(text)) &&
+      (!query.group || team.groupCode === query.group) &&
+      (!query.device || team.signedIn === (query.device === "signed-in")) &&
+      (!query.status || team.disqualified === (query.status === "disqualified")),
+  );
+  const compare = TEAM_SORTERS[query.sort];
+  const direction = query.descending ? -1 : 1;
+  return rows.sort(
+    (a, b) => direction * compare(a, b) || TEAM_SORTERS.name(a, b),
+  );
+}
+
 /** "14:05" from an ISO instant; null when the team was never seen. */
 export function lastSeenLabel(iso: string | null): string | null {
   if (!iso) return null;

@@ -8,23 +8,14 @@ import {
 import { EventStateView } from "../../../../core/event/event-models";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { ControlAction } from "./control-actions";
-import {
-  nextRoundBlockReason,
-  nextRoundLabel,
-  openFinalBlockReason,
-} from "./control-view";
+import { openFinalBlockReason } from "./control-view";
 
-/** Header actions: "Next round" (absolute current+1, so a double click cannot skip) and the final. */
+/** Header action for the final: "Open final" (once) or "Close final"; kept away from the round buttons. */
 @Component({
   selector: "app-control-bar",
   imports: [UiButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<div class="event-page-header__actions">
-      <ui-button
-        [disabled]="!!nextRoundReason() || busy()"
-        (click)="nextRound()"
-        >Next round</ui-button
-      >
       @if (state().finalOpen) {
         <ui-button variant="danger" [disabled]="busy()" (click)="closeFinal()"
           >Close final</ui-button
@@ -38,12 +29,9 @@ import {
         >
       }
     </div>
-    <p class="control-bar__reasons event-muted">
-      <span>{{ nextRoundReason() ?? nextRoundHint() }}</span>
-      @if (openFinalReason(); as reason) {
-        <span>{{ reason }}</span>
-      }
-    </p>`,
+    @if (openFinalReason(); as reason) {
+      <p class="control-bar__reasons event-muted">{{ reason }}</p>
+    }`,
   styles: `
     :host {
       display: grid;
@@ -51,9 +39,6 @@ import {
       gap: var(--space-1);
     }
     .control-bar__reasons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0 var(--space-3);
       margin: 0;
       font-size: var(--font-size-sm);
     }
@@ -69,26 +54,9 @@ export class ControlBar {
   readonly busy = input(false);
   readonly action = output<ControlAction>();
 
-  protected readonly nextRoundReason = computed(() =>
-    nextRoundBlockReason(this.state()),
-  );
-  protected readonly nextRoundHint = computed(() =>
-    nextRoundLabel(this.state()),
-  );
   protected readonly openFinalReason = computed(() =>
     openFinalBlockReason(this.state()),
   );
-
-  protected nextRound(): void {
-    if (this.nextRoundReason() || this.busy()) return;
-    const state = this.state();
-    const timeLeft = state.phase === "RUNNING" || state.phase === "PAUSED";
-    this.action.emit({
-      kind: "setRound",
-      round: state.currentRound + 1,
-      secondsLeft: timeLeft ? state.remainingSeconds : null,
-    });
-  }
 
   protected openFinal(): void {
     if (!this.openFinalReason() && !this.busy())

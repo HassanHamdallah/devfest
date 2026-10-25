@@ -1,0 +1,38 @@
+<div class="hero__top">
+  <h1>{{ board().teamName }}</h1>
+  <div class="event-inline">
+    <ui-status-chip>Group {{ board().groupCode }}</ui-status-chip>
+    <ui-countdown [clock]="board().clock" />
+  </div>
+</div>
+
+<div class="where" [class]="toneClass()">
+  <span class="where__capsule" aria-hidden="true"></span>
+  <div class="where__text">
+    @if (title(); as text) {
+    <p class="where__title">{{ text }}</p>
+    }
+    <p class="where__line">{{ roomLine() }}</p>
+    @if (phaseText(); as phase) {
+    <span class="where__phase">{{ phase }}</span>
+    }
+  </div>
+</div>
+
+<div class="clues">
+  <ul class="clues__list" aria-label="Clues by room">
+    @for (room of clues(); track room.roomId) {
+    <li
+      [class]="'clue room-tone--' + room.code"
+      [class.clue--held]="room.clueCollected"
+    >
+      <span class="clue__dot" aria-hidden="true"></span>
+      {{ room.name }}
+      <span class="event-sr-only">{{
+        room.clueCollected ? ": clue collected" : ": no clue yet"
+      }}</span>
+    </li>
+    }
+  </ul>
+  <strong class="clues__count">{{ cluesLine() }}</strong>
+</div>

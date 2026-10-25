@@ -1,0 +1,81 @@
+<ui-drawer
+  [open]="drawer.teamId() !== null"
+  [heading]="heading()"
+  closeLabel="Close team details"
+  (closed)="drawer.close()"
+>
+  @if (summary(); as s) {
+  <div class="team-drawer">
+    <div class="event-inline">
+      <ui-status-chip>Group {{ s.team.groupCode }}</ui-status-chip>
+      @if (s.team.signedIn) {
+      <ui-status-chip variant="success">Signed in</ui-status-chip>
+      } @else {
+      <ui-status-chip>Not signed in</ui-status-chip>
+      } @if (!s.team.active) {
+      <ui-status-chip variant="warning">Inactive</ui-status-chip>
+      } @if (s.team.disqualified) {
+      <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+      } @if (s.team.exceptionRoom) {
+      <ui-status-chip variant="accent">Room exception</ui-status-chip>
+      }
+    </div>
+    <dl class="team-drawer__facts">
+      <dt>This round</dt>
+      <dd>
+        @if (s.room; as room) {
+        <ui-room-chip [code]="room.code" [name]="room.name" />
+        <a [routerLink]="['/event/room', room.id]">Open the {{ room.name }} board</a>
+        } @else {
+        <span class="event-muted">No room right now</span>
+        }
+      </dd>
+      <dt>Clues</dt>
+      <dd>
+        @if (s.ranking; as rank) {
+        <span class="team-drawer__clues" aria-hidden="true">
+          @for (slot of [0, 1, 2, 3]; track slot) {
+          <span
+            class="team-drawer__clue"
+            [class.team-drawer__clue--held]="slot < rank.clues"
+          ></span>
+          }
+        </span>
+        <span class="event-num">{{ rank.clues }} of 4</span>
+        } @else { — }
+      </dd>
+      <dt>Penalties</dt>
+      <dd class="event-num">{{ penaltyText() }}</dd>
+      <dt>Last seen</dt>
+      <dd class="event-num">{{ s.team.lastSeenAt ? (s.team.lastSeenAt | date: "HH:mm") : "Never" }}</dd>
+      @if (s.flags; as flags) { @if (flags.manualClues) {
+      <dt>Manual clues</dt>
+      <dd class="event-num">{{ flags.manualClues }}</dd>
+      } @if (flags.timeAdjustmentMinutes) {
+      <dt>Time adjustment</dt>
+      <dd class="event-num">{{ flags.timeAdjustmentMinutes }} min</dd>
+      } }
+    </dl>
+    <section aria-labelledby="team-drawer-actions">
+      <h3 id="team-drawer-actions">Actions</h3>
+      <ul class="team-drawer__actions">
+        <li>
+          <a routerLink="/event/admin/teams">Edit in Teams &amp; accounts</a>
+        </li>
+        @for (link of links; track link.fragment) {
+        <li>
+          <a
+            routerLink="/event/admin/overrides"
+            [queryParams]="{ team: s.team.id }"
+            [fragment]="link.fragment"
+            >{{ link.label }}</a
+          >
+        </li>
+        }
+      </ul>
+    </section>
+  </div>
+  } @else {
+  <p class="event-muted" role="status">Loading the team…</p>
+  }
+</ui-drawer>

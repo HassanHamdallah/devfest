@@ -1,8 +1,16 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  input,
+  untracked,
+} from "@angular/core";
 import { OverrideOutcome } from "../../../../core/event/event-models";
+import { ToastService } from "../../../../shared/ui/toast/toast.service";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 
-/** What the last override did (role="status"), with its non-blocking warnings. */
+/** What the last override did (role="status", also toasted), with its non-blocking warnings. */
 @Component({
   selector: "app-override-outcome",
   imports: [UiAlert],
@@ -40,4 +48,13 @@ import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 })
 export class OverrideOutcomeView {
   readonly outcome = input<OverrideOutcome | null>(null);
+
+  constructor() {
+    const toasts = inject(ToastService);
+    // Every applied override is a new outcome object, so each one toasts once.
+    effect(() => {
+      const message = this.outcome()?.message;
+      if (message) untracked(() => toasts.show(message));
+    });
+  }
 }

@@ -2,14 +2,21 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  inject,
   input,
   output,
+  untracked,
 } from "@angular/core";
+import { ToastService } from "../../../../shared/ui/toast/toast.service";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { ActionState } from "./action-state";
 
-/** Saving / saved / error line under a form or a group of buttons. */
+/**
+ * Saving / saved / error line under a form or a group of buttons. A success notice also appears as a toast;
+ * an error stays here (role="alert") until dismissed or replaced by the next attempt.
+ */
 @Component({
   selector: "app-action-status",
   imports: [UiAlert, UiButton],
@@ -22,7 +29,7 @@ import { ActionState } from "./action-state";
       }
     </p>
     @if (state().error(); as error) {
-      <ui-alert variant="error">
+      <ui-alert variant="error" [dismissible]="true">
         {{ error }}
         @if (showReload()) {
           <div class="action-status__reload">
@@ -61,4 +68,13 @@ export class ActionStatus {
   protected readonly showReload = computed(
     () => this.reloadable() && this.state().conflict(),
   );
+
+  constructor() {
+    const toasts = inject(ToastService);
+    // Each run resets the notice first, so a repeated action ("+1 min added.") toasts again.
+    effect(() => {
+      const notice = this.state().notice();
+      if (notice) untracked(() => toasts.show(notice));
+    });
+  }
 }

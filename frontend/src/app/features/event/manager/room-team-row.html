@@ -1,0 +1,100 @@
+<div class="summary" (click)="toggleFromRow($event)">
+  <div class="summary__team">
+    <h3>{{ row().teamName }}</h3>
+    <div class="event-inline summary__chips">
+      <span class="event-muted">Group {{ row().groupCode }}</span>
+      @if (row().scheduledNow) {
+      <ui-status-chip variant="accent">Now</ui-status-chip>
+      } @if (row().disqualified) {
+      <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+      } @if (row().exceptionRoom) {
+      <ui-status-chip variant="warning"
+        >Exception: {{ row().exceptionRoom }}</ui-status-chip
+      >
+      }
+    </div>
+  </div>
+
+  <div class="summary__answer">
+    @if (row().latestSubmission; as latest) {
+    <div class="event-inline">
+      <span class="summary__time event-num">{{ submittedAt() }}</span>
+      <ui-status-chip
+        [variant]="latest.autoCorrect ? 'success' : 'danger'"
+        [attr.aria-label]="
+          'Automatic result: ' + (latest.autoCorrect ? 'Correct' : 'Incorrect')
+        "
+        >{{ latest.autoCorrect ? "Correct" : "Incorrect" }}</ui-status-chip
+      >
+    </div>
+    <span class="summary__preview" [attr.title]="preview()">{{ preview() }}</span>
+    } @else {
+    <span class="event-muted">No submission yet.</span>
+    }
+  </div>
+
+  <event-judgement-controls
+    class="summary__decision"
+    part="decision"
+    [roomId]="roomId()"
+    [judgement]="row().judgement"
+    [hintPenaltyMismatch]="row().hintPenaltyMismatch"
+    (changed)="changed.emit()"
+  />
+
+  <div class="summary__meta">
+    <span class="event-num">{{ row().judgement.hints }} {{ row().judgement.hints === 1 ? "hint" : "hints" }}</span>
+    <span class="event-num">{{ activePenalties() }} {{ activePenalties() === 1 ? "penalty" : "penalties" }}</span>
+    <button
+      type="button"
+      class="summary__toggle"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-controls]="detailsId()"
+      (click)="toggled.emit()"
+    >
+      Details<span class="event-sr-only"> for {{ row().teamName }}</span>
+      <app-nav-icon name="chevron" [size]="18" />
+    </button>
+  </div>
+</div>
+
+@if (expanded()) {
+<div class="details" [id]="detailsId()">
+  <section>
+    <h4>Answer and clue verdict</h4>
+    <event-team-submission
+      [roomId]="roomId()"
+      [submission]="row().latestSubmission"
+      [submissionCount]="row().submissionCount"
+      [editable]="contentEditable()"
+      (changed)="changed.emit()"
+    />
+  </section>
+  <section>
+    <h4>Hints</h4>
+    <event-judgement-controls
+      part="hints"
+      [roomId]="roomId()"
+      [judgement]="row().judgement"
+      [hintPenaltyMismatch]="row().hintPenaltyMismatch"
+      (changed)="changed.emit()"
+    />
+    @if (row().judgement.note) {
+    <span class="event-muted">Note: {{ row().judgement.note }}</span>
+    }
+  </section>
+  <section>
+    <h4>Penalties · {{ penaltyTotal() }}</h4>
+    <event-penalty-form
+      [roomId]="roomId()"
+      [teamId]="row().teamId"
+      (changed)="changed.emit()"
+    />
+    @for (penalty of row().penalties; track penalty.id) {
+    <event-penalty-item [penalty]="penalty" (changed)="changed.emit()" />
+    } @empty {
+    <span class="event-muted">No penalties in this room.</span>
+    }
+  </section>
+</div>
+}
