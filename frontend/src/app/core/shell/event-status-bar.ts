@@ -7,7 +7,6 @@ import {
   input,
   signal,
 } from "@angular/core";
-import { RouterLink } from "@angular/router";
 import { UiStatusChip } from "../../shared/ui/ui-status-chip/ui-status-chip";
 import {
   COUNTDOWN_WARNING_SECONDS,
@@ -28,7 +27,7 @@ import { roundStatusLabel } from "../event/format";
  */
 @Component({
   selector: "app-event-status-bar",
-  imports: [RouterLink, UiStatusChip],
+  imports: [UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<div class="status" aria-label="Event status" role="group">
       @if (view(); as v) {
@@ -63,13 +62,8 @@ import { roundStatusLabel } from "../event/format";
         @if (store.stale()) {
           <span class="status__stale">Last known</span>
         }
-      } @else if (showResults()) {
-        <span class="status__stale"
-          ><a routerLink="/event/admin">Open Control</a> to load the round
-          status.</span
-        >
       } @else {
-        <span class="status__stale">Loading the round status…</span>
+        <span class="status__stale" role="status">Loading the round status…</span>
       }
     </div>
     <ng-content />`,

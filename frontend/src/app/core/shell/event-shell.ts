@@ -26,6 +26,7 @@ import { UiButton } from "../../shared/ui/ui-button/ui-button";
 import { UiDrawer } from "../../shared/ui/ui-drawer/ui-drawer";
 import { Api } from "../api";
 import { User } from "../models";
+import { keepAdminStatusLoaded } from "../event/admin-status-sync";
 import { EventApi } from "../event/event-api";
 import { EventLiveStore } from "../event/event-live-store";
 import { ROOM_CODES } from "../event/event-models";
@@ -123,6 +124,7 @@ export class EventShell {
         this.menuOpen.set(false);
         this.teamDrawer.close();
       });
+    keepAdminStatusLoaded(() => this.isAdmin());
     // Runs once on start and again on each revision change, so a later room assignment shows up.
     effect(() => {
       this.poller.revision();

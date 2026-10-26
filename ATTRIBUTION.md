@@ -6,4 +6,4 @@ Copied: Maven wrapper scripts and their Apache notices, Angular tsconfig files, 
 
 The event UI's inline SVG icons (core/shell/nav-icon.ts, copy and close glyphs) follow the outline geometry of Feather Icons (https://feathericons.com, MIT, © Cole Bemis); no icon package is installed. The GDG On Campus · Birzeit University logo in frontend/public/brand belongs to its chapter and is used here for the event.
 
-Third-party packages retain their package licenses. Monaco is MIT; Judge0 CE is GPL-3.0 and is an external service, not vendored. Angular build license extraction remains enabled. Fonts retain @fontsource package licensing.
+Third-party packages retain their package licenses. Monaco is MIT; Judge0 CE is GPL-3.0 and is an external service, not vendored. Angular build license extraction remains enabled. No font package is bundled; the UI uses system fonts.

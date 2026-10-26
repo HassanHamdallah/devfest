@@ -23,20 +23,45 @@ dd {
   margin: 0;
 }
 
+/* Same capsules as the team's own home: filled in the room colour when held, dashed when not. */
 .team-drawer__clues {
-  display: inline-flex;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .team-drawer__clue {
-  inline-size: 22px;
-  block-size: 12px;
-  border: 1.5px solid var(--color-outline);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 30px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  border: 1.5px dashed var(--color-border-strong);
   border-radius: var(--radius-full);
 }
 
+.team-drawer__dot {
+  inline-size: 12px;
+  block-size: 12px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
 .team-drawer__clue--held {
-  background: var(--color-text);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  background: var(--room-tint);
+  border: 1.5px solid var(--color-outline);
+}
+
+.team-drawer__clue--held .team-drawer__dot {
+  background: var(--room-color);
+  border-color: var(--color-outline);
 }
 
 h3 {

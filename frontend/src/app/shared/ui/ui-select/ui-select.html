@@ -27,7 +27,10 @@
         {{ placeholder() }}
       </option>
       } @for (option of options(); track option.value) {
-      <option [value]="option.value">{{ option.label }}</option>
+      <!-- [selected] per option: the <select>'s own [value] is applied before its options exist on first render. -->
+      <option [value]="option.value" [selected]="option.value === value()">
+        {{ option.label }}
+      </option>
       }
     </select>
     <span class="ui-select-field__arrow" aria-hidden="true">

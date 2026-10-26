@@ -105,6 +105,25 @@ class EventRankingTest extends EventIntegrationTest {
   }
 
   @Test
+  void theAdminRankingNamesTheRoomsWhoseCluesATeamHolds() {
+    TestTeam collector = team("Collector", GroupCode.A);
+    TestTeam empty = team("Nothing yet", GroupCode.B);
+    // Collected out of room order on purpose: the list follows the room positions.
+    clue(collector, RoomCode.HARDWARE);
+    clue(collector, RoomCode.AI);
+    clue(collector, RoomCode.LINUX);
+
+    Response board = expectOk(get("/admin/board", admin));
+    assertEquals(List.of("Collector", "Nothing yet"), board.json("$.ranking[*].teamName"));
+    assertEquals(List.of("AI", "LINUX", "HARDWARE"), board.json("$.ranking[0].clueRooms"));
+    assertEquals(3, (int) board.json("$.ranking[0].clues"));
+    assertEquals(List.of(), board.json("$.ranking[1].clueRooms"));
+
+    expectOk(put("/admin/publication", admin, "{\"published\":true}"));
+    assertFalse(expectOk(get("/results", empty.token())).body().contains("clueRooms"), "the public ranking keeps only the count");
+  }
+
+  @Test
   void resultsArePrivateUntilPublished() {
     TestTeam member = team("Member team", GroupCode.A);
     finish(member, 120);
@@ -169,12 +188,14 @@ class EventRankingTest extends EventIntegrationTest {
   }
 
   private void clues(TestTeam team, int count) {
-    for (RoomCode code : List.of(RoomCode.values()).subList(0, count)) {
-      db.update(
-        "INSERT INTO collected_clue(team_id, room_id, source, collected_at) VALUES (?, ?, 'RECOVERY', now())",
-        team.id(),
-        rooms.get(code)
-      );
-    }
+    for (RoomCode code : List.of(RoomCode.values()).subList(0, count)) clue(team, code);
+  }
+
+  private void clue(TestTeam team, RoomCode code) {
+    db.update(
+      "INSERT INTO collected_clue(team_id, room_id, source, collected_at) VALUES (?, ?, 'RECOVERY', now())",
+      team.id(),
+      rooms.get(code)
+    );
   }
 }

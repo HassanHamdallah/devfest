@@ -1,23 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  booleanAttribute,
   computed,
   input,
 } from "@angular/core";
 
 /**
- * The GDG On Campus · Birzeit University logo (served from /brand, so it works offline). `ring` adds the
- * logo's four-colour ring around it again as an outer halo — blue top-left, green top-right, yellow
- * bottom-right, red bottom-left — for the sign-in page.
+ * The GDG On Campus · Birzeit University logo, served from /brand so it works offline. The image already
+ * carries the four-colour ring (blue top-left, green top-right, yellow bottom-right, red bottom-left).
  */
 @Component({
   selector: "app-logo",
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    "[class.app-logo--ring]": "ring()",
-    "[style.--logo-size.px]": "size()",
-  },
+  host: { "[style.--logo-size.px]": "size()" },
   template: `<img
     [src]="source()"
     [width]="size()"
@@ -38,26 +33,11 @@ import {
       block-size: var(--logo-size);
       border-radius: 50%;
     }
-    :host(.app-logo--ring) {
-      padding: 10px;
-      background:
-        linear-gradient(var(--color-background), var(--color-background))
-          padding-box,
-        conic-gradient(
-            var(--brand-green) 0 25%,
-            var(--brand-yellow) 0 50%,
-            var(--brand-red) 0 75%,
-            var(--brand-blue) 0 100%
-          )
-          border-box;
-      border: 6px solid transparent;
-    }
   `,
 })
 export class AppLogo {
   /** Rendered width and height in CSS pixels. */
   readonly size = input(48);
-  readonly ring = input(false, { transform: booleanAttribute });
 
   /** The 256 px copy is plenty below that size; the original is used for large renderings. */
   protected readonly source = computed(() =>

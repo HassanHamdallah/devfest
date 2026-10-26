@@ -19,14 +19,14 @@ import { BrandBar } from "../shared/ui/brand-bar/brand-bar";
 import { UiInput } from "../shared/ui/ui-input/ui-input";
 import { UiButton } from "../shared/ui/ui-button/ui-button";
 
-/** Sign-in for every role: one centred card on the cream page, with the GDG logo in its four-colour ring. */
+/** Sign-in for every role: one centred card on the cream page, with the GDG logo (its own four-colour ring). */
 @Component({
   imports: [AppLogo, BrandBar, ReactiveFormsModule, UiInput, UiButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<app-brand-bar class="login__bar" />
     <main class="login">
       <section class="login__card" aria-labelledby="login-title">
-        <app-logo ring [size]="132" />
+        <app-logo [size]="132" />
         <h1 id="login-title">DevFest · Investigation</h1>
         <p class="login__lead">
           Sign in with the account your organizer gave you. Organizers, room

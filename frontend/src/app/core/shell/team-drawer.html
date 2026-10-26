@@ -33,14 +33,20 @@
       <dt>Clues</dt>
       <dd>
         @if (s.ranking; as rank) {
-        <span class="team-drawer__clues" aria-hidden="true">
-          @for (slot of [0, 1, 2, 3]; track slot) {
-          <span
-            class="team-drawer__clue"
-            [class.team-drawer__clue--held]="slot < rank.clues"
-          ></span>
+        <ul class="team-drawer__clues" aria-label="Clues by room">
+          @for (slot of s.clues; track slot.code) {
+          <li
+            [class]="'team-drawer__clue room-tone--' + slot.code"
+            [class.team-drawer__clue--held]="slot.held"
+          >
+            <span class="team-drawer__dot" aria-hidden="true"></span>
+            {{ slot.name }}
+            <span class="event-sr-only">{{
+              slot.held ? ": collected" : ": not collected"
+            }}</span>
+          </li>
           }
-        </span>
+        </ul>
         <span class="event-num">{{ rank.clues }} of 4</span>
         } @else { — }
       </dd>
