@@ -30,7 +30,7 @@ import { keepAdminStatusLoaded } from "../event/admin-status-sync";
 import { EventApi } from "../event/event-api";
 import { EventLiveStore } from "../event/event-live-store";
 import { ROOM_CODES } from "../event/event-models";
-import { RevisionPoller } from "../event/revision-poller";
+import { RevisionSync } from "../event/revision-sync";
 import { RoleHome } from "../role-home";
 import { EventStatusBar } from "./event-status-bar";
 import {
@@ -85,7 +85,7 @@ export class EventShell {
   private readonly api = inject(Api);
   private readonly eventApi = inject(EventApi);
   private readonly roleHome = inject(RoleHome);
-  private readonly poller = inject(RevisionPoller);
+  private readonly revisions = inject(RevisionSync);
   private readonly store = inject(EventLiveStore);
   protected readonly teamDrawer = inject(TeamDrawerService);
   /** The toast host is loaded with the first toast. */
@@ -127,7 +127,7 @@ export class EventShell {
     keepAdminStatusLoaded(() => this.isAdmin());
     // Runs once on start and again on each revision change, so a later room assignment shows up.
     effect(() => {
-      this.poller.revision();
+      this.revisions.revision();
       untracked(() => void this.loadNavigation());
     });
   }

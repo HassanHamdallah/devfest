@@ -4,7 +4,7 @@ import { NavigationEnd, Router } from "@angular/router";
 import { filter, map } from "rxjs";
 import { EventApi } from "./event-api";
 import { EventLiveStore } from "./event-live-store";
-import { RevisionPoller } from "./revision-poller";
+import { RevisionSync } from "./revision-sync";
 
 /** Admin pages that fetch GET /admin/board themselves and publish it to the store. */
 const SELF_LOADING_PATHS: readonly string[] = ["/event/admin", "/event/admin/overrides"];
@@ -15,13 +15,13 @@ function pathOf(url: string): string {
 
 /**
  * Keeps the organizer's status bar filled on pages that do not load the admin board (Teams, Content, Results,
- * room boards): GET /admin/board once when nothing is stored, and again only when the revision poller reports a
- * newer revision than the stored board. It adds no timer; the poller is the only clock. Call it in an injection
+ * room boards): GET /admin/board once when nothing is stored, and again only when RevisionSync reports a
+ * newer revision than the stored board. It adds no timer of its own. Call it in an injection
  * context (the shell's constructor).
  */
 export function keepAdminStatusLoaded(isAdmin: () => boolean): void {
   const router = inject(Router);
-  const poller = inject(RevisionPoller);
+  const revisions = inject(RevisionSync);
   const store = inject(EventLiveStore);
   const eventApi = inject(EventApi);
   const path = toSignal(
@@ -34,7 +34,7 @@ export function keepAdminStatusLoaded(isAdmin: () => boolean): void {
   let loading = false;
 
   effect(() => {
-    const revision = poller.revision();
+    const revision = revisions.revision();
     if (!isAdmin() || SELF_LOADING_PATHS.includes(path())) return;
     untracked(() => {
       const board = store.adminBoard();

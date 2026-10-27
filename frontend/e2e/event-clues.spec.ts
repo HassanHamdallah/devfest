@@ -12,7 +12,7 @@ let accounts: RehearsalAccounts;
 // Round 1 sends group C (seeded Team 09–12) to the Linux room.
 const TYPO_KEY = "WEST TOWR";
 const FIXED_KEY = "WEST TOWER";
-// Teams refresh when the 10-second revision poll sees the manager's change.
+// Teams refresh when the pushed revision changes (event-live.spec.ts measures the latency); generous timeout.
 const NEXT_POLL = { timeout: 25000 };
 
 function heading(page: Page, name: string) {

@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
 import { FinalStage, TeamFinal } from "../../../core/event/event-models";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";

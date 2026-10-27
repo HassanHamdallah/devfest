@@ -88,6 +88,9 @@ public class SecurityConfig {
           .permitAll()
           .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/health")
           .permitAll()
+          // EventSource cannot send a bearer token; the single-use stream ticket is checked by the controller.
+          .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/event/stream")
+          .permitAll()
           .requestMatchers("/api/v1/admin/**")
           .hasRole("ADMIN")
           .requestMatchers("/api/v1/auth/**")

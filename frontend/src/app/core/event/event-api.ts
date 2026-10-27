@@ -37,6 +37,7 @@ import {
   RotationPreviewView,
   SnapshotView,
   RoomSubmissionRequest,
+  StreamTicket,
   SuspectRequest,
   SuspectView,
   TeamBoard,
@@ -64,6 +65,13 @@ export class EventApi {
   // ---- Shared ----
   revision() {
     return this.get<EventRevision>("/revision");
+  }
+  streamTicket() {
+    return this.send<StreamTicket>("POST", "/stream-ticket", {});
+  }
+  /** The live revision stream for EventSource; the ticket is the credential. */
+  streamUrl(ticket: string): string {
+    return `${BASE}${EVENT}/stream?ticket=${encodeURIComponent(ticket)}`;
   }
   home() {
     return this.get<EventHome>("/home");

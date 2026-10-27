@@ -10,6 +10,7 @@ import java.security.*;
 import java.time.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -33,16 +34,19 @@ public class AuthService {
   private final PasswordEncoder passwords;
   private final javax.crypto.SecretKey key;
   private final Clock clock;
+  private final ApplicationEventPublisher events;
 
   public AuthService(
     JdbcTemplate db,
     PasswordEncoder passwords,
     @Value("${app.jwt-secret}") String secret,
-    Clock clock
+    Clock clock,
+    ApplicationEventPublisher events
   ) {
     this.db = db;
     this.passwords = passwords;
     this.clock = clock;
+    this.events = events;
     if (
       secret.length() < 32 || secret.contains("REPLACE_")
     ) throw new IllegalStateException(
@@ -102,11 +106,15 @@ public class AuthService {
       java.sql.Timestamp.from(now.plus(Duration.ofHours(12))),
       java.sql.Timestamp.from(now)
     );
-    if (SINGLE_SESSION_ROLE.equals(rows.getFirst().get("role"))) db.update(
-      "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE user_id=? AND id<>? AND NOT revoked",
-      SessionEnd.REPLACED.name(),
-      id,
-      session
+    if (SINGLE_SESSION_ROLE.equals(rows.getFirst().get("role"))) revoked(
+      db.queryForList(
+        "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE user_id=? AND id<>? AND NOT revoked RETURNING id",
+        UUID.class,
+        SessionEnd.REPLACED.name(),
+        id,
+        session
+      ),
+      SessionEnd.REPLACED
     );
     return issue(id, session);
   }
@@ -139,21 +147,34 @@ public class AuthService {
   }
 
   private SessionEndedException revoke(UUID sid, SessionEnd reason) {
-    db.update(
-      "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE id=? AND NOT revoked",
-      reason.name(),
-      sid
+    revoked(
+      db.queryForList(
+        "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE id=? AND NOT revoked RETURNING id",
+        UUID.class,
+        reason.name(),
+        sid
+      ),
+      reason
     );
     return new SessionEndedException(reason);
   }
 
   /** Ends every open session of the account; sessions that already ended keep their first reason. */
   public void revokeAll(long userId, SessionEnd reason) {
-    db.update(
-      "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE user_id=? AND NOT revoked",
-      reason.name(),
-      userId
+    revoked(
+      db.queryForList(
+        "UPDATE auth_session SET revoked=true,revoked_reason=? WHERE user_id=? AND NOT revoked RETURNING id",
+        UUID.class,
+        reason.name(),
+        userId
+      ),
+      reason
     );
+  }
+
+  /** Live event streams of these sessions close once the revoking transaction commits. */
+  private void revoked(List<UUID> sessions, SessionEnd reason) {
+    if (!sessions.isEmpty()) events.publishEvent(new SessionsRevoked(sessions, reason));
   }
 
   private Tokens issue(long id, UUID sid) {
@@ -198,8 +219,14 @@ public class AuthService {
       .build()
       .parseSignedClaims(token)
       .getPayload();
-    long id = Long.parseLong(c.getSubject());
-    UUID sid = UUID.fromString(c.get("sid", String.class));
+    return checkSession(Long.parseLong(c.getSubject()), UUID.fromString(c.get("sid", String.class)));
+  }
+
+  /**
+   * The session check behind {@link #authenticate}, also run on every live event stream's heartbeat (which has no
+   * token). Throws {@link SessionEndedException} naming why the session can no longer be used.
+   */
+  public Principal checkSession(long id, UUID sid) {
     var rows = db.query(
       "SELECT u.role,u.active,s.revoked,s.revoked_reason,s.expires_at,s.last_seen_at FROM auth_session s JOIN app_user u ON u.id=s.user_id WHERE s.id=? AND s.user_id=?",
       (r, n) ->

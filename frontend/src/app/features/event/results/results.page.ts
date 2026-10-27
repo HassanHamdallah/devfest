@@ -5,7 +5,7 @@ import {
   inject,
 } from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiEmptyState } from "../../../shared/ui/ui-empty-state/ui-empty-state";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";

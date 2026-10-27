@@ -8,7 +8,7 @@ const docs = path.resolve("..", "docs");
 const PREFIX = "Squad";
 const ANOTHER_DEVICE = "Your team signed in on another device. Only one device per team can be signed in.";
 const ORGANIZER = "An organizer signed your team out.";
-// A signed-out device notices at its next request: the revision poll runs every 10 s.
+// A signed-out device is told over its live stream (or at its next poll); generous timeout.
 const NEXT_POLL = { timeout: 25000 };
 
 interface Credential {

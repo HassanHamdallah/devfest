@@ -7,7 +7,7 @@ import {
   RoundClock,
 } from "./event-models";
 import { FinalStatus, finalStatus } from "./event-status";
-import { RevisionPoller } from "./revision-poller";
+import { RevisionSync } from "./revision-sync";
 
 /** A round clock and the local time it arrived, so a later reader can still count down correctly. */
 export interface ReceivedClock {
@@ -23,7 +23,7 @@ export interface ReceivedClock {
  */
 @Injectable({ providedIn: "root" })
 export class EventLiveStore {
-  private readonly poller = inject(RevisionPoller);
+  private readonly revisions = inject(RevisionSync);
 
   readonly adminBoard = signal<AdminBoard | null>(null);
   readonly organization = signal<Organization | null>(null);
@@ -31,9 +31,9 @@ export class EventLiveStore {
   /** Manager boards: the final state as far as a room can tell (content locks once the final opens). */
   readonly roomFinalOpened = signal<boolean | null>(null);
 
-  /** True when the poller has seen a newer revision than the data behind the status bar. */
+  /** True when RevisionSync has seen a newer revision than the data behind the status bar. */
   readonly stale = computed(() => {
-    const latest = this.poller.revision();
+    const latest = this.revisions.revision();
     const clock = this.clock();
     return clock !== null && latest !== null && latest > clock.revision;
   });

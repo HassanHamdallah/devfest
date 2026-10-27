@@ -1,16 +1,23 @@
 """Sustained synthetic load against the isolated event rehearsal (API 8082, devfest_test data only).
 
-Simulates 16 or 48 team clients, 4 room managers and 1 admin polling the revision endpoint,
-refetching their board when it changes, submitting room answers with idempotent retries and
-judging concurrently. Results are written to docs/event-load-<scale>x.json.
+Mode "mixed" (default): simulates 16 or 48 team clients, 4 room managers and 1 admin polling the revision
+endpoint, refetching their board when it changes, submitting room answers with idempotent retries and judging
+concurrently. Results are written to docs/event-load-<scale>x.json.
+
+Mode "sse": opens --streams live revision streams (GET /event/stream with single-use tickets, spread over the 21
+seeded accounts), performs --actions admin timer actions and measures, per action and stream, the time from the
+action's HTTP response to the matching "revision" event. Results are written to docs/event-load-sse-<N>.json.
 """
 import argparse
 import datetime as dt
+import http.client
 import json
 import math
 from pathlib import Path
 import random
 import re
+import socket
+import subprocess
 import threading
 import time
 import urllib.error
@@ -35,7 +42,13 @@ def parse_args():
     parser.add_argument("--scale", type=int, choices=(1, 3), default=1, help="team clients per team account")
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
+    parser.add_argument("--mode", choices=("mixed", "sse"), default="mixed")
+    parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
+    parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
+    parser.add_argument("--gap-ms", type=int, default=500, help="sse: pause between admin actions")
     args = parser.parse_args()
+    if not 1 <= args.streams <= 300 or not 1 <= args.actions <= 200:
+        parser.error("--streams must be 1..300 and --actions 1..200")
     if not 30 <= args.seconds <= MAX_SECONDS:
         parser.error(f"--seconds must be between 30 and {MAX_SECONDS}")
     if urllib.parse.urlparse(args.base_url).hostname not in ALLOWED_HOSTS:
@@ -342,10 +355,206 @@ def print_summary(report):
     print(json.dumps(report["totals"]))
 
 
+# ---- SSE mode -----------------------------------------------------------------------------------------------
+
+STREAM_OPEN_SECONDS = 15
+DELIVERY_SECONDS = 10
+
+
+class LiveStream(threading.Thread):
+    """One GET /event/stream connection; records when each revision number first arrived."""
+
+    def __init__(self, base, ticket, number):
+        super().__init__(daemon=True)
+        parsed = urllib.parse.urlparse(base)
+        self.host, self.port, self.prefix = parsed.hostname, parsed.port, parsed.path.rstrip("/")
+        self.ticket, self.number = ticket, number
+        self.connected = threading.Event()
+        self.lock = threading.Lock()
+        self.received = {}
+        self.error = None
+        self.closing = False
+        self.raw_socket = None
+
+    def run(self):
+        connection = http.client.HTTPConnection(self.host, self.port, timeout=120)
+        try:
+            connection.request("GET", f"{self.prefix}/event/stream?ticket={urllib.parse.quote(self.ticket)}",
+                               headers={"Accept": "text/event-stream"})
+            # getresponse() hands the socket to the response, so keep it for close().
+            self.raw_socket = connection.sock
+            response = connection.getresponse()
+            if response.status != 200:
+                self.error = f"stream {self.number}: HTTP {response.status}"
+                return
+            name = "message"
+            while True:
+                line = response.readline()
+                if not line:
+                    if not self.closing:
+                        self.error = f"stream {self.number}: closed by the server"
+                    return
+                line = line.decode("utf-8").rstrip("\n")
+                if line.startswith(":"):
+                    self.connected.set()
+                elif line.startswith("event:"):
+                    name = line[6:].strip()
+                elif line.startswith("data:") and name == "revision":
+                    revision = json.loads(line[5:])["revision"]
+                    with self.lock:
+                        self.received.setdefault(revision, time.perf_counter())
+                elif line == "":
+                    name = "message"
+        # close() from the main thread can surface as AttributeError inside http.client's chunked reader.
+        except (OSError, http.client.HTTPException, ValueError, AttributeError) as error:
+            if not self.closing:
+                self.error = f"stream {self.number}: {type(error).__name__} {error}"
+        finally:
+            self.connected.set()
+            connection.close()
+
+    def first_at_least(self, revision):
+        with self.lock:
+            times = [at for number, at in self.received.items() if number >= revision]
+        return min(times) if times else None
+
+    def close(self):
+        """shutdown() wakes the reader blocked in readline(), which then closes the connection itself."""
+        self.closing = True
+        if self.raw_socket is not None:
+            try:
+                self.raw_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
+
+def java_memory():
+    """Heap and live threads of the rehearsal backend JVM (jcmd from the JDK) plus its Windows working set."""
+    record = json.loads((ROOT / ".local/event-rehearsal.json").read_text(encoding="utf-8-sig"))
+    pid = record.get("backend")
+    result = {"pid": pid}
+    try:
+        heap = subprocess.run(["jcmd", str(pid), "GC.heap_info"], capture_output=True, text=True, timeout=20).stdout
+        match = re.search(r"total reserved (\d+)K, committed (\d+)K, used (\d+)K", heap)
+        if match:
+            result.update(heapCommittedMb=round(int(match[2]) / 1024, 1), heapUsedMb=round(int(match[3]) / 1024, 1))
+        counters = subprocess.run(["jcmd", str(pid), "PerfCounter.print"], capture_output=True, text=True,
+                                  timeout=20).stdout
+        threads = re.search(r"java\.threads\.live=(\d+)", counters)
+        if threads:
+            result["liveThreads"] = int(threads[1])
+        listing = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"], capture_output=True,
+                                 text=True, timeout=20).stdout
+        working_set = re.search(r'"([\d,.]+) K"', listing)
+        if working_set:
+            result["workingSetMb"] = round(int(re.sub(r"[,.]", "", working_set[1])) / 1024, 1)
+    except (OSError, subprocess.SubprocessError) as error:
+        result["error"] = str(error)
+    return result
+
+
+def latency_summary(values):
+    """A negative value means the event arrived before the client finished reading the action's response."""
+    if not values:
+        return {}
+    values = sorted(values)
+    return {"count": len(values), "p50": round(percentile(values, .50), 1), "p95": round(percentile(values, .95), 1),
+            "max": round(values[-1], 1), "min": round(values[0], 1)}
+
+
+def open_streams(api, tokens, count):
+    """Tickets are spread round-robin over the accounts (30 tickets per account per minute)."""
+    streams = []
+    for number in range(count):
+        ticket = api.setup("POST", "/event/stream-ticket", tokens[number % len(tokens)], {})["ticket"]
+        streams.append(LiveStream(api.base, ticket, number))
+    for stream in streams:
+        stream.start()
+    for stream in streams:
+        stream.connected.wait(STREAM_OPEN_SECONDS)
+    return streams
+
+
+def announce(api, admin, count, gap_ms):
+    """Alternating pause/resume of the running round timer: every action bumps the revision once."""
+    actions = []
+    paths = ["/event/admin/round/timer/pause", "/event/admin/round/timer/resume"]
+    for index in range(count):
+        path = paths[index % 2]
+        sent = time.perf_counter()
+        status, state, _ = api.call("POST", path, admin)
+        answered = time.perf_counter()
+        actions.append({"path": path, "status": status, "sent": sent, "answered": answered,
+                        "revision": (state or {}).get("revision")})
+        time.sleep(gap_ms / 1000)
+    return actions
+
+
+def sse_run(args, api, config):
+    admin, managers, teams = sign_in_everyone(api, config)
+    set_clue_keys(api, managers)
+    prepare_round_one(api, admin)
+    tokens = [admin, *managers, *teams]
+    memory_before = java_memory()
+    streams = open_streams(api, tokens, args.streams)
+    open_errors = [stream.error for stream in streams if stream.error]
+    memory_open = java_memory()
+    print(f"{len(streams) - len(open_errors)} of {len(streams)} streams open; {args.actions} admin actions...",
+          flush=True)
+    actions = announce(api, admin, args.actions, args.gap_ms)
+    last = max(action["revision"] or 0 for action in actions)
+    deadline = time.monotonic() + DELIVERY_SECONDS
+    while time.monotonic() < deadline and any(s.first_at_least(last) is None for s in streams if not s.error):
+        time.sleep(0.05)
+    memory_after = java_memory()
+
+    after_response, after_request, missing = [], [], 0
+    for action in actions:
+        if action["status"] != 200 or action["revision"] is None:
+            continue
+        for stream in streams:
+            arrived = stream.first_at_least(action["revision"])
+            if arrived is None:
+                missing += 1
+                continue
+            after_response.append((arrived - action["answered"]) * 1000)
+            after_request.append((arrived - action["sent"]) * 1000)
+    stream_errors = [stream.error for stream in streams if stream.error]
+    for stream in streams:
+        stream.close()
+    for stream in streams:
+        stream.join(5)
+    action_errors = [f"{action['path']} -> {action['status']}" for action in actions if action["status"] != 200]
+    report = {
+        "testedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic SSE clients; no WAN latency.",
+        "baseUrl": args.base_url, "mode": "sse", "streams": args.streams, "accounts": len(tokens),
+        "actions": args.actions, "gapMs": args.gap_ms, "lastRevision": last,
+        "deliveries": len(after_response), "expectedDeliveries": len(streams) * len(actions),
+        "missingDeliveries": missing,
+        "latencyAfterResponseMs": latency_summary(after_response),
+        "latencyAfterRequestStartMs": latency_summary(after_request),
+        "adminActionMs": latency_summary([(action["answered"] - action["sent"]) * 1000 for action in actions]),
+        "errors": stream_errors + action_errors,
+        "javaMemory": {"before": memory_before, "streamsOpen": memory_open, "afterActions": memory_after},
+    }
+    output = ROOT / f"docs/event-load-sse-{args.streams}.json"
+    output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    summary_keys = ("streams", "deliveries", "expectedDeliveries", "missingDeliveries", "latencyAfterResponseMs",
+                    "latencyAfterRequestStartMs", "adminActionMs", "errors", "javaMemory")
+    print(json.dumps({key: report[key] for key in summary_keys}, indent=2))
+    if report["errors"] or missing:
+        raise SystemExit(f"SSE load check failed; see {output}")
+    print(f"SSE load check passed; report in {output}")
+
+
 def main():
     args = parse_args()
     api = Api(args.base_url)
     config = json.loads((ROOT / ".local/event-rehearsal.json").read_text(encoding="utf-8-sig"))
+    if args.mode == "sse":
+        sse_run(args, api, config)
+        return
     # Setup goes through Api.setup, which is never recorded in the measurements.
     admin, managers, teams = sign_in_everyone(api, config)
     set_clue_keys(api, managers)

@@ -114,6 +114,26 @@ export class EventAdminShortcuts {
     return this.admin.send("POST", "/event/admin/round/timer/start");
   }
 
+  pauseTimer() {
+    return this.admin.send("POST", "/event/admin/round/timer/pause");
+  }
+
+  resumeTimer() {
+    return this.admin.send("POST", "/event/admin/round/timer/resume");
+  }
+
+  addTime(deltaSeconds: number) {
+    return this.admin.send("POST", "/event/admin/round/timer/adjust", { deltaSeconds }, randomUUID());
+  }
+
+  openFinal() {
+    return this.admin.send("POST", "/event/admin/final/open");
+  }
+
+  setPublication(published: boolean) {
+    return this.admin.send("PUT", "/event/admin/publication", { published });
+  }
+
   /** Moves to the round and starts its timer, so teams can submit right away. */
   async startRound(round: number) {
     await this.setRound(round);
