@@ -17,7 +17,9 @@ import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.TeamFinalRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.repository.TeamRoomProgressRecord;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -49,8 +51,8 @@ public class EventTeamBoardService {
   }
 
   /**
-   * 5 SQL statements: team of the caller, event state, the team's four rooms, the team's finish record, and its
-   * room exception for the current round (only in rounds 1..4).
+   * 5 SQL statements whatever the number of teams: team of the caller, event state, the team's four rooms (with
+   * its latest submissions and collected keys), the team's finish record, and all of its room exceptions.
    */
   public TeamBoard board(Principal principal) {
     EventTeamRecord team = access.requireTeamOf(principal);
@@ -59,14 +61,16 @@ public class EventTeamBoardService {
     boolean finished = finals.findForTeam(team.id()).isPresent();
     int cluesCollected = (int) progress.stream().filter(TeamRoomProgressRecord::clueCollected).count();
     FinalStage stage = FinalStageResolver.resolve(state.finalEverOpened(), state.finalOpen(), finished, cluesCollected);
+    Map<Integer, RoomCode> teamExceptions = exceptions.findForTeam(team.id());
     Optional<RoomCode> exception = Rotation.isRunningRound(state.currentRound())
-      ? exceptions.find(state.currentRound(), team.id())
+      ? Optional.ofNullable(teamExceptions.get(state.currentRound()))
       : Optional.empty();
     Optional<RoomCode> assigned = RoomAssignment.roomFor(team.groupCode(), state.currentRound(), exception);
+    Instant now = clock.now();
     return new TeamBoard(
       team.name(),
       team.groupCode(),
-      EventViews.roundClock(state, clock.now()),
+      EventViews.roundClock(state, now),
       scheduledRoom(assigned, exception.isPresent(), progress),
       progress.stream().map(room -> card(team, state, room, assigned)).toList(),
       cluesCollected,
@@ -74,7 +78,8 @@ public class EventTeamBoardService {
       state.finalOpen(),
       state.resultsPublished(),
       state.revision(),
-      team.disqualified()
+      team.disqualified(),
+      EventViews.evidence(team, state, progress, teamExceptions, now)
     );
   }
 
@@ -83,7 +88,7 @@ public class EventTeamBoardService {
       .stream()
       .filter(room -> code.isPresent() && room.code() == code.get())
       .findFirst()
-      .map(room -> new ScheduledRoom(room.roomId(), room.code(), room.name(), room.open(), exception))
+      .map(room -> new ScheduledRoom(room.roomId(), room.code(), room.name(), room.open(), exception, room.terminalEnabled()))
       .orElse(null);
   }
 

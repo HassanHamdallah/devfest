@@ -20,8 +20,8 @@ event hardware.
 | Endpoint | Statements |
 |---|---|
 | `GET /event/revision` | 1 |
-| `GET /event/team/board` | 5 |
-| `GET /event/team/final` | 3–6 by stage |
+| `GET /event/team/board` | 5 (constant whatever the number of teams; `EventEvidenceTest`) |
+| `GET /event/team/final` | 5–8 by stage (since the evidence change: + rooms, + room exceptions) |
 | `GET /event/rooms/{id}/board` | 6 |
 | `GET /event/admin/board` | 10 |
 | `GET /event/admin/organization` | 5 (event state, accounts, teams with presence, rooms, group sizes) |
@@ -189,6 +189,24 @@ action after 0–10 s (about 5 s on average), plus its board refetch; the poll i
 checks above. With the push, the signal reaches every open stream within a few milliseconds of the commit, and the
 visible delay is the board refetch (p95 ≈ 20–35 ms in the load checks). Request load from idle screens also drops:
 a healthy tab now polls every 30 s instead of every 10 s.
+
+## In-browser terminal (V10) — 2026-10-27
+
+Measured on the dev laptop, headless Microsoft Edge (Playwright), through the Angular dev server on :4201 proxied to
+the rehearsal backend; room files `logs/access.log` (3000 lines, 91 kB) and `logs/lock.log`.
+
+| Measure | Result |
+|---|---|
+| Download, compressed (on the wire) | 7,645,925 B of `.gz` files (wasm 381,728 · SeaBIOS 67,327 · VGA BIOS 16,345 · image 7,179,525) + `libv86.js` 359,839 B (sent raw by the dev server; about 100 kB with nginx gzip) ≈ 8.0 MB — target ≤ 30 MB |
+| Cold boot ("Start terminal" → prompt, empty cache, download included) | 5.4 s (6.1 s wall in the test) — target ≤ 20 s |
+| Restart (assets already in memory) | 3.6 s |
+| After a page reload | 5.2 s; small files were cached, the 7.2 MB image was fetched again (the dev server sends `Cache-Control: no-cache`; nginx sends a one-year `immutable` lifetime) |
+| Renderer process after boot | +169 MB working set (285 MB in total for the tab's renderer); JS heap 25.8 MB used + 20.9 MB array-buffer backing store (CDP `Runtime.getHeapUsage`) |
+| Backend CPU during a 49 s terminal session | 2.06 CPU-seconds for the whole session including sign-in, two file uploads, round start and normal board refreshes; the terminal itself makes one `GET …/terminal-files` per boot and nothing while it runs |
+| Initial app bundle | 353.05 kB raw / 97.31 kB transfer, before the change 350.00 kB / 96.66 kB (+0.87 % / +0.66 %); xterm.js and the terminal component are in the lazy `linux-terminal` chunk (358 kB raw / 79 kB transfer), the asset loader in a 2 kB lazy chunk |
+
+Saved-state boot (v86 `save_state`/`initial_state`) was not tried: a 5 s boot is well inside the 20 s target, and a
+state file would be another large asset to host and keep in step with the image.
 
 ## Not measured
 

@@ -20,17 +20,20 @@ import org.springframework.stereotype.Repository;
 public class EventBoardRepository {
 
   private static final String TEAM_ROOMS_SQL = """
-    SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open,
+    SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open, r.terminal_enabled,
            COALESCE(j.status, 'PENDING') AS judgement,
            c.room_id IS NOT NULL AS clue_collected,
+           CASE WHEN c.room_id IS NOT NULL THEN r.clue_key END AS collected_clue_key,
            ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct,
-           ls.effective_correct AS last_effective_correct
+           ls.effective_correct AS last_effective_correct, ls.technical_output AS last_technical_output,
+           ls.clue_answer AS last_clue_answer
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
     LEFT JOIN collected_clue c ON c.room_id = r.id AND c.team_id = t.id
     LEFT JOIN LATERAL (
-      SELECT s.id, s.received_at, s.clue_correct, COALESCE(v.effective_correct, s.clue_correct) AS effective_correct
+      SELECT s.id, s.received_at, s.clue_correct, COALESCE(v.effective_correct, s.clue_correct) AS effective_correct,
+             s.technical_output, s.clue_answer
       FROM room_submission s
       LEFT JOIN submission_clue_verdict v ON v.submission_id = s.id
       WHERE s.team_id = t.id AND s.room_id = r.id
@@ -69,6 +72,8 @@ public class EventBoardRepository {
     SELECT r.id, r.code, r.name, r.position, r.is_open, r.manager_id, u.name AS manager_name,
            r.clue_key ~ '\\S' AS has_clue_key,
            r.recovery_prompt ~ '\\S' AND r.recovery_answer ~ '\\S' AS has_recovery,
+           r.terminal_enabled,
+           (SELECT count(*) FROM room_terminal_file f WHERE f.room_id = r.id) AS terminal_files,
            count(t.id) FILTER (WHERE j.status = 'PASS') AS passed,
            count(t.id) FILTER (WHERE j.status = 'FAIL') AS failed,
            count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending
@@ -108,7 +113,11 @@ public class EventBoardRepository {
     this.db = db;
   }
 
-  /** The four rooms in position order with the team's own judgement, clue and latest receipt. */
+  /**
+   * The four rooms in position order with the team's own judgement, clue and latest submission. The room's clue
+   * key is selected only for rooms whose clue this team collected (CASE in SQL); the service still decides
+   * whether it may be shown (EvidenceVisibility).
+   */
   public List<TeamRoomProgressRecord> teamRooms(long teamId) {
     return db.query(TEAM_ROOMS_SQL, EventBoardRepository::mapTeamRoom, teamId);
   }
@@ -159,12 +168,16 @@ public class EventBoardRepository {
       rs.getString("name"),
       rs.getInt("position"),
       rs.getBoolean("is_open"),
+      rs.getBoolean("terminal_enabled"),
       JudgeStatus.valueOf(rs.getString("judgement")),
       rs.getBoolean("clue_collected"),
+      rs.getString("collected_clue_key"),
       lastId,
       instant(rs, "last_received_at"),
       lastId == null ? null : rs.getBoolean("last_clue_correct"),
-      lastId == null ? null : rs.getBoolean("last_effective_correct")
+      lastId == null ? null : rs.getBoolean("last_effective_correct"),
+      rs.getString("last_technical_output"),
+      rs.getString("last_clue_answer")
     );
   }
 
@@ -245,6 +258,8 @@ public class EventBoardRepository {
       rs.getString("manager_name"),
       rs.getBoolean("has_clue_key"),
       rs.getBoolean("has_recovery"),
+      rs.getBoolean("terminal_enabled"),
+      rs.getInt("terminal_files"),
       rs.getInt("passed"),
       rs.getInt("failed"),
       rs.getInt("pending")

@@ -120,7 +120,7 @@ public abstract class EventIntegrationTest {
     );
     db.update(
       "UPDATE event_room SET manager_id = NULL, is_open = FALSE, clue_key = '', recovery_prompt = '', " +
-      "recovery_answer = '', version = 1"
+      "recovery_answer = '', version = 1, terminal_enabled = (code = 'LINUX')"
     );
     db.update("INSERT INTO event_content(id) VALUES (1)");
     db.update(

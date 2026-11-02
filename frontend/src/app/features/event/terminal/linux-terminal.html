@@ -1,0 +1,62 @@
+<section class="linux-terminal" aria-label="Linux terminal" [attr.data-state]="state()">
+  <div class="linux-terminal__bar">
+    <h3 class="linux-terminal__title">Terminal</h3>
+    <span class="linux-terminal__status" aria-live="polite">
+      @switch (state()) {
+      @case ("downloading") { Downloading the terminal… }
+      @case ("booting") { Starting Linux… }
+      @case ("ready") { Ready{{ bootSeconds() !== null ? " in " + bootSeconds()!.toFixed(1) + " s" : "" }} }
+      @case ("ended") { Time is up }
+      @case ("failed") { Not running }
+      }
+    </span>
+    <div class="linux-terminal__actions">
+      <ui-button
+        variant="ghost"
+        size="sm"
+        [disabled]="ended() || state() === 'downloading'"
+        (click)="confirmRestart.set(true)"
+        >Restart terminal</ui-button
+      >
+      <ui-button variant="secondary" size="sm" (click)="copySelection()">Copy selection</ui-button>
+      @if (offerOutput()) {
+      <ui-button size="sm" (click)="useSelection()">Use selection as technical output</ui-button>
+      }
+    </div>
+  </div>
+
+  @if (state() === "downloading") {
+  <div class="linux-terminal__progress">
+    <ui-progress [value]="loadedBytes()" [max]="totalBytes" label="Terminal download" />
+    <span class="event-num">{{ downloaded() }} of {{ downloadTotal }} MB</span>
+  </div>
+  } @else if (state() === "booting") {
+  <div class="linux-terminal__progress">
+    <span>Booting Linux in your browser. This takes a few seconds.</span>
+  </div>
+  }
+  @if (error(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  <ui-button variant="secondary" size="sm" (click)="restart()">Try again</ui-button>
+  }
+
+  <div class="linux-terminal__frame">
+    <div #screen class="linux-terminal__screen"></div>
+    @if (state() === "ended") {
+    <div class="linux-terminal__ended" role="status">Time is up</div>
+    }
+  </div>
+
+  @if (notice(); as text) {
+  <p class="linux-terminal__notice" aria-live="polite">{{ text }}</p>
+  }
+</section>
+
+<ui-confirm-dialog
+  [open]="confirmRestart()"
+  title="Restart the terminal?"
+  message="Linux restarts from the beginning with the room's files. Anything you created or changed in the terminal is lost."
+  confirmVariant="danger"
+  (confirmed)="restart()"
+  (cancelled)="confirmRestart.set(false)"
+/>

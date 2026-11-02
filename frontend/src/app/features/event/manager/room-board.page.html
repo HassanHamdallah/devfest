@@ -88,6 +88,9 @@
     </ui-empty-state>
     }
   </section>
+  @if (view.room.terminalEnabled) {
+  <event-terminal-files-card [room]="view.room" [revision]="view.revision" />
+  }
   <event-room-content-card [room]="view.room" (changed)="reload()" />
 </div>
 }

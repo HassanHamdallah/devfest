@@ -13,6 +13,7 @@ import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../manager/board-loader";
 import { EventRefreshError } from "../manager/refresh-error";
 import { EventFinalAccusationForm } from "./final-accusation-form";
+import { EventFinalEvidence } from "./final-evidence";
 import { EventFinalFinished } from "./final-finished";
 import { EventFinalRecoveryForm } from "./final-recovery-form";
 
@@ -26,6 +27,7 @@ const FINAL_STEPS: Partial<Record<FinalStage, number>> = {
 @Component({
   imports: [
     EventFinalAccusationForm,
+    EventFinalEvidence,
     EventFinalFinished,
     EventFinalRecoveryForm,
     EventRefreshError,
@@ -49,6 +51,11 @@ export class EventTeamFinalPage {
   protected readonly step = computed(() => {
     const stage = this.final()?.stage;
     return stage ? (FINAL_STEPS[stage] ?? null) : null;
+  });
+  /** "Your evidence" in every stage except before the final opens and after it closes. */
+  protected readonly showsEvidence = computed(() => {
+    const stage = this.final()?.stage;
+    return stage !== undefined && stage !== "LOCKED" && stage !== "CLOSED";
   });
   protected readonly cluesLine = computed(
     () =>

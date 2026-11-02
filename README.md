@@ -62,6 +62,27 @@ saves a snapshot first. See [docs/EVENT-ADMIN-OVERRIDES.md](docs/EVENT-ADMIN-OVE
 - Fixing the key later (until the final opens) re-checks every answer already submitted to the room; the card confirms "Saved. Re-checked N answers." and teams see the new result at their next refresh, marked "Updated after review".
 - For a single answer, the manager can choose **Accept**, **Reject** or **Automatic** under the clue answer. Technical output is never checked automatically: Pass / Fail ("Technical output — your decision") is the manager's call.
 
+### Event: Linux room terminal (room manager, before the event)
+
+Rooms with **Terminal enabled** (admin, **Content** page; on by default for the Linux room only) give teams a Linux
+terminal that runs inside their browser — no internet, nothing runs on the server (rules §18).
+
+- On your room board, open **Terminal files** → **Add file**. Enter a **Path** relative to the team's home, e.g.
+  `logs/lock.log` (teams find it as `~/logs/lock.log`), and paste the **Content** or pick a `.txt`/`.log` file from your
+  computer (it is read in your browser). **Save file**. Limits: 20 files, 2 MB per file, 5 MB per room.
+- Press **Test terminal** and try the commands teams will need (`grep`, `sort`, `uniq -c`, `awk`, `cut`, `wc -l`,
+  `head`, `tail`, `less`). The admin control screen warns while an enabled terminal has no files.
+- Files can be changed until the final opens; a team sees changes the next time its terminal starts (or after
+  **Restart terminal**).
+- Teams receive the files only while their Linux round is Assigned, Running or Paused; at Time's up the terminal says
+  "Time is up" and stops taking input. They still type the answer into the usual form (the **Use selection as
+  technical output** button copies selected terminal text into it).
+
+**Event-day tips:** ask teams to open the Linux room page on a **laptop** as soon as the round is *Assigned* — the page
+downloads the terminal (about 8 MB) in the background, so it starts in a few seconds when the timer starts. Phones
+work, but the 80-column terminal scrolls sideways there. Refreshing the page or leaving it ends the terminal session
+(the browser asks first); files in it are not saved.
+
 ### Event: teams, sign-ins and devices
 
 - **Planned teams.** On **Teams & accounts**, enter the number of teams taking part (1–64) and press **Save**. A group may then hold at most ceil(N / 4) active teams; the page and the control screen warn when the team count or group balance is off (rules 14 in `docs/EVENT-RULES.md`).

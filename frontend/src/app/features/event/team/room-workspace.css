@@ -1,0 +1,46 @@
+.room-workspace {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+/* Laptop: terminal on the left (about 60%), the unchanged answer form on the right. */
+.room-workspace--split {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+}
+
+.room-workspace--split .room-workspace__terminal {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.room-workspace__answer {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.room-workspace__terminal {
+  display: block;
+  min-width: 0;
+}
+
+.room-workspace__start {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+
+.room-workspace__start h2 {
+  margin: 0;
+}
+
+.room-workspace__start p {
+  margin: 0;
+}
+
+.room-workspace__note {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+}

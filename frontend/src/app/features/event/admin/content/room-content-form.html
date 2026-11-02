@@ -33,4 +33,21 @@
       (reload)="discardEdits()"
     />
   </form>
+  <div class="room-content__terminal">
+    <label class="room-content__toggle">
+      <input
+        type="checkbox"
+        name="terminalEnabled"
+        [checked]="room().terminalEnabled"
+        [disabled]="terminalState.busy()"
+        (change)="setTerminal($event)"
+      />
+      <span>Terminal enabled</span>
+    </label>
+    <p class="room-content__hint">
+      Teams in this room get a Linux terminal in their browser. The room's
+      manager adds its files on the room board.
+    </p>
+    <app-action-status [state]="terminalState" />
+  </div>
 </ui-card>

@@ -4,9 +4,11 @@ export default defineConfig({
   // Each spec resets the rehearsal backend before every test (resetRehearsal), so order and repeats don't matter.
   testMatch: [
     "event-clues.spec.ts",
+    "event-evidence.spec.ts",
     "event-live.spec.ts",
     "event-overrides.spec.ts",
     "event-teams.spec.ts",
+    "event-terminal.spec.ts",
     "event.spec.ts",
   ],
   timeout: 300000,

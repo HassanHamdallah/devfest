@@ -15,7 +15,7 @@
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reloadAll()" />
   }
-  <event-room-submission-panel [board]="view" (changed)="reloadAll()" />
+  <event-team-room-workspace [board]="view" (changed)="reloadAll()" />
   <section aria-labelledby="team-rooms-heading">
     <h2 id="team-rooms-heading">Rooms</h2>
     <div class="event-grid">
@@ -24,6 +24,20 @@
       }
     </div>
   </section>
+  @if (finishedEvidence().length > 0) {
+  <section aria-labelledby="team-evidence-heading">
+    <h2 id="team-evidence-heading">Evidence</h2>
+    <p class="event-muted">Your answers in finished rooms. Keep the clues for the final.</p>
+    <div class="event-grid">
+      @for (evidence of finishedEvidence(); track evidence.roomCode) {
+      <event-team-evidence-card
+        [evidence]="evidence"
+        [recoverable]="isRecoverable(view, evidence)"
+      />
+      }
+    </div>
+  </section>
+  }
   <event-team-final-card [board]="view" />
   <event-team-answer-history
     [receipts]="receiptList()"

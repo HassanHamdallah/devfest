@@ -15,7 +15,8 @@ import org.springframework.stereotype.Repository;
 public class EventRoomRepository {
 
   private static final String COLUMNS = """
-    id, code, name, position, manager_id, is_open, clue_key, recovery_prompt, recovery_answer, version""";
+    id, code, name, position, manager_id, is_open, clue_key, recovery_prompt, recovery_answer, version,
+    terminal_enabled""";
 
   private static final String WITH_MANAGER = """
     SELECT r.id, r.code, r.name, r.manager_id, u.name AS manager_name
@@ -66,6 +67,10 @@ public class EventRoomRepository {
     db.update("UPDATE event_room SET is_open = ? WHERE id = ?", open, roomId);
   }
 
+  public void setTerminalEnabled(long roomId, boolean enabled) {
+    db.update("UPDATE event_room SET terminal_enabled = ? WHERE id = ?", enabled, roomId);
+  }
+
   /** {@code managerId} null removes the manager. */
   public void assignManager(long roomId, Long managerId) {
     db.update("UPDATE event_room SET manager_id = ? WHERE id = ?", managerId, roomId);
@@ -107,7 +112,8 @@ public class EventRoomRepository {
       rs.getString("clue_key"),
       rs.getString("recovery_prompt"),
       rs.getString("recovery_answer"),
-      rs.getLong("version")
+      rs.getLong("version"),
+      rs.getBoolean("terminal_enabled")
     );
   }
 

@@ -20,6 +20,7 @@ import dev.devfest.event.dto.TeamFinal.TeamFinish;
 import dev.devfest.event.repository.AccusationRecord;
 import dev.devfest.event.repository.AccusationRepository;
 import dev.devfest.event.repository.CollectedClueRepository;
+import dev.devfest.event.repository.EventBoardRepository;
 import dev.devfest.event.repository.EventContentRepository;
 import dev.devfest.event.repository.EventRankingRepository;
 import dev.devfest.event.repository.EventRoomRecord;
@@ -36,6 +37,7 @@ import dev.devfest.event.repository.SuspectRepository;
 import dev.devfest.event.repository.TeamFinalRepository;
 import dev.devfest.event.repository.TeamFinalSummaryRecord;
 import dev.devfest.event.repository.TeamFinishRecord;
+import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.service.TeamWriteGate.TeamWrite;
 import java.time.Instant;
 import java.util.List;
@@ -60,6 +62,8 @@ public class EventFinalService {
   private final CollectedClueRepository clues;
   private final PenaltyRepository penalties;
   private final EventRankingRepository ranking;
+  private final EventBoardRepository boards;
+  private final TeamRoomExceptionRepository exceptions;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -76,6 +80,8 @@ public class EventFinalService {
     CollectedClueRepository clues,
     PenaltyRepository penalties,
     EventRankingRepository ranking,
+    EventBoardRepository boards,
+    TeamRoomExceptionRepository exceptions,
     AuditLog audit,
     EventClock clock
   ) {
@@ -91,13 +97,16 @@ public class EventFinalService {
     this.clues = clues;
     this.penalties = penalties;
     this.ranking = ranking;
+    this.boards = boards;
+    this.exceptions = exceptions;
     this.audit = audit;
     this.clock = clock;
   }
 
   /**
-   * At most 6 SQL statements: team, event state, team summary; then RECOVERY +1 (missing room),
-   * MESSAGE +2 (content, suspects), FINISHED +3 (content, suspects, ranking).
+   * At most 8 SQL statements: team, event state, team summary, the team's rooms and room exceptions (evidence,
+   * same mapping as the team board); then RECOVERY +1 (missing room), MESSAGE +2 (content, suspects), FINISHED +3
+   * (content, suspects, ranking).
    */
   public TeamFinal view(Principal principal) {
     EventTeamRecord team = access.requireTeamOf(principal);
@@ -105,10 +114,12 @@ public class EventFinalService {
     TeamFinalSummaryRecord summary = finals.summary(team.id());
     FinalStage stage = stageOf(state, summary);
     boolean showsMessage = stage == FinalStage.MESSAGE || stage == FinalStage.FINISHED;
+    Instant now = clock.now();
+    var evidence = EventViews.evidence(team, state, boards.teamRooms(team.id()), exceptions.findForTeam(team.id()), now);
     return new TeamFinal(
       stage,
       state.finalStartedAt(),
-      clock.now(),
+      now,
       summary.clues(),
       stage == FinalStage.RECOVERY ? recoveryChallenge(summary) : null,
       showsMessage ? contents.get().encryptedMessage() : null,
@@ -117,7 +128,8 @@ public class EventFinalService {
       summary.wrongAccusations(),
       summary.penaltyMinutes(),
       stage == FinalStage.FINISHED ? finish(summary.finish()) : null,
-      state.resultsPublished()
+      state.resultsPublished(),
+      evidence
     );
   }
 
