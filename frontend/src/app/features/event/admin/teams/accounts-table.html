@@ -1,0 +1,90 @@
+<app-action-status [state]="state" />
+<div class="event-table-wrap">
+  <table>
+    <caption>
+      Accounts
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Email</th>
+        <th scope="col">Role</th>
+        <th scope="col">Status</th>
+        <th scope="col">Linked to</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track row.account.id) {
+      <tr [attr.data-account]="row.account.email">
+        <th scope="row">{{ row.account.name }}</th>
+        <td>{{ row.account.email }}</td>
+        <td>{{ row.roleLabel }}</td>
+        <td>
+          @if (row.account.active) {
+          <ui-status-chip variant="success">Active</ui-status-chip>
+          } @else {
+          <ui-status-chip variant="warning">Inactive</ui-status-chip>
+          }
+        </td>
+        <td>{{ row.linkLabel }}</td>
+        <td>
+          <div class="event-inline">
+            @if (row.account.active) {
+            <ui-button
+              variant="secondary"
+              size="sm"
+              [disabled]="state.busy()"
+              (click)="openDialog('deactivate', row.account)"
+              >Deactivate</ui-button
+            >
+            } @else {
+            <ui-button
+              variant="secondary"
+              size="sm"
+              [disabled]="state.busy()"
+              (click)="activate(row.account)"
+              >Activate</ui-button
+            >
+            }
+            <ui-button
+              variant="ghost"
+              size="sm"
+              [disabled]="state.busy()"
+              (click)="openDialog('password', row.account)"
+              >Reset password</ui-button
+            >
+          </div>
+        </td>
+      </tr>
+      } @empty {
+      <tr>
+        <td colspan="6" class="event-muted">
+          No manager or team accounts yet. Create one above.
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<ui-confirm-dialog
+  [open]="dialog() !== null"
+  [title]="dialogTitle()"
+  [message]="dialogMessage()"
+  confirmVariant="danger"
+  [busy]="state.busy()"
+  (confirmed)="confirmDialog()"
+  (cancelled)="closeDialog()"
+>
+  @if (passwordDialogOpen()) {
+  <ui-input
+    label="New password"
+    type="password"
+    autocomplete="new-password"
+    hint="12 to 72 characters."
+    [formControl]="newPassword"
+    [error]="passwordError()"
+  />
+  }
+</ui-confirm-dialog>

@@ -1,11 +1,17 @@
 package dev.devfest.api;
 
+import dev.devfest.event.domain.EventRuleException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class Errors {
@@ -55,6 +61,43 @@ public class Errors {
     return ProblemDetail.forStatusAndDetail(
       HttpStatus.BAD_REQUEST,
       "Invalid request."
+    );
+  }
+
+  @ExceptionHandler(EventRuleException.class)
+  ProblemDetail eventRule(EventRuleException e) {
+    return ProblemDetail.forStatusAndDetail(
+      HttpStatus.BAD_REQUEST,
+      e.getMessage()
+    );
+  }
+
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  ProblemDetail missingHeader(MissingRequestHeaderException e) {
+    return ProblemDetail.forStatusAndDetail(
+      HttpStatus.BAD_REQUEST,
+      "Missing required header: " + e.getHeaderName()
+    );
+  }
+
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  ProblemDetail missingParameter(MissingServletRequestParameterException e) {
+    return ProblemDetail.forStatusAndDetail(
+      HttpStatus.BAD_REQUEST,
+      "Missing required parameter: " + e.getParameterName()
+    );
+  }
+
+  @ExceptionHandler({ NoResourceFoundException.class, NoHandlerFoundException.class })
+  ProblemDetail notFound(Exception e) {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Not found.");
+  }
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  ProblemDetail methodNotAllowed(HttpRequestMethodNotSupportedException e) {
+    return ProblemDetail.forStatusAndDetail(
+      HttpStatus.METHOD_NOT_ALLOWED,
+      "Method not allowed."
     );
   }
 

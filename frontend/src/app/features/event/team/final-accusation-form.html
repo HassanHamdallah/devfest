@@ -1,0 +1,57 @@
+<ui-card>
+  <h2 ui-card-header>Encrypted message</h2>
+  <pre class="message">{{ final().encryptedMessage }}</pre>
+</ui-card>
+<ui-card>
+  <h2 ui-card-header>Suspects</h2>
+  <ul class="suspects">
+    @for (suspect of final().suspects; track suspect.id) {
+    <li>
+      <strong>{{ suspect.name }}</strong>
+      @if (suspect.description) {
+      <span class="event-muted">{{ suspect.description }}</span>
+      }
+    </li>
+    }
+  </ul>
+</ui-card>
+<ui-card>
+  <h2 ui-card-header>Accusation</h2>
+  <form (ngSubmit)="submit()">
+    <ui-select
+      label="Suspect"
+      name="suspectId"
+      placeholder="Choose a suspect"
+      [required]="true"
+      [options]="suspectOptions()"
+      [(ngModel)]="suspectId"
+    />
+    <ui-textarea
+      label="Decrypted message"
+      name="decryptedMessage"
+      [rows]="3"
+      [required]="true"
+      [(ngModel)]="decryptedMessage"
+    />
+    <ui-textarea
+      label="Evidence"
+      name="evidence"
+      [rows]="4"
+      [required]="true"
+      [(ngModel)]="evidence"
+    />
+    <p class="event-muted">
+      Each wrong accusation adds +3 minutes to your final time. You can try
+      again. {{ attemptsLine() }}
+    </p>
+    @if (feedback(); as text) {
+    <ui-alert variant="error">{{ text }}</ui-alert>
+    }
+    <event-attempt-status [attempt]="attempt" (retry)="retry()" />
+    <div>
+      <ui-button type="submit" [loading]="attempt.sending()"
+        >Submit accusation</ui-button
+      >
+    </div>
+  </form>
+</ui-card>

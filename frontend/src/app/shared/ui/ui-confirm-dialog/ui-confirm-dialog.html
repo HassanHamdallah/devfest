@@ -1,0 +1,29 @@
+<dialog
+  #dialogEl
+  class="ui-confirm-dialog"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="titleId"
+  (cancel)="handleCancelEvent($event)"
+>
+  <h2 class="ui-confirm-dialog__title" [id]="titleId">{{ title() }}</h2>
+  @if (message(); as text) {
+  <p class="ui-confirm-dialog__message">{{ text }}</p>
+  }
+  <ng-content />
+  <div class="ui-confirm-dialog__actions">
+    <ui-button
+      #cancelButton
+      variant="secondary"
+      [disabled]="busy()"
+      (click)="cancelled.emit()"
+      >Cancel</ui-button
+    >
+    <ui-button
+      [variant]="confirmVariant()"
+      [loading]="busy()"
+      (click)="confirmed.emit()"
+      >Confirm</ui-button
+    >
+  </div>
+</dialog>

@@ -1,19 +1,40 @@
-# Status — 2026-10-23
+# Status — 2026-10-24
 
-## Investigation competition (ADMIN / MANAGER / MEMBER)
+## Event prototype (ADMIN / MANAGER / MEMBER)
 
-**Classification: implemented and verified locally on the rehearsal stack. Not deployed. Hosting backups unverified. Business rules await organizer sign-off.**
+**Classification: foundation prototype, implemented and tested locally. Not deployed. No server backups exist yet. Practice content only.**
 
-| Check (run 2026-10-23) | Result | Evidence |
+The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, scripts and tests) was replaced by the event module (`dev.devfest.event`, migration V5, `frontend/src/app/features/event`). Copies of every removed or rewritten file are in the ignored `.local/backup-old-investigation/`. Rules: [docs/EVENT-RULES.md](docs/EVENT-RULES.md). Design: [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md).
+
+### Implemented
+
+- 4 fixed rooms, groups A–D, computed rotation over 4 rounds, admin round control with a display-only countdown.
+- Team room submissions with server-side clue normalization, idempotent receipts (Idempotency-Key, request hash, append-only rows), client-side retry storage, and a rate limit of 20 per minute per team.
+- Manager room board: judging with optimistic versions and history, penalties with one-time voids, room content editing until the final opens.
+- Final: stages by collected clues, recovery for the single missing room, accusations, the one SQL ranking definition, publication.
+- Admin control, teams & accounts, and content pages; CSV export; alerts for incomplete setup.
+- Live refresh by revision polling (10 s, paused in hidden tabs); every board is one aggregated endpoint.
+- Development seed (development mode only) and an isolated rehearsal on `devfest_test`.
+
+### Tested locally (2026-10-24)
+
+| Check | Result | Evidence |
 |---|---|---|
-| `infrastructure/test-backend.ps1` | 43/43 passed (13 investigation integration tests: isolation, direct API requests, hidden content, concurrent retries, deadlines, draft versions, final lock, scoring edits/publication, ranks, expired/revoked sessions, DB score limit, lifecycle audit) | `.local/investigation-tests.log` |
-| Three-role browser flow (admin → manager → member → manager scoring → publication) | Passed twice on a freshly reset fixture. The earlier recorded timeout was a test race (room URL read before navigation finished), now fixed | `docs/investigation-browser-results.json` |
-| Actual backend process kill and restart | Receipt, report, snapshot and score identical after restart and a new sign-in | `docs/investigation-restart-results.json` |
-| Backup → restore into a new database | All 12 tables match row count and content hash | `docs/investigation-restore-results.json` |
-| Synchronized 80 and 160 concurrent teams (browse/draft/submit/retry/history) | 0 failures; all receipts unique; retries returned identical receipts; max 568 ms | `docs/investigation-load-results.json` |
-| Frontend `npm run build` | Passed | — |
+| `infrastructure/test-backend.ps1` | `Tests run: 91, Failures: 0, Errors: 0, Skipped: 0`, BUILD SUCCESS: 47 event integration tests (authorization, submissions/rotation, judging, penalties, final, ranking, revision, organization), 21 event domain unit tests, and the unchanged contest suites (PlatformIntegrationTest 17, RulesTest 5, StartupSafetyTest 6, JudgeTransportTest 2) | `.local/event-tests.log` |
+| `mvnw -DskipTests package` / `npm run build` | Success / success; initial bundle 316.91 kB raw (86.20 kB transfer), Monaco only in the lazy coding workspace chunk | — |
+| Playwright event journey (admin → member → manager → helper rounds → final → recovery → accusations → publication → ranking), 390 px overflow checks, no console errors | 1 passed | `docs/event-browser-results.json`, `docs/event-*.png` |
+| Manual API checks on the rehearsal | member → admin board 403; AI manager → Linux board 404; anonymous → team board 401; member team board contains no clue key | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
+| EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
+| Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
-Limits of this evidence: a single local Windows host with no WAN latency, and one burst cycle rather than sustained traffic. All submissions and draft saves serialize on one settings-row lock (by design, for consistency); this held at 160 concurrent teams locally but has not been measured on event hardware. No staging deployment exists. No error-monitoring service is attached (logs plus `/api/v1/health` only). Operations, preflight and incident guide: [docs/INVESTIGATION-OPERATIONS.md](docs/INVESTIGATION-OPERATIONS.md).
+### Not yet verified
+
+- No deployment, HTTPS/reverse proxy, or event hardware/Wi-Fi measurement.
+- No backup/restore procedure or process-restart rehearsal for the event schema yet. The old investigation evidence files in `docs/investigation-*` describe the removed module.
+- No organizer sign-off on the real event content, or on the assumptions listed in the delivery report.
+- No formal accessibility audit; the browser matrix is Edge only.
+
+`docs/INVESTIGATION-OPERATIONS.md` is outdated and kept for reference only.
 
 ---
 

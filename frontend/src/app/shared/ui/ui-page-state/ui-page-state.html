@@ -1,0 +1,13 @@
+@if (loading()) {
+<div class="ui-page-state__loading">
+  <ui-spinner />
+  <span aria-hidden="true">{{ loadingLabel() }}</span>
+</div>
+} @else if (error(); as text) {
+<div class="ui-page-state__error">
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  <ui-button variant="secondary" (click)="retry.emit()">Try again</ui-button>
+</div>
+} @else if (empty()) {
+<ui-empty-state [title]="emptyTitle()" [description]="emptyDescription()" />
+}

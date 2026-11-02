@@ -1,0 +1,33 @@
+:host {
+  display: flex;
+}
+
+ui-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-content__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+form {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+
+ui-input,
+ui-textarea,
+app-action-status {
+  justify-self: stretch;
+}

@@ -1,0 +1,57 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the room board…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (board(); as view) {
+<header class="event-page-header">
+  <h1>{{ view.room.name }}</h1>
+  <div class="event-page-header__meta">
+    <ui-status-chip [variant]="view.room.open ? 'success' : 'warning'"
+      >{{ view.room.open ? "Open" : "Closed" }}</ui-status-chip
+    >
+    <ui-countdown [clock]="view.clock" />
+    <span>{{ roundLine() }}</span>
+  </div>
+</header>
+<div class="event-stack">
+  @if (loader.refreshError(); as error) {
+  <event-refresh-error [error]="error" (retry)="reload()" />
+  }
+  <div class="event-grid event-grid--metrics">
+    <ui-metric-tile
+      label="In room now"
+      [value]="view.counters.inRoomNow"
+      [hint]="inRoomHint()"
+    />
+    <ui-metric-tile label="Pending review" [value]="view.counters.pending" />
+    <ui-metric-tile label="Passed" [value]="view.counters.passed" />
+    <ui-metric-tile label="Failed" [value]="view.counters.failed" />
+  </div>
+  <section class="teams" aria-labelledby="room-teams-heading">
+    <h2 id="room-teams-heading">Teams</h2>
+    <div class="event-inline" role="group" aria-label="Filter teams">
+      @for (option of filters; track option.value) {
+      <ui-button
+        size="sm"
+        variant="secondary"
+        [pressed]="filter() === option.value"
+        (click)="filter.set(option.value)"
+        >{{ option.label }}</ui-button
+      >
+      }
+    </div>
+    @for (row of visibleTeams(); track row.teamId) {
+    <event-room-team-row
+      [roomId]="view.room.id"
+      [row]="row"
+      (changed)="reload()"
+    />
+    } @if (emptyTeamsTitle(); as title) {
+    <ui-empty-state [title]="title" />
+    }
+  </section>
+  <event-room-content-card [room]="view.room" (changed)="reload()" />
+</div>
+}

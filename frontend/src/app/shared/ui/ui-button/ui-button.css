@@ -40,6 +40,15 @@
   cursor: not-allowed;
 }
 
+/* A faded filled button made its label unreadable; filled variants turn neutral instead. */
+.ui-button-el--primary:disabled,
+.ui-button-el--danger:disabled {
+  opacity: 1;
+  background: var(--color-surface-subtle);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
 /* Sizes: block-size floor stays 44px for the touch target; padding/font shrink. */
 .ui-button-el--sm {
   padding-inline: var(--space-3);

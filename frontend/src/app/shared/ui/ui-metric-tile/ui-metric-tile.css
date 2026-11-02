@@ -1,0 +1,28 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.ui-metric-tile__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.ui-metric-tile__value {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-metric-tile__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

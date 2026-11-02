@@ -1,0 +1,69 @@
+<ui-card>
+  <div ui-card-header class="event-inline">
+    <h2 id="suspects-heading">Suspects</h2>
+    <ui-status-chip [variant]="count().variant"
+      >{{ count().text }}</ui-status-chip
+    >
+  </div>
+  <div class="suspects">
+    <app-action-status [state]="state" />
+    <ul class="suspects__list" aria-labelledby="suspects-heading">
+      @for (row of rows(); track row.suspect.id) {
+      <li class="suspects__item" [attr.data-suspect]="row.suspect.name">
+        @if (editingId() === row.suspect.id) {
+        <app-suspect-form
+          [suspect]="row.suspect"
+          (saved)="finishEditing()"
+          (cancelled)="editingId.set(null)"
+        />
+        } @else {
+        <div class="suspects__text">
+          <div class="event-inline">
+            <strong>{{ row.suspect.name }}</strong>
+            @if (row.correct) {
+            <ui-status-chip variant="success">Correct suspect</ui-status-chip>
+            }
+          </div>
+          <span class="event-muted">{{ row.suspect.description }}</span>
+        </div>
+        @if (!content().readOnly) {
+        <div class="event-inline">
+          <ui-button variant="secondary" size="sm" (click)="edit(row.suspect)"
+            >Edit</ui-button
+          >
+          <ui-button
+            variant="ghost"
+            size="sm"
+            [disabled]="!!row.deleteReason || state.busy()"
+            (click)="deleting.set(row.suspect)"
+            >Delete</ui-button
+          >
+        </div>
+        @if (row.deleteReason; as reason) {
+        <span class="suspects__reason event-muted">{{ reason }}</span>
+        } } }
+      </li>
+      } @empty {
+      <li class="event-muted">No suspects yet.</li>
+      }
+    </ul>
+    @if (addReason(); as reason) {
+    <p class="event-muted">{{ reason }}</p>
+    } @else {
+    <section class="suspects__add" aria-labelledby="add-suspect-heading">
+      <h3 id="add-suspect-heading">Add suspect</h3>
+      <app-suspect-form (saved)="changed.emit()" />
+    </section>
+    }
+  </div>
+</ui-card>
+
+<ui-confirm-dialog
+  [open]="deleting() !== null"
+  [title]="deleteTitle()"
+  message="Teams will not see this suspect in the final."
+  confirmVariant="danger"
+  [busy]="state.busy()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+/>

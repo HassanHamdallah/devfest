@@ -1,0 +1,69 @@
+<header class="event-page-header">
+  <div class="event-stack control-title">
+    <h1>Event control</h1>
+    @if (board.data(); as data) {
+    <div class="event-page-header__meta">
+      <span class="control-round">{{ roundLabel() }}</span>
+      @if (roundRunning()) {
+      <span aria-hidden="true">·</span>
+      <ui-countdown [clock]="data.state" />
+      } @if (finalChip(); as chip) {
+      <ui-status-chip [variant]="chip.variant">{{ chip.label }}</ui-status-chip>
+      }
+    </div>
+    }
+  </div>
+  @if (board.data(); as data) {
+  <app-control-bar
+    [state]="data.state"
+    [busy]="actionState.busy()"
+    (action)="request($event)"
+  />
+  }
+</header>
+
+<ui-page-state
+  [loading]="board.loading()"
+  loadingLabel="Loading the event board…"
+  [error]="board.blockingError()"
+  (retry)="board.retry()"
+/>
+
+@if (board.data(); as data) {
+<div class="event-stack">
+  <app-action-status [state]="actionState" />
+  @if (board.staleError(); as error) {
+  <ui-alert variant="warning"
+    >Showing the last loaded board. {{ error }}</ui-alert
+  >
+  }
+  <app-alerts-list [alerts]="data.alerts" />
+  <app-room-cards
+    [rooms]="data.rooms"
+    [busy]="actionState.busy()"
+    (action)="request($event)"
+  />
+  <app-rotation-table [board]="data" />
+  <app-ranking-panel
+    [rows]="data.ranking"
+    [published]="data.state.resultsPublished"
+    [busy]="actionState.busy()"
+    (action)="request($event)"
+  />
+  <app-round-settings
+    [state]="data.state"
+    [busy]="actionState.busy()"
+    (action)="request($event)"
+  />
+</div>
+}
+
+<ui-confirm-dialog
+  [open]="confirmOpen()"
+  [title]="confirmation().title"
+  [message]="confirmation().message"
+  [confirmVariant]="confirmation().variant"
+  [busy]="actionState.busy()"
+  (confirmed)="confirm()"
+  (cancelled)="cancel()"
+/>

@@ -1,0 +1,41 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading your team…"
+  [error]="loader.initialError()"
+  (retry)="reloadAll()"
+/>
+@if (board(); as view) {
+<header class="event-page-header">
+  <h1>{{ view.teamName }}</h1>
+  <div class="event-page-header__meta">
+    <ui-status-chip>Group {{ view.groupCode }}</ui-status-chip>
+    <ui-countdown [clock]="view.clock" />
+  </div>
+</header>
+<div class="event-stack">
+  @if (loader.refreshError(); as error) {
+  <event-refresh-error [error]="error" (retry)="reloadAll()" />
+  }
+  <div>
+    <p>{{ roomLine() }}</p>
+    <p>
+      <strong>{{ cluesLine() }}</strong>
+    </p>
+  </div>
+  <event-room-submission-panel [board]="view" (changed)="reloadAll()" />
+  <section aria-labelledby="team-rooms-heading">
+    <h2 id="team-rooms-heading">Rooms</h2>
+    <div class="event-grid">
+      @for (room of view.rooms; track room.roomId) {
+      <event-team-room-card [room]="room" />
+      }
+    </div>
+  </section>
+  <event-team-final-card [board]="view" />
+  <event-team-answer-history
+    [receipts]="receiptList()"
+    [rooms]="view.rooms"
+    [error]="receiptsError()"
+  />
+</div>
+}

@@ -1,3 +1,5 @@
+> **Outdated (2026-10-24):** this guide describes the removed generic investigation module (V2–V4 tables, `/api/v1/investigation`, the old rehearsal scripts). The current event is documented in [EVENT-RULES.md](EVENT-RULES.md) and [EVENT-ARCHITECTURE.md](EVENT-ARCHITECTURE.md).
+
 # Investigation competition — operations guide
 
 For organizers running the investigation competition (roles ADMIN, MANAGER, MEMBER). The coding contest (PARTICIPANT) is documented in the root README.

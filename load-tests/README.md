@@ -19,3 +19,29 @@ In a second PowerShell terminal run `./load-tests/monitor-resources.ps1 -Seconds
 JSON reports include p50/p95/p99 API latency, acknowledged/preserved IDs, completed evaluations, per-job queue wait and evaluation time, throughput, errors and test count. Client defaults: API p95 < 1 s, no failed requests, all IDs preserved and terminal. Event-specific queue targets (suggest initial run p95 <30 s, submit p95 <120 s) must also be assessed; the harness does not claim these passed. A terminal SYSTEM_ERROR is recorded and must fail event acceptance even if durability passed. Poll mode uses history lists and per-ID detail when records exist; prepare completed jobs before claiming per-ID polling load was exercised.
 
 Repeat after terminating an application worker during queued/running jobs, restarting it, and briefly disconnecting the provider. Verify no lost IDs or duplicate scoring and recovery after 45-second leases. Unit/integration recovery tests use controlled DB state; this full process-level rehearsal remains separate. Run mixed browsing+autosave+polling alongside bursts only after individual cases pass. Keep raw reports and resource evidence, and document machine, network, deployment version, runtime fingerprints and provider quota.
+
+## Event load check
+
+`load-tests/event_load.py` (Python standard library only) puts sustained, realistic traffic on the investigation event API. It refuses any base URL whose host is not `127.0.0.1` or `localhost` and reads credentials from the ignored `.local/event-rehearsal.json`, so it only ever runs against the isolated rehearsal on port 8082 with disposable `devfest_test` data — never the event database.
+
+From the project root, in PowerShell 7:
+```
+./infrastructure/start-event-rehearsal.ps1      # resets devfest_test event data, starts API 8082 + UI 4202, waits until healthy
+python load-tests/event_load.py --scale 1 --seconds 300
+./infrastructure/stop-event-rehearsal.ps1
+./infrastructure/start-event-rehearsal.ps1      # fresh data before the second run
+python load-tests/event_load.py --scale 3 --seconds 300
+./infrastructure/stop-event-rehearsal.ps1
+```
+Run it on a freshly started rehearsal (not after the browser test) and do not run backend tests at the same time; they share `devfest_test`.
+
+What it does:
+- Setup (not measured): signs in the admin, the 4 seeded room managers and the 16 seeded teams once each (inside the 10 logins per account per minute limit), sets round 1 and opens all four rooms, so every group has an open scheduled room for the whole run.
+- Clients: `--scale 1` runs 16 team clients, `--scale 3` runs 48 (three clients share each team's token, like three browser tabs), plus 4 managers and 1 admin.
+- Every client polls `GET /event/revision` every 10 s (jittered start) and refetches its one board when the revision changes (`/event/team/board`, `/event/rooms/{id}/board` or `/event/admin/board`).
+- Each team client submits to its scheduled room about every 60 s with a fresh `Idempotency-Key`; about 20% are immediately retried with the same key and body and must return the identical receipt. This stays well under the 20 attempts per minute per team limit.
+- Each manager saves a judgement for a team in its room about every 20 s; a 409 version conflict is counted separately as expected and followed by a board refetch.
+- After the run, `GET /event/team/submissions` for each team must list every receipt that team was given.
+- `--seconds` is limited to 30–780 because access tokens last 15 minutes and the harness signs in only once.
+
+Output: `docs/event-load-1x.json` / `docs/event-load-3x.json` with per-endpoint (method + route template) request counts, errors, p50/p95/p99/max latency, totals (requests, errors, expected judgement conflicts, accepted submissions, retries, retry mismatches, duplicate receipt ids), the per-team submission cross-check and up to 50 error samples. A summary table is printed. The script exits non-zero on any unexpected non-2xx response or network failure, any retry that returned a different receipt, any receipt id produced by two different keys, or any missing receipt in the cross-check. It measures the local machine only; it is not a hosting capacity certification.

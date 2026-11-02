@@ -1,8 +1,59 @@
-# DevFest · Code Arena
+# DevFest platform
 
-An independent Angular + Spring Boot programming-contest prototype adapted from selected TeamQora foundations. The complete participant journey has been exercised locally through a real Judge0 service. This is a **verified local MVP, not competition-ready hosting**. See [STATUS.md](STATUS.md) for evidence and remaining gates.
+One Angular + Spring Boot application with two parts:
 
-The same app also hosts the **investigation competition** (rooms, teams, room managers, challenges, final reports and manual scoring). Organizer setup, preflight, backups and incident handling: [docs/INVESTIGATION-OPERATIONS.md](docs/INVESTIGATION-OPERATIONS.md). Isolated rehearsal: `.\infrastructure\start-investigation-rehearsal.ps1` (ports 8082/4202, resets only `devfest_test`), then `npx playwright test --config playwright.investigation.config.ts` from `frontend`. For development seed accounts (1 manager, 2 members, 2 rooms, 2 teams), set `DEVFEST_INVESTIGATION_SEED_PASSWORD` with `DEVFEST_DEVELOPMENT=true`.
+- **Investigation event** (ADMIN, MANAGER, MEMBER): 4 fixed rooms, 16 teams in groups A–D rotating over 4 rounds, automatic clue checking, manager judging and penalties, a final with recovery and accusation, and a published ranking. Rules: [docs/EVENT-RULES.md](docs/EVENT-RULES.md). Design: [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md). Performance evidence: [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md).
+- **Legacy coding contest** (PARTICIPANT, Judge0, Monaco): kept in the codebase and hidden from event navigation; documented further below.
+
+Both are **local prototypes, not deployed**. See [STATUS.md](STATUS.md) for what is verified.
+
+## Event: run locally from an empty database
+
+1. Start the dedicated local PostgreSQL cluster (first run creates it and generates ignored credentials). In a non-interactive shell run it in the background and wait for `ready to accept connections` in `.local/postgres.log`:
+   ```powershell
+   .\infrastructure\start-local-database.ps1
+   ```
+2. Edit the ignored `backend/.env` (generated on first run) for the event:
+   ```properties
+   DEVFEST_DEVELOPMENT=true
+   DEVFEST_EVENT_SEED_PASSWORD=<choose a 12+ character password for the seeded event accounts>
+   DEVFEST_WORKER_ENABLED=false
+   JUDGE0_URL=
+   DEVFEST_SEED=false
+   ```
+   `DEVFEST_ADMIN_EMAIL` / `DEVFEST_ADMIN_PASSWORD` (already generated) create the organizer account once. The event seed runs only when `DEVFEST_EVENT_SEED_PASSWORD` is set **and** `DEVFEST_DEVELOPMENT=true` (the backend refuses to start if the seed password is set outside development), and only while no team exists. Remove the seed password after the first start.
+3. Backend: `.\infrastructure\start-backend.ps1` (API on 8081; Flyway applies V1–V5).
+4. Frontend: `cd frontend; npm ci; npm start` and open http://localhost:4201.
+
+Seeded development accounts (all use the seed password; nothing secret is in the repository):
+
+| Role | Accounts |
+|---|---|
+| Organizer (ADMIN) | the `DEVFEST_ADMIN_EMAIL` from `backend/.env` |
+| Room managers | `manager.ai@event.test`, `manager.ps@event.test`, `manager.linux@event.test`, `manager.hw@event.test` |
+| Teams (MEMBER) | `team01@event.test` … `team16@event.test` → Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
+
+The seed also sets practice clue keys, recovery challenges, six suspects, the correct suspect and a practice encrypted message. Replace all of it with real content on the Content page before the event.
+
+## Event: tests, rehearsal, browser journey and load check
+
+```powershell
+.\infrastructure\test-backend.ps1        # all backend tests on the disposable devfest_test database
+cd backend; .\mvnw.cmd -DskipTests package; cd ..
+cd frontend; npm run build; cd ..
+pwsh -File .\infrastructure\start-event-rehearsal.ps1   # PowerShell 7; API 8082, UI 4202; resets ONLY event tables + app_user in devfest_test and seeds
+cd frontend; npx playwright test --config playwright.event.config.ts; cd ..   # screenshots go to docs/event-*.png
+python load-tests/event_load.py --scale 1 --seconds 300   # 21 clients; --scale 3 simulates 48 teams; refuses non-local URLs
+pwsh -File .\infrastructure\stop-event-rehearsal.ps1    # stops only the recorded rehearsal processes
+```
+
+Rehearsal credentials are written to the ignored `.local/event-rehearsal.json`. Do not run backend tests while the rehearsal is running (both use `devfest_test`). Stop the rehearsal before rebuilding the JAR (Windows locks the running file).
+
+---
+
+# Legacy coding contest (Code Arena)
+
+An independent Angular + Spring Boot programming-contest prototype adapted from selected TeamQora foundations. The complete participant journey has been exercised locally through a real Judge0 service. This is a **verified local MVP, not competition-ready hosting**.
 
 Everything required by the application is inside this project. TeamQora was inspected read-only; its database, secrets, uploads, dependencies, Git history and product features were not copied. No symlinks or runtime references to TeamQora are required.
 

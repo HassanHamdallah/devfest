@@ -1,9 +1,4 @@
-/* You can add global styles to this file, and also import other style files */
-
-@import url("@fontsource/plus-jakarta-sans/400.css");
-@import url("@fontsource/plus-jakarta-sans/500.css");
-@import url("@fontsource/plus-jakarta-sans/600.css");
-@import url("@fontsource/plus-jakarta-sans/700.css");
+/* Global styles. The system font stack below needs no font downloads. */
 
 :root {
   /* ---- Brand palette (exact, from the brand identity sheet) ----
@@ -138,6 +133,17 @@
     var(--brand-amber) 4%,
     var(--color-surface)
   );
+  /* Amber text on its subtle fill is below AA, so warning labels (chips) use a darker shade. */
+  --color-warning-text: color-mix(
+    in srgb,
+    var(--brand-amber) 70%,
+    var(--brand-black)
+  );
+  /* The ONE event accent ("Now" chips, active event navigation). An alias of the primary family,
+     so it follows --color-primary everywhere. */
+  --color-event-accent: var(--color-primary);
+  --color-event-accent-subtle: var(--color-primary-subtle);
+  --color-event-accent-text: var(--color-primary-text);
   /* Alias: two profile menus already styled their log-out row with
      --color-danger, which was never defined (so the rule silently did nothing). */
   --color-danger: var(--color-error);
@@ -196,8 +202,7 @@
   --color-preview-surface-dark: #111827;
 
   /* ---- Typography ---- */
-  --font-family-base:
-    "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-family-base: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.875rem; /* 14px */
   --font-size-base: 1rem; /* 16px */
@@ -227,6 +232,12 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-full: 9999px;
+  /* ui-card and the event surfaces. The event shell overrides the card border, shadow and padding. */
+  --radius-card: 12px;
+  --border-card: none;
+  --shadow-card: var(--shadow-md);
+  --space-card-block: var(--space-6);
+  --space-card-inline: var(--space-8);
 
   /* ---- Shadows (soft and diffuse, never harsh) ---- */
   --shadow-sm: 0 1px 2px rgb(31 41 55 / 5%);
@@ -395,6 +406,7 @@
     var(--color-surface)
   );
   --color-danger: var(--color-error);
+  --color-warning-text: var(--color-warning);
 
   /* Shadows need far more opacity to register against dark surfaces. */
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
@@ -807,5 +819,236 @@ button:focus-visible {
   }
   .coding code-editor {
     margin: 0 -16px 15px;
+  }
+}
+
+/* ==== Event prototype (ADMIN, MANAGER, MEMBER) ===============================
+   Shell (core/shell/event-shell.ts): .event-shell > .event-sidebar + .event-main.
+   Inside it cards are flat: 1px light border, 12px radius, no shadow.
+
+   Layout utilities for event pages:
+   .event-page-header            h1 row; wraps on phones. Children:
+     .event-page-header__meta    chips, countdown, status text next to the title.
+     .event-page-header__actions buttons aligned to the end.
+   .event-grid                   responsive grid of cards (columns of at least 260px; one column on phones).
+   .event-grid--metrics          denser grid for ui-metric-tile (at least 150px; two columns on phones).
+   .event-table-wrap             wrapper around a <table>; scrolls sideways inside itself so the page never does.
+                                 A <caption> is styled as the table title.
+   .event-stack                  vertical flow of page sections with a consistent gap.
+   .event-inline                 wrapping row of buttons, chips or short fields.
+   .event-muted                  secondary text.
+   .event-sr-only                visually hidden, still read by screen readers.
+   ========================================================================== */
+.event-shell {
+  --border-card: 1px solid var(--color-border);
+  --shadow-card: none;
+  --space-card-block: var(--space-5);
+  --space-card-inline: var(--space-6);
+
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.event-shell h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+.event-shell h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+.event-shell p {
+  line-height: var(--line-height-base);
+}
+.event-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+.event-sidebar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.event-brand {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+.event-menu-toggle {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.event-nav {
+  display: grid;
+  gap: 2px;
+}
+.event-nav a {
+  padding: 10px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+}
+.event-nav a:hover {
+  text-decoration: none;
+  background: var(--color-surface-subtle);
+}
+.event-nav a.active {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-event-accent-text);
+  background: var(--color-event-accent-subtle);
+}
+.event-nav__heading {
+  margin: var(--space-4) 12px var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+.event-user {
+  margin-top: auto;
+  display: grid;
+  gap: var(--space-1);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.event-user__name {
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.event-user__role {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.event-main {
+  min-width: 0;
+  padding: var(--space-8);
+  overflow-wrap: break-word;
+}
+.event-main > :not(router-outlet) {
+  display: block;
+  max-width: 1400px;
+  margin-inline: auto;
+}
+.event-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.event-page-header__meta,
+.event-page-header__actions,
+.event-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.event-page-header__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: var(--space-4);
+}
+.event-grid--metrics {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+}
+.event-grid > *,
+.event-stack > * {
+  min-width: 0;
+}
+.event-stack {
+  display: grid;
+  gap: var(--space-6);
+}
+.event-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.event-table-wrap caption {
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+}
+.event-table-wrap th,
+.event-table-wrap td {
+  padding: var(--space-3) var(--space-4);
+}
+.event-muted {
+  color: var(--color-text-muted);
+}
+.event-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 800px) {
+  .event-shell {
+    --space-card-block: var(--space-4);
+    --space-card-inline: var(--space-4);
+
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+  }
+  .event-sidebar {
+    position: static;
+    height: auto;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .event-menu-toggle {
+    display: inline-flex;
+  }
+  .event-nav {
+    display: none;
+  }
+  .event-shell--menu-open .event-nav {
+    display: grid;
+  }
+  .event-user {
+    margin-top: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-3);
+    padding-top: var(--space-2);
+  }
+  .event-main {
+    padding: var(--space-4);
+  }
+  .event-shell h1 {
+    font-size: 1.4rem;
   }
 }
