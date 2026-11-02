@@ -52,6 +52,12 @@ export interface EventRevision {
   revision: number;
 }
 
+/** Single-use credential for GET /event/stream (EventSource cannot send the Authorization header). */
+export interface StreamTicket {
+  ticket: string;
+  expiresInSeconds: number;
+}
+
 export interface EventHome {
   role: EventRole;
   roomId: number | null;

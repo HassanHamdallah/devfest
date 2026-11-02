@@ -18,7 +18,7 @@ import { EventLiveStore } from "../../../core/event/event-live-store";
 import { RoomBoard, RoomTeamRow } from "../../../core/event/event-models";
 import { PHASE_VARIANTS } from "../../../core/event/event-status";
 import { roundStatusLabel } from "../../../core/event/format";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { NavIcon } from "../../../core/shell/nav-icon";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiCountdown } from "../../../shared/ui/ui-countdown/ui-countdown";

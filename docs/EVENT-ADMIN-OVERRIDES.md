@@ -9,7 +9,7 @@ Every override:
 - needs a **reason** (3–500 characters), which is stored in the audit log with the action, the target and who did
   it (never passwords, answers or clue keys);
 - shows a **confirmation** that states the exact consequence before anything changes;
-- takes effect immediately and refreshes every screen at its next poll (≈10 s);
+- takes effect immediately and refreshes every open screen within about a second (live push);
 - runs in one database transaction: it either happens completely or not at all.
 
 The board's **Teams with overrides** list shows disqualified teams, room exceptions, manual clues and time

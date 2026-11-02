@@ -9,6 +9,7 @@ import dev.devfest.event.domain.RoundTimer;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -30,9 +31,11 @@ public class EventStateRepository {
     round_duration_seconds, round_elapsed_before_seconds, round_resumed_at, round_ended""";
 
   private final JdbcTemplate db;
+  private final ApplicationEventPublisher events;
 
-  public EventStateRepository(JdbcTemplate db) {
+  public EventStateRepository(JdbcTemplate db, ApplicationEventPublisher events) {
     this.db = db;
+    this.events = events;
   }
 
   public EventStateRecord state() {
@@ -50,12 +53,17 @@ public class EventStateRepository {
     return db.queryForObject("SELECT revision FROM event_state WHERE id = 1", Long.class);
   }
 
-  /** Call once per changing write, inside the writing transaction; returns the new revision. */
+  /**
+   * Call once per changing write, inside the writing transaction; returns the new revision. The single place
+   * that announces a change: {@link RevisionBumped} reaches open screens only after this transaction commits.
+   */
   public long bumpRevision() {
-    return db.queryForObject(
+    long revision = db.queryForObject(
       "UPDATE event_state SET revision = revision + 1, updated_at = now() WHERE id = 1 RETURNING revision",
       Long.class
     );
+    events.publishEvent(new RevisionBumped(revision));
+    return revision;
   }
 
   /**

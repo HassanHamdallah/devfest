@@ -13,7 +13,7 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 - Manager room board: judging with optimistic versions and history, penalties with one-time voids, room content editing until the final opens.
 - Final: stages by collected clues, recovery for the single missing room, accusations, the one SQL ranking definition, publication.
 - Admin control, teams & accounts, and content pages; CSV export; alerts for incomplete setup.
-- Live refresh by revision polling (10 s, paused in hidden tabs); every board is one aggregated endpoint.
+- Live refresh by a pushed revision number (Server-Sent Events, polling fallback every 3 s); every board is one aggregated endpoint.
 - Development seed (development mode only) and an isolated rehearsal on `devfest_test`.
 
 ### Tested locally (2026-10-24)
@@ -26,6 +26,24 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | Manual API checks on the rehearsal | member → admin board 403; AI manager → Linux board 404; anonymous → team board 401; member team board contains no clue key | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
+
+### Change set 2026-10-26: live revision push (Server-Sent Events)
+
+- Every committed revision is pushed to open screens over `GET /api/v1/event/stream` (single-use 30-second ticket
+  from `POST /api/v1/event/stream-ticket`; no JWT in URLs). The broadcast is wired in one place
+  (`EventStateRepository.bumpRevision` → after-commit listener), so rolled-back writes are never announced. 15-second
+  heartbeats re-check each stream's session; revoked sessions (replaced, organizer sign-out, deactivated, password
+  reset, logout) lose their streams right after the revocation commits. The browser's `RevisionSync` replaces the
+  10-second poller: catch-up `GET /revision` on every (re)connect, 3-second polling while the stream is down,
+  reconnect after 1/2/5/10 s, 30-second safety poll while healthy. No schema change. Design:
+  [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md) "Revision push (SSE) with polling fallback".
+- Tested: `test-backend.ps1` → `Tests run: 172, Failures: 0, Errors: 0, Skipped: 0` (new: EventStreamTest 6 — tickets,
+  push within 1 s, rollback sends nothing, revoked sessions closed, heartbeats, 100 streams without pool
+  exhaustion); backend package and frontend build succeed (initial bundle 349.99 kB, +1.87 kB); Playwright event
+  suite 7 passed, then `--repeat-each=3` 21 passed (new `e2e/event-live.spec.ts`: every screen within 1.5 s,
+  polling fallback, second sign-in signs the first device out within 2 s); SSE load 21 streams 420/420 and
+  150 streams 3 000/3 000 deliveries, p95 0.5 ms / 3.8 ms after the action response, no thread growth; manual
+  check through the 4201 dev proxy: a second admin window followed a change in 7–11 ms.
 
 ### Change set 2026-10-24: admin overrides toolkit
 

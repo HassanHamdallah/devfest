@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { RouterOutlet } from "@angular/router";
 import { Api } from "./core/api";
-import { RevisionPoller } from "./core/event/revision-poller";
+import { RevisionSync } from "./core/event/revision-sync";
 import { isEventRole } from "./core/role-home";
 import { CodingShell } from "./core/shell/coding-shell";
 import { EventShell } from "./core/shell/event-shell";
@@ -29,14 +29,14 @@ import { EventShell } from "./core/shell/event-shell";
 })
 export class App {
   protected readonly api = inject(Api);
-  private readonly poller = inject(RevisionPoller);
+  private readonly revisions = inject(RevisionSync);
 
   constructor() {
     // Login and session restore both set the user; logout clears it.
     effect(() => {
       const user = this.api.user();
-      if (user && isEventRole(user.role)) this.poller.start();
-      else this.poller.stop();
+      if (user && isEventRole(user.role)) this.revisions.start();
+      else this.revisions.stop();
     });
   }
 }

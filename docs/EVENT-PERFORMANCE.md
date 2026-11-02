@@ -147,6 +147,49 @@ ids. p95 by endpoint: admin board 34.1 ms, revision 25.0 ms, room board 30.1 ms,
 whose code did not change (p50 3.9 ms vs 2.7 ms in the previous run), so part of the increase is machine load
 during this run; not investigated further.
 
+## Revision push (SSE) — 2026-10-26
+
+`python load-tests/event_load.py --mode sse --streams N` on a freshly started rehearsal: setup as for the load
+check (round 1, all rooms open, timer running), then N streams opened with single-use tickets spread over the 21
+seeded accounts, and 20 admin actions (timer pause/resume alternately, 500 ms apart). For every action × stream it
+records when the first `revision` event carrying at least that action's revision arrived. "After response" is
+measured from the moment the admin's HTTP response was read; negative values mean the push arrived before the admin
+client finished reading its own response (the broadcast runs right after commit, on the sender thread).
+
+| Streams | Deliveries | Missing | After response p50 / p95 / max ms | From request start p50 / p95 / max ms | Admin action p95 ms | Errors |
+|---|---|---|---|---|---|---|
+| 21 | 420 / 420 | 0 | −0.1 / 0.5 / 0.8 | 3.8 / 24.8 / 27.1 | 24.7 | 0 |
+| 150 | 3 000 / 3 000 | 0 | 1.4 / 3.8 / 5.5 | 6.7 / 22.4 / 29.4 | 18.0 | 0 |
+
+An earlier 21-stream run on the same build (first run on that rehearsal): after response p50 0.5 / p95 2.1 /
+max 3.0 ms.
+
+Backend JVM (jcmd `GC.heap_info`, `PerfCounter.print`; Windows working set):
+
+| Run | Before | Streams open | After the actions |
+|---|---|---|---|
+| 21 streams, first run on the rehearsal | heap used 32.3 MB, 30 live threads, WS 231.5 MB | 42.1 MB, 41 threads, 236.1 MB | 45.7 MB, 40 threads, 231.5 MB |
+| 150 streams | 70.2 MB, 45 threads, 269.5 MB | 58.5 MB, 45 threads, 260.4 MB | 67.7 MB, 45 threads, 265.7 MB |
+
+Open streams add no threads per stream (the 11 extra threads in the first run are Tomcat workers created for the
+burst of ticket and stream requests; they stay pooled); heap moves within normal GC noise (committed heap stayed
+68–84 MB). `EventStreamTest` additionally holds 100 streams open through 20 admin actions and asserts that every
+stream gets the last revision, that a plain request still answers in under 1 s, and that the Hikari pool's active
+connections return to 0.
+
+Browser (Playwright, `e2e/event-live.spec.ts`, rehearsal via the 4202 dev proxy): after each admin action (assign
+round, start, open room, pause, +1 min, resume, finish rooms, open final, publish) and each manager action (pass,
+hint penalty) the team, manager and admin screens showed the change within the asserted 1.5 s; with the stream
+blocked the team page followed through 3-second polling within 4.5 s and the stream reconnected once unblocked;
+a second sign-in of the same team sent the first device to the login page with the "another device" message
+within 2 s.
+
+Compared with polling: before this change every screen polled `GET /revision` every 10 s, so another screen saw an
+action after 0–10 s (about 5 s on average), plus its board refetch; the poll itself took p95 ≈ 25 ms in the load
+checks above. With the push, the signal reaches every open stream within a few milliseconds of the commit, and the
+visible delay is the board refetch (p95 ≈ 20–35 ms in the load checks). Request load from idle screens also drops:
+a healthy tab now polls every 30 s instead of every 10 s.
+
 ## Not measured
 
 Event hardware, WAN/Wi-Fi latency, a reverse proxy, process restarts under load, and browser rendering cost on

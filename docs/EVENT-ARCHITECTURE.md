@@ -8,8 +8,8 @@ components, signals, OnPush). No ORM, no sockets, no extra runtime dependencies.
 
 | Package | Responsibility | Classes |
 |---|---|---|
-| `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, content, suspects), `EventOperationsController` (`GET /api/v1/health`) |
-| `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventPenaltyService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`; helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
+| `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, content, suspects), `EventOperationsController` (`GET /api/v1/health`), `EventStreamController` (stream ticket, SSE revision stream) |
+| `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventPenaltyService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`, `StreamTicketService`, `EventStreamRegistry` + `RevisionBroadcaster` (revision push); helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
 | `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `PenaltyRepository`, `SuspectRepository`, `EventContentRepository`, `RecoveryAttemptRepository`, `AccusationRepository`, `TeamFinalRepository`, `EventRankingRepository` (the one D12 ranking query), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
 | `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `RecoveryResult`, `AccusationResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a clue key, recovery answer, correct suspect or another team's data | |
 | `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `PenaltyKind`, `FinalStage`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `PenaltyRules`, `EventRuleException` |
@@ -190,13 +190,15 @@ when the transaction-local setting `devfest.allow_reset` is `on`; UPDATE stays r
 
 ## Authorization matrix
 
-Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public). PARTICIPANT gets 403 on
+Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public; `GET /event/stream`
+passes the security filter but answers 401 without a valid ticket). PARTICIPANT gets 403 on
 all of `/api/v1/event/**`. "own" means the room assigned to the manager or the team derived from the member's
 account — client-supplied ids never establish ownership. A foreign room/team/penalty/receipt is reported as 404.
 
 | Endpoint (under `/api/v1/event`) | ADMIN | MANAGER | MEMBER |
 |---|---|---|---|
-| `GET /revision`, `GET /home` | ✔ | ✔ | ✔ |
+| `GET /revision`, `GET /home`, `POST /stream-ticket` | ✔ | ✔ | ✔ |
+| `GET /stream?ticket=…` (no bearer token; the single-use ticket names the account and session) | ✔ | ✔ | ✔ |
 | `GET /results` | ✔ | 403 | ✔ after publication, else 403 |
 | `GET /team/board`, `/team/final`, `/team/submissions[/{id}]` | 403 | 403 | own team (foreign receipt 404) |
 | `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
@@ -208,14 +210,67 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 Defense in depth: `SecurityConfig` restricts `/api/v1/event/admin/**` to ADMIN and `/api/v1/event/**` to the three
 event roles; every public service method additionally starts with an `EventAccessPolicy` check.
 
-## Live refresh by revision polling (D14)
+## Revision push (SSE) with polling fallback (D14)
 
 `event_state.revision` is incremented inside the same transaction by every write that changes something a screen
 shows. No-op writes (same round, same room state, identical judgement retry, same publication flag) and idempotent
-replays do not bump it; reads never do. Each browser tab runs one `RevisionPoller` (`core/event/revision-poller.ts`):
-`GET /revision` every 10 s while `document.visibilityState === 'visible'`, paused while hidden, one immediate poll on
-becoming visible, no overlapping requests. Each page refetches its single aggregated board endpoint only when the
-revision changes (and after its own writes). No page polls its board on a timer.
+replays do not bump it; reads never do. The server pushes only the new **number** to open tabs; each page then
+refetches its single aggregated board endpoint, so authorization and data shaping stay in the board endpoints. A
+page also refetches right after its own successful write, so the person who clicked never waits for the push.
+
+```mermaid
+sequenceDiagram
+  participant Tab as Browser tab (RevisionSync)
+  participant API as Spring
+  participant Reg as EventStreamRegistry
+  Tab->>API: POST /stream-ticket (Bearer JWT)
+  API-->>Tab: {ticket, expiresInSeconds: 30}
+  Tab->>API: GET /stream?ticket=… (EventSource)
+  API->>Reg: consume ticket, 1 session check, register by session id
+  API-->>Tab: 200 text/event-stream, ":connected"
+  Tab->>API: GET /revision (catch-up)
+  Note over API: any write: … → bumpRevision() → COMMIT
+  API->>Reg: AFTER_COMMIT → broadcastRevision(n)
+  Reg-->>Tab: event: revision, data: {"revision": n}
+  Tab->>API: GET <its board>
+  loop every 15 s
+    Reg->>API: session check (once per session)
+    Reg-->>Tab: ":ping", or event: session-ended {"reason"} and close
+  end
+```
+
+- **Tickets** (`StreamTicketService`): `POST /api/v1/event/stream-ticket` (any event role, `EventAccessPolicy`
+  first, `RateLimit` 30 per account per minute) returns 256 random bits from `SecureRandom`, bound to the caller's
+  account and session id, kept only in this server's memory and valid for 30 s. `GET /api/v1/event/stream?ticket=…`
+  removes the ticket on first use: missing, unknown, reused or expired → 401. The stream URL is public in
+  `SecurityConfig` because EventSource cannot send an `Authorization` header; no JWT ever appears in a URL.
+- **After-commit broadcast, one place**: `EventStateRepository.bumpRevision()` publishes `RevisionBumped`;
+  `RevisionBroadcaster` listens with `@TransactionalEventListener` (AFTER_COMMIT), so a rolled-back write is never
+  announced and no service had to change. Sends run on one `event-stream-sender` thread, never on the committing
+  request thread; a burst of commits collapses into one send of the highest number.
+- **Streams** (`EventStreamRegistry`, `EventStreamController`): `SseEmitter` (async; no request thread, transaction
+  or JDBC connection is held while a stream is open), timeout 30 min (the browser then reconnects with a new
+  ticket), headers `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`. The
+  registry is keyed by session id. Events: `revision` `{"revision": n}`, `session-ended` `{"reason": "REPLACED"}`;
+  comments `:connected` (first bytes, so the browser reports the stream open) and `:ping`.
+- **Heartbeat and session closing**: every 15 s (`app.event-stream.heartbeat`) the `event-stream-heartbeat`
+  thread runs `AuthService.checkSession` (the same one-row check as every request) once per session and pings its
+  streams. A session that can no longer be used gets `session-ended` with the reason and its streams complete.
+  Revocations through `AuthService` (REPLACED at a team's second sign-in, ORGANIZER, DEACTIVATED, PASSWORD_RESET,
+  LOGOUT, REPLAY) publish `SessionsRevoked`, which closes that session's streams right after the revoking
+  transaction commits. Deactivating a team revokes its account's sessions (DEACTIVATED), so it is covered too.
+- **Client** (`RevisionSync`, `core/event/revision-sync.ts`, started by `App` for event roles, stopped on sign-out):
+  gets a ticket, opens an EventSource and raises `revision()` on every higher pushed number; on open and on every
+  reconnect it calls `GET /revision` once to catch up. While the stream is not open it polls `GET /revision` every
+  3 s and reconnects with a fresh ticket after 1 s, 2 s, 5 s, then every 10 s (the browser's own retry would reuse
+  the spent ticket). While the stream is healthy a safety poll runs every 30 s. A hidden tab keeps its stream but
+  skips polls; becoming visible polls once. On `session-ended` it closes everything and calls `GET /revision`, whose
+  401 with the reason drives the existing sign-out handling (`api.ts`: message on the login page). Pages keep using
+  `reloadOnRevisionChange` and `revision()` unchanged.
+- **Reverse proxy**: a proxy in front of the app must not buffer `/api/v1/event/stream` and must allow long-lived
+  responses (nginx: `proxy_buffering off; proxy_read_timeout 35m;`, see `infrastructure/nginx.conf.example`). The
+  Angular dev proxy (`proxy.conf.json`, and the rehearsal's `.local/event-proxy.json`) passes the stream unbuffered
+  as configured.
 
 SQL statements per read (fixed, independent of team count; documented on each service method):
 
@@ -263,7 +318,7 @@ or file I/O. Fail-fast settings: Hikari `connection-timeout=5000` ms and `spring
 ## Frontend structure (`frontend/src/app`)
 
 - `core/event/`: `event-models.ts` (types of every DTO), `event-api.ts` (one typed method per endpoint),
-  `revision-poller.ts`, `pending-request.ts` (localStorage attempt store), `countdown.ts` and `format.ts` (pure helpers).
+  `revision-sync.ts` (revision push with polling fallback), `pending-request.ts` (localStorage attempt store), `countdown.ts` and `format.ts` (pure helpers).
 - `core/guards.ts` + `core/role-home.ts`: `eventAdminGuard`, `managerGuard` (MANAGER or ADMIN), `memberGuard`,
   `eventResultsGuard`, `codingGuard`, `roleHomeGuard` (login, `''` and `'**'` go to the role's home).
 - `core/shell/`: `event-shell.ts` + `event-nav.ts` (event roles) and `coding-shell.ts` (PARTICIPANT, unchanged contest UI).

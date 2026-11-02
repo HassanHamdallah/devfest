@@ -259,7 +259,7 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
 ## 15. One device per team
 
 1. A team account can be signed in on **one device at a time**. Signing in on a second device signs the
-   first one out at its next request (at most about 10 seconds later), and it shows: "Your team signed in on
+   first one out within about a second (at most about 3 seconds if its live connection is down), and it shows: "Your team signed in on
    another device. Only one device per team can be signed in." The latest sign-in always wins.
 2. Admin and room manager accounts may stay signed in on several devices.
 3. The teams page shows, per team, whether its device is **signed in** (seen in the last 2 minutes) and when it

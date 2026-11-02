@@ -45,3 +45,13 @@ What it does:
 - `--seconds` is limited to 30–780 because access tokens last 15 minutes and the harness signs in only once.
 
 Output: `docs/event-load-1x.json` / `docs/event-load-3x.json` with per-endpoint (method + route template) request counts, errors, p50/p95/p99/max latency, totals (requests, errors, expected judgement conflicts, accepted submissions, retries, retry mismatches, duplicate receipt ids), the per-team submission cross-check and up to 50 error samples. A summary table is printed. The script exits non-zero on any unexpected non-2xx response or network failure, any retry that returned a different receipt, any receipt id produced by two different keys, or any missing receipt in the cross-check. It measures the local machine only; it is not a hosting capacity certification.
+
+### SSE mode (live revision push)
+
+```
+./infrastructure/start-event-rehearsal.ps1
+python load-tests/event_load.py --mode sse --streams 21
+python load-tests/event_load.py --mode sse --streams 150
+./infrastructure/stop-event-rehearsal.ps1
+```
+Setup as above (sign-ins, clue keys, round 1 with all rooms open and the timer running), then it takes `--streams` single-use tickets round-robin over the 21 seeded accounts (inside the 30 tickets per account per minute limit), opens that many `GET /event/stream` connections, and performs `--actions` (default 20) admin actions, alternating timer pause and resume `--gap-ms` (default 500) apart. For every action and stream it records when the first `revision` event with at least the action's revision arrived. Output `docs/event-load-sse-<N>.json`: deliveries vs. expected, missing deliveries, p50/p95/max/min of the time from the action's HTTP response to the event (negative = the event arrived before the client finished reading the response) and from the request start, admin action latency, errors, and the backend JVM's heap, live threads and working set (via `jcmd` and `tasklist`) before, with the streams open and after the actions. It exits non-zero on any error or missing delivery. Both SSE runs can follow each other on the same rehearsal.

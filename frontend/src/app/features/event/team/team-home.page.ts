@@ -6,7 +6,7 @@ import {
 } from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
 import { Receipt, TeamBoard } from "../../../core/event/event-models";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { BoardLoader } from "../manager/board-loader";
 import { EventRefreshError } from "../manager/refresh-error";

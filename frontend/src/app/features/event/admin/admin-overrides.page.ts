@@ -12,7 +12,7 @@ import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute } from "@angular/router";
 import { EventApi } from "../../../core/event/event-api";
 import { EventLiveStore } from "../../../core/event/event-live-store";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { ClueSection } from "./overrides/clue-section";
 import { DangerZone } from "./overrides/danger-zone";

@@ -28,7 +28,7 @@ const docs = path.resolve("..", "docs");
 const TEAM = "Team 01";
 const HINT_NOTE = "Hint: compare precision and recall.";
 const ENCRYPTED_MESSAGE = "WKH SUDFWLFH FOXH SRLQWV WR WKH OLEUDUB";
-// Other screens follow an admin or manager action at their next revision poll (every 10 s).
+// Other screens follow an admin or manager action when the pushed revision changes; generous timeout.
 const NEXT_POLL = { timeout: 25000 };
 
 function heading(page: Page, name: string) {

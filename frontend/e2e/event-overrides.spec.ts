@@ -11,7 +11,7 @@ import { DESKTOP, PHONE, openRolePage, signIn } from "./event-ui-helper";
 
 let accounts: RehearsalAccounts;
 const REASON = "Rehearsal: testing the override";
-// Team screens follow an override at their next revision poll (every 10 s).
+// Team screens follow an override when the pushed revision changes; generous timeout.
 const NEXT_POLL = { timeout: 25000 };
 
 function button(scope: Page | Locator, name: string) {

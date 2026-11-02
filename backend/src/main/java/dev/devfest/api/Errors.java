@@ -124,6 +124,12 @@ public class Errors {
     );
   }
 
+  /** A live event stream whose browser went away: nothing can be written back and nothing went wrong. */
+  @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+  void clientGone() {
+    // Intentionally empty; the stream registry already dropped the stream.
+  }
+
   @ExceptionHandler(Exception.class)
   ProblemDetail unexpected(Exception e, jakarta.servlet.http.HttpServletRequest request) {
     String incident=java.util.UUID.randomUUID().toString();

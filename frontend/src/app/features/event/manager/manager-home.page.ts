@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from "@angular/core";
 import { Router } from "@angular/router";
 import { EventApi } from "../../../core/event/event-api";
 import { EventHome } from "../../../core/event/event-models";
-import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
+import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { BoardLoader } from "./board-loader";
