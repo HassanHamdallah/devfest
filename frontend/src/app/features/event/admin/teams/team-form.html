@@ -10,6 +10,8 @@
       <ui-select
         label="Group"
         [options]="groupOptions"
+        [disabled]="groupLocked()"
+        [hint]="groupHint()"
         formControlName="groupCode"
       />
       <ui-select

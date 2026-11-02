@@ -8,16 +8,20 @@ import dev.devfest.event.dto.AdminContent;
 import dev.devfest.event.dto.AdminContentRequest;
 import dev.devfest.event.dto.CreateAccountRequest;
 import dev.devfest.event.dto.CreateTeamRequest;
+import dev.devfest.event.dto.GenerateTeamsRequest;
 import dev.devfest.event.dto.Organization;
+import dev.devfest.event.dto.PlannedTeamsRequest;
 import dev.devfest.event.dto.RoomManagerRequest;
 import dev.devfest.event.dto.RoomManagerView;
 import dev.devfest.event.dto.SuspectRequest;
 import dev.devfest.event.dto.SuspectView;
+import dev.devfest.event.dto.TeamCredential;
 import dev.devfest.event.dto.TeamView;
 import dev.devfest.event.dto.UpdateTeamRequest;
 import dev.devfest.event.service.EventContentService;
 import dev.devfest.event.service.EventOrganizationService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -87,6 +91,28 @@ public class EventSetupController {
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
     return organization.updateTeam(principal, teamId, request);
+  }
+
+  @PutMapping("/teams/planned-count")
+  Organization setPlannedTeamCount(
+    @Valid @RequestBody PlannedTeamsRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return organization.setPlannedTeamCount(principal, request.plannedCount());
+  }
+
+  /** The passwords exist only in this response; they are not stored or logged. */
+  @PostMapping("/teams/generate")
+  List<TeamCredential> generateTeams(
+    @Valid @RequestBody GenerateTeamsRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return organization.generateTeams(principal, request);
+  }
+
+  @PostMapping("/teams/{teamId}/sign-out")
+  TeamView signOutTeam(@PathVariable long teamId, @AuthenticationPrincipal AuthService.Principal principal) {
+    return organization.signOutTeam(principal, teamId);
   }
 
   @PutMapping("/rooms/{roomId}/manager")

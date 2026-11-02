@@ -38,6 +38,13 @@ public class Errors {
     );
   }
 
+  @ExceptionHandler(dev.devfest.auth.SessionEndedException.class)
+  ProblemDetail sessionEnded(dev.devfest.auth.SessionEndedException e) {
+    var p = api(e);
+    p.setProperty("reason", e.reason.name());
+    return p;
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
   ProblemDetail validation(MethodArgumentNotValidException e) {
     var p = ProblemDetail.forStatusAndDetail(

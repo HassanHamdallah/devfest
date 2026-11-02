@@ -95,6 +95,30 @@ allow a penalty only a single void (never a delete). All timestamps are `TIMESTA
 foreign key used in joins/filters and on `room_submission(room_id, received_at DESC)` and
 `room_submission(team_id, room_id, received_at DESC)` (latest submission lookups).
 
+## Team count and sessions (V6)
+
+V6 adds `event_state.planned_team_count` (1..64, default 16) and `auth_session.revoked_reason`
+(`LOGOUT`, `REPLACED`, `ORGANIZER`, `DEACTIVATED`, `PASSWORD_RESET`, `REPLAY`; NULL = expired) plus
+`auth_session.last_seen_at`.
+
+- Group capacity is pure domain code: `GroupCapacity` (cap ceil(N / 4), balance warnings) and `RoundRobinGroups`
+  (new teams fill the smallest group, ties A→D, all-or-nothing). `EventOrganizationService` enforces the cap and
+  the planned count under the `event_state` lock; the warnings feed both the organization response and the
+  admin board alerts.
+- Bulk generation hashes the generated passwords (BCrypt, in parallel) **before** its transaction, so the
+  `event_state` lock covers only the inserts. Plain passwords exist only in the HTTP response.
+- `AuthService` is the only code that creates or revokes sessions. A MEMBER login revokes the account's other
+  open sessions as `REPLACED` in the login transaction (the `app_user` row lock serializes concurrent logins).
+  Every revocation records its reason; sessions that already ended keep their first reason.
+- Request authentication is one primary-key query (`auth_session ⋈ app_user`). A failure names its reason:
+  the security filter stores it as a request attribute and the 401 entry point writes
+  `{"status":401,"detail":…,"reason":…}`; `/auth/refresh` returns the same shape. The frontend refreshes only
+  on `EXPIRED`; any other reason clears the session and shows the message on the login page.
+- `last_seen_at` is written by a conditional `UPDATE … WHERE last_seen_at IS NULL OR last_seen_at < now - 60 s`
+  that is issued only when the value read is older than 60 s, so steady polling adds about one write per
+  session per minute. The organization query derives `signedIn` (open session seen within 2 minutes) and
+  `lastSeenAt` with one LATERAL aggregate per team over `idx_session_user`.
+
 ## Authorization matrix
 
 Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public). PARTICIPANT gets 403 on
@@ -109,7 +133,7 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 | `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
 | `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content` | any room | own room (else 404) | 403 |
 | `POST /penalties/{id}/void` | any | own room's penalties (room-less → 404) | 403 |
-| `/admin/**` | ✔ | 403 | 403 |
+| `/admin/**` (incl. `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
 
 Defense in depth: `SecurityConfig` restricts `/api/v1/event/admin/**` to ADMIN and `/api/v1/event/**` to the three
 event roles; every public service method additionally starts with an `EventAccessPolicy` check.

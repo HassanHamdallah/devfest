@@ -1,4 +1,4 @@
-import { APIRequestContext, request } from "@playwright/test";
+import { APIRequestContext, Page, request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -54,6 +54,16 @@ export class EventApiSession {
     }
     const tokens: { accessToken: string } = await response.json();
     return new EventApiSession(http, tokens.accessToken);
+  }
+
+  /**
+   * Reuses the access token of a signed-in browser tab. Team accounts keep one session (latest sign-in
+   * wins), so a second API sign-in would sign the browser out.
+   */
+  static async fromPage(page: Page) {
+    const accessToken = await page.evaluate(() => sessionStorage.getItem("devfest.access"));
+    if (!accessToken) throw new Error("The page has no signed-in session.");
+    return new EventApiSession(await request.newContext(), accessToken);
   }
 
   async send<T>(method: string, route: string, body?: unknown, idempotencyKey?: string): Promise<T> {

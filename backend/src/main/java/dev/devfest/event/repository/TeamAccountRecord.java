@@ -1,13 +1,16 @@
 package dev.devfest.event.repository;
 
 import dev.devfest.event.domain.GroupCode;
+import java.time.Instant;
 
-/** A team with the email of its member account, for organization screens. */
+/** A team with its member account's email and presence, for organization screens. */
 public record TeamAccountRecord(
   long id,
   String name,
   GroupCode groupCode,
   long accountId,
   String accountEmail,
-  boolean active
+  boolean active,
+  Instant lastSeenAt,
+  boolean signedIn
 ) {}

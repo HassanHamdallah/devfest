@@ -80,6 +80,11 @@ public abstract class EventIntegrationTest {
     public String detail() {
       return json("$.detail");
     }
+
+    /** Why a session ended, on a 401 for a revoked or expired session. */
+    public String reason() {
+      return json("$.reason");
+    }
   }
 
   @Autowired
@@ -120,7 +125,8 @@ public abstract class EventIntegrationTest {
     db.update("INSERT INTO event_content(id) VALUES (1)");
     db.update(
       "UPDATE event_state SET current_round = 0, round_started_at = NULL, round_minutes = 25, final_open = FALSE, " +
-      "final_started_at = NULL, final_closed_at = NULL, results_published = FALSE, revision = 1 WHERE id = 1"
+      "final_started_at = NULL, final_closed_at = NULL, results_published = FALSE, revision = 1, " +
+      "planned_team_count = 16 WHERE id = 1"
     );
     managers.clear();
     managerIds.clear();
@@ -306,6 +312,12 @@ public abstract class EventIntegrationTest {
   protected static Response expectOk(Response response) {
     assertEquals(200, response.status(), response.body());
     return response;
+  }
+
+  /** A 401 for an ended session, with its reason code. */
+  protected static void expectSessionEnded(Response response, String reason) {
+    assertEquals(401, response.status(), response.body());
+    assertEquals(reason, response.reason(), response.body());
   }
 
   protected static void expectError(Response response, int status, String detail) {

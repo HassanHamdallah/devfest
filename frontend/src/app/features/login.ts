@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from "@angular/core";
@@ -43,8 +44,8 @@ import { UiCard } from "../shared/ui/ui-card/ui-card";
           autocomplete="current-password"
           formControlName="password"
         />
-        @if (error()) {
-          <p role="alert">{{ error() }}</p>
+        @if (banner(); as text) {
+          <p class="login__banner" role="alert">{{ text }}</p>
         }
         <ui-button
           type="submit"
@@ -63,6 +64,10 @@ export class Login {
   private readonly roleHome = inject(RoleHome);
   protected readonly error = signal("");
   protected readonly busy = signal(false);
+  /** One banner: the sign-in error, else why the previous session ended. */
+  protected readonly banner = computed(
+    () => this.error() || this.api.sessionNotice(),
+  );
   protected readonly form = new FormGroup({
     email: new FormControl("", {
       nonNullable: true,
@@ -77,6 +82,7 @@ export class Login {
     if (this.form.invalid) return;
     this.busy.set(true);
     this.error.set("");
+    this.api.sessionNotice.set(null);
     try {
       const r = this.form.getRawValue();
       await this.api.login(r.email, r.password);

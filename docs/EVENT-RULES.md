@@ -22,8 +22,9 @@ There are exactly four rooms, always in this order:
 
 ## 2. Groups and rotation
 
-- Every team belongs to one group: A, B, C or D. A group can have at most **4 active teams**
-  (a fifth is refused with "Group A already has 4 active teams.").
+- Every team belongs to one group: A, B, C or D. How many teams take part is the organizer's choice; the
+  group limit follows from it (rule 14). With the default 16 planned teams a group holds at most **4 active
+  teams** (a fifth is refused with "Group A already has 4 active teams.").
 - Each round, every group is scheduled in exactly one room, and the groups rotate so that every group
   visits every room once:
 
@@ -179,3 +180,39 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
   suspects, correct suspect). A room manager can edit only their own room's clue key and recovery challenge.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
+
+## 14. Team count and group capacity
+
+1. **Planned team count.** The admin sets the planned team count N (1–64) on **Teams & accounts**. The four
+   groups and the room rotation (rule 2) do not change; only the number of teams per group does.
+2. **Group capacity.** A group may hold at most **ceil(N / 4)** active teams (N = 20 → 5 per group;
+   N = 10 → 3 per group). This cap is enforced when a team is created, moved to another group or reactivated
+   ("Group A already has 5 active teams."). Lowering N is refused while a group would exceed the new cap.
+3. **Planned count limit.** Creating teams (one at a time or generated in bulk) or reactivating one is refused
+   when the active teams would exceed N ("This would exceed the planned team count (N).").
+4. **Balance warnings.** The admin control screen and the teams page warn — without blocking anything — when
+   the number of active teams differs from N, when a group is over its cap, or when group sizes differ by more
+   than one.
+5. **Generated teams.** "Generate teams" creates teams "<prefix> 01", "<prefix> 02", … with member accounts
+   `<prefix>01@event.local`, … and random 16-character passwords, skipping names and emails that already
+   exist. Each new team joins the currently smallest group (ties: A before D). All teams are created or none.
+   The passwords are shown **once**; they are not stored in plain text and cannot be shown again — use
+   **Reset password** to issue a new one.
+6. **Groups locked after round 1.** While the event has not started (round 0) teams can be created, moved
+   between groups, deactivated and reactivated freely. From round 1 on, creating and deactivating teams is
+   still allowed, but **moving a team to another group is refused** ("Groups are locked after round 1
+   starts."), because it would break the rotation.
+7. **Deactivated teams** are signed out, cannot sign in, and are left out of the ranking and the rooms'
+   "teams now" lists. Their submissions, clues and penalties are kept.
+
+## 15. One device per team
+
+1. A team account can be signed in on **one device at a time**. Signing in on a second device signs the
+   first one out at its next request (at most about 10 seconds later), and it shows: "Your team signed in on
+   another device. Only one device per team can be signed in." The latest sign-in always wins.
+2. Admin and room manager accounts may stay signed in on several devices.
+3. The teams page shows, per team, whether its device is **signed in** (seen in the last 2 minutes) and when it
+   was **last seen**. **Sign out team** signs the team's device out; it shows "An organizer signed your team
+   out." and the team can sign in again.
+4. A submission that was still waiting to be sent when a device was signed out stays saved on that device and
+   can be retried after signing in again on it.

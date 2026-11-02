@@ -23,7 +23,7 @@ public class EventStateRepository {
 
   private static final String COLUMNS = """
     current_round, round_started_at, round_minutes, final_open, final_started_at,
-    final_closed_at, results_published, revision, updated_at""";
+    final_closed_at, results_published, revision, updated_at, planned_team_count""";
 
   private final JdbcTemplate db;
 
@@ -81,6 +81,10 @@ public class EventStateRepository {
     );
   }
 
+  public void setPlannedTeamCount(int plannedTeamCount) {
+    db.update("UPDATE event_state SET planned_team_count = ? WHERE id = 1", plannedTeamCount);
+  }
+
   public void setResultsPublished(boolean published) {
     db.update("UPDATE event_state SET results_published = ? WHERE id = 1", published);
   }
@@ -95,7 +99,8 @@ public class EventStateRepository {
       instant(rs, "final_closed_at"),
       rs.getBoolean("results_published"),
       rs.getLong("revision"),
-      instant(rs, "updated_at")
+      instant(rs, "updated_at"),
+      rs.getInt("planned_team_count")
     );
   }
 }

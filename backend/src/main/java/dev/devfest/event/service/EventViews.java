@@ -1,5 +1,7 @@
 package dev.devfest.event.service;
 
+import dev.devfest.event.domain.GroupCapacity;
+import dev.devfest.event.dto.AdminAlert;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.JudgementView;
 import dev.devfest.event.dto.PenaltyView;
@@ -8,13 +10,18 @@ import dev.devfest.event.dto.RoomContentView;
 import dev.devfest.event.dto.RoundClock;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
+import dev.devfest.event.repository.GroupSizeRecord;
 import dev.devfest.event.repository.PenaltyRecord;
 import dev.devfest.event.repository.RoomJudgementRecord;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import java.time.Instant;
+import java.util.List;
 
 /** Record → response mappings shared by several event services. */
 public final class EventViews {
+
+  /** Frontend route of the admin teams and accounts page. */
+  public static final String TEAMS_PAGE = "/event/admin/teams";
 
   private EventViews() {}
 
@@ -34,6 +41,14 @@ public final class EventViews {
       state.resultsPublished(),
       state.revision()
     );
+  }
+
+  /** Group balance warnings (D2) as alerts that link to the teams page. */
+  public static List<AdminAlert> groupWarnings(int plannedTeams, List<GroupSizeRecord> groups) {
+    return GroupCapacity.balanceWarnings(plannedTeams, GroupSizeRecord.asMap(groups))
+      .stream()
+      .map(warning -> new AdminAlert(warning.code(), warning.message(), TEAMS_PAGE))
+      .toList();
   }
 
   public static Receipt receipt(RoomSubmissionRecord submission) {

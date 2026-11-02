@@ -1,5 +1,6 @@
 package dev.devfest.event.seed;
 
+import dev.devfest.event.domain.GroupCapacity;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.repository.EventAccountRecord;
@@ -20,14 +21,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Practice data for local rehearsals: 4 managers, 16 teams, room content and suspects. Runs only when
- * app.event-seed-password is set, only in development mode, and only while no team exists.
+ * Practice data for local rehearsals: 4 managers, app.event-seed-teams teams (default 16, 1..64; also the
+ * planned team count), room content and suspects. Runs only when app.event-seed-password is set, only in
+ * development mode, and only while no team exists.
  */
 @Component
 @Order(30)
 public class EventDevelopmentSeed implements CommandLineRunner {
 
-  private static final int TEAM_COUNT = 16;
   private static final String CORRECT_SUSPECT = "Leila Nasser";
   private static final String ENCRYPTED_MESSAGE = "WKH SUDFWLFH FOXH SRLQWV WR WKH OLEUDUB";
 
@@ -65,6 +66,7 @@ public class EventDevelopmentSeed implements CommandLineRunner {
   private final PasswordEncoder passwords;
   private final Clock clock;
   private final String password;
+  private final int teamCount;
   private final boolean development;
 
   public EventDevelopmentSeed(
@@ -77,6 +79,7 @@ public class EventDevelopmentSeed implements CommandLineRunner {
     PasswordEncoder passwords,
     Clock clock,
     @Value("${app.event-seed-password}") String password,
+    @Value("${app.event-seed-teams}") int teamCount,
     @Value("${app.development}") boolean development
   ) {
     this.state = state;
@@ -88,6 +91,7 @@ public class EventDevelopmentSeed implements CommandLineRunner {
     this.passwords = passwords;
     this.clock = clock;
     this.password = password;
+    this.teamCount = teamCount;
     this.development = development;
   }
 
@@ -96,6 +100,9 @@ public class EventDevelopmentSeed implements CommandLineRunner {
   public void run(String... args) {
     if (password.isBlank()) return;
     if (!development) throw new IllegalStateException("The event seed is restricted to development mode.");
+    if (teamCount < GroupCapacity.MIN_PLANNED_TEAMS || teamCount > GroupCapacity.MAX_PLANNED_TEAMS) {
+      throw new IllegalStateException("DEVFEST_EVENT_SEED_TEAMS must be between 1 and 64.");
+    }
     state.lockForUpdate();
     if (teams.count() > 0) return;
     // BCrypt is deliberately slow; every seeded account shares the same password, so hash it once.
@@ -115,11 +122,16 @@ public class EventDevelopmentSeed implements CommandLineRunner {
     rooms.updateContent(room.id(), room.version(), seed.clueKey(), seed.recoveryPrompt(), seed.recoveryAnswer());
   }
 
+  /**
+   * Consecutive teams share a group in balanced blocks (16 teams: 01–04 in A, 05–08 in B, …), so group sizes
+   * differ by at most one and never exceed ceil(N / 4).
+   */
   private void seedTeams(String passwordHash) {
-    for (int n = 1; n <= TEAM_COUNT; n++) {
+    state.setPlannedTeamCount(teamCount);
+    for (int n = 1; n <= teamCount; n++) {
       String number = "%02d".formatted(n);
       long memberId = account("team" + number + "@event.test", "Team " + number, EventAccountRepository.MEMBER, passwordHash);
-      teams.insert("Team " + number, GroupCode.fromIndex((n - 1) / 4), memberId, clock.instant());
+      teams.insert("Team " + number, GroupCode.fromIndex((n - 1) * GroupCode.values().length / teamCount), memberId, clock.instant());
     }
   }
 

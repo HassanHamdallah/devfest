@@ -6,9 +6,12 @@ import static dev.devfest.event.repository.EventJdbc.timestamp;
 import dev.devfest.event.domain.GroupCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -18,11 +21,24 @@ public class EventTeamRepository {
 
   private static final String COLUMNS = "id, name, group_code, account_id, active, created_at";
 
+  /**
+   * Teams with their member account and presence, in one statement (idx_session_user per team). Signed in:
+   * an open session seen within {@link #SIGNED_IN_WINDOW}. Parameters: now, now - window, then the filter.
+   */
   private static final String WITH_ACCOUNT = """
-    SELECT t.id, t.name, t.group_code, t.account_id, u.email AS account_email, t.active
+    SELECT t.id, t.name, t.group_code, t.account_id, u.email AS account_email, t.active,
+           presence.last_seen_at, presence.signed_in
     FROM event_team t
     JOIN app_user u ON u.id = t.account_id
+    CROSS JOIN LATERAL (
+      SELECT max(s.last_seen_at) AS last_seen_at,
+             coalesce(bool_or(NOT s.revoked AND s.expires_at > ? AND s.last_seen_at >= ?), FALSE) AS signed_in
+      FROM auth_session s
+      WHERE s.user_id = t.account_id
+    ) presence
     """;
+
+  public static final Duration SIGNED_IN_WINDOW = Duration.ofMinutes(2);
 
   private final JdbcTemplate db;
 
@@ -52,12 +68,31 @@ public class EventTeamRepository {
     return db.query("SELECT " + COLUMNS + " FROM event_team WHERE active ORDER BY name", EventTeamRepository::map);
   }
 
-  public List<TeamAccountRecord> findAllWithAccounts() {
-    return db.query(WITH_ACCOUNT + "ORDER BY t.group_code, t.name", EventTeamRepository::mapWithAccount);
+  public List<TeamAccountRecord> findAllWithAccounts(Instant now) {
+    return db.query(
+      WITH_ACCOUNT + "ORDER BY t.group_code, t.name",
+      EventTeamRepository::mapWithAccount,
+      timestamp(now),
+      timestamp(now.minus(SIGNED_IN_WINDOW))
+    );
   }
 
-  public Optional<TeamAccountRecord> findWithAccount(long teamId) {
-    return db.query(WITH_ACCOUNT + "WHERE t.id = ?", EventTeamRepository::mapWithAccount, teamId).stream().findFirst();
+  public Optional<TeamAccountRecord> findWithAccount(long teamId, Instant now) {
+    return db
+      .query(
+        WITH_ACCOUNT + "WHERE t.id = ?",
+        EventTeamRepository::mapWithAccount,
+        timestamp(now),
+        timestamp(now.minus(SIGNED_IN_WINDOW)),
+        teamId
+      )
+      .stream()
+      .findFirst();
+  }
+
+  /** Names of all teams (active or not) that start with {@code prefix}; it holds only letters, digits and spaces. */
+  public Set<String> namesStartingWith(String prefix) {
+    return new HashSet<>(db.queryForList("SELECT name FROM event_team WHERE name LIKE ?", String.class, prefix + "%"));
   }
 
   public long count() {
@@ -131,7 +166,9 @@ public class EventTeamRepository {
       GroupCode.valueOf(rs.getString("group_code")),
       rs.getLong("account_id"),
       rs.getString("account_email"),
-      rs.getBoolean("active")
+      rs.getBoolean("active"),
+      instant(rs, "last_seen_at"),
+      rs.getBoolean("signed_in")
     );
   }
 }

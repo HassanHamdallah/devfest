@@ -82,6 +82,15 @@ export class TeamForm {
   protected readonly accountOptions = computed(() =>
     memberAccountOptions(this.organization(), this.team()),
   );
+  /** Moving a team after round 1 would break the rotation; the server refuses it too. */
+  protected readonly groupLocked = computed(
+    () => this.team() !== null && this.organization().groupsLocked,
+  );
+  protected readonly groupHint = computed(() =>
+    this.groupLocked()
+      ? "Groups are locked after round 1 starts."
+      : `At most ${this.organization().maxPerGroup} active teams per group.`,
+  );
   protected readonly accountHint = computed(() =>
     this.accountOptions().length
       ? null

@@ -385,6 +385,13 @@ export interface Organization {
   teams: TeamView[];
   rooms: OrganizationRoom[];
   groups: GroupTeamCount[];
+  plannedTeamCount: number;
+  /** ceil(plannedTeamCount / 4): the hard cap of active teams per group. */
+  maxPerGroup: number;
+  /** True once round 1 has started; a team's group can no longer change. */
+  groupsLocked: boolean;
+  /** Group balance warnings (TEAM_COUNT, GROUP_OVER_CAPACITY, GROUP_UNBALANCED). */
+  warnings: AdminAlert[];
 }
 
 export interface AccountView {
@@ -404,6 +411,9 @@ export interface TeamView {
   accountId: number;
   accountEmail: string;
   active: boolean;
+  /** An open session of the team account was seen in the last 2 minutes. */
+  signedIn: boolean;
+  lastSeenAt: string | null;
 }
 
 export interface CreateAccountRequest {
@@ -432,6 +442,23 @@ export interface UpdateTeamRequest {
   groupCode: GroupCode;
   accountId: number;
   active: boolean;
+}
+
+export interface PlannedTeamsRequest {
+  plannedCount: number;
+}
+
+export interface GenerateTeamsRequest {
+  count: number;
+  prefix: string;
+}
+
+/** One generated team sign-in; the password is returned once and never again. */
+export interface TeamCredential {
+  teamName: string;
+  group: GroupCode;
+  email: string;
+  password: string;
 }
 
 export interface RoomManagerRequest {

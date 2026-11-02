@@ -24,7 +24,8 @@ event hardware.
 | `GET /event/team/final` | 3–6 by stage |
 | `GET /event/rooms/{id}/board` | 4 |
 | `GET /event/admin/board` | 6 |
-| `GET /event/admin/organization` | 4 |
+| `GET /event/admin/organization` | 5 (event state, accounts, teams with presence, rooms, group sizes) |
+| any authenticated request | 1 session check by primary key; plus 1 conditional `last_seen_at` update at most once per 60 s per session |
 | `GET /event/admin/content` | 4 |
 | `GET /event/results` | 2 |
 
@@ -89,6 +90,29 @@ Totals: 3 595 requests, 0 errors, 238 accepted submissions, 57 same-key retries 
 
 Both runs meet the target (p95 < 300 ms, zero errors, no duplicate receipts) by a wide margin; the slowest request
 in either run took 30.8 ms.
+
+## Re-check after V6 (one device per team, `last_seen_at`) — 2026-10-24
+
+Presence in the organization query (`EventTeamRepository.WITH_ACCOUNT`, LATERAL aggregate per team) on the
+rehearsal data (16 teams, 21 sessions): 0.17 ms by default (seq scans on tiny tables), 0.09 ms with
+`enable_seqscan = off` using `idx_session_user` (16 index probes). The existing V1 index on `auth_session(user_id)`
+serves both this query and the REPLACED revocation, so V6 adds no partial index.
+
+1× load check repeated with the per-request session check and the throttled `last_seen_at` write
+(`docs/event-load-1x.json` now holds this run):
+
+| Endpoint | Requests | Errors | p50 ms | p95 ms | p99 ms | max ms |
+|---|---|---|---|---|---|---|
+| GET /event/admin/board | 30 | 0 | 6.1 | 26.4 | 31.1 | 31.1 |
+| GET /event/revision | 630 | 0 | 2.6 | 25.7 | 27.3 | 28.6 |
+| GET /event/rooms/{id}/board | 179 | 0 | 3.4 | 23.3 | 29.0 | 29.6 |
+| GET /event/team/board | 478 | 0 | 2.9 | 23.8 | 27.1 | 32.0 |
+| POST /event/team/rooms/{id}/submissions | 92 | 0 | 5.4 | 27.6 | 31.4 | 31.4 |
+| PUT /event/rooms/{id}/judgements/{id} | 59 | 0 | 7.5 | 28.0 | 29.0 | 29.0 |
+
+Totals: 1 468 requests, 0 errors, 79 accepted submissions, 13 same-key retries with 0 mismatches, 0 duplicate
+receipt ids. Worst p95 28.0 ms (previously 28.3 ms): no measurable regression. The 3× run was not repeated; it
+reuses each team token 3 times, which still works because the load test signs each account in only once.
 
 ## Not measured
 

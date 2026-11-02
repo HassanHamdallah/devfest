@@ -102,10 +102,7 @@ public class AdminController {
         id
       ) != 1
     ) throw fail(404, "Participant not found.");
-    if (!r.active()) db.update(
-      "UPDATE auth_session SET revoked=true WHERE user_id=?",
-      id
-    );
+    if (!r.active()) auth.revokeAll(id, dev.devfest.auth.SessionEnd.DEACTIVATED);
     contest.audit(p.id(), "SET_ACTIVE", Long.toString(id));
     return Map.of("ok", true);
   }

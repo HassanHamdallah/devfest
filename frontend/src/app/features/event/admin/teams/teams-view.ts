@@ -8,7 +8,6 @@ import {
 import { UiSelectOption } from "../../../../shared/ui/ui-select/ui-select";
 import { UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 
-export const TEAMS_PER_GROUP = 4;
 export const NO_SELECTION = "";
 
 export const ACCOUNT_ROLE_LABELS: Record<EventAccountRole, string> = {
@@ -28,21 +27,33 @@ export const GROUP_OPTIONS: readonly UiSelectOption[] = GROUP_CODES.map(
 export interface GroupCounter {
   groupCode: string;
   text: string;
-  complete: boolean;
+  overLimit: boolean;
   hint: string;
   variant: UiStatusChipVariant;
 }
 
+/** "active / max" per group; max is ceil(planned teams / 4) from the server. */
 export function groupCounters(org: Organization): GroupCounter[] {
+  const max = org.maxPerGroup;
   return org.groups.map(({ groupCode, activeTeams }) => {
-    const complete = activeTeams === TEAMS_PER_GROUP;
+    const open = max - activeTeams;
+    const overLimit = open < 0;
     return {
       groupCode,
-      text: `${activeTeams} / ${TEAMS_PER_GROUP}`,
-      complete,
-      hint: complete ? "Ready" : `Needs ${TEAMS_PER_GROUP} active teams`,
-      variant: complete ? "success" : "warning",
+      text: `${activeTeams} / ${max}`,
+      overLimit,
+      hint: overLimit ? "Over the limit" : open === 0 ? "Full" : `${open} open`,
+      variant: overLimit ? "danger" : open === 0 ? "success" : "neutral",
     };
+  });
+}
+
+/** "14:05" from an ISO instant; null when the team was never seen. */
+export function lastSeenLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
