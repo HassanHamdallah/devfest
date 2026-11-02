@@ -61,6 +61,7 @@ export class RoomContentForm {
 
   protected readonly labels = FIELD_LABELS;
   protected readonly state = new ActionState();
+  protected readonly terminalState = new ActionState();
   protected readonly form = new FormGroup({
     clueKey: new FormControl("", {
       nonNullable: true,
@@ -103,6 +104,18 @@ export class RoomContentForm {
     );
     if (!saved) return;
     this.form.markAsPristine();
+    this.changed.emit();
+  }
+
+  /** PUT /admin/rooms/{id}/terminal right away; a failed save puts the box back. */
+  protected async setTerminal(event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const enabled = box.checked;
+    const saved = await this.terminalState.run(
+      () => this.eventApi.setTerminalEnabled(this.room().roomId, enabled),
+      enabled ? "Terminal enabled." : "Terminal disabled.",
+    );
+    if (!saved) box.checked = !enabled;
     this.changed.emit();
   }
 

@@ -42,6 +42,8 @@ import org.springframework.stereotype.Service;
 public class EventAdminBoardService {
 
   private static final String CONTENT_PAGE = "/event/admin/content";
+  /** Room board route prefix; the room's terminal files are managed there. */
+  private static final String ROOM_BOARD_PAGE = "/event/room/";
   private static final int RECENT_OVERRIDES = 20;
 
   private final EventAccessPolicy access;
@@ -185,6 +187,10 @@ public class EventAdminBoardService {
       if (room.managerId() == null) {
         String message = "Room " + room.name() + " has no manager.";
         alerts.add(new AdminAlert("ROOM_WITHOUT_MANAGER", message, EventViews.TEAMS_PAGE));
+      }
+      if (room.terminalEnabled() && room.terminalFiles() == 0) {
+        String message = "Room " + room.name() + " has the terminal enabled but no terminal files.";
+        alerts.add(new AdminAlert("TERMINAL_WITHOUT_FILES", message, ROOM_BOARD_PAGE + room.id()));
       }
     }
     alerts.addAll(EventViews.groupWarnings(plannedTeams, groups));

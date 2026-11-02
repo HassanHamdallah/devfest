@@ -57,5 +57,8 @@
     </div>
   </ui-card>
   } }
+  @if (showsEvidence()) {
+  <event-final-evidence [evidence]="view.evidence" />
+  }
 </div>
 }

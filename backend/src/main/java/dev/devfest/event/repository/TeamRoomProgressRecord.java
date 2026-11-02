@@ -6,8 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One room as seen by one team: public room fields plus that team's own progress. Deliberately carries
- * no clue key or recovery data. The {@code last*} fields are null when the team never submitted there.
+ * One room as seen by one team: public room fields plus that team's own progress and latest submission. Carries
+ * no recovery data; {@code collectedClueKey} is the room's current key only when this team collected its clue
+ * (null otherwise). The {@code last*} fields are null when the team never submitted there.
  */
 public record TeamRoomProgressRecord(
   long roomId,
@@ -15,12 +16,16 @@ public record TeamRoomProgressRecord(
   String name,
   int position,
   boolean open,
+  boolean terminalEnabled,
   JudgeStatus judgement,
   boolean clueCollected,
+  String collectedClueKey,
   UUID lastSubmissionId,
   Instant lastReceivedAt,
   Boolean lastClueCorrect,
-  Boolean lastEffectiveCorrect
+  Boolean lastEffectiveCorrect,
+  String lastTechnicalOutput,
+  String lastClueAnswer
 ) {
   public boolean hasSubmission() {
     return lastSubmissionId != null;

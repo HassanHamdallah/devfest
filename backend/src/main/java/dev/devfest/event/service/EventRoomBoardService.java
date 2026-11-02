@@ -118,7 +118,8 @@ public class EventRoomBoardService {
       room.recoveryAnswer(),
       room.version(),
       !state.finalEverOpened(),
-      ClueCheck.hasKey(room.clueKey())
+      ClueCheck.hasKey(room.clueKey()),
+      room.terminalEnabled()
     );
   }
 

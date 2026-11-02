@@ -124,9 +124,12 @@ A team may submit to a room only when **all** of these are true, checked in this
    the same verdict at once, the second change is refused ("This clue verdict was changed by someone else.
    Reload and try again.").
 7. **What teams see.** The room's manager and the admin see the key, the automatic result and any override.
-   A team sees only its own result, Correct or Incorrect — never the key and never whether a person or the
-   key decided it. When a result changes after submission, the team's screen shows it at its next refresh
-   with "Updated after review".
+   A team sees its own result, Correct or Incorrect — never whether a person or the key decided it. A team
+   receives a room's clue key **only** for a room whose clue that same team has collected **and** that is
+   finished for the team (rule 17), or for any collected room once the final has opened. It never receives the
+   key of a room whose clue it has not collected, another team's answers or keys, a recovery answer, the correct
+   suspect, or override and automatic-check details. When a result changes after submission, the team's screen
+   shows it at its next refresh with "Updated after review".
 
 ## 6. Judging
 
@@ -227,8 +230,9 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
 
 ## 13. Content editing lock
 
-- Before the final opens, the admin can edit all content (clue keys, recovery challenges, encrypted message,
-  suspects, correct suspect). A room manager can edit only their own room's clue key and recovery challenge.
+- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, encrypted
+  message, suspects, correct suspect). A room manager can edit only their own room's clue key, recovery challenge and
+  terminal files (rule 18).
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
 
@@ -304,3 +308,73 @@ once in a single transaction.
 10. **Snapshots**: every reset first saves a snapshot of all rows it deletes and of the event state, in the same
     transaction — if the snapshot fails, nothing changes. The admin can take a snapshot at any time, list all
     snapshots and download each as a JSON file. Snapshots are never deleted; restoring one is not supported.
+
+## 17. Evidence: the team's finished rooms
+
+Teams need their clues in the final, so after a room is over a team can look back at it.
+
+1. **Room finished (for one team).** A room is finished for a team when the round in which the team was
+   assigned to it is over: a later round is current, or it is that round and its timer shows Time's up. The
+   assignment is the team's room for that round — the rotation, or an admin room exception if one existed for
+   that round. Every room is finished once rooms are finished (round 5) or the final has opened. Before that the
+   team page works exactly as before (answer form, receipt, answer history).
+2. **Evidence card.** For each finished room the team home shows an **Evidence** card with the team's latest
+   technical output, its latest clue answer with the result (Correct / Incorrect), and the room clue:
+   - when the team has **collected** the room's clue (from a correct answer, an organizer's manual clue or the
+     recovery challenge): the **official clue** — the room's current clue key, not the team's own text;
+   - otherwise "Clue not collected", and "You may recover it in the final." when it is the one missing clue of a
+     team with 3 clues before the final is over.
+   A room the team never answered shows "No answer submitted"; a manual clue for it is still shown.
+3. **Who may receive a key.** Rule 5.7: only the team that collected the clue, only for a finished room (or any
+   collected room once the final has opened). The key of a room whose clue the team has not collected is never
+   sent.
+4. **Hidden on screen.** Clues show as "••••••••" until the eye button is pressed ("Show clue" / "Hide clue"). A
+   shown clue hides itself again after 15 seconds, when the tab is hidden and when the team moves to another page.
+   **Copy** copies the clue without showing it. The technical output and the team's own answer are shown normally.
+5. **Final.** The final page lists the four rooms in their colours under **Your evidence** with the same hidden
+   clue display (collected clues only), in every final stage except "locked" and "closed". A clue won in the
+   recovery challenge appears there at once.
+6. **Delivery.** The evidence is part of the team home and final responses (no extra requests from the browser,
+   a fixed number of database statements whatever the number of teams).
+7. **Key changes.** If a room's key changes later (possible only until the final opens), the shown clue follows
+   the current key.
+
+## 18. In-browser terminal
+
+Some rooms give teams a Linux terminal on the website. Linux runs inside the team's own browser; nothing runs on
+the server, and the terminal has no internet. The room's answer form (technical output and clue answer) is unchanged:
+the terminal only helps produce the technical output.
+
+1. **Which rooms (setting).** Each room has a **Terminal enabled** setting that only the admin changes, on the
+   Content page, at any time (it is recorded in the audit log). On a fresh setup it is on for the Linux room only.
+   Nothing in the system is tied to the Linux room itself: any room with the setting on gets the terminal. The admin
+   board warns "Room <name> has the terminal enabled but no terminal files." until the room has at least one file.
+2. **Terminal files (content).** The room's manager (or the admin) keeps a list of text files on the room board under
+   **Terminal files**:
+   - **Path**: relative to the team's home directory, e.g. `logs/lock.log` (the team finds it at `~/logs/lock.log`).
+     1–120 characters from `A–Z a–z 0–9 . _ - /`; no leading `/`, no `..`, no empty or `.` part.
+   - **Content**: UTF-8 text (pasted, or read from a `.txt`/`.log` file in the manager's browser).
+   - **Limits**: at most **20 files**, **2 MB per file**, **5 MB per room** in total; two files cannot share a path.
+   - Files can be added only while the room's terminal is enabled, and like all content they are **read-only once
+     the final opens** ("Event content is read-only after the final opens.").
+   - Every add, change and delete is recorded in the audit log with the path and size, **never the content**.
+3. **Who receives the files.** A team receives a room's terminal files only when **all** of these hold:
+   - the room's terminal is enabled;
+   - the team is not disqualified;
+   - a room round (1–4) is current and its timer is **Assigned, Running or Paused** (not Time's up);
+   - the room is the team's room for that round (its rotation room, or the room an admin room exception sent it to).
+
+   In every other case — another group's team, another round, Time's up, rounds 0 and 5, a disqualified team, or a
+   terminal that is off — the request is answered as if the room did not exist ("Terminal files not found."). The
+   room's manager and the admin can always load their room's files (**Test terminal** on the room board). The
+   emulator and the Linux image contain no event data and may be downloaded by anyone signed in.
+4. **On the team's screen.** On a laptop (900 px wide or more) the terminal sits left of the answer form; on a phone
+   the form stays as before with "The terminal works best on a laptop" and a button to open the terminal anyway.
+   **Start terminal** downloads the emulator (while the round is Assigned the page already downloads it in the
+   background), boots Linux and copies the files into the home directory. **Restart terminal** starts again from the
+   room's files (asks first). **Use selection as technical output** copies the selected terminal text into the
+   Technical output field; the team still reviews and submits as usual. Refreshing or leaving the page ends the
+   terminal (the browser asks first while it runs).
+5. **Time's up.** When the round's timer shows Time's up (or the next round starts), the terminal shows "Time is up"
+   and accepts no more input. If the admin adds time, **Restart terminal** works again. Changed files reach a team the
+   next time its terminal starts.

@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.RoomCode;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,25 +83,46 @@ class EventAuthorizationTest extends EventIntegrationTest {
     expectOk(get("/api/v1/health", null));
   }
 
+  /**
+   * D3: a member receives a room's clue key only for a finished room whose clue its own team collected; never a
+   * recovery answer, the correct suspect or another team's key. (collectClues answers with the key itself, so the
+   * key texts of the collected rooms are the team's own answers too.)
+   */
   @Test
-  void memberResponsesNeverContainAnswerKeys() {
-    List<String> bodies = new ArrayList<>();
-    bodies.add(expectOk(get("/team/board", member.token())).body());
-    bodies.add(expectOk(get("/team/final", member.token())).body());
+  void memberResponsesContainOnlyTheKeysTheTeamCollected() {
+    List<String> before = new ArrayList<>();
+    before.add(expectOk(get("/team/board", member.token())).body());
+    before.add(expectOk(get("/team/final", member.token())).body());
+    for (String body : before) assertNoSecrets(body, Set.of());
+
     collectClues(member, RoomCode.AI, RoomCode.PROBLEM_SOLVING, RoomCode.LINUX);
     setRound(5);
     openFinal();
-    bodies.add(expectOk(get("/team/board", member.token())).body());
-    bodies.add(expectOk(get("/team/final", member.token())).body());
-    bodies.add(expectOk(get("/team/submissions", member.token())).body());
-    bodies.add(expectOk(recover(member, UUID.randomUUID(), RECOVERY_ANSWERS.get(RoomCode.HARDWARE))).body());
-    bodies.add(expectOk(get("/team/final", member.token())).body());
-    bodies.add(expectOk(accuse(member, UUID.randomUUID(), "Nadia Murad")).body());
-    bodies.add(expectOk(accuse(member, UUID.randomUUID(), CORRECT_SUSPECT)).body());
-    bodies.add(expectOk(get("/team/final", member.token())).body());
+    Set<RoomCode> collected = Set.of(RoomCode.AI, RoomCode.PROBLEM_SOLVING, RoomCode.LINUX);
+    List<String> beforeRecovery = new ArrayList<>();
+    beforeRecovery.add(expectOk(get("/team/board", member.token())).body());
+    beforeRecovery.add(expectOk(get("/team/final", member.token())).body());
+    beforeRecovery.add(expectOk(get("/team/submissions", member.token())).body());
+    for (String body : beforeRecovery) assertNoSecrets(body, collected);
+    assertEquals(
+      List.of(CLUE_KEYS.get(RoomCode.AI)),
+      expectOk(get("/team/final", member.token())).json("$.evidence[?(@.roomCode == 'AI')].clueValue")
+    );
+
+    List<String> after = new ArrayList<>();
+    after.add(expectOk(recover(member, UUID.randomUUID(), RECOVERY_ANSWERS.get(RoomCode.HARDWARE))).body());
+    after.add(expectOk(get("/team/final", member.token())).body());
+    after.add(expectOk(accuse(member, UUID.randomUUID(), "Nadia Murad")).body());
+    after.add(expectOk(accuse(member, UUID.randomUUID(), CORRECT_SUSPECT)).body());
+    after.add(expectOk(get("/team/final", member.token())).body());
     expectOk(put("/admin/publication", admin, "{\"published\":true}"));
-    bodies.add(expectOk(get("/results", member.token())).body());
-    for (String body : bodies) assertNoSecrets(body);
+    after.add(expectOk(get("/results", member.token())).body());
+    for (String body : after) assertNoSecrets(body, EnumSet.allOf(RoomCode.class));
+
+    // The other team collected nothing: none of Alpha's keys or answers reach it.
+    for (String path : List.of("/team/board", "/team/final", "/team/submissions")) {
+      assertNoSecrets(expectOk(get(path, otherMember.token())).body(), Set.of());
+    }
   }
 
   @Test
@@ -122,8 +145,11 @@ class EventAuthorizationTest extends EventIntegrationTest {
     expectError(invalidKey, 400, "Invalid request.");
   }
 
-  private static void assertNoSecrets(String body) {
-    for (String key : CLUE_KEYS.values()) assertFalse(body.contains(key), "clue key leaked: " + body);
+  /** {@code allowedKeys}: rooms whose clue key the caller may receive (D3). */
+  private static void assertNoSecrets(String body, Set<RoomCode> allowedKeys) {
+    CLUE_KEYS.forEach((room, key) -> {
+      if (!allowedKeys.contains(room)) assertFalse(body.contains(key), room + " clue key leaked: " + body);
+    });
     for (String answer : RECOVERY_ANSWERS.values()) assertFalse(body.contains(answer), "recovery answer leaked: " + body);
     for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect")) {
       assertFalse(body.contains(field), field + " leaked: " + body);

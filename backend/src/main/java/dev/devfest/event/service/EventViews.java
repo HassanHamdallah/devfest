@@ -1,5 +1,6 @@
 package dev.devfest.event.service;
 
+import dev.devfest.event.domain.EvidenceVisibility;
 import dev.devfest.event.domain.GroupCapacity;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.RoundTimer;
@@ -10,16 +11,20 @@ import dev.devfest.event.dto.JudgementView;
 import dev.devfest.event.dto.PenaltyView;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.RoomContentView;
+import dev.devfest.event.dto.RoomEvidence;
 import dev.devfest.event.dto.RoundClock;
 import dev.devfest.event.repository.ClueVerdictRecord;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
+import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.GroupSizeRecord;
 import dev.devfest.event.repository.PenaltyRecord;
 import dev.devfest.event.repository.RoomJudgementRecord;
 import dev.devfest.event.repository.RoomSubmissionRecord;
+import dev.devfest.event.repository.TeamRoomProgressRecord;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +45,46 @@ public final class EventViews {
       timer.map(RoundTimer::durationSeconds).orElse(null),
       serverNow
     );
+  }
+
+  /**
+   * The team's evidence, one entry per room in room order, for the team board and the final (same rules in both).
+   * {@code exceptions}: round → room of every room exception the team had.
+   */
+  public static List<RoomEvidence> evidence(
+    EventTeamRecord team,
+    EventStateRecord state,
+    List<TeamRoomProgressRecord> rooms,
+    Map<Integer, RoomCode> exceptions,
+    Instant now
+  ) {
+    var phase = roundClock(state, now).phase();
+    return rooms
+      .stream()
+      .map(room -> {
+        boolean finished = EvidenceVisibility.roomFinished(
+          room.code(),
+          team.groupCode(),
+          exceptions,
+          state.currentRound(),
+          phase,
+          state.finalEverOpened()
+        );
+        if (!finished) {
+          return new RoomEvidence(room.code(), room.name(), false, null, null, null, room.clueCollected(), null);
+        }
+        return new RoomEvidence(
+          room.code(),
+          room.name(),
+          true,
+          room.lastTechnicalOutput(),
+          room.lastClueAnswer(),
+          room.lastEffectiveCorrect(),
+          room.clueCollected(),
+          EvidenceVisibility.clueVisible(finished, room.clueCollected()) ? room.collectedClueKey() : null
+        );
+      })
+      .toList();
   }
 
   public static EventStateView eventState(EventStateRecord state, Instant serverNow) {
@@ -126,7 +171,8 @@ public final class EventViews {
       room.recoveryPrompt(),
       room.recoveryAnswer(),
       room.version(),
-      recheckedSubmissions
+      recheckedSubmissions,
+      room.terminalEnabled()
     );
   }
 

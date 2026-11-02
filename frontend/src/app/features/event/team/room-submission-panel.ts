@@ -117,6 +117,12 @@ export class EventRoomSubmissionPanel {
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }
 
+  /** "Use selection as technical output" from the room's terminal; the team still reviews and submits. */
+  useTechnicalOutput(text: string): void {
+    this.technicalOutput.set(text);
+    this.validationError.set(null);
+  }
+
   protected async submit(): Promise<void> {
     const roomId = this.openRoomId();
     const body: RoomSubmissionRequest = {

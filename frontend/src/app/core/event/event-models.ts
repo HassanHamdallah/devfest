@@ -90,6 +90,8 @@ export interface ScheduledRoom {
   open: boolean;
   /** The organizer sent the team to this room for this round instead of its rotation room. */
   exception: boolean;
+  /** The room offers the in-browser terminal (its files come from GET /team/rooms/{id}/terminal-files). */
+  terminalEnabled: boolean;
 }
 
 export interface TeamBoard {
@@ -105,6 +107,24 @@ export interface TeamBoard {
   revision: number;
   /** The organizer disqualified the team: it keeps its records but cannot submit. */
   disqualified: boolean;
+  /** One entry per room, in room order. */
+  evidence: RoomEvidence[];
+}
+
+/**
+ * What the team may look back at for one room. Until the room is finished for the team only the code, name,
+ * `finished` (false) and `clueCollected` are set. `clueValue` is the room's official clue, sent only for a
+ * finished room whose clue the team collected.
+ */
+export interface RoomEvidence {
+  roomCode: RoomCode;
+  roomName: string;
+  finished: boolean;
+  technicalOutput: string | null;
+  clueAnswer: string | null;
+  clueCorrect: boolean | null;
+  clueCollected: boolean;
+  clueValue: string | null;
 }
 
 export interface TeamRoomCard {
@@ -169,6 +189,8 @@ export interface TeamFinal {
   penaltyMinutes: number;
   finish: TeamFinish | null;
   resultsPublished: boolean;
+  /** The same per-room evidence as on the team board. */
+  evidence: RoomEvidence[];
 }
 
 export interface RecoveryRequest {
@@ -210,6 +232,8 @@ export interface RoomBoardRoom {
   contentEditable: boolean;
   /** False while the clue key is empty; the room cannot open. */
   clueKeySet: boolean;
+  /** The room offers the in-browser terminal; its manager prepares the terminal files. */
+  terminalEnabled: boolean;
 }
 
 export interface RoomCounters {
@@ -342,6 +366,53 @@ export interface RoomContentView {
   version: number;
   /** Answers re-checked by this save because the clue key changed (0 otherwise). */
   recheckedSubmissions: number;
+  /** The admin's per-room terminal setting. */
+  terminalEnabled: boolean;
+}
+
+// ---- In-browser terminal ----
+
+/** What a terminal starts with; paths are relative to the home directory (e.g. logs/lock.log). */
+export interface TerminalStartFiles {
+  files: { path: string; content: string }[];
+}
+
+export interface TerminalFileEntry {
+  id: number;
+  path: string;
+  sizeBytes: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/** The manager's list of a room's terminal files (no content) with the limits. */
+export interface TerminalFileList {
+  roomId: number;
+  terminalEnabled: boolean;
+  /** False once the final has opened. */
+  editable: boolean;
+  files: TerminalFileEntry[];
+  totalBytes: number;
+  maxFiles: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+}
+
+export interface TerminalFileContent {
+  id: number;
+  path: string;
+  content: string;
+  sizeBytes: number;
+}
+
+export interface TerminalFileRequest {
+  path: string;
+  content: string;
+}
+
+export interface TerminalSettingView {
+  roomId: number;
+  terminalEnabled: boolean;
 }
 
 // ---- Admin ----

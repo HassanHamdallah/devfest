@@ -1,0 +1,112 @@
+<ui-card>
+  <div ui-card-header class="terminal-files__head">
+    <h2>Terminal files</h2>
+    @if (list(); as view) {
+    <span class="event-muted event-num">{{ usage() }}</span>
+    }
+  </div>
+  <p class="event-muted terminal-files__intro">
+    Teams in this room get a Linux terminal in their browser. These text files are placed in their home
+    directory when the terminal starts (for example <code>logs/lock.log</code> becomes
+    <code>~/logs/lock.log</code>). Teams receive them only while their round is assigned, running or paused.
+  </p>
+
+  @if (loader.initialError(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  }
+  @if (list(); as view) {
+  <ui-progress [value]="view.totalBytes" [max]="view.maxTotalBytes" label="Terminal files size" />
+  @if (!view.editable) {
+  <ui-alert variant="info">Event content is read-only after the final opens.</ui-alert>
+  }
+
+  @if (view.files.length) {
+  <table class="terminal-files__table">
+    <thead>
+      <tr><th scope="col">Path</th><th scope="col">Size</th><th scope="col">Last change</th><th scope="col"><span class="event-sr-only">Actions</span></th></tr>
+    </thead>
+    <tbody>
+      @for (file of view.files; track file.id) {
+      <tr [attr.data-path]="file.path">
+        <td>
+          <code>@for (part of pathParts(file.path); track $index) {
+            <span>{{ part }}</span><wbr />
+          }</code>
+        </td>
+        <td class="event-num">{{ formatBytes(file.sizeBytes) }}</td>
+        <td class="event-muted">{{ file.updatedBy }} · {{ formatTime(file.updatedAt) }}</td>
+        <td class="terminal-files__row-actions">
+          @if (view.editable) {
+          <ui-button variant="ghost" size="sm" (click)="edit(file)">Edit</ui-button>
+          <ui-button variant="ghost" size="sm" (click)="deleting.set(file)">Delete</ui-button>
+          }
+        </td>
+      </tr>
+      }
+    </tbody>
+  </table>
+  } @else {
+  <p class="terminal-files__empty">No files yet. Teams would start with an empty <code>~/logs</code>.</p>
+  }
+
+  @if (draft(); as file) {
+  <form class="terminal-files__form" (ngSubmit)="save()" aria-label="Terminal file">
+    <h3>{{ file.id === null ? "New file" : "Edit file" }}</h3>
+    <ui-input
+      label="Path"
+      name="path"
+      hint="Relative to the home directory, e.g. logs/lock.log. Letters, digits, . _ - and /."
+      [ngModel]="file.path"
+      (ngModelChange)="setPath($event)"
+    />
+    <ui-textarea
+      label="Content"
+      name="content"
+      [rows]="10"
+      [hint]="formatBytes(draftBytes()) + ' (max ' + formatBytes(view.maxFileBytes) + ' per file)'"
+      [ngModel]="file.content"
+      (ngModelChange)="setContent($event)"
+    />
+    <label class="terminal-files__upload">
+      <span>Or read a .txt or .log file from this computer</span>
+      <input type="file" accept=".txt,.log,text/plain" (change)="upload($event)" />
+    </label>
+    <div class="event-inline">
+      <ui-button type="submit" [loading]="busy()">Save file</ui-button>
+      <ui-button variant="ghost" (click)="cancel()">Cancel</ui-button>
+    </div>
+  </form>
+  }
+
+  @if (error(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  }
+  @if (notice(); as text) {
+  <p class="event-muted" aria-live="polite">{{ text }}</p>
+  }
+
+  <div class="event-inline terminal-files__actions">
+    @if (view.editable && !draft()) {
+    <ui-button variant="secondary" [disabled]="view.files.length >= view.maxFiles" (click)="add()">Add file</ui-button>
+    }
+    <ui-button variant="secondary" (click)="testing.set(!testing())">{{ testing() ? "Close test terminal" : "Test terminal" }}</ui-button>
+  </div>
+  @if (testing()) {
+  @defer (on immediate) {
+  <event-linux-terminal [loadFiles]="loadTestFiles" />
+  } @loading (minimum 300ms) {
+  <p class="event-muted">Loading the terminal…</p>
+  }
+  }
+  }
+</ui-card>
+
+<ui-confirm-dialog
+  [open]="deleting() !== null"
+  title="Delete this terminal file?"
+  [message]="'Teams will no longer get ' + (deleting()?.path ?? '') + ' when their terminal starts.'"
+  confirmVariant="danger"
+  [busy]="busy()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="deleting.set(null)"
+/>

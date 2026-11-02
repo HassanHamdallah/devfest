@@ -31,6 +31,7 @@ import { EventClueKeyCard } from "./clue-key-card";
 import { EventRefreshError } from "./refresh-error";
 import { EventRoomContentCard } from "./room-content-card";
 import { EventRoomTeamRow } from "./room-team-row";
+import { EventTerminalFilesCard } from "./terminal-files-card";
 import {
   FILTER_MATCHES,
   TEAM_FILTERS,
@@ -49,6 +50,7 @@ import {
     EventRefreshError,
     EventRoomContentCard,
     EventRoomTeamRow,
+    EventTerminalFilesCard,
     NavIcon,
     UiButton,
     UiCountdown,

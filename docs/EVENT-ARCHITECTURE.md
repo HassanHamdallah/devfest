@@ -2,7 +2,8 @@
 
 Technical companion to [EVENT-RULES.md](EVENT-RULES.md). Stack: Spring Boot 4.1.1 / Java 25 with Spring JDBC
 (explicit SQL), Spring Security + the existing JWT sessions, Flyway, PostgreSQL 18, Angular 22 (standalone
-components, signals, OnPush). No ORM, no sockets, no extra runtime dependencies.
+components, signals, OnPush). No ORM, no sockets. Frontend runtime dependencies beyond Angular: `monaco-editor`
+(coding workspace) and, for the in-browser terminal only, `v86` and `@xterm/xterm` (lazy chunks).
 
 ## Backend package layout (`dev.devfest.event`)
 
@@ -11,8 +12,8 @@ components, signals, OnPush). No ORM, no sockets, no extra runtime dependencies.
 | `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, content, suspects), `EventOperationsController` (`GET /api/v1/health`), `EventStreamController` (stream ticket, SSE revision stream) |
 | `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventPenaltyService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`, `StreamTicketService`, `EventStreamRegistry` + `RevisionBroadcaster` (revision push); helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
 | `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `PenaltyRepository`, `SuspectRepository`, `EventContentRepository`, `RecoveryAttemptRepository`, `AccusationRepository`, `TeamFinalRepository`, `EventRankingRepository` (the one D12 ranking query), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
-| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `RecoveryResult`, `AccusationResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a clue key, recovery answer, correct suspect or another team's data | |
-| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `PenaltyKind`, `FinalStage`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `PenaltyRules`, `EventRuleException` |
+| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `RecoveryResult`, `AccusationResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a recovery answer, correct suspect or another team's data; the only clue key a member can receive is `RoomEvidence.clueValue`, set only for a finished room whose clue the team collected (`EvidenceVisibility`, rules §17) | |
+| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `PenaltyKind`, `FinalStage`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `PenaltyRules`, `EvidenceVisibility` (room finished for a team; when its clue key may be shown), `EventRuleException` |
 | `seed` | Development data only | `EventDevelopmentSeed` (requires `DEVFEST_EVENT_SEED_PASSWORD` **and** `DEVFEST_DEVELOPMENT=true`; refuses to start otherwise; idempotent) |
 
 Shared pieces reused: `dev.devfest.audit.AuditLog` (also used by `ContestService.audit`), `auth.RateLimit`
@@ -188,6 +189,91 @@ when the transaction-local setting `devfest.allow_reset` is `on`; UPDATE stays r
   disqualified teams last without a rank. The disqualified check sits right after the idempotent-retry lookup of
   room submissions, recovery answers and accusations.
 
+## Evidence (rules §17)
+
+- `EventBoardRepository.teamRooms` (the one team-rooms statement) also returns the latest submission's technical
+  output and clue answer, and `CASE WHEN collected THEN r.clue_key END`, so the key of an uncollected room never
+  leaves the database. `TeamRoomExceptionRepository.findForTeam` gives every room exception of the team.
+- `EvidenceVisibility` (domain, pure) decides per room: finished = a round in which the team was assigned to the
+  room (exception, else rotation; `RoomAssignment`) is over (earlier than the current round, or the current round
+  at TIME_UP), or round 5 / final ever opened; the key is shown only when finished and collected.
+- `EventViews.evidence` maps rooms → `RoomEvidence {roomCode, roomName, finished, technicalOutput, clueAnswer,
+  clueCorrect, clueCollected, clueValue}`; unfinished rooms carry only code, name, `finished` and
+  `clueCollected`. `TeamBoard.evidence` and `TeamFinal.evidence` both use it. The key is read live, so it follows
+  key changes.
+- Browser: `EventMaskedClue` (dots, eye toggle with "Show clue"/"Hide clue", auto-hide after 15 s, on tab hidden
+  and on navigation, Copy without revealing), `EventTeamEvidenceCard` (team home, finished rooms only),
+  `EventFinalEvidence` ("Your evidence" on the final page except LOCKED and CLOSED).
+
+## In-browser terminal (V10, rules §18)
+
+Teams get a Linux shell for rooms with the terminal enabled. **The emulation is client-only**: an x86 emulator
+compiled to WebAssembly ([v86](https://github.com/copy/v86)) boots a small Linux (Buildroot 2018.08, BusyBox 1.28.4,
+kernel 4.16) inside the team's browser tab, and xterm.js draws its serial console. No shell, container or VM runs on
+the server; the backend stores text files and decides who may receive them. The VM has **no network card**
+(`net_device: {type: "none"}`; only `lo` exists, `ping` answers "Network is unreachable").
+
+**Static assets** (`frontend/public/terminal/`, versions and SHA-256 in `ATTRIBUTION.md`): `libv86.js` (classic
+script, defines `window.V86`), `v86.wasm.gz`, `seabios.bin.gz`, `vgabios.bin.gz`, `linux4.iso.gz`. The binaries are
+stored gzipped (`tools/gzip-terminal-assets.mjs`) and inflated by the page with `DecompressionStream`, so they travel
+compressed from any static server — the Angular dev server compresses nothing and labels `.gz` files
+`Content-Encoding: gzip`, so the loader checks the gzip magic bytes before inflating. URLs carry `?v=<ASSET_VERSION>`;
+nginx serves `/terminal/` with `Cache-Control: public, max-age=31536000, immutable` and gzips `libv86.js`
+(`infrastructure/nginx.conf.example`). Its CSP adds `'wasm-unsafe-eval'` (WebAssembly compilation, including v86's
+x86→wasm JIT; it does not allow `eval`). Compressed download ≈ 7.9 MB (7.6 MB raw image + wasm + BIOS, plus 360 kB of
+script, about 100 kB when gzipped by nginx).
+
+**Data (V10)**: `event_room.terminal_enabled BOOLEAN NOT NULL DEFAULT FALSE` (the migration turns it on for `LINUX`;
+no code path tests the room code) and `room_terminal_file(id, room_id → event_room, path, content TEXT CHECK
+octet_length ≤ 2 MiB, size_bytes = octet_length(content), updated_by → app_user, updated_at, UNIQUE(room_id, path))`
+with a CHECK on the path characters. `audit_event.target` widens to 200 characters so a terminal audit can name the
+120-character path. Terminal files are content: resets keep them.
+
+**Server side** (`EventTerminalService`, `RoomTerminalFileRepository`, `EventTerminalController`, domain
+`TerminalFiles`):
+
+- `TerminalFiles.pathProblem` (relative, `[A-Za-z0-9._/-]`, ≤ 120, no `..`/`.`/empty segment) and the limits 20 files,
+  2 MiB per file, 5 MiB per room. Writes lock `event_state` → `event_room`, then require: content editable (final never
+  opened, 409), terminal enabled (409), path unused (409), ≤ 20 files and ≤ 5 MiB in total (409; the total is checked
+  under the `event_state` lock, so two concurrent saves cannot both pass). NUL characters are refused (400). Audit
+  `EVENT_TERMINAL_FILE_{CREATED,UPDATED,DELETED}` with `room:<id> path:<path> bytes:<n>`, never the content; revision
+  bump. The JSON body limit is not raised: Spring has none for JSON, and nginx raises `client_max_body_size` to 5 MB only
+  for `/api/v1/event/rooms/{id}/terminal-files`.
+- `TerminalFiles.deliverableTo` is the delivery rule (D5): terminal enabled, team not disqualified, phase ASSIGNED /
+  RUNNING / PAUSED at `now` (TIME_UP derived as everywhere), and `RoomAssignment.isIn(room, group, round, exception)` —
+  the same resolver the submission check uses. Anything else is 404 "Terminal files not found.".
+- `PUT /admin/rooms/{id}/terminal` (ADMIN, any time; a repeat is a no-op) audits `EVENT_TERMINAL_ENABLED/DISABLED` and
+  bumps the revision. The admin board adds the alert `TERMINAL_WITHOUT_FILES` (linking to the room board) from the
+  existing room-stats statement (`terminal_enabled` and a per-room file count were added to it; still one statement).
+- The team board's `scheduledRoom.terminalEnabled`, the room board's `room.terminalEnabled` and the content page's
+  `rooms[].terminalEnabled` come from columns added to statements that already run (no extra statement).
+
+| Endpoint (under `/api/v1/event`) | Statements |
+|---|---|
+| `GET /team/rooms/{id}/terminal-files` | 5 (team, state, room, the team's exception this round, files with content) |
+| `GET /rooms/{id}/terminal-files` | 3 (room/access, state, file summaries without content) |
+
+**Browser** (`features/event/terminal/`, all lazy):
+
+- `terminal-assets.ts`: downloads the four `.gz` files with a byte-count progress signal, inflates them, keeps the
+  `ArrayBuffer`s for restarts and releases them when the team page goes away; loads `libv86.js` with a script tag.
+  The team page imports it dynamically while the round is ASSIGNED (background preload), never otherwise.
+- `linux-session.ts`: `new V86({wasm_fn (instantiates the preloaded wasm), bios/vga_bios/cdrom: {buffer}, memory 64
+  MiB, filesystem: {} (empty 9p), net_device: {type: "none"}, disable_keyboard/mouse/speaker})`. It waits for the shell
+  prompt on serial 0, creates the room's files on the 9p share (`fs9p.CreateDirectory` for sub-directories, then
+  `create_file`), types one hidden setup line (`stty cols 80 rows 24; mkdir -p ~/logs; cp -r /mnt/. ~/; cd ~; echo
+  <mark>`) and starts forwarding serial output to the screen right after the mark (the boot log is never shown).
+- `linux-terminal.ts` (`EventLinuxTerminal`, the only importer of `@xterm/xterm`, `ViewEncapsulation.None` so xterm's
+  CSS applies): progress bar in MB, boot, banner, Restart (confirmation), Copy selection, Use selection as technical
+  output, `beforeunload` warning while booting or running, "Time is up" (input off, VM stopped), `destroy()` on leave.
+- `team/room-workspace.ts` (team home) shows the split view (≥ 900 px: terminal ≈ 60 % left, the unchanged
+  `EventRoomSubmissionPanel` right) or the phone note; the terminal is rendered inside `@defer (on immediate)` only after
+  **Start terminal**, so its chunk (`linux-terminal`, xterm included) is never fetched otherwise. A started terminal
+  keeps its room and round; when either changes or TIME_UP arrives it shows "Time is up".
+- `manager/terminal-files-card.ts`: the room board's **Terminal files** section (list, usage bar against 5 MB, add by
+  paste or `File.text()` of a `.txt`/`.log`, edit, delete, **Test terminal** with the same component via
+  `GET /rooms/{id}/terminal-files/content`). Admin Content page: a **Terminal enabled** checkbox per room.
+
 ## Authorization matrix
 
 Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public; `GET /event/stream`
@@ -202,10 +288,12 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 | `GET /results` | ✔ | 403 | ✔ after publication, else 403 |
 | `GET /team/board`, `/team/final`, `/team/submissions[/{id}]` | 403 | 403 | own team (foreign receipt 404) |
 | `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
+| `GET /team/rooms/{id}/terminal-files` | 403 | 403 | own team, only its assigned terminal room while ASSIGNED/RUNNING/PAUSED (else 404) |
+| `GET/POST /rooms/{id}/terminal-files`, `GET /rooms/{id}/terminal-files/content`, `GET/PUT/DELETE /rooms/{id}/terminal-files/{fileId}` | any room | own room (else 404) | 403 |
 | `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content`, `PUT /rooms/{id}/submissions/{submissionId}/clue-override` | any room | own room (else 404) | 403 |
 | `POST /penalties/{id}/void` | any | own room's penalties (room-less → 404) | 403 |
 | `PUT /rooms/{id}/arrival` | any room | own room (else 404) | 403 |
-| `/admin/**` (incl. `/admin/overrides/**`, `/admin/reset/**`, `/admin/snapshots/**`, `PUT /admin/teams/{id}/group`, `POST /admin/teams/{id}/{disqualify,reinstate}`, `POST /admin/round/timer/{start,pause,resume,adjust,end}`, `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
+| `/admin/**` (incl. `PUT /admin/rooms/{id}/terminal`, `/admin/overrides/**`, `/admin/reset/**`, `/admin/snapshots/**`, `PUT /admin/teams/{id}/group`, `POST /admin/teams/{id}/{disqualify,reinstate}`, `POST /admin/round/timer/{start,pause,resume,adjust,end}`, `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
 
 Defense in depth: `SecurityConfig` restricts `/api/v1/event/admin/**` to ADMIN and `/api/v1/event/**` to the three
 event roles; every public service method additionally starts with an `EventAccessPolicy` check.
@@ -277,8 +365,8 @@ SQL statements per read (fixed, independent of team count; documented on each se
 | Endpoint | Statements |
 |---|---|
 | `GET /revision` | 1 |
-| `GET /team/board` | 4 (team, state, rooms with judgement/clue/latest receipt via LATERAL, finish) |
-| `GET /team/final` | 3 base; +1 RECOVERY, +2 MESSAGE, +3 FINISHED (max 6) |
+| `GET /team/board` | 5 (team, state, rooms with judgement/clue/latest submission and collected key via LATERAL, finish, the team's room exceptions) |
+| `GET /team/final` | 5 base (team, state, summary, rooms, room exceptions — the evidence); +1 RECOVERY, +2 MESSAGE, +3 FINISHED (max 8) |
 | `GET /rooms/{id}/board` | 4 (room, state, all teams' progress via LATERAL, room penalties) |
 | `GET /admin/board` | 6 (state, room stats, active teams, ranking, content status, group sizes) |
 | `GET /admin/organization` | 4 · `GET /admin/content` 4 · `GET /results` 2 · CSV export 1 |

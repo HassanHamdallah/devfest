@@ -3,7 +3,10 @@ package dev.devfest.event.repository;
 import dev.devfest.event.domain.AnswerNormalizer;
 import dev.devfest.event.domain.RoomCode;
 
-/** One event_room row including its secrets (clue key, recovery answer); never expose it to teams. */
+/**
+ * One event_room row including its secrets (clue key, recovery answer); never expose it to teams.
+ * {@code terminalEnabled}: the room offers the in-browser terminal (admin setting).
+ */
 public record EventRoomRecord(
   long id,
   RoomCode code,
@@ -14,7 +17,8 @@ public record EventRoomRecord(
   String clueKey,
   String recoveryPrompt,
   String recoveryAnswer,
-  long version
+  long version,
+  boolean terminalEnabled
 ) {
   /** A key that normalizes to nothing can never be matched, so it counts as missing. */
   public boolean hasClueKey() {

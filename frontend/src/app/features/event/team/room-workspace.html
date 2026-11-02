@@ -1,0 +1,49 @@
+@if (showTerminal()) {
+<div class="room-workspace" [class.room-workspace--split]="wide()">
+  <div class="room-workspace__answer">
+    <event-room-submission-panel #panel [board]="board()" (changed)="changed.emit()" />
+    @if (!wide() && !opened() && !session()) {
+    <ui-card>
+      <h2 ui-card-header>Linux terminal</h2>
+      <p class="room-workspace__note">The terminal works best on a laptop.</p>
+      <ui-button variant="secondary" (click)="opened.set(true)">Open the terminal anyway</ui-button>
+    </ui-card>
+    }
+  </div>
+  @if (wide() || opened() || session()) {
+  <ui-card class="room-workspace__terminal">
+    @if (session()) {
+    @defer (on immediate) {
+    <event-linux-terminal
+      [loadFiles]="loadFiles"
+      [ended]="ended()"
+      [offerOutput]="true"
+      (useAsOutput)="panel.useTechnicalOutput($event)"
+    />
+    } @loading (minimum 300ms) {
+    <p class="room-workspace__note">Loading the terminal…</p>
+    } @error {
+    <p class="room-workspace__note">The terminal could not be loaded. Reload the page and try again.</p>
+    }
+    @if (ended()) {
+    <ui-button variant="secondary" size="sm" (click)="close()">Close terminal</ui-button>
+    }
+    } @else {
+    <div class="room-workspace__start">
+      <h2>Linux terminal</h2>
+      <p>
+        A small Linux system runs inside your browser with this room's files in
+        <code>~/logs</code>. Nothing is installed and there is no internet in it.
+      </p>
+      @if (preparing()) {
+      <p class="room-workspace__note">Preparing the terminal in the background…</p>
+      }
+      <ui-button size="lg" (click)="start()">Start terminal</ui-button>
+    </div>
+    }
+  </ui-card>
+  }
+</div>
+} @else {
+<event-room-submission-panel [board]="board()" (changed)="changed.emit()" />
+}

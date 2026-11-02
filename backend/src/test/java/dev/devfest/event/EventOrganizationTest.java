@@ -88,7 +88,8 @@ class EventOrganizationTest extends EventIntegrationTest {
     expectError(delete("/admin/suspects/" + suspectId(CORRECT_SUSPECT), admin), 409, "Choose another correct suspect before deleting this one.");
     assertEquals(5, (int) expectOk(delete("/admin/suspects/" + suspectId("Kareem Shehab"), admin)).json("$.suspects.length()"));
     List<String> after = expectOk(get("/admin/board", admin)).json("$.alerts[*].code");
-    assertEquals(List.of("TEAM_COUNT", "MISSING_SUSPECTS"), after);
+    // The Linux room has the terminal on by default and no terminal files yet (rules §18).
+    assertEquals(List.of("TERMINAL_WITHOUT_FILES", "TEAM_COUNT", "MISSING_SUSPECTS"), after);
   }
 
   @Test

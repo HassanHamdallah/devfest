@@ -44,6 +44,11 @@ import {
   TeamCredential,
   TeamFinal,
   TeamView,
+  TerminalFileContent,
+  TerminalFileList,
+  TerminalFileRequest,
+  TerminalSettingView,
+  TerminalStartFiles,
   UpdateTeamRequest,
 } from "./event-models";
 import { PendingRequest } from "./pending-request";
@@ -102,6 +107,10 @@ export class EventApi {
   submitAccusation(body: AccusationRequest, key: string) {
     return this.postIdempotent<AccusationResult>(ACCUSATION_PATH, body, key);
   }
+  /** 404 unless the team is assigned to the room this round and the round is not over (rules §18). */
+  teamTerminalFiles(roomId: number) {
+    return this.get<TerminalStartFiles>(`/team/rooms/${roomId}/terminal-files`);
+  }
   /** Resends a stored attempt with its original key and body (submission reliability contract). */
   resendPending<T>(pending: PendingRequest<unknown>) {
     return this.postIdempotent<T>(pending.path, pending.body, pending.key);
@@ -144,6 +153,26 @@ export class EventApi {
       `/rooms/${roomId}/submissions/${encodeURIComponent(submissionId)}/clue-override`,
       body,
     );
+  }
+
+  terminalFiles(roomId: number) {
+    return this.get<TerminalFileList>(`/rooms/${roomId}/terminal-files`);
+  }
+  /** Every file with its content, for "Test terminal". */
+  terminalStartFiles(roomId: number) {
+    return this.get<TerminalStartFiles>(`/rooms/${roomId}/terminal-files/content`);
+  }
+  terminalFile(roomId: number, fileId: number) {
+    return this.get<TerminalFileContent>(`/rooms/${roomId}/terminal-files/${fileId}`);
+  }
+  createTerminalFile(roomId: number, body: TerminalFileRequest) {
+    return this.send<TerminalFileList>("POST", `/rooms/${roomId}/terminal-files`, body);
+  }
+  updateTerminalFile(roomId: number, fileId: number, body: TerminalFileRequest) {
+    return this.send<TerminalFileList>("PUT", `/rooms/${roomId}/terminal-files/${fileId}`, body);
+  }
+  deleteTerminalFile(roomId: number, fileId: number) {
+    return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-files/${fileId}`);
   }
 
   // ---- Admin: control ----
@@ -245,6 +274,9 @@ export class EventApi {
   }
   adminContent() {
     return this.get<AdminContent>("/admin/content");
+  }
+  setTerminalEnabled(roomId: number, enabled: boolean) {
+    return this.send<TerminalSettingView>("PUT", `/admin/rooms/${roomId}/terminal`, { enabled });
   }
   saveAdminContent(body: AdminContentRequest) {
     return this.send<AdminContent>("PUT", "/admin/content", body);

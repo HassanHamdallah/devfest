@@ -1,0 +1,75 @@
+/* ViewEncapsulation.None: every rule is scoped under .linux-terminal. */
+event-linux-terminal {
+  display: block;
+  min-width: 0;
+}
+
+.linux-terminal {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.linux-terminal__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.linux-terminal__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.linux-terminal__status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.linux-terminal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.linux-terminal__progress {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* 80 columns are wider than a phone: the terminal scrolls sideways inside its frame, never the page. */
+.linux-terminal__frame {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  background: #15171c;
+  border-radius: var(--radius-md);
+}
+
+.linux-terminal__screen {
+  display: inline-block;
+  padding: var(--space-2);
+}
+
+.linux-terminal__ended {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  background: var(--brand-red);
+  border-radius: var(--radius-full);
+}
+
+.linux-terminal__notice {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

@@ -97,6 +97,14 @@ export class EventApiSession {
     return (await response.json()) as T;
   }
 
+  /** The HTTP status of a GET, for checks that expect a refusal (no console noise in the page). */
+  async status(route: string): Promise<number> {
+    const response = await this.http.get(`${API_BASE}${route}`, {
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+    });
+    return response.status();
+  }
+
   dispose() {
     return this.http.dispose();
   }
@@ -112,6 +120,11 @@ export class EventAdminShortcuts {
 
   startTimer() {
     return this.admin.send("POST", "/event/admin/round/timer/start");
+  }
+
+  /** Ends the running round at once: its phase becomes Time's up. */
+  endRound() {
+    return this.admin.send("POST", "/event/admin/round/timer/end");
   }
 
   pauseTimer() {

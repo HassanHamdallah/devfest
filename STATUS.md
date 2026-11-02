@@ -27,6 +27,21 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-10-27: team evidence with masked clues
+
+- After a room is finished for a team (its round is over, by rotation or admin exception; round 5 or the final
+  finishes every room), the team home shows an Evidence card: latest technical output, clue answer with
+  Correct/Incorrect, and — only if the team collected that clue — the room's official clue behind an eye toggle
+  (auto-hides after 15 s, on tab hidden and on navigation; Copy without revealing). The final page lists all four
+  rooms under "Your evidence" (except LOCKED/CLOSED). Rule change: a member may now receive a clue key, but only
+  for a finished room whose clue its own team collected ([docs/EVENT-RULES.md](docs/EVENT-RULES.md) §5.7, §17).
+  Team board and final carry `evidence` (`RoomEvidence`); decision logic in `EvidenceVisibility`. No schema change.
+- Tested: `test-backend.ps1` → `Tests run: 185, Failures: 0, Errors: 0, Skipped: 0` (new: EventEvidenceTest 8,
+  EvidenceVisibilityTest 5; EventAuthorizationTest's key check rewritten to the new rule); team board 5 statements
+  for 2 or 18 teams; backend package and frontend build succeed (initial bundle 350.00 kB); Playwright event suite
+  8 passed, then `--repeat-each=3` 24 passed (new `e2e/event-evidence.spec.ts`); screenshots in `docs/ui-after/`
+  (`team-evidence-masked`, `team-evidence-revealed`, `final-evidence`, each at 1440 and 390 px).
+
 ### Change set 2026-10-26: live revision push (Server-Sent Events)
 
 - Every committed revision is pushed to open screens over `GET /api/v1/event/stream` (single-use 30-second ticket
