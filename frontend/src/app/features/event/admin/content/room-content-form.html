@@ -50,4 +50,23 @@
     </p>
     <app-action-status [state]="terminalState" />
   </div>
+  <div class="room-content__terminal">
+    <label class="room-content__toggle">
+      <input
+        type="checkbox"
+        name="aiQuiz"
+        [checked]="room().activity === 'AI_QUIZ'"
+        [disabled]="activityState.busy()"
+        (change)="setQuiz($event)"
+      />
+      <span>AI quiz activity</span>
+    </label>
+    <p class="room-content__hint">
+      Teams answer the room's multiple-choice questions and code repairs
+      instead of the answer form; reaching the pass score gives them the
+      room's clue. The room's manager prepares them under AI quiz on the room
+      board.
+    </p>
+    <app-action-status [state]="activityState" />
+  </div>
 </ui-card>

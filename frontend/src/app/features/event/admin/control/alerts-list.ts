@@ -5,7 +5,8 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
 
 /**
  * Setup problems reported by the board; each links to the page that fixes it. With no alerts it shrinks to
- * one line with a zero badge.
+ * one line with a zero badge. A blocking alert (an AI quiz room that cannot run) is marked: the timer then
+ * starts only with "Start anyway".
  */
 @Component({
   selector: "app-alerts-list",
@@ -28,7 +29,10 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
     @if (alerts().length) {
       <ul aria-labelledby="alerts-heading">
         @for (alert of alerts(); track alert.code + alert.message) {
-          <li [attr.data-alert]="alert.code">
+          <li [attr.data-alert]="alert.code" [attr.data-blocking]="alert.blocking || null">
+            @if (alert.blocking) {
+              <ui-status-chip variant="danger">Blocks the timer</ui-status-chip>
+            }
             <a [routerLink]="alert.link">{{ alert.message }}</a>
           </li>
         }
@@ -65,6 +69,12 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
     p {
       margin: 0;
       font-size: var(--font-size-sm);
+    }
+    li[data-blocking] {
+      font-weight: var(--font-weight-semibold);
+    }
+    li[data-blocking] ui-status-chip {
+      margin-inline-end: var(--space-2);
     }
   `,
 })

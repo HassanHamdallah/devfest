@@ -59,6 +59,8 @@ test("clues: a typo in the key is fixed and re-checked; a near miss is accepted"
       await expect(heading(manager.page, "Linux")).toBeVisible();
       await saveKey(manager.page, TYPO_KEY, "Set clue key", "Saved. Re-checked 0 answers.");
       const control = new EventAdminShortcuts(adminApi);
+      // The empty AI quiz (no key, no questions) would block the timer; this spec is about clue keys only.
+      await control.setRoomActivity("AI", null);
       await control.startRound(1);
       await control.openRoom("LINUX");
     });

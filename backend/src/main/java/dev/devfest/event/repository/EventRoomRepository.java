@@ -2,6 +2,7 @@ package dev.devfest.event.repository;
 
 import static dev.devfest.event.repository.EventJdbc.nullableLong;
 
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,7 +17,7 @@ public class EventRoomRepository {
 
   private static final String COLUMNS = """
     id, code, name, position, manager_id, is_open, clue_key, recovery_prompt, recovery_answer, version,
-    terminal_enabled""";
+    terminal_enabled, activity, quiz_mcq_minutes, quiz_pass_score""";
 
   private static final String WITH_MANAGER = """
     SELECT r.id, r.code, r.name, r.manager_id, u.name AS manager_name
@@ -71,6 +72,19 @@ public class EventRoomRepository {
     db.update("UPDATE event_room SET terminal_enabled = ? WHERE id = ?", enabled, roomId);
   }
 
+  /** {@code activity} null removes the room's activity. */
+  public void setActivity(long roomId, RoomActivity activity) {
+    db.update("UPDATE event_room SET activity = ? WHERE id = ?", activity == null ? null : activity.name(), roomId);
+  }
+
+  public void setQuizMcqMinutes(long roomId, int minutes) {
+    db.update("UPDATE event_room SET quiz_mcq_minutes = ? WHERE id = ?", minutes, roomId);
+  }
+
+  public void setQuizPassScore(long roomId, int passScore) {
+    db.update("UPDATE event_room SET quiz_pass_score = ? WHERE id = ?", passScore, roomId);
+  }
+
   /** {@code managerId} null removes the manager. */
   public void assignManager(long roomId, Long managerId) {
     db.update("UPDATE event_room SET manager_id = ? WHERE id = ?", managerId, roomId);
@@ -113,7 +127,10 @@ public class EventRoomRepository {
       rs.getString("recovery_prompt"),
       rs.getString("recovery_answer"),
       rs.getLong("version"),
-      rs.getBoolean("terminal_enabled")
+      rs.getBoolean("terminal_enabled"),
+      RoomActivity.fromStored(rs.getString("activity")),
+      rs.getInt("quiz_mcq_minutes"),
+      rs.getInt("quiz_pass_score")
     );
   }
 

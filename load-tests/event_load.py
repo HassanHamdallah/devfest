@@ -7,6 +7,12 @@ concurrently. Results are written to docs/event-load-<scale>x.json.
 Mode "sse": opens --streams live revision streams (GET /event/stream with single-use tickets, spread over the 21
 seeded accounts), performs --actions admin timer actions and measures, per action and stream, the time from the
 action's HTTP response to the matching "revision" event. Results are written to docs/event-load-sse-<N>.json.
+
+Mode "quiz": the AI room activity in one compressed round. The AI manager imports 45 questions and 3 repairs, the
+admin sends all 16 teams to the AI room (room exceptions for groups B-D) and starts round 1; every team answers all
+45 questions, finishes its MCQs and submits its 3 repairs; the last repair evaluates it against the pass score (a pass
+collects the room's clue), while the manager polls the results every 5 s. Every team must be evaluated exactly once
+with the outcome its own total predicts. Results are written to docs/event-load-quiz.json.
 """
 import argparse
 import datetime as dt
@@ -42,7 +48,7 @@ def parse_args():
     parser.add_argument("--scale", type=int, choices=(1, 3), default=1, help="team clients per team account")
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
-    parser.add_argument("--mode", choices=("mixed", "sse"), default="mixed")
+    parser.add_argument("--mode", choices=("mixed", "sse", "quiz"), default="mixed")
     parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
     parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
     parser.add_argument("--gap-ms", type=int, default=500, help="sse: pause between admin actions")
@@ -548,12 +554,274 @@ def sse_run(args, api, config):
     print(f"SSE load check passed; report in {output}")
 
 
+# ---- Quiz mode (AI room activity) ---------------------------------------------------------------------------
+
+QUIZ_SECTIONS = (("EASY", 20, 1), ("MEDIUM", 15, 2), ("ADVANCED", 6, 3), ("LANDMARK", 3, 3), ("RECENT", 1, 3))
+QUIZ_REPAIRS = (
+    ("Fix the training loop", 7, ["for batch in loader:", "    optimizer.zero_grad()", "    loss = model(batch)",
+                                  "    loss.backward()"]),
+    ("Fix the data split", 7, ["rows = load_rows()", "random.shuffle(rows)", "cut = int(len(rows) * 0.8)",
+                               "train = rows[:cut]", "test = rows[cut:]"]),
+    ("Fix the precision metric", 6, ["tp = 0", "for y, p in pairs:", "    if y == p == 1:", "        tp += 1",
+                                     "precision = tp / max(1, predicted)", "print(precision)"]),
+)
+RESULTS_POLL_SECONDS = 5
+# Random answers land around this total, so some teams pass and some do not.
+QUIZ_PASS_SCORE = 30
+DUPLICATE_PROBE_SHARE = 0.05
+
+
+def quiz_document():
+    """45 questions (20/15/6/3/1, 80 points) and 3 repairs (20 points), the planned 100."""
+    questions = []
+    for section, count, points in QUIZ_SECTIONS:
+        for number in range(1, count + 1):
+            tag = f"{section.lower()}-{number}"
+            questions.append({"section": section, "prompt": f"Load question {tag}?",
+                              "options": [f"A {tag}", f"B {tag}", f"C {tag}", f"D {tag}"],
+                              "correctOption": number % 4, "points": points, "explanation": ""})
+    repairs = [{"title": title, "instructions": "Order the lines.", "points": points, "snippets": snippets}
+               for title, points, snippets in QUIZ_REPAIRS]
+    return {"format": 1, "mcqMinutes": 14, "passScore": QUIZ_PASS_SCORE, "questions": questions, "repairs": repairs}
+
+
+class QuizLedger:
+    """Expected scores per team (from the organizer's answer key) and proof that retries replay receipts."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.expected = {}
+        self.retries = self.retry_mismatches = 0
+        self.duplicate_probes = self.duplicates_refused = 0
+        self.outcomes = {}
+
+    def add(self, team, points):
+        with self.lock:
+            self.expected[team] = round(self.expected.get(team, 0) + points, 2)
+
+    def replay(self, first, second):
+        with self.lock:
+            self.retries += 1
+            if first != second:
+                self.retry_mismatches += 1
+
+    def probe(self, refused):
+        with self.lock:
+            self.duplicate_probes += 1
+            if refused:
+                self.duplicates_refused += 1
+
+
+class QuizTeamClient(Client):
+    """One team's browser: answers every question, finishes the MCQs and submits each repair; the last one records
+    its result, which it then reads. After each save it fetches the activity again, like the page does; it also
+    follows the revision like every screen."""
+
+    def __init__(self, run, token, team, room_id, key, gap):
+        super().__init__(run, token, "/event/team/board")
+        self.team, self.room_id, self.answer_key, self.gap = team, room_id, key, gap
+        self.activity_path = f"/event/team/rooms/{room_id}/activity"
+        self.step = "answer"
+        self.queue = None
+
+    def first_action(self):
+        return self.run_state.started + random.uniform(1, 5)
+
+    def next_time(self):
+        return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4)
+
+    def load_activity(self):
+        status, data = self.request("GET", self.activity_path)
+        return data if status == 200 else None
+
+    def post(self, path, body, key):
+        status, data = self.request("POST", path, body, key)
+        if status == 200 and random.random() < RETRY_SHARE:
+            again_status, again = self.request("POST", path, body, key)
+            if again_status == 200:
+                self.run_state.quiz.replay(data, again)
+        return status, data
+
+    def act(self):
+        activity = self.load_activity()
+        if activity is None:
+            return self.next_time()
+        if self.step == "answer":
+            return self.answer(activity)
+        if self.step == "repair":
+            return self.repair(activity)
+        if self.step == "result":
+            self.result(activity)
+        return math.inf
+
+    def answer(self, activity):
+        open_questions = [q for q in activity["questions"] if q["selectedOptionId"] is None]
+        if activity["stage"] != "MCQ" or not open_questions:
+            self.request("POST", f"/event/team/rooms/{self.room_id}/activity/finish-mcq")
+            self.step = "repair"
+            return self.next_time()
+        question = open_questions[0]
+        option = random.choice(question["options"])
+        correct_text, points = self.answer_key["questions"][question["prompt"]]
+        status, _ = self.post(f"{self.activity_path}/answers", {"questionId": question["id"], "optionId": option["id"]},
+                              str(uuid.uuid4()))
+        if status == 200 and option["text"] == correct_text:
+            self.run_state.quiz.add(self.team, points)
+        if status == 200 and random.random() < DUPLICATE_PROBE_SHARE:
+            other = {"questionId": question["id"], "optionId": question["options"][0]["id"]}
+            probe_status, _ = self.request("POST", f"{self.activity_path}/answers", other, str(uuid.uuid4()),
+                                           conflict_expected=True)
+            self.run_state.quiz.probe(probe_status == 409)
+        return self.next_time()
+
+    def repair(self, activity):
+        pending = [r for r in activity["repairs"] if not r["submitted"]]
+        if not pending:
+            self.step = "result"
+            return self.next_time()
+        repair = pending[0]
+        order = [s["id"] for s in repair["snippets"]]
+        random.shuffle(order)
+        code = {s["id"]: s["code"] for s in repair["snippets"]}
+        correct, points = self.answer_key["repairs"][repair["title"]]
+        status, _ = self.post(f"{self.activity_path}/repairs/{repair['id']}", {"snippetIds": order}, str(uuid.uuid4()))
+        if status == 200:
+            in_place = sum(1 for i, snippet in enumerate(order) if code[snippet] == correct[i])
+            self.run_state.quiz.add(self.team, round(points * in_place / len(order) + 1e-9, 2))
+        return self.next_time()
+
+    def result(self, activity):
+        """The team sees only whether its clue was unlocked (and the clue), never a score."""
+        result = activity.get("result")
+        if not result:
+            self.run_state.metrics.error(f"team {self.team}: no result after its last repair")
+            return
+        leaked = [word for word in ("total", "points", "passScore", "score") if word in json.dumps(activity)]
+        if leaked:
+            self.run_state.metrics.error(f"team {self.team}: the activity names {leaked}")
+        with self.run_state.quiz.lock:
+            self.run_state.quiz.outcomes[self.team] = (result["clueUnlocked"], result.get("clue"))
+
+
+class ResultsClient(Client):
+    """The AI manager with the results page open: a fresh GET every 5 s (answers do not change the revision)."""
+
+    def __init__(self, run, token, room_id):
+        super().__init__(run, token, f"/event/rooms/{room_id}/board")
+        self.results_path = f"/event/rooms/{room_id}/quiz/results"
+
+    def first_action(self):
+        return self.run_state.started + RESULTS_POLL_SECONDS
+
+    def act(self):
+        self.request("GET", self.results_path)
+        return time.monotonic() + RESULTS_POLL_SECONDS
+
+
+def quiz_run(args, api, config):
+    admin, managers, teams = sign_in_everyone(api, config)
+    set_clue_keys(api, managers)
+    ai_manager = managers[list(config["managers"]).index("AI")]
+    ai_room = api.setup("GET", "/event/home", ai_manager)["roomId"]
+    document = quiz_document()
+    api.setup("PUT", f"/event/admin/rooms/{ai_room}/activity", admin, {"activity": "AI_QUIZ"})
+    api.setup("POST", f"/event/rooms/{ai_room}/quiz/import", ai_manager, document)
+    answer_key = {
+        "questions": {q["prompt"]: (q["options"][q["correctOption"]], q["points"]) for q in document["questions"]},
+        "repairs": {r["title"]: (r["snippets"], r["points"]) for r in document["repairs"]},
+    }
+    api.setup("POST", "/event/admin/round", admin, {"round": 1})
+    organization = api.setup("GET", "/event/admin/organization", admin)
+    team_ids = {team["accountEmail"]: team["id"] for team in organization["teams"]}
+    for email in config["members"]:
+        team = next(t for t in organization["teams"] if t["accountEmail"] == email)
+        if team["groupCode"] != "A":
+            api.setup("PUT", "/event/admin/overrides/room-exception", admin,
+                      {"teamId": team_ids[email], "roomId": ai_room, "reason": "Load check: every team in the AI room"})
+    api.setup("POST", f"/event/admin/rooms/{ai_room}/open", admin)
+    api.setup("POST", "/event/admin/round/timer/start", admin)
+
+    run = LoadRun(api)
+    run.quiz = QuizLedger()
+    # 50 writes per team spread over about 80% of the run (each followed by a GET of the activity).
+    gap = args.seconds * 0.8 / 52
+    clients = [Client(run, admin, "/event/admin/board"), ResultsClient(run, ai_manager, ai_room)]
+    clients += [QuizTeamClient(run, token, team, ai_room, answer_key, gap) for team, token in enumerate(teams, 1)]
+    print(f"Running {len(teams)} teams in the AI room for up to {args.seconds} s (a write every ~{gap:.1f} s)...",
+          flush=True)
+    run.begin(args.seconds)
+    for client in clients:
+        client.start()
+    for client in clients:
+        client.join()
+    elapsed = time.monotonic() - run.started
+
+    results = api.setup("GET", f"/event/rooms/{ai_room}/quiz/results", ai_manager)
+    by_name = {row["teamName"]: row for row in results["teams"]}
+    names = {t["id"]: t["name"] for t in organization["teams"]}
+    cross_check = []
+    for team, email in enumerate(config["members"], 1):
+        row = by_name.get(names[team_ids[email]], {})
+        expected = run.quiz.expected.get(team, 0)
+        ok = row.get("answered") == 45 and row.get("repairsSubmitted") == 3 and abs(row.get("total", -1) - expected) < 0.005
+        if not ok:
+            run.metrics.error(f"team {team}: results {row.get('answered')}+{row.get('repairsSubmitted')} "
+                              f"total {row.get('total')} expected 45+3 total {expected}")
+        cross_check.append({"team": team, "answered": row.get("answered"), "repairs": row.get("repairsSubmitted"),
+                            "total": row.get("total"), "expectedTotal": expected, "ok": ok})
+    quiz = run.quiz
+    evaluated = passed = 0
+    for check in cross_check:
+        team = check["team"]
+        row = by_name.get(names[team_ids[config["members"][team - 1]]], {})
+        should_pass = check["expectedTotal"] >= QUIZ_PASS_SCORE - 1e-9
+        unlocked, clue = quiz.outcomes.get(team, (None, None))
+        status = row.get("status")
+        evaluated += status in ("PASSED", "NOT_PASSED")
+        passed += status == "PASSED"
+        good = (status == ("PASSED" if should_pass else "NOT_PASSED") and unlocked == should_pass
+                and row.get("clueGranted") == should_pass and (clue == PRACTICE_KEYS["AI"]) == should_pass)
+        check.update({"status": status, "teamSawClue": unlocked, "clueGranted": row.get("clueGranted"), "outcomeOk": good})
+        if not good:
+            run.metrics.error(f"team {team}: status {status}, saw clue {unlocked}, granted {row.get('clueGranted')}, "
+                              f"expected pass {should_pass}")
+    if evaluated != len(teams):
+        run.metrics.error(f"{evaluated} of {len(teams)} teams were evaluated")
+    endpoints = endpoint_summary(run.metrics.latencies)
+    worst_p95 = max(row["p95Ms"] for row in endpoints.values())
+    report = {
+        "testedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic AI room traffic; no WAN latency.",
+        "baseUrl": args.base_url, "mode": "quiz", "seconds": args.seconds, "elapsedSeconds": round(elapsed, 1),
+        "teams": len(teams), "questions": 45, "repairs": 3,
+        "endpoints": endpoints,
+        "totals": {"requests": sum(e["requests"] for e in endpoints.values()), "errors": len(run.metrics.errors),
+                   "worstP95Ms": worst_p95, "retries": quiz.retries, "retryMismatches": quiz.retry_mismatches,
+                   "duplicateProbes": quiz.duplicate_probes, "duplicatesRefused": quiz.duplicates_refused,
+                   "passScore": QUIZ_PASS_SCORE, "evaluations": evaluated, "passed": passed,
+                   "notPassed": evaluated - passed},
+        "resultsCrossCheck": cross_check,
+        "errorSamples": run.metrics.errors[:50],
+    }
+    output = ROOT / "docs/event-load-quiz.json"
+    output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print_summary(report)
+    totals = report["totals"]
+    if (totals["errors"] or totals["retryMismatches"] or totals["duplicatesRefused"] != totals["duplicateProbes"]
+            or worst_p95 >= 300):
+        raise SystemExit(f"Quiz load check failed; see {output}")
+    print(f"Quiz load check passed; report in {output}")
+
+
 def main():
     args = parse_args()
     api = Api(args.base_url)
     config = json.loads((ROOT / ".local/event-rehearsal.json").read_text(encoding="utf-8-sig"))
     if args.mode == "sse":
         sse_run(args, api, config)
+        return
+    if args.mode == "quiz":
+        quiz_run(args, api, config)
         return
     # Setup goes through Api.setup, which is never recorded in the measurements.
     admin, managers, teams = sign_in_everyone(api, config)

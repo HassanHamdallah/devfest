@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.toMap;
 
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.QuizContentRules;
 import dev.devfest.event.domain.RoomAssignment;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.Rotation;
@@ -25,6 +26,7 @@ import dev.devfest.event.repository.GroupSizeRecord;
 import dev.devfest.event.repository.RankedTeamRecord;
 import dev.devfest.event.repository.RoomArrivalRecord;
 import dev.devfest.event.repository.OverrideAuditRepository;
+import dev.devfest.event.repository.QuizContentRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
 import dev.devfest.event.repository.TeamFlagsRecord;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
@@ -54,6 +56,7 @@ public class EventAdminBoardService {
   private final RoomArrivalRepository arrivals;
   private final TeamRoomExceptionRepository exceptions;
   private final OverrideAuditRepository overrideAudit;
+  private final QuizContentRepository quizContent;
   private final EventClock clock;
 
   public EventAdminBoardService(
@@ -65,6 +68,7 @@ public class EventAdminBoardService {
     RoomArrivalRepository arrivals,
     TeamRoomExceptionRepository exceptions,
     OverrideAuditRepository overrideAudit,
+    QuizContentRepository quizContent,
     EventClock clock
   ) {
     this.access = access;
@@ -75,12 +79,13 @@ public class EventAdminBoardService {
     this.arrivals = arrivals;
     this.exceptions = exceptions;
     this.overrideAudit = overrideAudit;
+    this.quizContent = quizContent;
     this.clock = clock;
   }
 
   /**
-   * 10 SQL statements: event state, room stats, active teams, ranking, content status, group sizes, team
-   * override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
+   * 11 SQL statements: event state, room stats, active teams, ranking, content status, AI quiz content stats, group
+   * sizes, team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
    */
   public AdminBoard board(Principal principal) {
     access.requireAdmin(principal);
@@ -92,6 +97,10 @@ public class EventAdminBoardService {
     EventContentGaps.find(boards.contentStatus(), rooms).forEach(gap ->
       alerts.add(new AdminAlert(gap.code(), gap.message(), CONTENT_PAGE))
     );
+    List<QuizContentRepository.RoomStats> quizRooms = quizContent.stats();
+    List<AiRoomStartCheck.Blocker> blockers = AiRoomStartCheck.blockers(quizRooms);
+    blockers.forEach(blocker -> alerts.add(new AdminAlert(blocker.code(), blocker.message(), quizEditor(blocker.roomId()), true)));
+    alerts.addAll(quizAlerts(quizRooms));
     boolean running = Rotation.isRunningRound(state.currentRound());
     Map<Long, RoomArrivalRecord> arrived = running
       ? arrivals.findForRound(state.currentRound()).stream().collect(toMap(RoomArrivalRecord::roomId, a -> a))
@@ -104,6 +113,7 @@ public class EventAdminBoardService {
       rows,
       alerts,
       startWarnings(rooms),
+      blockers.stream().map(AiRoomStartCheck.Blocker::message).toList(),
       boards.teamFlags(state.currentRound()).stream().map(EventAdminBoardService::teamFlags).toList(),
       overrideAudit
         .recent(EventOverrideService.OVERRIDE_ACTIONS, RECENT_OVERRIDES)
@@ -195,6 +205,25 @@ public class EventAdminBoardService {
     }
     alerts.addAll(EventViews.groupWarnings(plannedTeams, groups));
     return alerts;
+  }
+
+  /**
+   * Planning warnings of every room with the AI quiz (never blocking), linking to the room's quiz editor. A room
+   * without questions already has its blocking alert.
+   */
+  private static List<AdminAlert> quizAlerts(List<QuizContentRepository.RoomStats> stats) {
+    List<AdminAlert> alerts = new ArrayList<>();
+    for (QuizContentRepository.RoomStats room : stats) {
+      if (room.questions() == 0) continue;
+      for (String warning : QuizContentRules.warnings(room.questionsBySection(), room.repairs(), room.totalPoints())) {
+        alerts.add(new AdminAlert("QUIZ_PLAN", "Room " + room.roomName() + " quiz: " + warning, quizEditor(room.roomId())));
+      }
+    }
+    return alerts;
+  }
+
+  private static String quizEditor(long roomId) {
+    return ROOM_BOARD_PAGE + roomId + "/quiz";
   }
 
   private static TeamFlagsView teamFlags(TeamFlagsRecord flags) {

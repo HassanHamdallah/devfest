@@ -168,6 +168,11 @@ export class EventAdminShortcuts {
     return (await this.room(code)).id;
   }
 
+  /** The room's team activity; null gives the room the plain answer form (technical output + clue). */
+  async setRoomActivity(code: RoomCode, activity: "AI_QUIZ" | null) {
+    await this.admin.send("PUT", `/event/admin/rooms/${await this.roomId(code)}/activity`, { activity });
+  }
+
   private async room(code: RoomCode) {
     const room = (await this.rooms()).find((candidate) => candidate.code === code);
     if (!room) throw new Error(`Room ${code} is missing from the admin board.`);

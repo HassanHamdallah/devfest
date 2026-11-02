@@ -27,6 +27,40 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-02: AI room activity (quiz, code repairs, pass score)
+
+- Rooms with the **AI quiz activity** (admin setting on the Content page; V11 turns it on for the AI room only) show
+  teams only the activity — no answer form: 45 auto-scored multiple-choice questions and 3 code-snippet ordering
+  repairs (partial credit). MCQs are open for the room's MCQ minutes of running time (default 14) or until "Finish
+  MCQs"; repairs until Time's up. Answers lock on save (Idempotency-Key; "Already answered."); teams only see
+  "Response saved". The room manager authors the content (or imports/exports one JSON file) under **AI quiz →
+  Questions and repairs**, sets the **pass score** (0–100, default 60; locked by the first evaluation) and follows
+  **AI room results** (status, clue granted, live every 5 s, CSV).
+- **Evaluation (V12)**: each team once, at its last repair or at the round's end (End round, removing the time left,
+  or the next round; no scheduler), race-safe under the event lock with one `quiz_evaluation` row per team and room.
+  A total ≥ the pass score is recorded through the existing room-submission path as CORRECT and collects the
+  manager's clue as a ROOM clue; otherwise INCORRECT. The room is then finished for the team, the revision is bumped
+  and broadcast after commit, and manager overrides still apply. Teams see "Clue unlocked" with the clue in the
+  masked clue display, or "You did not reach the required score for this room's clue." — never a score, the total or
+  the pass score.
+- The first version's team cipher (Vigenère key, fragments, ciphertext; never committed) is removed from code, UI,
+  tests and docs, and V12 drops its column. The shuffle secret now comes from `DEVFEST_QUIZ_SHUFFLE_SECRET` in
+  `backend/.env` (development fallback with a warning; any other backend refuses to start). An AI quiz room without a
+  clue key or questions is a blocking admin alert, and the timer starts only with **Start anyway**.
+- Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §19, design [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md)
+  "AI room activity", manager guide and JSON format in the README. Final ranking unchanged.
+- Tested: `test-backend.ps1` → `Tests run: 244, Failures: 0, Errors: 0, Skipped: 0` (EventAiRoomTest 24, incl. the
+  pass-score edge, both triggers racing, clue added once, override, lock, no leakage and 404s; AiRoomShuffleSecretTest
+  2; StartupSafetyTest +2; QuizScoringTest +1; EvidenceVisibilityTest +1); team activity endpoint 10 statements with 3
+  teams and no answers or 19 teams and 30 answers; backend package and frontend build succeed (initial bundle
+  355.12 kB raw / 97.69 kB transfer vs. 353.06 / 97.32 kB at HEAD: +0.58 % / +0.38 %); fresh rehearsal → Playwright
+  event suite 11 passed, then `--repeat-each=2` 22 passed (`e2e/event-ai-room.spec.ts`: one team passes and sees the
+  clue, one does not; empty quiz blocks the timer until Start anyway); quiz load check 16 teams in one round: 2 472
+  requests, 0 errors, worst p95 35.2 ms, 154 retries identical, 30/30 duplicate answers refused, 16 evaluations
+  (2 passed, 14 not, pass score 30) each matching its own total (`docs/event-load-quiz.json`); screenshots in
+  `docs/ui-after/` (`ai-room-mcq`, `ai-room-repair`, `ai-room-clue-unlocked` at 1440 and 390, `ai-room-not-reached-1440`,
+  `admin-ai-quiz-blocked-1440`, `manager-ai-quiz-editor-1440`, `manager-ai-results` 1440 and 390).
+
 ### Change set 2026-10-27: team evidence with masked clues
 
 - After a room is finished for a team (its round is over, by rotation or admin exception; round 5 or the final

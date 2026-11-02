@@ -62,6 +62,7 @@ export class RoomContentForm {
   protected readonly labels = FIELD_LABELS;
   protected readonly state = new ActionState();
   protected readonly terminalState = new ActionState();
+  protected readonly activityState = new ActionState();
   protected readonly form = new FormGroup({
     clueKey: new FormControl("", {
       nonNullable: true,
@@ -114,6 +115,18 @@ export class RoomContentForm {
     const saved = await this.terminalState.run(
       () => this.eventApi.setTerminalEnabled(this.room().roomId, enabled),
       enabled ? "Terminal enabled." : "Terminal disabled.",
+    );
+    if (!saved) box.checked = !enabled;
+    this.changed.emit();
+  }
+
+  /** PUT /admin/rooms/{id}/activity right away; a failed save puts the box back. */
+  protected async setQuiz(event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const enabled = box.checked;
+    const saved = await this.activityState.run(
+      () => this.eventApi.setRoomActivity(this.room().roomId, enabled ? "AI_QUIZ" : null),
+      enabled ? "AI quiz enabled." : "AI quiz disabled.",
     );
     if (!saved) box.checked = !enabled;
     this.changed.emit();

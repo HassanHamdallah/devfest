@@ -4,9 +4,9 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "--config",
+      "-c",
       "playwright.event.config.ts",
-      "--repeat-each=3"
+      "--repeat-each=2"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
     "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -26,7 +26,7 @@
     "projects": [
       {
         "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
-        "repeatEach": 3,
+        "repeatEach": 2,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
@@ -36,9 +36,13 @@
         "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
         "testIgnore": [],
         "testMatch": [
+          "event-ai-room.spec.ts",
           "event-clues.spec.ts",
+          "event-evidence.spec.ts",
+          "event-live.spec.ts",
           "event-overrides.spec.ts",
           "event-teams.spec.ts",
+          "event-terminal.spec.ts",
           "event.spec.ts"
         ],
         "timeout": 300000
@@ -49,7 +53,7 @@
         "grep": {},
         "grepInvert": null,
         "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
-        "repeatEach": 3,
+        "repeatEach": 2,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
@@ -59,9 +63,13 @@
         "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "testIgnore": [],
         "testMatch": [
+          "event-ai-room.spec.ts",
           "event-clues.spec.ts",
+          "event-evidence.spec.ts",
+          "event-live.spec.ts",
           "event-overrides.spec.ts",
           "event-teams.spec.ts",
+          "event-terminal.spec.ts",
           "event.spec.ts"
         ],
         "timeout": 300000,
@@ -104,6 +112,270 @@
   },
   "suites": [
     {
+      "title": "event-ai-room.spec.ts",
+      "file": "event-ai-room.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "ai room: one team reaches the pass score and sees the clue, another does not",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19932,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the AI manager imports the JSON file and sets the pass score",
+                      "duration": 1626
+                    },
+                    {
+                      "title": "Team 01 answers questions and only ever sees Response saved",
+                      "duration": 1753
+                    },
+                    {
+                      "title": "a reload resumes at the first unanswered question with the answers kept",
+                      "duration": 639
+                    },
+                    {
+                      "title": "the other 39 questions are answered and Finish MCQs (confirmed) opens the repairs",
+                      "duration": 1314
+                    },
+                    {
+                      "title": "repair 1 is put in order with the ▲/▼ buttons",
+                      "duration": 533
+                    },
+                    {
+                      "title": "a reload opens repair 2 and keeps repair 1 locked",
+                      "duration": 616
+                    },
+                    {
+                      "title": "repair 2 is ordered by drag and drop",
+                      "duration": 589
+                    },
+                    {
+                      "title": "the last repair (as shown, partial credit) records the result: Clue unlocked",
+                      "duration": 518
+                    },
+                    {
+                      "title": "Team 02 submits its repairs without answering: the required score is not reached",
+                      "duration": 2922
+                    },
+                    {
+                      "title": "the manager's results show the pass score, each team's status and clue",
+                      "duration": 455
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:41:39.646Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "58483f3d2a2e61c04a90-c24b81f77ffafd8c5b4f",
+          "file": "event-ai-room.spec.ts",
+          "line": 135,
+          "column": 5
+        },
+        {
+          "title": "ai room: an empty quiz blocks the timer until the admin presses Start anyway",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10313,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the admin sees the blocking alert and must confirm Start anyway",
+                      "duration": 1323
+                    },
+                    {
+                      "title": "the AI room's team sees that the questions are not ready",
+                      "duration": 1671
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:41:59.836Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "58483f3d2a2e61c04a90-a5888966f7e3bca6223e",
+          "file": "event-ai-room.spec.ts",
+          "line": 328,
+          "column": 5
+        },
+        {
+          "title": "ai room: one team reaches the pass score and sees the clue, another does not",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19895,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the AI manager imports the JSON file and sets the pass score",
+                      "duration": 1718
+                    },
+                    {
+                      "title": "Team 01 answers questions and only ever sees Response saved",
+                      "duration": 1219
+                    },
+                    {
+                      "title": "a reload resumes at the first unanswered question with the answers kept",
+                      "duration": 1110
+                    },
+                    {
+                      "title": "the other 39 questions are answered and Finish MCQs (confirmed) opens the repairs",
+                      "duration": 1203
+                    },
+                    {
+                      "title": "repair 1 is put in order with the ▲/▼ buttons",
+                      "duration": 722
+                    },
+                    {
+                      "title": "a reload opens repair 2 and keeps repair 1 locked",
+                      "duration": 603
+                    },
+                    {
+                      "title": "repair 2 is ordered by drag and drop",
+                      "duration": 501
+                    },
+                    {
+                      "title": "the last repair (as shown, partial credit) records the result: Clue unlocked",
+                      "duration": 491
+                    },
+                    {
+                      "title": "Team 02 submits its repairs without answering: the required score is not reached",
+                      "duration": 2985
+                    },
+                    {
+                      "title": "the manager's results show the pass score, each team's status and clue",
+                      "duration": 407
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:44:16.940Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "58483f3d2a2e61c04a90-fc2bf6bc6ff3e4fcd22a",
+          "file": "event-ai-room.spec.ts",
+          "line": 135,
+          "column": 5
+        },
+        {
+          "title": "ai room: an empty quiz blocks the timer until the admin presses Start anyway",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10035,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the admin sees the blocking alert and must confirm Start anyway",
+                      "duration": 1202
+                    },
+                    {
+                      "title": "the AI room's team sees that the questions are not ready",
+                      "duration": 1605
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:44:37.104Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "58483f3d2a2e61c04a90-75ea307cb97db2088741",
+          "file": "event-ai-room.spec.ts",
+          "line": 328,
+          "column": 5
+        }
+      ]
+    },
+    {
       "title": "event-clues.spec.ts",
       "file": "event-clues.spec.ts",
       "column": 0,
@@ -125,7 +397,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 29066,
+                  "duration": 10023,
                   "errors": [],
                   "stdout": [
                     {
@@ -137,26 +409,26 @@
                   "steps": [
                     {
                       "title": "the Linux manager saves a key with a typo",
-                      "duration": 1235
+                      "duration": 1168
                     },
                     {
                       "title": "the right answer is marked Incorrect against the typo",
-                      "duration": 898
+                      "duration": 934
                     },
                     {
                       "title": "the manager fixes the key and the answer is re-checked",
-                      "duration": 400
+                      "duration": 492
                     },
                     {
                       "title": "the team sees Correct, updated after review",
-                      "duration": 9593
+                      "duration": 21
                     },
                     {
                       "title": "the manager accepts another team's near miss",
-                      "duration": 10630
+                      "duration": 1276
                     }
                   ],
-                  "startTime": "2026-10-25T03:13:47.150Z",
+                  "startTime": "2026-11-02T21:42:10.170Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -185,7 +457,7 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 29253,
+                  "duration": 10128,
                   "errors": [],
                   "stdout": [
                     {
@@ -197,26 +469,26 @@
                   "steps": [
                     {
                       "title": "the Linux manager saves a key with a typo",
-                      "duration": 1075
+                      "duration": 1236
                     },
                     {
                       "title": "the right answer is marked Incorrect against the typo",
-                      "duration": 851
+                      "duration": 862
                     },
                     {
                       "title": "the manager fixes the key and the answer is re-checked",
-                      "duration": 328
+                      "duration": 505
                     },
                     {
                       "title": "the team sees Correct, updated after review",
-                      "duration": 9598
+                      "duration": 21
                     },
                     {
                       "title": "the manager accepts another team's near miss",
-                      "duration": 11060
+                      "duration": 1269
                     }
                   ],
-                  "startTime": "2026-10-25T03:15:54.291Z",
+                  "startTime": "2026-11-02T21:44:47.161Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -228,9 +500,17 @@
           "file": "event-clues.spec.ts",
           "line": 51,
           "column": 5
-        },
+        }
+      ]
+    },
+    {
+      "title": "event-evidence.spec.ts",
+      "file": "event-evidence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
         {
-          "title": "clues: a typo in the key is fixed and re-checked; a near miss is accepted",
+          "title": "evidence: finished rooms show the answer and the masked clue; the final lists the collected clues",
           "ok": true,
           "tags": [],
           "tests": [
@@ -242,10 +522,10 @@
               "projectName": "",
               "results": [
                 {
-                  "workerIndex": 2,
+                  "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 29364,
+                  "duration": 24638,
                   "errors": [],
                   "stdout": [
                     {
@@ -256,27 +536,31 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "the Linux manager saves a key with a typo",
-                      "duration": 1077
+                      "title": "while the round runs there is no Evidence card",
+                      "duration": 272
                     },
                     {
-                      "title": "the right answer is marked Incorrect against the typo",
-                      "duration": 854
+                      "title": "the admin ends the round: the AI evidence appears with the clue masked",
+                      "duration": 224
                     },
                     {
-                      "title": "the manager fixes the key and the answer is re-checked",
-                      "duration": 347
+                      "title": "Copy copies the clue without revealing it",
+                      "duration": 42
                     },
                     {
-                      "title": "the team sees Correct, updated after review",
-                      "duration": 9589
+                      "title": "the eye shows the clue, and it hides itself again after 15 s",
+                      "duration": 15361
                     },
                     {
-                      "title": "the manager accepts another team's near miss",
-                      "duration": 11106
+                      "title": "an incorrect room shows Clue not collected",
+                      "duration": 272
+                    },
+                    {
+                      "title": "in the final, Your evidence lists the collected clues masked",
+                      "duration": 534
                     }
                   ],
-                  "startTime": "2026-10-25T03:17:59.364Z",
+                  "startTime": "2026-11-02T21:42:20.224Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -284,9 +568,393 @@
               "status": "expected"
             }
           ],
-          "id": "bdd807980bd29ba09b95-29ad5f8ca1df27627a82",
-          "file": "event-clues.spec.ts",
-          "line": 51,
+          "id": "7327be9bd6c12184307c-8e1e2ff519a8c650e32a",
+          "file": "event-evidence.spec.ts",
+          "line": 54,
+          "column": 5
+        },
+        {
+          "title": "evidence: finished rooms show the answer and the masked clue; the final lists the collected clues",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24522,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "while the round runs there is no Evidence card",
+                      "duration": 221
+                    },
+                    {
+                      "title": "the admin ends the round: the AI evidence appears with the clue masked",
+                      "duration": 189
+                    },
+                    {
+                      "title": "Copy copies the clue without revealing it",
+                      "duration": 45
+                    },
+                    {
+                      "title": "the eye shows the clue, and it hides itself again after 15 s",
+                      "duration": 15317
+                    },
+                    {
+                      "title": "an incorrect room shows Clue not collected",
+                      "duration": 205
+                    },
+                    {
+                      "title": "in the final, Your evidence lists the collected clues masked",
+                      "duration": 590
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:44:57.317Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7327be9bd6c12184307c-5ef2746bdcf061ada32d",
+          "file": "event-evidence.spec.ts",
+          "line": 54,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-live.spec.ts",
+      "file": "event-live.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "live: admin and manager actions reach the team, manager and admin screens within 1.5 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11179,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "admin assigns round 1",
+                      "duration": 73
+                    },
+                    {
+                      "title": "admin starts the timer",
+                      "duration": 98
+                    },
+                    {
+                      "title": "admin opens the AI room",
+                      "duration": 81
+                    },
+                    {
+                      "title": "admin pauses the timer",
+                      "duration": 58
+                    },
+                    {
+                      "title": "admin adds a minute",
+                      "duration": 65
+                    },
+                    {
+                      "title": "admin resumes; the team submits the AI clue",
+                      "duration": 199
+                    },
+                    {
+                      "title": "manager passes the team",
+                      "duration": 229
+                    },
+                    {
+                      "title": "manager adds a hint penalty; the admin ranking follows",
+                      "duration": 204
+                    },
+                    {
+                      "title": "admin finishes the rooms and opens the final",
+                      "duration": 121
+                    },
+                    {
+                      "title": "admin publishes the results",
+                      "duration": 288
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:42:44.908Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-f8943562c47cd8a749e9",
+          "file": "event-live.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "live: without the stream the team page polls, and the stream comes back",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14585,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-02T21:42:56.116Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-d14a5226dca7255359a7",
+          "file": "event-live.spec.ts",
+          "line": 167,
+          "column": 5
+        },
+        {
+          "title": "live: a second sign-in of the same team signs the first device out within 2 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7341,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-02T21:43:10.717Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-707f86cb00b25357a3c1",
+          "file": "event-live.spec.ts",
+          "line": 195,
+          "column": 5
+        },
+        {
+          "title": "live: admin and manager actions reach the team, manager and admin screens within 1.5 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11521,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "admin assigns round 1",
+                      "duration": 61
+                    },
+                    {
+                      "title": "admin starts the timer",
+                      "duration": 54
+                    },
+                    {
+                      "title": "admin opens the AI room",
+                      "duration": 108
+                    },
+                    {
+                      "title": "admin pauses the timer",
+                      "duration": 52
+                    },
+                    {
+                      "title": "admin adds a minute",
+                      "duration": 64
+                    },
+                    {
+                      "title": "admin resumes; the team submits the AI clue",
+                      "duration": 201
+                    },
+                    {
+                      "title": "manager passes the team",
+                      "duration": 195
+                    },
+                    {
+                      "title": "manager adds a hint penalty; the admin ranking follows",
+                      "duration": 246
+                    },
+                    {
+                      "title": "admin finishes the rooms and opens the final",
+                      "duration": 151
+                    },
+                    {
+                      "title": "admin publishes the results",
+                      "duration": 273
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:45:21.872Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-5e14d1de2b5c0c44afc4",
+          "file": "event-live.spec.ts",
+          "line": 55,
+          "column": 5
+        },
+        {
+          "title": "live: without the stream the team page polls, and the stream comes back",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14674,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-02T21:45:33.420Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-8ff019ea763d0c11df8e",
+          "file": "event-live.spec.ts",
+          "line": 167,
+          "column": 5
+        },
+        {
+          "title": "live: a second sign-in of the same team signs the first device out within 2 s",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7388,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-02T21:45:48.107Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4988052323a3d759fcce-c760cd97354fe7a6bcfe",
+          "file": "event-live.spec.ts",
+          "line": 195,
           "column": 5
         }
       ]
@@ -313,7 +981,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 22080,
+                  "duration": 13282,
                   "errors": [],
                   "stdout": [
                     {
@@ -325,38 +993,38 @@
                   "steps": [
                     {
                       "title": "admin swaps two teams after the preview",
-                      "duration": 507
+                      "duration": 546
                     },
                     {
                       "title": "admin sends Team 02 to the Linux room for this round",
-                      "duration": 355
+                      "duration": 398
                     },
                     {
                       "title": "Team 02 sees where it goes this round",
-                      "duration": 694
+                      "duration": 782
                     },
                     {
                       "title": "admin grants a manual clue",
-                      "duration": 323
+                      "duration": 376
                     },
                     {
                       "title": "admin disqualifies and reinstates a team",
-                      "duration": 590
+                      "duration": 647
                     },
                     {
                       "title": "admin takes a snapshot and downloads it",
-                      "duration": 352
+                      "duration": 362
                     },
                     {
                       "title": "admin resets Team 02; its device is signed out",
-                      "duration": 9069
+                      "duration": 516
                     },
                     {
                       "title": "admin resets the whole event with RESET and the password",
-                      "duration": 762
+                      "duration": 811
                     }
                   ],
-                  "startTime": "2026-10-25T03:14:17.364Z",
+                  "startTime": "2026-11-02T21:43:18.080Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -385,7 +1053,7 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 20962,
+                  "duration": 13523,
                   "errors": [],
                   "stdout": [
                     {
@@ -397,38 +1065,38 @@
                   "steps": [
                     {
                       "title": "admin swaps two teams after the preview",
-                      "duration": 477
+                      "duration": 525
                     },
                     {
                       "title": "admin sends Team 02 to the Linux room for this round",
-                      "duration": 399
+                      "duration": 417
                     },
                     {
                       "title": "Team 02 sees where it goes this round",
-                      "duration": 657
+                      "duration": 818
                     },
                     {
                       "title": "admin grants a manual clue",
-                      "duration": 314
+                      "duration": 399
                     },
                     {
                       "title": "admin disqualifies and reinstates a team",
-                      "duration": 598
+                      "duration": 633
                     },
                     {
                       "title": "admin takes a snapshot and downloads it",
-                      "duration": 335
+                      "duration": 384
                     },
                     {
                       "title": "admin resets Team 02; its device is signed out",
-                      "duration": 8992
+                      "duration": 514
                     },
                     {
                       "title": "admin resets the whole event with RESET and the password",
-                      "duration": 759
+                      "duration": 786
                     }
                   ],
-                  "startTime": "2026-10-25T03:16:24.368Z",
+                  "startTime": "2026-11-02T21:45:55.515Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -437,78 +1105,6 @@
             }
           ],
           "id": "a9c0381474e9a4f90e1d-b68cc7fd3cfcc326c93c",
-          "file": "event-overrides.spec.ts",
-          "line": 122,
-          "column": 5
-        },
-        {
-          "title": "overrides: swap, room exception, manual clue, disqualify, snapshot, team reset and event reset",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 2,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 20885,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "admin swaps two teams after the preview",
-                      "duration": 465
-                    },
-                    {
-                      "title": "admin sends Team 02 to the Linux room for this round",
-                      "duration": 389
-                    },
-                    {
-                      "title": "Team 02 sees where it goes this round",
-                      "duration": 668
-                    },
-                    {
-                      "title": "admin grants a manual clue",
-                      "duration": 317
-                    },
-                    {
-                      "title": "admin disqualifies and reinstates a team",
-                      "duration": 622
-                    },
-                    {
-                      "title": "admin takes a snapshot and downloads it",
-                      "duration": 312
-                    },
-                    {
-                      "title": "admin resets Team 02; its device is signed out",
-                      "duration": 9008
-                    },
-                    {
-                      "title": "admin resets the whole event with RESET and the password",
-                      "duration": 753
-                    }
-                  ],
-                  "startTime": "2026-10-25T03:18:29.547Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a9c0381474e9a4f90e1d-cebc2b1a93264151c079",
           "file": "event-overrides.spec.ts",
           "line": 122,
           "column": 5
@@ -537,7 +1133,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 30284,
+                  "duration": 10809,
                   "errors": [],
                   "stdout": [
                     {
@@ -549,30 +1145,30 @@
                   "steps": [
                     {
                       "title": "admin sets the planned team count",
-                      "duration": 510
+                      "duration": 602
                     },
                     {
                       "title": "admin generates two teams and sees the one-time sign-ins",
-                      "duration": 813
+                      "duration": 899
                     },
                     {
                       "title": "the team signs in on device A",
-                      "duration": 655
+                      "duration": 753
                     },
                     {
                       "title": "signing in on device B sends device A to the login page",
-                      "duration": 10283
+                      "duration": 722
                     },
                     {
                       "title": "admin sees the team signed in and signs it out",
-                      "duration": 592
+                      "duration": 729
                     },
                     {
                       "title": "device B is sent to the login page with the organizer message",
-                      "duration": 10078
+                      "duration": 18
                     }
                   ],
-                  "startTime": "2026-10-25T03:14:39.478Z",
+                  "startTime": "2026-11-02T21:43:31.399Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -601,7 +1197,7 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 29638,
+                  "duration": 10536,
                   "errors": [],
                   "stdout": [
                     {
@@ -613,30 +1209,30 @@
                   "steps": [
                     {
                       "title": "admin sets the planned team count",
-                      "duration": 467
+                      "duration": 573
                     },
                     {
                       "title": "admin generates two teams and sees the one-time sign-ins",
-                      "duration": 834
+                      "duration": 852
                     },
                     {
                       "title": "the team signs in on device A",
-                      "duration": 652
+                      "duration": 701
                     },
                     {
                       "title": "signing in on device B sends device A to the login page",
-                      "duration": 10209
+                      "duration": 678
                     },
                     {
                       "title": "admin sees the team signed in and signs it out",
-                      "duration": 645
+                      "duration": 749
                     },
                     {
                       "title": "device B is sent to the login page with the organizer message",
-                      "duration": 10087
+                      "duration": 16
                     }
                   ],
-                  "startTime": "2026-10-25T03:16:45.360Z",
+                  "startTime": "2026-11-02T21:46:09.069Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -648,24 +1244,37 @@
           "file": "event-teams.spec.ts",
           "line": 95,
           "column": 5
-        },
+        }
+      ]
+    },
+    {
+      "title": "event-terminal.spec.ts",
+      "file": "event-terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
         {
-          "title": "teams: planned count, generated sign-ins, one device per team and organizer sign-out",
+          "title": "terminal: the Linux team boots Linux in the browser, greps the room's file and submits the line",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
-              "annotations": [],
+              "timeout": 420000,
+              "annotations": [
+                {
+                  "type": "boot",
+                  "description": "Ready in 4.0 s"
+                }
+              ],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
               "results": [
                 {
-                  "workerIndex": 2,
+                  "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 29502,
+                  "duration": 15946,
                   "errors": [],
                   "stdout": [
                     {
@@ -676,41 +1285,128 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "admin sets the planned team count",
-                      "duration": 431
+                      "title": "the Linux manager adds logs/lock.log on the room board",
+                      "duration": 1541
                     },
                     {
-                      "title": "admin generates two teams and sees the one-time sign-ins",
-                      "duration": 820
+                      "title": "on a phone the form stays as it is, with a note and a way to open the terminal",
+                      "duration": 134
                     },
                     {
-                      "title": "the team signs in on device A",
-                      "duration": 639
+                      "title": "the AI team never gets the terminal and gets 404 for the Linux files",
+                      "duration": 66
                     },
                     {
-                      "title": "signing in on device B sends device A to the login page",
-                      "duration": 10247
+                      "title": "Start terminal boots Linux with the room's file in ~/logs",
+                      "duration": 4478
                     },
                     {
-                      "title": "admin sees the team signed in and signs it out",
-                      "duration": 595
+                      "title": "grep finds the OVERRIDE line",
+                      "duration": 299
                     },
                     {
-                      "title": "device B is sent to the login page with the organizer message",
-                      "duration": 10072
+                      "title": "the selected line becomes the technical output and the team submits as usual",
+                      "duration": 245
+                    },
+                    {
+                      "title": "at Time's up the terminal says Time is up and takes no more input",
+                      "duration": 125
                     }
                   ],
-                  "startTime": "2026-10-25T03:18:50.462Z",
-                  "annotations": [],
+                  "startTime": "2026-11-02T21:43:42.242Z",
+                  "annotations": [
+                    {
+                      "type": "boot",
+                      "description": "Ready in 4.0 s"
+                    }
+                  ],
                   "attachments": []
                 }
               ],
               "status": "expected"
             }
           ],
-          "id": "21e4fe48a1ebb93cd219-c13ea527b14df89b72bc",
-          "file": "event-teams.spec.ts",
-          "line": 95,
+          "id": "e14b51c5eae7eeb59d9e-d5505ccd0184865e9860",
+          "file": "event-terminal.spec.ts",
+          "line": 67,
+          "column": 5
+        },
+        {
+          "title": "terminal: the Linux team boots Linux in the browser, greps the room's file and submits the line",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 420000,
+              "annotations": [
+                {
+                  "type": "boot",
+                  "description": "Ready in 3.9 s"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16531,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the Linux manager adds logs/lock.log on the room board",
+                      "duration": 2011
+                    },
+                    {
+                      "title": "on a phone the form stays as it is, with a note and a way to open the terminal",
+                      "duration": 83
+                    },
+                    {
+                      "title": "the AI team never gets the terminal and gets 404 for the Linux files",
+                      "duration": 70
+                    },
+                    {
+                      "title": "Start terminal boots Linux with the room's file in ~/logs",
+                      "duration": 4543
+                    },
+                    {
+                      "title": "grep finds the OVERRIDE line",
+                      "duration": 278
+                    },
+                    {
+                      "title": "the selected line becomes the technical output and the team submits as usual",
+                      "duration": 262
+                    },
+                    {
+                      "title": "at Time's up the terminal says Time is up and takes no more input",
+                      "duration": 131
+                    }
+                  ],
+                  "startTime": "2026-11-02T21:46:19.634Z",
+                  "annotations": [
+                    {
+                      "type": "boot",
+                      "description": "Ready in 3.9 s"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e14b51c5eae7eeb59d9e-00c8e805e9bd760dba68",
+          "file": "event-terminal.spec.ts",
+          "line": 67,
           "column": 5
         }
       ]
@@ -737,7 +1433,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 43445,
+                  "duration": 17559,
                   "errors": [],
                   "stdout": [
                     {
@@ -749,78 +1445,78 @@
                   "steps": [
                     {
                       "title": "AI manager sets the room's clue key on the board",
-                      "duration": 951
+                      "duration": 1096
                     },
                     {
                       "title": "the other managers set their keys",
-                      "duration": 809
+                      "duration": 855
                     },
                     {
                       "title": "admin moves to round 1 (assigned) and opens the AI room",
-                      "duration": 1128
+                      "duration": 1290
                     },
                     {
                       "title": "team is sent to the AI room; the form waits for the timer",
-                      "duration": 676
+                      "duration": 786
                     },
                     {
                       "title": "AI manager confirms all teams are here",
-                      "duration": 315
+                      "duration": 418
                     },
                     {
                       "title": "admin starts the timer although 3 rooms are not ready",
-                      "duration": 8893
+                      "duration": 372
                     },
                     {
                       "title": "team submits a wrong, then the correct AI clue",
-                      "duration": 1218
+                      "duration": 399
                     },
                     {
                       "title": "admin pauses; the team sees the round is paused",
-                      "duration": 9638
+                      "duration": 129
                     },
                     {
                       "title": "admin adds a minute and resumes",
-                      "duration": 127
+                      "duration": 232
                     },
                     {
                       "title": "AI manager passes the team and adds a hint penalty",
-                      "duration": 692
+                      "duration": 1425
                     },
                     {
                       "title": "admin ends the round; the team sees time is up",
-                      "duration": 9345
+                      "duration": 308
                     },
                     {
                       "title": "helper plays rounds 2-3 and finishes the rooms",
-                      "duration": 153
+                      "duration": 311
                     },
                     {
                       "title": "team home shows three collected clues",
-                      "duration": 202
+                      "duration": 371
                     },
                     {
                       "title": "admin opens the final",
-                      "duration": 527
+                      "duration": 570
                     },
                     {
                       "title": "team recovers the missing Hardware clue",
-                      "duration": 446
+                      "duration": 579
                     },
                     {
                       "title": "team accuses wrongly, then solves the case",
-                      "duration": 241
+                      "duration": 299
                     },
                     {
                       "title": "admin sees Team 01 first and publishes",
-                      "duration": 801
+                      "duration": 854
                     },
                     {
                       "title": "team opens the published ranking",
-                      "duration": 296
+                      "duration": 310
                     }
                   ],
-                  "startTime": "2026-10-25T03:15:09.809Z",
+                  "startTime": "2026-11-02T21:43:58.229Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -849,7 +1545,7 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 43292,
+                  "duration": 16914,
                   "errors": [],
                   "stdout": [
                     {
@@ -861,78 +1557,78 @@
                   "steps": [
                     {
                       "title": "AI manager sets the room's clue key on the board",
-                      "duration": 948
+                      "duration": 1082
                     },
                     {
                       "title": "the other managers set their keys",
-                      "duration": 827
+                      "duration": 837
                     },
                     {
                       "title": "admin moves to round 1 (assigned) and opens the AI room",
-                      "duration": 1212
+                      "duration": 1328
                     },
                     {
                       "title": "team is sent to the AI room; the form waits for the timer",
-                      "duration": 667
+                      "duration": 824
                     },
                     {
                       "title": "AI manager confirms all teams are here",
-                      "duration": 308
+                      "duration": 369
                     },
                     {
                       "title": "admin starts the timer although 3 rooms are not ready",
-                      "duration": 8887
+                      "duration": 344
                     },
                     {
                       "title": "team submits a wrong, then the correct AI clue",
-                      "duration": 1165
+                      "duration": 394
                     },
                     {
                       "title": "admin pauses; the team sees the round is paused",
-                      "duration": 9662
+                      "duration": 108
                     },
                     {
                       "title": "admin adds a minute and resumes",
-                      "duration": 226
+                      "duration": 168
                     },
                     {
                       "title": "AI manager passes the team and adds a hint penalty",
-                      "duration": 781
+                      "duration": 865
                     },
                     {
                       "title": "admin ends the round; the team sees time is up",
-                      "duration": 9333
+                      "duration": 302
                     },
                     {
                       "title": "helper plays rounds 2-3 and finishes the rooms",
-                      "duration": 142
+                      "duration": 247
                     },
                     {
                       "title": "team home shows three collected clues",
-                      "duration": 214
+                      "duration": 382
                     },
                     {
                       "title": "admin opens the final",
-                      "duration": 517
+                      "duration": 598
                     },
                     {
                       "title": "team recovers the missing Hardware clue",
-                      "duration": 440
+                      "duration": 639
                     },
                     {
                       "title": "team accuses wrongly, then solves the case",
-                      "duration": 260
+                      "duration": 309
                     },
                     {
                       "title": "admin sees Team 01 first and publishes",
-                      "duration": 867
+                      "duration": 871
                     },
                     {
                       "title": "team opens the published ranking",
                       "duration": 291
                     }
                   ],
-                  "startTime": "2026-10-25T03:17:15.029Z",
+                  "startTime": "2026-11-02T21:46:36.201Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -944,127 +1640,15 @@
           "file": "event.spec.ts",
           "line": 252,
           "column": 5
-        },
-        {
-          "title": "event: rounds, room clues, judging, recovery, accusation, ranking and publication",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 2,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 43068,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "AI manager sets the room's clue key on the board",
-                      "duration": 955
-                    },
-                    {
-                      "title": "the other managers set their keys",
-                      "duration": 799
-                    },
-                    {
-                      "title": "admin moves to round 1 (assigned) and opens the AI room",
-                      "duration": 1251
-                    },
-                    {
-                      "title": "team is sent to the AI room; the form waits for the timer",
-                      "duration": 678
-                    },
-                    {
-                      "title": "AI manager confirms all teams are here",
-                      "duration": 302
-                    },
-                    {
-                      "title": "admin starts the timer although 3 rooms are not ready",
-                      "duration": 8868
-                    },
-                    {
-                      "title": "team submits a wrong, then the correct AI clue",
-                      "duration": 1183
-                    },
-                    {
-                      "title": "admin pauses; the team sees the round is paused",
-                      "duration": 9664
-                    },
-                    {
-                      "title": "admin adds a minute and resumes",
-                      "duration": 157
-                    },
-                    {
-                      "title": "AI manager passes the team and adds a hint penalty",
-                      "duration": 748
-                    },
-                    {
-                      "title": "admin ends the round; the team sees time is up",
-                      "duration": 9324
-                    },
-                    {
-                      "title": "helper plays rounds 2-3 and finishes the rooms",
-                      "duration": 139
-                    },
-                    {
-                      "title": "team home shows three collected clues",
-                      "duration": 208
-                    },
-                    {
-                      "title": "admin opens the final",
-                      "duration": 626
-                    },
-                    {
-                      "title": "team recovers the missing Hardware clue",
-                      "duration": 456
-                    },
-                    {
-                      "title": "team accuses wrongly, then solves the case",
-                      "duration": 256
-                    },
-                    {
-                      "title": "admin sees Team 01 first and publishes",
-                      "duration": 760
-                    },
-                    {
-                      "title": "team opens the published ranking",
-                      "duration": 268
-                    }
-                  ],
-                  "startTime": "2026-10-25T03:19:19.994Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "60714f07d4d913a19ac4-f5f9eca865e929a4eef9",
-          "file": "event.spec.ts",
-          "line": 252,
-          "column": 5
         }
       ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-25T03:13:46.733Z",
-    "duration": 376877.799,
-    "expected": 12,
+    "startTime": "2026-11-02T21:41:39.180Z",
+    "duration": 314698.963,
+    "expected": 22,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

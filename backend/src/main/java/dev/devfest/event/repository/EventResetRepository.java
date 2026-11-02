@@ -14,6 +14,10 @@ public class EventResetRepository {
 
   /** Every team-progress table, children before parents; {@code %s} is the per-table team filter or "TRUE". */
   private static final List<String> TEAM_PROGRESS_DELETES = List.of(
+    "DELETE FROM quiz_evaluation WHERE %s",
+    "DELETE FROM quiz_mcq_answer WHERE %s",
+    "DELETE FROM quiz_repair_answer WHERE %s",
+    "DELETE FROM quiz_team_progress WHERE %s",
     "DELETE FROM team_final WHERE %s",
     "DELETE FROM accusation WHERE %s",
     "DELETE FROM recovery_attempt WHERE %s",

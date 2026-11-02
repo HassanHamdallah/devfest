@@ -230,9 +230,10 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
 
 ## 13. Content editing lock
 
-- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, encrypted
-  message, suspects, correct suspect). A room manager can edit only their own room's clue key, recovery challenge and
-  terminal files (rule 18).
+- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, AI quiz
+  questions and repairs, encrypted message, suspects, correct suspect). A room manager can edit only their own room's
+  clue key, recovery challenge, terminal files (rule 18) and AI quiz (rule 19). A quiz question or repair is also
+  locked as soon as a team has answered it.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
 
@@ -316,8 +317,9 @@ Teams need their clues in the final, so after a room is over a team can look bac
 1. **Room finished (for one team).** A room is finished for a team when the round in which the team was
    assigned to it is over: a later round is current, or it is that round and its timer shows Time's up. The
    assignment is the team's room for that round — the rotation, or an admin room exception if one existed for
-   that round. Every room is finished once rooms are finished (round 5) or the final has opened. Before that the
-   team page works exactly as before (answer form, receipt, answer history).
+   that round. Every room is finished once rooms are finished (round 5) or the final has opened. An AI quiz room is
+   also finished for a team as soon as it is evaluated (rule 19.6). Before that the team page works exactly as before
+   (answer form, receipt, answer history).
 2. **Evidence card.** For each finished room the team home shows an **Evidence** card with the team's latest
    technical output, its latest clue answer with the result (Correct / Incorrect), and the room clue:
    - when the team has **collected** the room's clue (from a correct answer, an organizer's manual clue or the
@@ -378,3 +380,84 @@ the terminal only helps produce the technical output.
 5. **Time's up.** When the round's timer shows Time's up (or the next round starts), the terminal shows "Time is up"
    and accepts no more input. If the admin adds time, **Restart terminal** works again. Changed files reach a team the
    next time its terminal starts.
+
+## 19. AI room activity (quiz, code repairs, pass score)
+
+A room can run an **activity** instead of the answer form. The only activity today is the **AI quiz**: 45 auto-scored
+multiple-choice questions and 3 code repairs scored with partial credit. A team whose total reaches the room's **pass
+score** gets the room's clue; the system records the result itself, so the team never types a clue answer there.
+
+1. **Which rooms (setting, D1).** Each room has an **AI quiz activity** setting that only the admin changes, on the
+   Content page, at any time (audited). On a fresh setup it is on for the AI room only; nothing in the system is tied
+   to the AI room itself. For such a room the team page shows only the activity: no technical output and no clue
+   answer field (a room submission sent to it anyway is refused: "This room records its result from its activity;
+   there is no answer form.").
+2. **Content (D2).** The room's manager (or the admin) writes the questions and repairs on the room board under
+   **AI quiz → Questions and repairs**, or imports them all at once from one JSON file (format in the README), and can
+   export them the same way.
+   - **Question**: section (Easy, Medium, Advanced, Landmark, Recent), question text, 2–6 options, exactly one
+     correct option, 1–10 points, and an optional explanation that only organizers see.
+   - **Repair**: title, instructions, points (default 10), and 4–6 code snippets in their correct order.
+   - **Plan**: the editor shows the questions and points per section and in total. It warns — never blocks — when the
+     total is not 100 points or the counts differ from 20 / 15 / 6 / 3 / 1 questions and 3 repairs.
+   - **Locks**: a question or repair that any team has answered can no longer be changed or deleted; an import
+     (which replaces everything) is refused once any team has answered anything in the room; like all content, the
+     quiz is read-only after the final opens. Audits name the room and item, never prompts, options or code.
+3. **Pass score (setting).** Each AI quiz room has a pass score from 0 to 100 points (default 60), set by the room's
+   manager or the admin in the quiz editor (or in the import file). It is **locked as soon as the first team of the
+   room is evaluated** ("A team in this room has already been evaluated; the pass score can no longer change."), so
+   every team is judged against the same number; the multiple-choice minutes stay editable.
+4. **Timing (D3).** The quiz uses the room's normal round timer; pauses are respected and "elapsed" means running
+   time only.
+   - The **multiple-choice part** is open while elapsed time < the room's MCQ minutes (default 14, set by the manager
+     in the editor), unless the team pressed **Finish MCQs** (asks first; cannot be undone).
+   - The **repairs** open when the team finished its MCQs or at the cutoff, and stay open until Time's up.
+   - Nothing is accepted before the timer starts, while it is paused, at Time's up, after the team's evaluation,
+     outside the team's assigned round, by another room's team, or while the room is closed. Added time extends the
+     round, not the MCQ part.
+   - Another team, or a room that does not run the quiz, gets "Activity not found." (404), as for an unknown room.
+5. **Answers lock (D4) and order (D7).** One answer per team per question and per repair. Saving uses an
+   Idempotency-Key: a retry with the same key and the same answer returns the same receipt; any other answer later is
+   refused ("Already answered."). An unanswered item scores 0. Questions keep their section order but are shuffled
+   within each section for each team; options and snippets are shuffled for each team (a stable order per team, never
+   the correct snippet order). The orders come from a server secret (`DEVFEST_QUIZ_SHUFFLE_SECRET` in
+   `backend/.env`); without it a development server uses a fixed fallback and logs a warning, and any other server
+   refuses to start. Scores use option and snippet ids, never positions on the screen.
+6. **Scores and evaluation (D5, D6).** A correct option earns the question's points, anything else 0. A repair earns
+   points × (snippets in their correct position ÷ snippets), rounded to 2 decimals. The room total is the MCQ points
+   plus the repair points (100 when the plan is followed). Each team is **evaluated exactly once** per room:
+   - when it submits its **last repair**, in the same request; or
+   - at the **round's end** for every team assigned to the room that has not finished (not disqualified teams): when
+     the admin presses **End round** (also after the timer ran out by itself), removes the time left, or moves to
+     the **next round** after the timer was started. There is no scheduler: if the timer runs out by itself, the
+     unfinished teams see "Your result is recorded when the organizer ends the round." until one of these actions.
+
+   A total **equal to or above** the pass score passes. The result goes through the ordinary room-submission path: a
+   submission with the server's progress line as its technical output ("AI quiz · MCQ 41/45 answered · repairs 3/3
+   submitted"), the fixed answer "AI quiz result" and a **CORRECT** (pass) or **INCORRECT** verdict; a CORRECT one
+   collects the room's clue as a ROOM clue. Both triggers run under the event lock and the evaluation table allows one
+   row per team and room, so a race between the last repair and the round's end records one result and the clue once.
+   The room then counts as **finished** for the team (its evidence shows at once), and every screen refreshes (the
+   revision is bumped and broadcast after the commit). The room's manager can still **override** that verdict like any
+   other (Accept / Reject); a later clue key change never re-checks it, and the clue shown follows the current key.
+7. **What the team sees (D8).** Only "Response saved" while it works, never whether an answer was correct, and never a
+   score, the total, points or the pass score — during or after the event. Once evaluated:
+   - **passed** (it holds the room's clue): "Clue unlocked" and the clue in the usual hidden clue display (eye toggle,
+     Copy; rule 17.4), on the activity and in the room's evidence;
+   - **not passed**: "You did not reach the required score for this room's clue."
+
+   The quiz result is not one of the team's receipts or answer history. A room with no questions shows "Questions
+   are not ready yet." instead of an empty quiz.
+8. **Not ready = blocking (admin).** A room that runs the AI quiz without a clue key, or without questions, is a
+   **blocking alert** on the admin board ("Blocks the timer"). While one exists, **Start timer** asks "The AI quiz is
+   not ready. Start anyway?" and the server refuses the start unless the admin confirms **Start anyway** (audited as
+   "round:N anyway"). Planning differences (rule 19.2) stay plain warnings.
+9. **Results (D9).** The room's manager and the admin see **AI room results**: the pass score (and whether it is
+   locked); per team the MCQ score per section, each repair's score, the total, its **status** (In progress / Passed /
+   Not passed), whether its **clue is granted** now (an override can differ from the status), the answers count, when
+   it finished its MCQs and its last answer; per question the share of teams that got it right. The page refreshes
+   every 5 seconds. Ranking inside the room: total (highest first), then the earlier last answer; disqualified teams
+   are listed last without a rank. **Export CSV** has the same columns plus the evaluation time (team names are made
+   formula-safe). The event's final ranking is unchanged and does not use these scores.
+10. **Resets.** Resetting a team or the event deletes its quiz answers, MCQ finish and evaluation with the rest of its
+    progress (they are in the snapshot); the questions, repairs and pass score stay.

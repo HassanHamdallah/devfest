@@ -27,6 +27,7 @@ public class RoomSubmissionRepository {
     JOIN event_room r ON r.id = s.room_id
     LEFT JOIN submission_clue_verdict v ON v.submission_id = s.id
     """;
+  private static final String NOT_ACTIVITY_RESULT = " AND NOT EXISTS (SELECT 1 FROM quiz_evaluation e WHERE e.submission_id = s.id)";
 
   private final JdbcTemplate db;
 
@@ -58,9 +59,12 @@ public class RoomSubmissionRepository {
     return single(SELECT + "WHERE s.team_id = ? AND s.idempotency_key = ?", teamId, idempotencyKey);
   }
 
-  /** Scoped to the team so another team's id behaves exactly like an unknown id. */
+  /**
+   * Scoped to the team so another team's id behaves exactly like an unknown id. Like {@link #findRecentForTeam},
+   * never an AI room result: the team sees only its outcome there (rules §19.7).
+   */
   public Optional<RoomSubmissionRecord> findForTeam(long teamId, UUID submissionId) {
-    return single(SELECT + "WHERE s.team_id = ? AND s.id = ?", teamId, submissionId);
+    return single(SELECT + "WHERE s.team_id = ? AND s.id = ?" + NOT_ACTIVITY_RESULT, teamId, submissionId);
   }
 
   /** Codes of the rooms the team ever submitted to. */
@@ -76,10 +80,10 @@ public class RoomSubmissionRepository {
     return rooms;
   }
 
-  /** Newest first. */
+  /** The team's own receipts, newest first; AI room results are not receipts. */
   public List<RoomSubmissionRecord> findRecentForTeam(long teamId, int limit) {
     return db.query(
-      SELECT + "WHERE s.team_id = ? ORDER BY s.received_at DESC, s.id DESC LIMIT ?",
+      SELECT + "WHERE s.team_id = ?" + NOT_ACTIVITY_RESULT + " ORDER BY s.received_at DESC, s.id DESC LIMIT ?",
       RoomSubmissionRepository::map,
       teamId,
       limit

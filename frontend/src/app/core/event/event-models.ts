@@ -24,6 +24,8 @@ export type EventRole = "ADMIN" | "MANAGER" | "MEMBER";
 export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
 export type ClueOverride = "ACCEPT" | "REJECT" | "AUTOMATIC";
+/** A room's team activity (admin setting); a room without one keeps the plain answer form. */
+export type RoomActivity = "AI_QUIZ";
 
 /** Room codes in position order (0..3) and group codes in index order (0..3). */
 export const ROOM_CODES: readonly RoomCode[] = [
@@ -92,6 +94,8 @@ export interface ScheduledRoom {
   exception: boolean;
   /** The room offers the in-browser terminal (its files come from GET /team/rooms/{id}/terminal-files). */
   terminalEnabled: boolean;
+  /** The room's activity replaces the technical-output field (GET /team/rooms/{id}/activity); null = none. */
+  activity: RoomActivity | null;
 }
 
 export interface TeamBoard {
@@ -119,12 +123,16 @@ export interface TeamBoard {
 export interface RoomEvidence {
   roomCode: RoomCode;
   roomName: string;
+  /** A room with an activity (AI quiz) never sends the output, answer or result: only whether the clue was unlocked. */
+  activity: RoomActivity | null;
   finished: boolean;
   technicalOutput: string | null;
   clueAnswer: string | null;
   clueCorrect: boolean | null;
   clueCollected: boolean;
   clueValue: string | null;
+  /** The room's activity evaluated the team. */
+  resultRecorded: boolean;
 }
 
 export interface TeamRoomCard {
@@ -234,6 +242,8 @@ export interface RoomBoardRoom {
   clueKeySet: boolean;
   /** The room offers the in-browser terminal; its manager prepares the terminal files. */
   terminalEnabled: boolean;
+  /** The room's team activity; for AI_QUIZ its manager prepares the questions and repairs. */
+  activity: RoomActivity | null;
 }
 
 export interface RoomCounters {
@@ -368,6 +378,188 @@ export interface RoomContentView {
   recheckedSubmissions: number;
   /** The admin's per-room terminal setting. */
   terminalEnabled: boolean;
+  /** The admin's per-room activity setting. */
+  activity: RoomActivity | null;
+}
+
+// ---- AI room activity (rules §19) ----
+
+export type QuizSection = "EASY" | "MEDIUM" | "ADVANCED" | "LANDMARK" | "RECENT";
+export type QuizStage = "NOT_STARTED" | "MCQ" | "REPAIRS" | "TIME_UP";
+
+/** A saved answer or repair: never whether it was correct. */
+export interface QuizSavedReceipt {
+  itemId: number;
+  message: string;
+  savedAt: string;
+}
+
+export interface ActivitySection {
+  section: QuizSection;
+  label: string;
+  paceSeconds: number;
+  questions: number;
+}
+
+export interface ActivityQuestion {
+  id: number;
+  number: number;
+  section: QuizSection;
+  prompt: string;
+  options: { id: number; text: string }[];
+  /** The team's saved answer, or null. */
+  selectedOptionId: number | null;
+}
+
+export interface ActivityRepair {
+  id: number;
+  number: number;
+  title: string;
+  /** Null once the repairs are closed. */
+  instructions: string | null;
+  /** In the team's order, or as submitted; empty once the repairs are closed. */
+  snippets: { id: number; code: string }[];
+  submitted: boolean;
+}
+
+/**
+ * The team's outcome once it was evaluated: the room's clue when it holds it, otherwise nothing (never a score or
+ * the pass score).
+ */
+export interface ActivityResult {
+  clueUnlocked: boolean;
+  clue: string | null;
+}
+
+/** GET /team/rooms/{id}/activity: everything the team page shows, from the server only. */
+export interface AiRoomActivity {
+  roomId: number;
+  roomName: string;
+  stage: QuizStage;
+  phase: RoundPhase;
+  serverNow: string;
+  mcqMinutes: number;
+  /** MCQ time left at serverNow (counts down only while the round runs). */
+  mcqRemainingSeconds: number;
+  mcqFinished: boolean;
+  questionCount: number;
+  answeredCount: number;
+  repairCount: number;
+  submittedCount: number;
+  sections: ActivitySection[];
+  /** Only while the MCQ part is open. */
+  questions: ActivityQuestion[];
+  /** Once the repairs are open. */
+  repairs: ActivityRepair[];
+  /** Null until the team is evaluated (its last repair, or the round's end); then only this matters. */
+  result: ActivityResult | null;
+}
+
+/** One question as written in the editor and in an import file; `correctOption` is 0-based. */
+export interface QuizQuestionRequest {
+  section: QuizSection;
+  prompt: string;
+  options: string[];
+  correctOption: number;
+  points: number;
+  explanation: string;
+}
+
+/** One repair; `snippets` in their correct order. */
+export interface QuizRepairRequest {
+  title: string;
+  instructions: string;
+  points: number;
+  snippets: string[];
+}
+
+/** The import/export file. */
+export interface QuizDocument {
+  format: number;
+  mcqMinutes: number | null;
+  passScore: number | null;
+  questions: QuizQuestionRequest[];
+  repairs: QuizRepairRequest[];
+}
+
+export interface QuizEditorQuestion extends QuizQuestionRequest {
+  id: number;
+  /** A team answered it: it can no longer change. */
+  locked: boolean;
+}
+
+export interface QuizEditorRepair extends QuizRepairRequest {
+  id: number;
+  number: number;
+  locked: boolean;
+}
+
+/** GET /rooms/{id}/quiz: the manager's view, with correct answers and explanations. */
+export interface QuizEditorView {
+  roomId: number;
+  roomName: string;
+  activity: RoomActivity | null;
+  mcqMinutes: number;
+  /** The total (out of the quiz's points) a team needs for the room's clue. */
+  passScore: number;
+  /** A team was evaluated: the pass score can no longer change. */
+  passScoreLocked: boolean;
+  editable: boolean;
+  /** A team answered something; an import can no longer replace the content. */
+  answered: boolean;
+  questions: QuizEditorQuestion[];
+  repairs: QuizEditorRepair[];
+  sections: { section: QuizSection; label: string; questions: number; planned: number; points: number }[];
+  mcqPoints: number;
+  repairPoints: number;
+  totalPoints: number;
+  warnings: string[];
+}
+
+export interface AiRoomTeamResult {
+  rank: number | null;
+  teamId: number;
+  teamName: string;
+  groupCode: GroupCode;
+  disqualified: boolean;
+  mcqBySection: Record<QuizSection, number>;
+  mcqTotal: number;
+  /** One per repair column; null when not submitted. */
+  repairScores: (number | null)[];
+  repairTotal: number;
+  total: number;
+  answered: number;
+  repairsSubmitted: number;
+  mcqFinishedAt: string | null;
+  lastAnswerAt: string | null;
+  /** The pass score the team was evaluated against (the room's current one while in progress). */
+  passScore: number;
+  status: AiRoomTeamStatus;
+  evaluatedAt: string | null;
+  /** An evaluated team holds the room's clue now (an override can make it differ from the status). */
+  clueGranted: boolean;
+}
+
+export type AiRoomTeamStatus = "IN_PROGRESS" | "PASSED" | "NOT_PASSED";
+
+/** GET /rooms/{id}/quiz/results. */
+export interface AiRoomResults {
+  roomId: number;
+  roomName: string;
+  generatedAt: string;
+  maxPoints: number;
+  passScore: number;
+  passScoreLocked: boolean;
+  repairs: { id: number; number: number; title: string; points: number }[];
+  teams: AiRoomTeamResult[];
+  questions: {
+    id: number;
+    section: QuizSection;
+    prompt: string;
+    answered: number;
+    correct: number;
+    percentCorrect: number;
+  }[];
 }
 
 // ---- In-browser terminal ----
@@ -475,6 +667,8 @@ export interface AdminAlert {
   code: string;
   message: string;
   link: string;
+  /** The round's timer starts only with "Start anyway" while it exists. */
+  blocking: boolean;
 }
 
 /** "All teams are here" for a room in the current round. */
@@ -492,6 +686,8 @@ export interface AdminBoard {
   alerts: AdminAlert[];
   /** Closed rooms and rooms without a clue key; shown before starting the timer, never blocking. */
   startWarnings: string[];
+  /** AI quiz rooms that cannot run (no clue key, no questions): the timer starts only with "Start anyway". */
+  startBlockers: string[];
   teamFlags: TeamFlagsView[];
   /** The last 20 admin overrides with their reasons. */
   recentOverrides: OverrideAuditView[];

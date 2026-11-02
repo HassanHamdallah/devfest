@@ -8,6 +8,7 @@ import dev.devfest.event.dto.PublicationRequest;
 import dev.devfest.event.dto.RoomOpenView;
 import dev.devfest.event.dto.RoundRequest;
 import dev.devfest.event.dto.TimerAdjustRequest;
+import dev.devfest.event.dto.TimerStartRequest;
 import dev.devfest.event.service.EventAdminBoardService;
 import dev.devfest.event.service.EventControlService;
 import dev.devfest.event.service.EventExportService;
@@ -46,9 +47,13 @@ public class EventAdminController {
     this.timer = timer;
   }
 
+  /** The body is optional; {@code {"anyway": true}} starts although AI quiz rooms are not ready. */
   @PostMapping("/round/timer/start")
-  EventStateView startTimer(@AuthenticationPrincipal AuthService.Principal principal) {
-    return timer.start(principal);
+  EventStateView startTimer(
+    @RequestBody(required = false) TimerStartRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return timer.start(principal, request != null && request.startAnyway());
   }
 
   @PostMapping("/round/timer/pause")

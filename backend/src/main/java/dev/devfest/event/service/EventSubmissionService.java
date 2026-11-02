@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EventSubmissionService {
 
   static final int RECENT_RECEIPTS = 50;
+  static final String ACTIVITY_ROOM = "This room records its result from its activity; there is no answer form.";
 
   private final EventAccessPolicy access;
   private final TeamWriteGate gate;
@@ -88,10 +89,29 @@ public class EventSubmissionService {
     requireMaxBytes(request.clueAnswer(), 500, "Clue answer");
     Optional<RoomCode> exception = exceptions.find(write.state().currentRound(), write.team().id());
     requireAcceptingSubmissions(write, room, clock.now(), exception);
-    RoomSubmissionRecord submission = store(write, room, idempotencyKey, request);
+    if (room.hasQuiz()) throw fail(409, ACTIVITY_ROOM);
+    boolean correct = ClueCheck.isCorrect(request.clueAnswer(), room.clueKey());
+    RoomSubmissionRecord submission = store(write, room, idempotencyKey, request.technicalOutput(), request.clueAnswer(), correct);
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_ROOM_SUBMISSION", "submission:" + submission.id());
     return EventViews.receipt(submission);
+  }
+
+  /**
+   * A room activity's result, recorded like a team's submission (rules §19.6): kept with a clue verdict, and a
+   * correct result collects the room's clue. The verdict is the activity's, not a clue check, so later key changes
+   * leave it alone; the manager's override works as for any submission. The caller holds the event_state, team and
+   * room locks and bumps the revision.
+   */
+  RoomSubmissionRecord recordActivityResult(
+    TeamWrite write,
+    EventRoomRecord room,
+    UUID idempotencyKey,
+    String technicalOutput,
+    String resultText,
+    boolean correct
+  ) {
+    return store(write, room, idempotencyKey, technicalOutput, resultText, correct);
   }
 
   public List<Receipt> recent(Principal principal) {
@@ -138,7 +158,14 @@ public class EventSubmissionService {
   }
 
   /** clue_correct records the result at submission time; the verdict row starts equal and may change later. */
-  private RoomSubmissionRecord store(TeamWrite write, EventRoomRecord room, UUID idempotencyKey, SubmissionRequest request) {
+  private RoomSubmissionRecord store(
+    TeamWrite write,
+    EventRoomRecord room,
+    UUID idempotencyKey,
+    String technicalOutput,
+    String clueAnswer,
+    boolean clueCorrect
+  ) {
     Instant receivedAt = clock.now();
     RoomSubmissionRecord submission = new RoomSubmissionRecord(
       UUID.randomUUID(),
@@ -146,9 +173,9 @@ public class EventSubmissionService {
       room.id(),
       room.code(),
       write.state().currentRound(),
-      request.technicalOutput(),
-      request.clueAnswer(),
-      ClueCheck.isCorrect(request.clueAnswer(), room.clueKey()),
+      technicalOutput,
+      clueAnswer,
+      clueCorrect,
       receivedAt,
       idempotencyKey,
       write.requestHash(),

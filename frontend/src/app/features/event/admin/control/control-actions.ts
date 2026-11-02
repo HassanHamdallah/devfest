@@ -10,8 +10,11 @@ export type ControlAction =
   | { kind: "closeRoom"; room: AdminRoomCard }
   /** `secondsLeft`: time left in the current round, when it is running or paused (asks before moving on). */
   | { kind: "setRound"; round: number; secondsLeft?: number | null }
-  /** `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key. */
-  | { kind: "startTimer"; waiting: string[]; warnings: string[] }
+  /**
+   * `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key; `blockers`: AI quiz
+   * rooms that cannot run, so the request says "anyway".
+   */
+  | { kind: "startTimer"; waiting: string[]; warnings: string[]; blockers: string[] }
   | { kind: "pauseTimer" }
   | { kind: "resumeTimer" }
   /** `key` is the Idempotency-Key: one per click, so a repeated request is applied once. */
@@ -32,6 +35,8 @@ export interface ConfirmationCopy {
   title: string;
   message: string;
   variant: UiButtonVariant;
+  /** The confirm button's text; "Confirm" when absent. */
+  confirmLabel?: string;
 }
 
 /** Copy of the confirmation dialog, or null for actions that run immediately. */
@@ -49,7 +54,7 @@ export function confirmationFor(
     case "setRound":
       return roundConfirmation(action.round, action.secondsLeft ?? null);
     case "startTimer":
-      return startConfirmation(action.waiting, action.warnings);
+      return startConfirmation(action.waiting, action.warnings, action.blockers);
     case "endRound":
       return {
         title: "End the round now?",
@@ -78,13 +83,25 @@ export function confirmationFor(
   }
 }
 
-/** Starting is never blocked; rooms that are not ready, closed or without a key only ask for a confirmation. */
+/**
+ * Rooms that are not ready, closed or without a key only ask for a confirmation. An AI quiz room that cannot run
+ * (blocking alert) needs an explicit "Start anyway", which the server also requires.
+ */
 function startConfirmation(
   waiting: string[],
   warnings: string[],
+  blockers: string[],
 ): ConfirmationCopy | null {
-  if (!waiting.length && !warnings.length) return null;
   const parts = waiting.length ? [`Waiting: ${waiting.join(", ")}.`] : [];
+  if (blockers.length) {
+    return {
+      title: "The AI quiz is not ready. Start anyway?",
+      message: [...blockers, ...parts, ...warnings].join(" "),
+      variant: "danger",
+      confirmLabel: "Start anyway",
+    };
+  }
+  if (!waiting.length && !warnings.length) return null;
   return {
     title: waiting.length
       ? `${waiting.length} ${waiting.length === 1 ? "room is" : "rooms are"} not ready. Start anyway?`
@@ -184,7 +201,7 @@ export function performControlAction(
     case "setRound":
       return eventApi.setRound(action.round);
     case "startTimer":
-      return eventApi.startTimer();
+      return eventApi.startTimer(action.blockers.length > 0);
     case "pauseTimer":
       return eventApi.pauseTimer();
     case "resumeTimer":

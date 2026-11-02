@@ -88,11 +88,16 @@ public class EventTeamBoardService {
       .stream()
       .filter(room -> code.isPresent() && room.code() == code.get())
       .findFirst()
-      .map(room -> new ScheduledRoom(room.roomId(), room.code(), room.name(), room.open(), exception, room.terminalEnabled()))
+      .map(room ->
+        new ScheduledRoom(room.roomId(), room.code(), room.name(), room.open(), exception, room.terminalEnabled(), room.activity())
+      )
       .orElse(null);
   }
 
-  /** {@code assigned}: this round's room (exception or rotation), which is the one marked "Now". */
+  /**
+   * {@code assigned}: this round's room (exception or rotation), which is the one marked "Now". A room with an
+   * activity has no receipt: its result is not a team submission (rules §19.7).
+   */
   private static TeamRoomCard card(
     EventTeamRecord team,
     EventStateRecord state,
@@ -110,7 +115,7 @@ public class EventTeamBoardService {
       assigned.filter(room.code()::equals).isPresent(),
       TeamRoomStatus.of(room.judgement(), room.hasSubmission()),
       room.clueCollected(),
-      room.hasSubmission()
+      room.hasSubmission() && room.activity() == null
         ? EventViews.receipt(
           room.lastSubmissionId(),
           room.code(),

@@ -91,6 +91,20 @@
   @if (view.room.terminalEnabled) {
   <event-terminal-files-card [room]="view.room" [revision]="view.revision" />
   }
+  @if (view.room.activity === "AI_QUIZ") {
+  <ui-card>
+    <h2 ui-card-header>AI quiz</h2>
+    <p class="event-muted board__quiz-intro">
+      Teams in this room answer multiple-choice questions and order code snippets. A team that reaches the pass
+      score gets the room's clue automatically; its result appears below like any submission, so you can still
+      override the verdict. Prepare the content, set the pass score and follow the scores here.
+    </p>
+    <div class="event-inline">
+      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'quiz']">Questions and repairs</a>
+      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'quiz', 'results']">AI room results</a>
+    </div>
+  </ui-card>
+  }
   <event-room-content-card [room]="view.room" (changed)="reload()" />
 </div>
 }

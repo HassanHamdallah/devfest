@@ -20,6 +20,8 @@ import tools.jackson.databind.ObjectMapper;
 class TeamWriteGate {
 
   static final int TEAM_WRITES_PER_MINUTE = 20;
+  /** AI room answers: 45 questions and 3 repairs in one round need their own, larger bucket. */
+  static final int ACTIVITY_WRITES_PER_MINUTE = 60;
 
   /** The locked team, the locked event state and the hash that identifies this exact request. */
   record TeamWrite(EventTeamRecord team, EventStateRecord state, String requestHash) {}
@@ -46,8 +48,17 @@ class TeamWriteGate {
 
   /** {@code discriminator} separates request kinds that could share a body shape (room id, "recovery", ...). */
   TeamWrite open(Principal principal, String discriminator, Object body) {
+    return open(principal, discriminator, body, "event-team:", TEAM_WRITES_PER_MINUTE);
+  }
+
+  /** Like {@link #open(Principal, String, Object)} for room activity answers, with their own rate bucket. */
+  TeamWrite openActivity(Principal principal, String discriminator, Object body) {
+    return open(principal, discriminator, body, "event-activity:", ACTIVITY_WRITES_PER_MINUTE);
+  }
+
+  private TeamWrite open(Principal principal, String discriminator, Object body, String bucket, int perMinute) {
     EventTeamRecord team = access.requireTeamOf(principal);
-    rateLimit.check("event-team:" + team.id(), TEAM_WRITES_PER_MINUTE, "Too many attempts. Wait a moment and try again.");
+    rateLimit.check(bucket + team.id(), perMinute, "Too many attempts. Wait a moment and try again.");
     EventStateRecord state = states.lockForUpdate();
     EventTeamRecord locked = teams
       .lockForUpdate(team.id())

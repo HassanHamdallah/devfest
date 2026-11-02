@@ -83,6 +83,73 @@ downloads the terminal (about 8 MB) in the background, so it starts in a few sec
 work, but the 80-column terminal scrolls sideways there. Refreshing the page or leaving it ends the terminal session
 (the browser asks first); files in it are not saved.
 
+### Event: AI room quiz (room manager, before the event)
+
+Rooms with the **AI quiz activity** (admin, **Content** page; on by default for the AI room only) give teams 45
+multiple-choice questions and 3 code repairs instead of the answer form. Each team is evaluated once, when it submits
+its last repair or when the round ends: a total at or above the room's **pass score** records a correct result and
+gives the team your clue key as the room's clue; otherwise it gets nothing. Teams never see a score (rules §19).
+
+- On your room board, open **AI quiz → Questions and repairs**. Add questions and repairs one by one, or prepare
+  them in one JSON file and use **Import a JSON file** (you see how many items it holds and confirm; it replaces the
+  room's current questions and repairs). **Export JSON** downloads the same format, e.g. as a backup.
+- The **Plan** table shows questions and points per section; a warning lists what differs from 20 Easy, 15 Medium,
+  6 Advanced, 3 Landmark, 1 Recent, 3 repairs and 100 points (warnings never block). Set **Multiple-choice minutes**
+  (default 14): after that much running time, or when a team presses **Finish MCQs**, its repairs open. Set the
+  **Pass score** (0–100 points, default 60) and press **Save settings**; it locks when the first team is evaluated.
+- The room needs a **clue key** and at least one question: otherwise the admin board shows a blocking alert and the
+  admin can start the round's timer only with **Start anyway**.
+- Once any team has answered, a question or repair it answered can no longer be changed and an import is refused;
+  everything is read-only after the final opens.
+- During the round open **AI room results**: the pass score, scores per team and section, each repair, the total,
+  each team's status (In progress / Passed / Not passed), whether its clue is granted, and how many teams got each
+  question right. It refreshes every 5 seconds; **Export CSV** saves it. Teams only ever see "Response saved", then
+  "Clue unlocked" with the clue, or "You did not reach the required score for this room's clue."
+- Each result also appears on your room board as the team's submission, so you can still **Accept** or **Reject** it
+  like any clue verdict. If the timer runs out by itself, unfinished teams are evaluated when the admin presses
+  **End round** or moves to the next round.
+
+**JSON format.** `format` is 1; `mcqMinutes` and `passScore` (0–100) are optional (the room keeps its values when
+they are missing; a different `passScore` is refused once a team was evaluated). A question has `section` (`EASY`, `MEDIUM`, `ADVANCED`,
+`LANDMARK` or `RECENT`), `prompt`, 2–6 `options`, `correctOption` (the 0-based index of the correct option), `points`
+(1–10) and an optional `explanation` (organizers only). A repair has `title`, `instructions`, `points` (default 10)
+and 4–6 `snippets` **in their correct order** (teams get them shuffled; indentation is kept). Example with two
+questions and one repair:
+
+```json
+{
+  "format": 1,
+  "mcqMinutes": 14,
+  "passScore": 60,
+  "questions": [
+    {
+      "section": "EASY",
+      "prompt": "Which of these is a supervised learning task?",
+      "options": ["Clustering", "Classification", "Dimensionality reduction"],
+      "correctOption": 1,
+      "points": 1,
+      "explanation": "Classification learns from labelled examples."
+    },
+    {
+      "section": "MEDIUM",
+      "prompt": "What does a pooling layer reduce?",
+      "options": ["The learning rate", "The spatial size of feature maps", "The number of classes", "The batch size"],
+      "correctOption": 1,
+      "points": 2
+    }
+  ],
+  "repairs": [
+    {
+      "title": "Fix the training loop",
+      "instructions": "Put the lines in the order that makes the code work.",
+      "points": 10,
+      "snippets": ["for batch in loader:", "    optimizer.zero_grad()", "    loss = model(batch)", "    loss.backward()"]
+    }
+  ]
+}
+```
+
+
 ### Event: teams, sign-ins and devices
 
 - **Planned teams.** On **Teams & accounts**, enter the number of teams taking part (1–64) and press **Save**. A group may then hold at most ceil(N / 4) active teams; the page and the control screen warn when the team count or group balance is off (rules 14 in `docs/EVENT-RULES.md`).
@@ -150,7 +217,10 @@ This creates or starts **only** `.local/postgres` at `127.0.0.1:55432`, with `de
 
 First use generates random development credentials in ignored files:
 
-- `backend/.env`: DB credentials, JWT secret, administrator email/password, seed flag and provider URL.
+- `backend/.env`: DB credentials, JWT secret, AI quiz shuffle secret (`DEVFEST_QUIZ_SHUFFLE_SECRET`, at least 32
+  characters; `start-local-database.ps1` adds a random one once), administrator email/password, seed flag and provider
+  URL. Without the shuffle secret a development backend (`DEVFEST_DEVELOPMENT=true`) uses a fixed fallback and logs a
+  warning; any other backend refuses to start.
 - `.local/database.json`: local cluster and test-role credentials.
 
 Open `backend/.env` locally to obtain the administrator credentials. Do not commit or share it. The admin is created only when no administrator exists; changing bootstrap variables later does not reset its password. `DEVFEST_SEED=true` loads both examples only when there are no problems. Disable that flag after setup. A new contest starts tomorrow by default: set actual times in **Contest Settings**.

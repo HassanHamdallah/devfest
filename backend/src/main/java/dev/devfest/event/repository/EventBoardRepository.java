@@ -7,6 +7,7 @@ import static dev.devfest.event.repository.EventJdbc.uuid;
 import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.JudgeStatus;
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -20,13 +21,14 @@ import org.springframework.stereotype.Repository;
 public class EventBoardRepository {
 
   private static final String TEAM_ROOMS_SQL = """
-    SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open, r.terminal_enabled,
+    SELECT r.id AS room_id, r.code, r.name, r.position, r.is_open, r.terminal_enabled, r.activity,
            COALESCE(j.status, 'PENDING') AS judgement,
            c.room_id IS NOT NULL AS clue_collected,
            CASE WHEN c.room_id IS NOT NULL THEN r.clue_key END AS collected_clue_key,
            ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct,
            ls.effective_correct AS last_effective_correct, ls.technical_output AS last_technical_output,
-           ls.clue_answer AS last_clue_answer
+           ls.clue_answer AS last_clue_answer,
+           EXISTS(SELECT 1 FROM quiz_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id) AS result_recorded
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
@@ -169,6 +171,7 @@ public class EventBoardRepository {
       rs.getInt("position"),
       rs.getBoolean("is_open"),
       rs.getBoolean("terminal_enabled"),
+      RoomActivity.fromStored(rs.getString("activity")),
       JudgeStatus.valueOf(rs.getString("judgement")),
       rs.getBoolean("clue_collected"),
       rs.getString("collected_clue_key"),
@@ -177,7 +180,8 @@ public class EventBoardRepository {
       lastId == null ? null : rs.getBoolean("last_clue_correct"),
       lastId == null ? null : rs.getBoolean("last_effective_correct"),
       rs.getString("last_technical_output"),
-      rs.getString("last_clue_answer")
+      rs.getString("last_clue_answer"),
+      rs.getBoolean("result_recorded")
     );
   }
 

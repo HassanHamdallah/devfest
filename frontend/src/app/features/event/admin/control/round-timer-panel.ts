@@ -99,6 +99,8 @@ export class RoundTimerPanel {
   readonly state = input.required<EventStateView>();
   readonly rooms = input.required<readonly AdminRoomCard[]>();
   readonly startWarnings = input.required<readonly string[]>();
+  /** Blocking alerts: starting asks for "Start anyway". */
+  readonly startBlockers = input<readonly string[]>([]);
   readonly busy = input(false);
   readonly action = output<ControlAction>();
 
@@ -155,6 +157,7 @@ export class RoundTimerPanel {
       kind: "startTimer",
       waiting,
       warnings: [...this.startWarnings()],
+      blockers: [...this.startBlockers()],
     });
   }
 

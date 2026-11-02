@@ -75,6 +75,8 @@ test("terminal: the Linux team boots Linux in the browser, greps the room's file
   const control = new EventAdminShortcuts(adminApi);
   try {
     await setPracticeKeys(accounts, ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
+    // An empty AI quiz would block the timer; the AI team here only checks that it never gets the terminal.
+    await control.setRoomActivity("AI", null);
     const linuxRoom = await control.roomId("LINUX");
 
     await test.step("the Linux manager adds logs/lock.log on the room board", async () => {

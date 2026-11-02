@@ -60,6 +60,8 @@ test("live: admin and manager actions reach the team, manager and admin screens 
   const control = new EventAdminShortcuts(adminApi);
   try {
     await setPracticeKeys(accounts, ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
+    // The team submits through the AI room's plain answer form; the AI quiz (on by default) has its own spec.
+    await control.setRoomActivity("AI", null);
     await signInLive(member.page, accounts.members[0], accounts.seedPassword);
     await expect(heading(member.page, TEAM)).toBeVisible();
     await signInLive(manager.page, accounts.managers.AI, accounts.seedPassword);
@@ -172,6 +174,8 @@ test("live: without the stream the team page polls, and the stream comes back", 
     await signIn(member.page, accounts.members[0], accounts.seedPassword);
     await expect(heading(member.page, TEAM)).toBeVisible();
 
+    // Like the test above, this follows the AI room's plain answer form, so the AI quiz is off.
+    await control.setRoomActivity("AI", null);
     await control.setRound(1);
     await expect(member.page.getByText(/^Go to the \w+ room\. The timer starts soon\.$/)).toBeVisible(POLLED);
 

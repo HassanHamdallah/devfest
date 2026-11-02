@@ -256,6 +256,8 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
   const adminApi = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
   let teamApi: EventApiSession | null = null;
   try {
+    // This journey uses the AI room's plain answer form; the AI quiz (on by default) has its own spec.
+    await new EventAdminShortcuts(adminApi).setRoomActivity("AI", null);
     await test.step("AI manager sets the room's clue key on the board", () => setAiKeyInUi(manager.page));
     await test.step("the other managers set their keys", () =>
       setPracticeKeys(accounts, ["PROBLEM_SOLVING", "LINUX", "HARDWARE"]),
