@@ -5,7 +5,7 @@ import {
   inject,
 } from "@angular/core";
 import { EventApi } from "../../../core/event/event-api";
-import { TeamFinal } from "../../../core/event/event-models";
+import { FinalStage, TeamFinal } from "../../../core/event/event-models";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
@@ -16,7 +16,13 @@ import { EventFinalAccusationForm } from "./final-accusation-form";
 import { EventFinalFinished } from "./final-finished";
 import { EventFinalRecoveryForm } from "./final-recovery-form";
 
-/** /event/team/final: renders exactly the stage the server reports for this team. */
+const FINAL_STEPS: Partial<Record<FinalStage, number>> = {
+  RECOVERY: 1,
+  MESSAGE: 2,
+  FINISHED: 3,
+};
+
+/** /event/team/final: renders exactly the stage the server reports for this team, one primary action each. */
 @Component({
   imports: [
     EventFinalAccusationForm,
@@ -29,6 +35,7 @@ import { EventFinalRecoveryForm } from "./final-recovery-form";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: "./team-final.page.html",
+  styleUrl: "./team-final.page.css",
 })
 export class EventTeamFinalPage {
   private readonly eventApi = inject(EventApi);
@@ -37,6 +44,12 @@ export class EventTeamFinalPage {
     this.eventApi.teamFinal(),
   );
   protected readonly final = this.loader.data;
+  protected readonly steps = ["Recover a missing clue", "Decrypt and accuse", "Case solved"];
+  /** 1-based step of the final the team is on; null outside the playable stages. */
+  protected readonly step = computed(() => {
+    const stage = this.final()?.stage;
+    return stage ? (FINAL_STEPS[stage] ?? null) : null;
+  });
   protected readonly cluesLine = computed(
     () =>
       `Your team collected ${this.final()?.cluesCollected ?? 0} of 4 clues.`,

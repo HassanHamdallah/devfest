@@ -4,7 +4,6 @@ import {
   EventStateView,
   RoomCode,
 } from "../../../../core/event/event-models";
-import { UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 
 /** Rounds 1..4 run the rooms; 5 means the rooms are finished. */
 export const ROOMS_FINISHED_ROUND = 5;
@@ -44,17 +43,10 @@ export function openFinalBlockReason(state: EventStateView): string | null {
     : null;
 }
 
-export interface FinalStatus {
-  label: string;
-  variant: UiStatusChipVariant;
-}
-
-export function finalStatus(state: EventStateView): FinalStatus {
-  if (state.finalOpen) return { label: "Final open", variant: "accent" };
-  if (state.finalStartedAt !== null)
-    return { label: "Final closed", variant: "warning" };
-  return { label: "Final not opened", variant: "neutral" };
-}
+export {
+  type FinalStatus,
+  finalStatus,
+} from "../../../../core/event/event-status";
 
 export interface RoomCardView {
   room: AdminRoomCard;
@@ -87,7 +79,7 @@ export interface RotationColumn {
 
 export interface RotationLine {
   groupCode: string;
-  cells: { roomName: string; current: boolean }[];
+  cells: { code: RoomCode; roomName: string; current: boolean }[];
 }
 
 export function rotationColumns(currentRound: number): RotationColumn[] {
@@ -106,6 +98,7 @@ export function rotationLines(board: AdminBoard): RotationLine[] {
   return board.rotation.map((row) => ({
     groupCode: row.groupCode,
     cells: row.rooms.map((code, index) => ({
+      code,
       roomName: names.get(code) ?? code,
       current: index + 1 === current,
     })),

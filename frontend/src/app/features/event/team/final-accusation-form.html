@@ -1,23 +1,37 @@
 <ui-card>
-  <h2 ui-card-header>Encrypted message</h2>
+  <div ui-card-header class="message-head">
+    <h2>Encrypted message</h2>
+    <ui-copy-button
+      [text]="final().encryptedMessage ?? ''"
+      label="Copy message"
+    />
+  </div>
   <pre class="message">{{ final().encryptedMessage }}</pre>
-</ui-card>
-<ui-card>
-  <h2 ui-card-header>Suspects</h2>
-  <ul class="suspects">
-    @for (suspect of final().suspects; track suspect.id) {
-    <li>
-      <strong>{{ suspect.name }}</strong>
-      @if (suspect.description) {
-      <span class="event-muted">{{ suspect.description }}</span>
-      }
-    </li>
-    }
-  </ul>
 </ui-card>
 <ui-card>
   <h2 ui-card-header>Accusation</h2>
   <form (ngSubmit)="submit()">
+    <fieldset class="suspects">
+      <legend>Suspects</legend>
+      <p class="event-muted suspects__hint">
+        Tap a card or use the Suspect list below.
+      </p>
+      <div class="suspects__grid">
+        @for (suspect of final().suspects; track suspect.id) {
+        <button
+          type="button"
+          class="suspect"
+          [attr.aria-pressed]="suspectId() === '' + suspect.id"
+          (click)="suspectId.set('' + suspect.id)"
+        >
+          <strong class="suspect__name">{{ suspect.name }}</strong>
+          @if (suspect.description) {
+          <span class="suspect__description">{{ suspect.description }}</span>
+          }
+        </button>
+        }
+      </div>
+    </fieldset>
     <ui-select
       label="Suspect"
       name="suspectId"
@@ -45,13 +59,15 @@
       again. {{ attemptsLine() }}
     </p>
     @if (feedback(); as text) {
-    <ui-alert variant="error">{{ text }}</ui-alert>
+    <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
     }
     <event-attempt-status [attempt]="attempt" (retry)="retry()" />
-    <div>
-      <ui-button type="submit" [loading]="attempt.sending()"
-        >Submit accusation</ui-button
-      >
-    </div>
+    <ui-button
+      type="submit"
+      size="lg"
+      [fullWidth]="true"
+      [loading]="attempt.sending()"
+      >Submit accusation</ui-button
+    >
   </form>
 </ui-card>

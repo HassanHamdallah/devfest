@@ -10,11 +10,6 @@ import {
   signal,
 } from "@angular/core";
 import {
-  FormControl,
-  ReactiveFormsModule,
-  Validators,
-} from "@angular/forms";
-import {
   PHASE_LABELS,
   effectivePhase,
   remainingSeconds,
@@ -22,31 +17,15 @@ import {
 import {
   AdminRoomCard,
   EventStateView,
-  RoundPhase,
 } from "../../../../core/event/event-models";
+import { PHASE_VARIANTS } from "../../../../core/event/event-status";
 import { roundStatusLabel } from "../../../../core/event/format";
-import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
-import { UiConfirmDialog } from "../../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
-import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
-import { UiSelect } from "../../../../shared/ui/ui-select/ui-select";
-import {
-  UiStatusChip,
-  UiStatusChipVariant,
-} from "../../../../shared/ui/ui-status-chip/ui-status-chip";
+import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { ControlAction } from "./control-actions";
-
-const PHASE_VARIANTS: Record<RoundPhase, UiStatusChipVariant> = {
-  ASSIGNED: "neutral",
-  RUNNING: "success",
-  PAUSED: "warning",
-  TIME_UP: "danger",
-};
-
-const ADJUST_DIRECTIONS = [
-  { value: "add", label: "Add time" },
-  { value: "remove", label: "Remove time" },
-] as const;
+import { nextRoundBlockReason, nextRoundLabel } from "./control-view";
+import { RoundAdjustDialog } from "./round-adjust-dialog";
+import { RoundTimerActions } from "./round-timer-actions";
 
 /** "AI manager · 14:05" */
 function readyLine(by: string | null, at: string | null): string {
@@ -57,83 +36,45 @@ function readyLine(by: string | null, at: string | null): string {
 }
 
 /**
- * The round's timer (`data-round-timer`): round, phase chip, big countdown, the buttons the phase allows, the
- * rooms' "All teams are here" strip, and a custom ± minutes dialog. Every button emits a ControlAction; the page
+ * The round's timer (`data-round-timer`): round, phase chip, big countdown, the buttons the phase allows in a
+ * fixed order (primary action, +1 min, +5 min, then End round and Next round apart from them), the rooms'
+ * "All teams are here" strip, and a custom ± minutes dialog. Every button emits a ControlAction; the page
  * confirms and runs it. The phase is followed locally, so the buttons switch when the countdown reaches 0.
  */
 @Component({
   selector: "app-round-timer-panel",
-  imports: [
-    ReactiveFormsModule,
-    UiButton,
-    UiConfirmDialog,
-    UiCountdown,
-    UiInput,
-    UiSelect,
-    UiStatusChip,
-  ],
+  imports: [RoundAdjustDialog, RoundTimerActions, UiCountdown, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { "data-round-timer": "" },
   template: `<section class="round-timer" aria-labelledby="round-timer-heading">
       <div class="round-timer__head">
-        <h2 id="round-timer-heading">{{ roundLabel() }}</h2>
-        @if (phase(); as current) {
-          <ui-status-chip [variant]="phaseVariants[current]">{{
-            phaseLabels[current]
-          }}</ui-status-chip>
-        }
+        <div class="round-timer__title">
+          <h2 id="round-timer-heading">{{ roundLabel() }}</h2>
+          @if (phase(); as current) {
+            <ui-status-chip [variant]="phaseVariants[current]">{{
+              phaseLabels[current]
+            }}</ui-status-chip>
+          }
+        </div>
         <ui-countdown [clock]="state()" [large]="true" />
       </div>
-      @if (phase(); as current) {
-        <div class="event-inline" role="group" aria-label="Round timer">
-          @switch (current) {
-            @case ("ASSIGNED") {
-              <ui-button [disabled]="busy()" (click)="start()"
-                >Start timer</ui-button
-              >
-            }
-            @case ("RUNNING") {
-              <ui-button
-                variant="secondary"
-                [disabled]="busy()"
-                (click)="emit({ kind: 'pauseTimer' })"
-                >Pause</ui-button
-              >
-            }
-            @case ("PAUSED") {
-              <ui-button
-                [disabled]="busy()"
-                (click)="emit({ kind: 'resumeTimer' })"
-                >Resume</ui-button
-              >
-            }
-          }
-          @if (current !== "ASSIGNED") {
-            <ui-button variant="secondary" [disabled]="busy()" (click)="add(60)"
-              >+1 min</ui-button
-            >
-            <ui-button
-              variant="secondary"
-              [disabled]="busy()"
-              (click)="add(300)"
-              >+5 min</ui-button
-            >
-          }
-          @if (current === "RUNNING" || current === "PAUSED") {
-            <ui-button
-              variant="danger"
-              [disabled]="busy()"
-              (click)="emit({ kind: 'endRound' })"
-              >End round</ui-button
-            >
-          }
-          <ui-button variant="ghost" [disabled]="busy()" (click)="openAdjust()"
-            >Adjust…</ui-button
-          >
-        </div>
+      <app-round-timer-actions
+        [phase]="phase()"
+        [busy]="busy()"
+        [nextRoundBlocked]="!!nextRoundReason()"
+        (start)="start()"
+        (action)="emit($event)"
+        (adjust)="adjusting.set(true)"
+        (nextRound)="nextRound()"
+      />
+      <p class="round-timer__hint event-muted">
+        {{ nextRoundReason() ?? nextRoundHint() }}
+      </p>
+      @if (phase()) {
         <ul class="round-timer__rooms" aria-label="Room readiness">
           @for (room of readiness(); track room.code) {
-            <li [attr.data-ready-room]="room.code">
+            <li [attr.data-ready-room]="room.code" [class]="'room-tone--' + room.code">
+              <span class="round-timer__dot" aria-hidden="true"></span>
               <strong>{{ room.name }}</strong>
               @if (room.ready) {
                 <ui-status-chip variant="success">Ready ✓</ui-status-chip>
@@ -146,68 +87,13 @@ function readyLine(by: string | null, at: string | null): string {
         </ul>
       }
     </section>
-    <ui-confirm-dialog
+    <app-round-adjust-dialog
       [open]="adjusting()"
-      title="Adjust the round time"
-      message="Removing more time than is left ends the round (time is up)."
       [busy]="busy()"
-      (confirmed)="applyAdjust()"
+      (adjust)="applyAdjust($event)"
       (cancelled)="adjusting.set(false)"
-    >
-      <div class="round-timer__adjust">
-        <ui-select
-          label="Change"
-          [options]="adjustDirections"
-          [formControl]="direction"
-        />
-        <ui-input
-          label="Minutes"
-          type="number"
-          hint="1 to 60 minutes."
-          [error]="minutesError()"
-          [formControl]="minutes"
-        />
-      </div>
-    </ui-confirm-dialog>`,
-  styles: `
-    .round-timer {
-      display: grid;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-card);
-    }
-    .round-timer__head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--space-3);
-    }
-    h2 {
-      margin: 0;
-      font-size: var(--font-size-lg);
-    }
-    .round-timer__rooms {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-      gap: var(--space-2);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .round-timer__rooms li {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--font-size-sm);
-    }
-    .round-timer__adjust {
-      display: grid;
-      gap: var(--space-3);
-    }
-  `,
+    />`,
+  styleUrl: "./round-timer-panel.css",
 })
 export class RoundTimerPanel {
   readonly state = input.required<EventStateView>();
@@ -218,20 +104,7 @@ export class RoundTimerPanel {
 
   protected readonly phaseLabels = PHASE_LABELS;
   protected readonly phaseVariants = PHASE_VARIANTS;
-  protected readonly adjustDirections = ADJUST_DIRECTIONS;
   protected readonly adjusting = signal(false);
-  protected readonly direction = new FormControl<string>("add", {
-    nonNullable: true,
-  });
-  protected readonly minutes = new FormControl("5", {
-    nonNullable: true,
-    validators: [
-      Validators.required,
-      Validators.pattern(/^\d+$/),
-      Validators.min(1),
-      Validators.max(60),
-    ],
-  });
 
   private readonly now = signal(Date.now());
   private readonly receivedAt = linkedSignal({
@@ -250,6 +123,12 @@ export class RoundTimerPanel {
       remainingSeconds(state, this.receivedAt(), this.now()),
     );
   });
+  protected readonly nextRoundReason = computed(() =>
+    nextRoundBlockReason(this.state()),
+  );
+  protected readonly nextRoundHint = computed(() =>
+    nextRoundLabel(this.state()),
+  );
   protected readonly readiness = computed(() =>
     this.rooms().map((room) => ({
       code: room.code,
@@ -279,35 +158,20 @@ export class RoundTimerPanel {
     });
   }
 
-  protected add(seconds: number): void {
+  /** Absolute current+1, so a double click cannot skip a round. */
+  protected nextRound(): void {
+    if (this.nextRoundReason() || this.busy()) return;
+    const state = this.state();
+    const timeLeft = state.phase === "RUNNING" || state.phase === "PAUSED";
     this.emit({
-      kind: "adjustTimer",
-      deltaSeconds: seconds,
-      key: crypto.randomUUID(),
+      kind: "setRound",
+      round: state.currentRound + 1,
+      secondsLeft: timeLeft ? state.remainingSeconds : null,
     });
   }
 
-  protected openAdjust(): void {
-    this.minutes.reset("5");
-    this.direction.setValue("add");
-    this.adjusting.set(true);
-  }
-
-  protected minutesError(): string | null {
-    return this.minutes.touched && this.minutes.invalid
-      ? "Enter whole minutes from 1 to 60."
-      : null;
-  }
-
-  protected applyAdjust(): void {
-    this.minutes.markAsTouched();
-    if (this.minutes.invalid) return;
-    const seconds = Number(this.minutes.value) * 60;
+  protected applyAdjust(deltaSeconds: number): void {
     this.adjusting.set(false);
-    this.emit({
-      kind: "adjustTimer",
-      deltaSeconds: this.direction.value === "remove" ? -seconds : seconds,
-      key: crypto.randomUUID(),
-    });
+    this.emit({ kind: "adjustTimer", deltaSeconds, key: crypto.randomUUID() });
   }
 }

@@ -5,20 +5,35 @@
   (retry)="reload()"
 />
 @if (board(); as view) {
-<header class="event-page-header">
-  <h1>{{ view.room.name }}</h1>
-  <div class="event-page-header__meta">
-    <ui-status-chip [variant]="view.room.open ? 'success' : 'warning'"
-      >{{ view.room.open ? "Open" : "Closed" }}</ui-status-chip
-    >
-    @if (phaseLabel(); as label) {
-    <ui-status-chip variant="accent">{{ label }}</ui-status-chip>
-    }
-    <ui-countdown [clock]="view.clock" />
-    <span>{{ roundLine() }}</span>
+<header class="board-header" [class]="'room-tone--' + view.room.code">
+  <span class="board-header__strip" aria-hidden="true"></span>
+  <div class="board-header__main">
+    <div class="board-header__title">
+      <span class="board-header__dot" aria-hidden="true"></span>
+      <h1>{{ view.room.name }}</h1>
+      <ui-status-chip [variant]="view.room.open ? 'success' : 'warning'"
+        >{{ view.room.open ? "Open" : "Closed" }}</ui-status-chip
+      >
+      @if (view.clock.phase; as phase) {
+      <ui-status-chip [variant]="phaseVariants[phase]">{{
+        phaseLabels[phase]
+      }}</ui-status-chip>
+      }
+    </div>
+    <div class="board-header__clock">
+      <ui-countdown [clock]="view.clock" />
+      <span class="event-muted">{{ roundLine() }}</span>
+    </div>
   </div>
+  <dl class="board-header__counters">
+    <div><dt>In room now</dt><dd class="event-num">{{ view.counters.inRoomNow }}</dd></div>
+    <div><dt>Pending review</dt><dd class="event-num">{{ view.counters.pending }}</dd></div>
+    <div><dt>Passed</dt><dd class="event-num">{{ view.counters.passed }}</dd></div>
+    <div><dt>Failed</dt><dd class="event-num">{{ view.counters.failed }}</dd></div>
+  </dl>
 </header>
-<div class="event-stack">
+
+<div class="event-stack board">
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
   }
@@ -26,38 +41,51 @@
   <event-arrival-card [board]="view" (changed)="reload()" />
   }
   <event-clue-key-card [room]="view.room" (changed)="reload()" />
-  <div class="event-grid event-grid--metrics">
-    <ui-metric-tile
-      label="In room now"
-      [value]="view.counters.inRoomNow"
-      [hint]="inRoomHint()"
-    />
-    <ui-metric-tile label="Pending review" [value]="view.counters.pending" />
-    <ui-metric-tile label="Passed" [value]="view.counters.passed" />
-    <ui-metric-tile label="Failed" [value]="view.counters.failed" />
-  </div>
+
   <section class="teams" aria-labelledby="room-teams-heading">
-    <h2 id="room-teams-heading">Teams</h2>
-    <div class="event-inline" role="group" aria-label="Filter teams">
-      @for (option of filters; track option.value) {
+    <div class="teams__bar">
+      <h2 id="room-teams-heading">Teams</h2>
+      <div class="teams__tabs" role="group" aria-label="Filter teams">
+        @for (option of filters; track option.value) {
+        <button
+          type="button"
+          class="teams__tab"
+          [attr.aria-pressed]="filter() === option.value"
+          (click)="chooseFilter(option.value)"
+        >
+          {{ option.label }}
+          <span class="teams__count event-num">{{ counts()[option.value] }}</span>
+        </button>
+        }
+      </div>
       <ui-button
-        size="sm"
         variant="secondary"
-        [pressed]="filter() === option.value"
-        (click)="filter.set(option.value)"
-        >{{ option.label }}</ui-button
+        size="sm"
+        [disabled]="pendingCount() === 0"
+        (click)="jumpToNextPending()"
+        ><app-nav-icon name="next" [size]="18" />Next pending</ui-button
       >
-      }
     </div>
     @for (row of visibleTeams(); track row.teamId) {
     <event-room-team-row
       [roomId]="view.room.id"
       [row]="row"
       [contentEditable]="view.room.contentEditable"
+      [expanded]="expanded().has(row.teamId)"
+      (toggled)="toggle(row)"
       (changed)="reload()"
     />
     } @if (emptyTeamsTitle(); as title) {
-    <ui-empty-state [title]="title" />
+    <ui-empty-state
+      [title]="title"
+      [description]="filter() === 'ALL' ? 'Teams appear here once the organizers create them.' : 'Choose All to see every team.'"
+    >
+      @if (filter() !== "ALL") {
+      <ui-button ui-empty-action variant="secondary" size="sm" (click)="chooseFilter('ALL')"
+        >Show all teams</ui-button
+      >
+      }
+    </ui-empty-state>
     }
   </section>
   <event-room-content-card [room]="view.room" (changed)="reload()" />

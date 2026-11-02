@@ -1,220 +1,94 @@
-/* Global styles. The system font stack below needs no font downloads. */
+/* Global styles: design tokens, base elements and page utilities. System fonts only; nothing is downloaded. */
 
 :root {
-  /* ---- Brand palette (exact, from the brand identity sheet) ----
-     This is the PALETTE layer. Only the semantic tokens below may reference
-     --brand-*; component stylesheets must never touch these directly. */
-  --brand-indigo: #4f46e5; /* primary */
-  --brand-violet: #7c3aed; /* accent  */
-  --brand-violet-300: #a78bfa;
-  --brand-violet-100: #ede9fe;
-  --brand-slate-900: #1f2937;
-  --brand-slate-500: #64748b;
-  --brand-slate-50: #f1f5f9;
-  --brand-white: #fff;
-  --brand-black: #000;
-  /* Feedback hues are NOT in the brand identity sheet — they are derived
-     additions, flagged in the task report for designer sign-off. They live in
-     the palette layer so both themes mix from one definition instead of
-     repeating the literal. */
-  --brand-red: #dc2626;
-  --brand-green: #059669;
-  --brand-amber: #d97706;
+  /* ---- Brand palette (from the GDG On Campus · Birzeit logo) ----
+     The four Google hues are used as flat fills, strips and rings. Where a hue carries text (links, filled
+     buttons, status labels) the -ink shade is used instead: the logo hues are too light for 4.5:1 text.
+     Yellow never carries text; it is a fill or border with --ink text on top. */
+  --brand-blue: #4285f4;
+  --brand-red: #ea4335;
+  --brand-yellow: #fbbc04;
+  --brand-green: #34a853;
+  --brand-blue-ink: #1967d2;
+  --brand-red-ink: #c5221f;
+  --brand-green-ink: #137333;
+  --ink: #1f1f1f;
+  --ink-muted: #5f6368;
+  --page-bg: #f6f0e3;
+  --surface: #fffdf8;
+  --surface-alt: #efe7d6;
+  --border: rgb(31 31 31 / 14%);
+  --outline: #1f1f1f;
+  --white: #fff;
 
-  /* ---- Semantic tokens (use THESE in components, not the raw brand vars) ----
+  /* Soft backgrounds for chips and panels: 14–16% of each hue on the card surface. */
+  --tint-blue: color-mix(in srgb, var(--brand-blue) 14%, var(--surface));
+  --tint-red: color-mix(in srgb, var(--brand-red) 14%, var(--surface));
+  --tint-yellow: color-mix(in srgb, var(--brand-yellow) 16%, var(--surface));
+  --tint-green: color-mix(in srgb, var(--brand-green) 14%, var(--surface));
 
-     --color-primary is the single base every primary-derived token below is
-     mixed from, and it is deliberately NOT redefined in the dark block: both
-     themes derive from this one declaration. Overriding it alone (part 2's
-     per-company accent colour) therefore restyles every hover, active, subtle
-     and focus state automatically. Keep it that way.
+  /* ---- Semantic tokens (components use these, not the palette above) ---- */
+  --color-primary: var(--brand-blue-ink);
+  --color-primary-hover: color-mix(in srgb, var(--color-primary) 86%, var(--ink));
+  --color-primary-active: color-mix(in srgb, var(--color-primary) 74%, var(--ink));
+  --color-primary-subtle: var(--tint-blue);
+  --color-primary-text: var(--brand-blue-ink);
+  --color-on-primary: var(--white);
+  --color-accent: var(--brand-blue);
 
-     BrandingService sets exactly two tokens inline on <html> for a branded
-     company: --color-primary and --color-on-primary. Anything else that should
-     follow the company accent must derive from those here. */
-  --color-primary: var(--brand-indigo);
-  --color-primary-hover: color-mix(
-    in srgb,
-    var(--color-primary) 88%,
-    var(--brand-black)
-  );
-  --color-primary-active: color-mix(
-    in srgb,
-    var(--color-primary) 76%,
-    var(--brand-black)
-  );
-  --color-primary-subtle: color-mix(
-    in srgb,
-    var(--color-primary) 12%,
-    var(--color-surface)
-  );
-  --color-on-primary: var(--brand-white);
+  --color-background: var(--page-bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface);
+  --color-surface-subtle: var(--surface-alt);
+  --color-surface-glass: color-mix(in srgb, var(--page-bg) 92%, transparent);
+  --color-overlay: rgb(31 31 31 / 45%);
 
-  /* Primary used as a FOREGROUND (links, active nav labels, icon glyphs).
-     Split from --color-primary so dark mode can lighten it without moving the
-     primary fill colour that buttons and badges paint with. */
-  --color-primary-text: var(--color-primary);
-  --color-accent: var(--brand-violet);
-  --color-accent-text: var(--color-accent);
+  --color-text: var(--ink);
+  --color-text-muted: var(--ink-muted);
+  --color-border: var(--border);
+  /* Form-control boundaries need 3:1 against the surface (WCAG 1.4.11); --border is decorative only. */
+  --color-border-strong: rgb(31 31 31 / 52%);
+  --color-outline: var(--outline);
+  --color-border-focus: var(--brand-blue);
+  --color-focus-ring: color-mix(in srgb, var(--brand-blue) 40%, transparent);
+  /* The 40% halo alone is 1.6:1 on the surface; the solid inner ring brings the indicator to 5.3:1. */
+  --focus-shadow:
+    0 0 0 2px var(--brand-blue-ink), 0 0 0 5px var(--color-focus-ring);
 
-  --color-background: var(--brand-slate-50);
-  --color-surface: var(--brand-white);
-  /* Slightly lifted off --color-surface; carries elevation in dark mode, where
-     shadows alone read poorly. */
-  --color-surface-raised: var(--brand-white);
-  /* Neutral tinted panel (the "Soon" nav pills and similar). */
-  --color-surface-subtle: color-mix(
-    in srgb,
-    var(--brand-slate-500) 10%,
-    var(--color-surface)
-  );
-  /* Translucent backdrop for sticky headers sitting over scrolling content. */
-  --color-surface-glass: color-mix(
-    in srgb,
-    var(--color-surface) 94%,
-    transparent
-  );
-  /* The one modal/drawer scrim. Was duplicated as four different literals. */
-  --color-overlay: color-mix(in srgb, var(--brand-slate-900) 55%, transparent);
-
-  --color-text: var(--brand-slate-900);
-  /* slate-500 alone is 4.34:1 on --color-background — below AA. Nudged toward
-     slate-900 until it clears 4.5:1 against background AND surface. */
-  --color-text-muted: color-mix(
-    in srgb,
-    var(--brand-slate-500) 88%,
-    var(--brand-slate-900)
-  );
-  --color-border: color-mix(
-    in srgb,
-    var(--brand-slate-500) 22%,
-    var(--color-surface)
-  );
-  --color-border-focus: var(--color-primary);
-  --color-focus-ring: color-mix(in srgb, var(--color-primary) 35%, transparent);
-
-  /* Text sitting on a --gradient-hero panel. The hero is a dark gradient in
-     both themes, so these do not flip. */
-  --color-on-hero: var(--brand-white);
-  --color-on-hero-muted: color-mix(
-    in srgb,
-    var(--brand-white) 78%,
-    transparent
-  );
-  /* The dark end of --gradient-hero. */
-  --color-hero-base: var(--brand-slate-900);
-  --color-hero-glow: color-mix(
-    in srgb,
-    var(--brand-violet-300) 40%,
-    transparent
-  );
-
-  /* --color-error is overwhelmingly a FOREGROUND (field errors, alert text,
-     destructive menu items), so dark mode lightens it. The one place it fills a
-     solid surface — ui-button's danger variant — uses the saturated pair below
-     instead, because white text on the lightened red only reaches 2.7:1. */
-  --color-error: var(--brand-red);
-  --color-error-solid: var(--brand-red);
-  --color-on-error: var(--brand-white);
-  --color-error-subtle: color-mix(
-    in srgb,
-    var(--brand-red) 6%,
-    var(--color-surface)
-  );
-  --color-success: var(--brand-green);
-  --color-success-subtle: color-mix(
-    in srgb,
-    var(--brand-green) 6%,
-    var(--color-surface)
-  );
-  --color-warning: var(--brand-amber);
-  --color-warning-subtle: color-mix(
-    in srgb,
-    var(--brand-amber) 4%,
-    var(--color-surface)
-  );
-  /* Amber text on its subtle fill is below AA, so warning labels (chips) use a darker shade. */
-  --color-warning-text: color-mix(
-    in srgb,
-    var(--brand-amber) 70%,
-    var(--brand-black)
-  );
-  /* The ONE event accent ("Now" chips, active event navigation). An alias of the primary family,
-     so it follows --color-primary everywhere. */
-  --color-event-accent: var(--color-primary);
-  --color-event-accent-subtle: var(--color-primary-subtle);
-  --color-event-accent-text: var(--color-primary-text);
-  /* Alias: two profile menus already styled their log-out row with
-     --color-danger, which was never defined (so the rule silently did nothing). */
+  --color-error: var(--brand-red-ink);
+  --color-error-solid: var(--brand-red-ink);
+  --color-on-error: var(--white);
+  --color-error-subtle: var(--tint-red);
+  --color-success: var(--brand-green-ink);
+  --color-success-subtle: var(--tint-green);
+  /* --color-warning is a fill/border colour only; warning labels use --color-warning-text. */
+  --color-warning: var(--brand-yellow);
+  --color-warning-subtle: var(--tint-yellow);
+  --color-warning-text: var(--ink);
   --color-danger: var(--color-error);
-
-  /* ---- Gradients ---- */
-  /* Same indigo → violet as before for the default brand, but through the
-     semantic tokens so a company accent replaces it. */
-  --gradient-brand: linear-gradient(
-    135deg,
-    var(--color-primary),
-    var(--color-accent)
-  );
-  /* Dark slate -> primary hero panel, shared by the profile, reports and
-     system-admin overview headers. */
-  --gradient-hero: linear-gradient(
-    125deg,
-    var(--color-hero-base) 0%,
-    var(--color-primary-active) 52%,
-    var(--color-primary) 100%
-  );
-  /* Auth split-card branding panel (login / register / accept-invitation). */
-  --gradient-auth-panel: radial-gradient(
-    circle at bottom center,
-    color-mix(in srgb, var(--color-accent) 45%, var(--color-surface)) 0%,
-    var(--color-primary-subtle) 45%,
-    var(--color-surface) 100%
-  );
-  /* Tinted wash behind the top of the app sidebars. */
-  --gradient-sidebar-wash:
-    radial-gradient(
-      90% 55% at 10% 0%,
-      color-mix(in srgb, var(--color-accent) 20%, transparent),
-      transparent 72%
-    ),
-    radial-gradient(
-      70% 45% at 60% 0%,
-      color-mix(in srgb, var(--color-primary) 12%, transparent),
-      transparent 75%
-    );
-  /* Specular highlight swept across the brand logo on pointer move. Painted
-     with mix-blend-mode: soft-light, so it stays a light source in both themes.
-     UiBrandLogo moves it by setting --logo-glare-x/y on the glare element, so
-     the colour stays here rather than being rebuilt in JS. */
-  --gradient-logo-glare: radial-gradient(
-    circle at var(--logo-glare-x, 50%) var(--logo-glare-y, 50%),
-    color-mix(in srgb, var(--brand-white) 55%, transparent) 0%,
-    color-mix(in srgb, var(--brand-white) 0%, transparent) 60%
-  );
-
-  /* Theme-INDEPENDENT surfaces: the branding editor previews a logo on both at
-     once, whatever the current theme, and they double as the logo legibility
-     pads (a dark logo sits on the light one, a light logo on the dark one).
-     Deliberately not redefined in the dark block. Keep in sync with LIGHT_PAD /
-     DARK_PAD in core/branding/legibility.ts. */
-  --color-preview-surface-light: var(--brand-white);
-  --color-preview-surface-dark: #111827;
+  /* The event accent ("Now" chips, the current round, active navigation). */
+  --color-event-accent: var(--brand-blue-ink);
+  --color-event-accent-subtle: var(--tint-blue);
+  --color-event-accent-text: var(--brand-blue-ink);
 
   /* ---- Typography ---- */
-  --font-family-base: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-  --font-size-xs: 0.75rem; /* 12px */
-  --font-size-sm: 0.875rem; /* 14px */
-  --font-size-base: 1rem; /* 16px */
-  --font-size-lg: 1.125rem; /* 18px */
-  --font-size-xl: 1.5rem; /* 24px */
-  --font-size-2xl: 2rem; /* 32px */
+  --font-family-base:
+    "Google Sans", "Product Sans", "Segoe UI", Roboto, system-ui, -apple-system,
+    Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
   --line-height-tight: 1.25;
   --line-height-base: 1.5;
+  --letter-spacing-heading: -0.02em;
 
   /* ---- Spacing (4px scale) ---- */
   --space-1: 0.25rem;
@@ -227,195 +101,71 @@
   --space-10: 2.5rem;
   --space-12: 3rem;
 
-  /* ---- Radius (soft, matching the brand's rounded cards) ---- */
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  /* ---- Shape: capsules for controls, 16px cards ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-full: 9999px;
-  /* ui-card and the event surfaces. The event shell overrides the card border, shadow and padding. */
-  --radius-card: 12px;
-  --border-card: none;
-  --shadow-card: var(--shadow-md);
-  --space-card-block: var(--space-6);
-  --space-card-inline: var(--space-8);
+  --radius-full: 999px;
+  --radius-card: 16px;
+  --border-card: 1px solid var(--color-border);
+  --border-outline: 2px solid var(--color-outline);
+  --border-outline-thin: 1.5px solid var(--color-outline);
+  --shadow-card: none;
+  --space-card-block: var(--space-5);
+  --space-card-inline: var(--space-6);
 
-  /* ---- Shadows (soft and diffuse, never harsh) ---- */
-  --shadow-sm: 0 1px 2px rgb(31 41 55 / 5%);
-  --shadow-md: 0 4px 12px rgb(31 41 55 / 8%);
-  --shadow-lg: 0 12px 32px rgb(31 41 55 / 10%);
+  /* One soft shadow, for dialogs, drawers and popovers only. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 18px 48px rgb(31 31 31 / 18%);
 
-  /* Native form controls (ui-select is a real <select>, the date filters are
-     real date inputs) read this to pick their own widget chrome. Without it
-     they stay light-on-light in the dark theme. */
-  color-scheme: light;
+  /* ---- Layers ---- */
+  --z-sticky: 20;
+  --z-drawer: 40;
+  --z-toast: 60;
 
-  /* ---- Motion ---- */
-  --duration-fast: 150ms;
-  --duration-base: 240ms;
-  --duration-slow: 400ms;
+  /* ---- Motion (all off under prefers-reduced-motion) ---- */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  color-scheme: light;
 }
 
-/* ---- Dark theme ----------------------------------------------------------
-
-   Applied as data-theme="dark" on <html> by the boot script in index.html and
-   thereafter by ThemeService. Every --color-* and --shadow-* token is
-   redefined here; --color-primary deliberately is not (see the note above it).
-
-   Neutrals are mixed out of the existing brand slates rather than introduced as
-   new hex, so the dark theme stays tied to the palette. Contrast ratios that
-   were measured while picking these are recorded in the task report; all
-   foreground/background pairs clear WCAG AA 4.5:1. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  /* Hover lifts toward white (the light theme's darken-on-hover reads as
-     "disabled" against a dark page). Pressed then goes the other way and
-     recedes: continuing to lighten drops --color-on-primary to 3.9:1, under AA. */
-  --color-primary-hover: color-mix(
-    in srgb,
-    var(--color-primary) 88%,
-    var(--brand-white)
-  );
-  --color-primary-active: color-mix(
-    in srgb,
-    var(--color-primary) 88%,
-    var(--brand-black)
-  );
-  --color-primary-subtle: color-mix(
-    in srgb,
-    var(--color-primary) 20%,
-    var(--color-surface)
-  );
-  --color-on-primary: var(--brand-white);
-  /* 5.47:1 on surface, 4.69:1 on primary-subtle. The 65% the brief suggested
-     landed at 4.08:1 on primary-subtle (active nav links), so it is lightened
-     a little further. */
-  --color-primary-text: color-mix(
-    in srgb,
-    var(--color-primary) 58%,
-    var(--brand-white)
-  );
-  --color-accent: var(--brand-violet);
-  --color-accent-text: color-mix(
-    in srgb,
-    var(--color-accent) 60%,
-    var(--brand-white)
-  );
-
-  --color-background: color-mix(
-    in srgb,
-    var(--brand-slate-900) 72%,
-    var(--brand-black)
-  );
-  --color-surface: var(--brand-slate-900);
-  --color-surface-raised: color-mix(
-    in srgb,
-    var(--brand-slate-900) 88%,
-    var(--brand-slate-500)
-  );
-  --color-surface-subtle: color-mix(
-    in srgb,
-    var(--brand-slate-500) 18%,
-    var(--color-surface)
-  );
-  --color-surface-glass: color-mix(
-    in srgb,
-    var(--color-surface) 88%,
-    transparent
-  );
-  --color-overlay: color-mix(in srgb, var(--brand-black) 66%, transparent);
-
-  --color-text: var(--brand-slate-50);
-  --color-text-muted: color-mix(
-    in srgb,
-    var(--brand-slate-50) 48%,
-    var(--brand-slate-500)
-  );
-  --color-border: color-mix(
-    in srgb,
-    var(--brand-slate-500) 34%,
-    var(--color-surface)
-  );
-  --color-border-focus: var(--color-primary-text);
-  --color-focus-ring: color-mix(
-    in srgb,
-    var(--color-primary-text) 45%,
-    transparent
-  );
-
-  /* The hero gradient is dark in both themes, so its foregrounds don't flip;
-     only the base end goes deeper so the panel still separates from the page. */
-  --color-on-hero: var(--brand-white);
-  --color-on-hero-muted: color-mix(
-    in srgb,
-    var(--brand-white) 78%,
-    transparent
-  );
-  --color-hero-base: color-mix(
-    in srgb,
-    var(--brand-slate-900) 72%,
-    var(--brand-black)
-  );
-  --color-hero-glow: color-mix(
-    in srgb,
-    var(--brand-violet-300) 30%,
-    transparent
-  );
-
-  /* --gradient-logo-glare was tuned against a light plate that no longer
-     exists. Without it, the light-theme intensity reads as a floating white
-     blob over the transparent parts of the mark on a dark surface — toned
-     down here rather than in the component, so it stays themeable. */
-  --gradient-logo-glare: radial-gradient(
-    circle at var(--logo-glare-x, 50%) var(--logo-glare-y, 50%),
-    color-mix(in srgb, var(--brand-white) 22%, transparent) 0%,
-    color-mix(in srgb, var(--brand-white) 0%, transparent) 60%
-  );
-
-  /* Feedback hues lightened until they clear AA both on --color-surface and on
-     their own -subtle fill; the -subtle fills become dark tints of the hue. */
-  --color-error: color-mix(in srgb, var(--brand-red) 60%, var(--brand-white));
-  /* Stays saturated so --color-on-error keeps 4.8:1 on the danger button. */
-  --color-error-solid: var(--brand-red);
-  --color-on-error: var(--brand-white);
-  --color-error-subtle: color-mix(
-    in srgb,
-    var(--brand-red) 20%,
-    var(--color-surface)
-  );
-  --color-success: color-mix(
-    in srgb,
-    var(--brand-green) 60%,
-    var(--brand-white)
-  );
-  --color-success-subtle: color-mix(
-    in srgb,
-    var(--brand-green) 20%,
-    var(--color-surface)
-  );
-  --color-warning: color-mix(
-    in srgb,
-    var(--brand-amber) 60%,
-    var(--brand-white)
-  );
-  --color-warning-subtle: color-mix(
-    in srgb,
-    var(--brand-amber) 20%,
-    var(--color-surface)
-  );
-  --color-danger: var(--color-error);
-  --color-warning-text: var(--color-warning);
-
-  /* Shadows need far more opacity to register against dark surfaces. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
-  --shadow-md: 0 4px 12px rgb(0 0 0 / 55%);
-  --shadow-lg: 0 12px 32px rgb(0 0 0 / 65%);
+/* ---- Room colours: AI blue, Problem solving red, Linux green, Hardware yellow (dark text) ----
+   Put room-tone--<CODE> on an element; children read --room-color (solid), --room-tint (soft background)
+   and --room-ink (text on the tint). The room name is always shown next to the colour. */
+.room-tone--AI {
+  --room-color: var(--brand-blue);
+  --room-tint: var(--tint-blue);
+  --room-ink: var(--brand-blue-ink);
+  --room-on-color: var(--white);
+}
+.room-tone--PROBLEM_SOLVING {
+  --room-color: var(--brand-red);
+  --room-tint: var(--tint-red);
+  --room-ink: var(--brand-red-ink);
+  --room-on-color: var(--ink);
+}
+.room-tone--LINUX {
+  --room-color: var(--brand-green);
+  --room-tint: var(--tint-green);
+  --room-ink: var(--brand-green-ink);
+  --room-on-color: var(--ink);
+}
+.room-tone--HARDWARE {
+  --room-color: var(--brand-yellow);
+  --room-tint: var(--tint-yellow);
+  --room-ink: var(--ink);
+  --room-on-color: var(--ink);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -428,58 +178,74 @@ body {
   background: var(--color-background);
 }
 
-/* DevFest shell, using TeamQora shared component tokens. */
-:root {
-  --color-primary: #166b50;
-  --color-accent: #237a62;
-  --color-background: #f6f7f9;
-}
 a {
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   text-decoration: none;
 }
 a:hover {
   text-decoration: underline;
 }
+
 h1,
 h2,
 h3 {
-  line-height: 1.25;
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-heading);
 }
 h1 {
   font-size: 2.1rem;
-  letter-spacing: -0.05em;
   margin: 0.5rem 0 1rem;
 }
 h2 {
   font-size: 1.3rem;
 }
 p {
-  line-height: 1.7;
+  line-height: 1.6;
 }
 form {
   display: grid;
   gap: 1rem;
 }
+pre,
+code {
+  font-family: var(--font-mono);
+}
 pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 1rem;
-  background: #eef1f5;
-  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-sm);
   max-height: 32rem;
   overflow: auto;
   font-size: 0.85rem;
 }
 small,
 .muted {
-  color: #667085;
+  color: var(--color-text-muted);
 }
+button,
+[role="button"],
+summary {
+  touch-action: manipulation;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--brand-blue-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--color-focus-ring);
+}
+
+/* ---- Legacy coding-contest shell (PARTICIPANT) — layout unchanged, colours from tokens ---- */
 .eyebrow {
   font-size: 0.65rem;
   letter-spacing: 0.17em;
   font-weight: 800;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 .app-shell {
   display: grid;
@@ -494,8 +260,8 @@ small,
   display: flex;
   flex-direction: column;
   padding: 30px 20px;
-  background: #fff;
-  border-right: 1px solid #e6e8ec;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
 }
 .sidebar > * {
   flex-shrink: 0;
@@ -506,7 +272,7 @@ small,
   gap: 12px;
   font-weight: 800;
   font-size: 1.45rem;
-  color: #172b26;
+  color: var(--color-text);
 }
 .brand small {
   display: block;
@@ -516,8 +282,8 @@ small,
 .brand-icon {
   display: grid;
   place-items: center;
-  background: #e6f3eb;
-  color: #166b50;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-text);
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -525,22 +291,22 @@ small,
 .nav-label {
   font-size: 0.6rem;
   letter-spacing: 0.16em;
-  color: #8c939e;
+  color: var(--color-text-muted);
   margin: 30px 12px 10px;
 }
-nav {
+.sidebar nav {
   display: grid;
   gap: 5px;
 }
-nav a {
-  color: #667085;
+.sidebar nav a {
+  color: var(--color-text-muted);
   padding: 11px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   font-size: 0.82rem;
 }
-nav a.active {
-  background: #e9f4ee;
-  color: #166b50;
+.sidebar nav a.active {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary-text);
   font-weight: 700;
 }
 .sidebar-bottom {
@@ -548,23 +314,23 @@ nav a.active {
   display: grid;
   gap: 5px;
   padding: 18px 8px 0;
-  border-top: 1px solid #edf0f2;
+  border-top: 1px solid var(--color-border);
   font-size: 0.8rem;
 }
 .topbar {
   height: 70px;
-  border-bottom: 1px solid #e6e8ec;
+  border-bottom: 1px solid var(--color-border);
   padding: 0 38px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.72rem;
-  color: #667085;
-  background: #fff;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
 }
 .live-dot:before {
   content: "●";
-  color: #248d61;
+  color: var(--color-success);
   margin-right: 7px;
 }
 .page {
@@ -576,15 +342,15 @@ nav a.active {
   margin-bottom: 28px;
 }
 .page-heading p {
-  color: #667085;
+  color: var(--color-text-muted);
   max-width: 760px;
 }
 .hero {
   display: grid;
   grid-template-columns: 1fr 180px;
   gap: 30px;
-  background: #e5f0e9;
-  border: 1px solid #d3e5d8;
+  background: var(--color-primary-subtle);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 36px;
   margin-bottom: 26px;
@@ -595,15 +361,15 @@ nav a.active {
 }
 .hero p {
   max-width: 600px;
-  color: #486154;
+  color: var(--color-text-muted);
 }
 .action-link {
   display: inline-block;
   margin-top: 10px;
-  background: #166b50;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   padding: 12px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   font-size: 0.8rem;
 }
 .code-art {
@@ -612,7 +378,7 @@ nav a.active {
   font-size: 4rem;
   transform: rotate(-10deg);
   font-weight: 800;
-  color: #388666;
+  color: var(--color-primary-text);
 }
 .cards {
   display: grid;
@@ -629,37 +395,40 @@ nav a.active {
 }
 .table-wrap {
   overflow: auto;
-  background: white;
-  border: 1px solid #e6e8ec;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
 }
 th,
 td {
-  padding: 16px;
+  padding: 14px 16px;
   text-align: left;
-  border-bottom: 1px solid #eef0f4;
+  border-bottom: 1px solid var(--color-border);
 }
-th {
-  color: #667085;
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
-  background: #fafbfc;
+thead th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-surface-subtle);
+}
+tbody tr:last-child > * {
+  border-bottom: 0;
 }
 .verdict {
   display: inline-block;
-  border-radius: 6px;
-  padding: 5px 8px;
-  background: #eff0f3;
+  border-radius: var(--radius-full);
+  padding: 5px 10px;
+  background: var(--color-surface-subtle);
   font-size: 0.7rem;
 }
 .verdict.accepted {
-  background: #e5f3e9;
-  color: #166b50;
+  background: var(--color-success-subtle);
+  color: var(--color-success);
 }
 .detail {
   margin-top: 25px;
@@ -678,9 +447,9 @@ th {
 .statement,
 .coding {
   padding: 24px;
-  background: white;
-  border: 1px solid #e6e8ec;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   min-width: 0;
 }
 .statement p {
@@ -701,7 +470,7 @@ th {
   margin: 0 -24px 20px;
 }
 .result {
-  border-top: 1px solid #e6e8ec;
+  border-top: 1px solid var(--color-border);
   margin-top: 20px;
 }
 .admin-grid {
@@ -711,59 +480,20 @@ th {
 }
 .error-banner {
   padding: 14px;
-  background: #fff3ef;
-  color: #8f3824;
-  border-radius: 8px;
-}
-.login {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr 450px;
-  align-items: center;
-  gap: 80px;
-  max-width: 1150px;
-  margin: auto;
-  padding: 50px;
-}
-.login h1 {
-  font-size: 4rem;
-  line-height: 1.05;
-  letter-spacing: -0.07em;
-  color: #153b2e;
-}
-.login p {
-  color: #667085;
-}
-.login .login__banner {
-  padding: 12px 14px;
-  background: #fff3ef;
-  color: #8f3824;
-  border-radius: 8px;
+  background: var(--color-error-subtle);
+  color: var(--color-error);
+  border-radius: var(--radius-sm);
 }
 .language-pills {
   font-weight: 700;
-  color: #166b50;
+  color: var(--color-primary-text);
   margin-top: 30px;
   word-spacing: 20px;
 }
-.language-pills span {
-  color: #af7423;
-}
-a:focus-visible,
-button:focus-visible {
-  outline: 3px solid #3c9c7b;
-  outline-offset: 3px;
-}
 @media (max-width: 1100px) {
-  .workspace {
-    grid-template-columns: 1fr;
-  }
+  .workspace,
   .admin-grid {
     grid-template-columns: 1fr;
-  }
-  .login {
-    gap: 30px;
-    grid-template-columns: 1fr 400px;
   }
   .page {
     padding: 25px;
@@ -808,14 +538,6 @@ button:focus-visible {
   .code-art {
     display: none;
   }
-  .login {
-    grid-template-columns: 1fr;
-    padding: 25px;
-    gap: 25px;
-  }
-  .login h1 {
-    font-size: 2.7rem;
-  }
   .workspace-heading {
     display: block;
   }
@@ -828,132 +550,42 @@ button:focus-visible {
   }
 }
 
-/* ==== Event prototype (ADMIN, MANAGER, MEMBER) ===============================
-   Shell (core/shell/event-shell.ts): .event-shell > .event-sidebar + .event-main.
-   Inside it cards are flat: 1px light border, 12px radius, no shadow.
-
-   Layout utilities for event pages:
+/* ==== Event pages (ADMIN, MANAGER, MEMBER) ====================================
+   The shell itself is styled in core/shell/event-shell.ts. Page utilities:
    .event-page-header            h1 row; wraps on phones. Children:
      .event-page-header__meta    chips, countdown, status text next to the title.
      .event-page-header__actions buttons aligned to the end.
-   .event-grid                   responsive grid of cards (columns of at least 260px; one column on phones).
-   .event-grid--metrics          denser grid for ui-metric-tile (at least 150px; two columns on phones).
-   .event-table-wrap             wrapper around a <table>; scrolls sideways inside itself so the page never does.
-                                 A <caption> is styled as the table title.
+   .event-grid                   responsive grid of cards (columns of at least 260px).
+   .event-grid--metrics          denser grid for ui-metric-tile (at least 150px).
+   .event-grid--rooms            the four rooms: 2 × 2 on wide screens, one column on phones.
+   .event-table-wrap             wrapper around a <table>; scrolls sideways inside itself. <caption> = title.
    .event-stack                  vertical flow of page sections with a consistent gap.
    .event-inline                 wrapping row of buttons, chips or short fields.
    .event-muted                  secondary text.
+   .event-num                    tabular figures (timers, times, scores).
    .event-sr-only                visually hidden, still read by screen readers.
+   .event-panel                  flat surface with the card border and radius.
    ========================================================================== */
-.event-shell {
-  --border-card: 1px solid var(--color-border);
-  --shadow-card: none;
-  --space-card-block: var(--space-5);
-  --space-card-inline: var(--space-6);
-
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 100vh;
-}
-.event-shell h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
-}
-.event-shell h2 {
-  margin: 0 0 var(--space-3);
-  font-size: var(--font-size-lg);
-}
-.event-shell p {
-  line-height: var(--line-height-base);
-}
-.event-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  padding: var(--space-6) var(--space-4);
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-}
-.event-sidebar__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.event-brand {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-}
-.event-menu-toggle {
-  display: none;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-4);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.event-nav {
-  display: grid;
-  gap: 2px;
-}
-.event-nav a {
-  padding: 10px 12px;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-}
-.event-nav a:hover {
-  text-decoration: none;
-  background: var(--color-surface-subtle);
-}
-.event-nav a.active {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-event-accent-text);
-  background: var(--color-event-accent-subtle);
-}
-.event-nav__heading {
-  margin: var(--space-4) 12px var(--space-1);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
-}
-.event-user {
-  margin-top: auto;
-  display: grid;
-  gap: var(--space-1);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  font-size: var(--font-size-sm);
-}
-.event-user__name {
-  font-weight: var(--font-weight-semibold);
-  overflow-wrap: anywhere;
-}
-.event-user__role {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.event-main {
-  min-width: 0;
-  padding: var(--space-8);
-  overflow-wrap: break-word;
-}
 .event-main > :not(router-outlet) {
   display: block;
   max-width: 1400px;
   margin-inline: auto;
+}
+.event-main h1 {
+  margin: 0;
+  font-size: 1.85rem;
+}
+.event-main h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+.event-main p {
+  line-height: var(--line-height-base);
+}
+/* A heading projected into a ui-card header sits close to the body it titles (the body adds the gap). */
+.ui-card__header > h2,
+.ui-card__header > h3 {
+  margin-block-end: 0;
 }
 .event-page-header {
   display: flex;
@@ -983,6 +615,9 @@ button:focus-visible {
 .event-grid--metrics {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
 }
+.event-grid--rooms {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .event-grid > *,
 .event-stack > * {
   min-width: 0;
@@ -991,24 +626,37 @@ button:focus-visible {
   display: grid;
   gap: var(--space-6);
 }
+.event-panel {
+  background: var(--color-surface);
+  border: var(--border-card);
+  border-radius: var(--radius-card);
+}
 .event-table-wrap {
   max-width: 100%;
   overflow-x: auto;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: var(--border-card);
   border-radius: var(--radius-card);
 }
 .event-table-wrap caption {
-  padding: var(--space-3) var(--space-4);
-  font-weight: var(--font-weight-semibold);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-heading);
   text-align: left;
 }
 .event-table-wrap th,
 .event-table-wrap td {
   padding: var(--space-3) var(--space-4);
 }
+.event-table-wrap tbody tr:hover > * {
+  background: color-mix(in srgb, var(--color-surface-subtle) 45%, transparent);
+}
 .event-muted {
   color: var(--color-text-muted);
+}
+.event-num {
+  font-variant-numeric: tabular-nums;
 }
 .event-sr-only {
   position: absolute;
@@ -1018,43 +666,62 @@ button:focus-visible {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* A button that reads as a link (team names that open the team drawer). */
+.event-link-button {
+  padding: 0;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.event-link-button:hover {
+  text-decoration: underline;
+}
+
+/* Skeleton placeholder blocks (ui-skeleton and page-specific placeholders). */
+.event-skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-subtle) 0%,
+    color-mix(in srgb, var(--color-surface-subtle) 40%, var(--color-surface)) 50%,
+    var(--color-surface-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: event-skeleton-shimmer 1.4s linear infinite;
+}
+@keyframes event-skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .event-grid--rooms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 800px) {
-  .event-shell {
+  :root {
     --space-card-block: var(--space-4);
     --space-card-inline: var(--space-4);
+  }
+  .event-main h1 {
+    font-size: 1.45rem;
+  }
+}
 
-    grid-template-columns: minmax(0, 1fr);
-    min-height: auto;
-  }
-  .event-sidebar {
-    position: static;
-    height: auto;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border);
-  }
-  .event-menu-toggle {
-    display: inline-flex;
-  }
-  .event-nav {
-    display: none;
-  }
-  .event-shell--menu-open .event-nav {
-    display: grid;
-  }
-  .event-user {
-    margin-top: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1) var(--space-3);
-    padding-top: var(--space-2);
-  }
-  .event-main {
-    padding: var(--space-4);
-  }
-  .event-shell h1 {
-    font-size: 1.4rem;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

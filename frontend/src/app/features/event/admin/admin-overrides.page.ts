@@ -4,11 +4,14 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
+  untracked,
 } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import { ActivatedRoute } from "@angular/router";
 import { EventApi } from "../../../core/event/event-api";
+import { EventLiveStore } from "../../../core/event/event-live-store";
 import { reloadOnRevisionChange } from "../../../core/event/revision-poller";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { ClueSection } from "./overrides/clue-section";
@@ -95,6 +98,15 @@ export class EventAdminOverridesPage {
   });
 
   constructor() {
+    const live = inject(EventLiveStore);
+    effect(() => {
+      const organization = this.organization.data();
+      if (organization) untracked(() => live.publishOrganization(organization));
+    });
+    effect(() => {
+      const board = this.board.data();
+      if (board) untracked(() => live.publishAdminBoard(board));
+    });
     reloadOnRevisionChange(() => this.reload());
     void this.loadAndScroll();
   }

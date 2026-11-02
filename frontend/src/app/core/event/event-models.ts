@@ -384,6 +384,8 @@ export interface RankingRow {
   teamName: string;
   groupCode: GroupCode;
   clues: number;
+  /** Rooms whose clue the team holds, in room order (admin only). */
+  clueRooms: RoomCode[];
   penaltyMinutes: number;
   penaltyEntries: number;
   finished: boolean;

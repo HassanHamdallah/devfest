@@ -125,10 +125,14 @@ export class RoundSettings {
     return Number(this.roundChoice.value) === this.state().currentRound;
   }
 
-  /** Server values replace the controls unless the organizer is mid-edit. */
+  /**
+   * Server values replace the controls unless the organizer is mid-edit. A pending round choice that the event
+   * has since reached is no longer an edit, so the select follows the board again.
+   */
   private syncControls(state: EventStateView): void {
-    if (!this.roundChoice.dirty)
-      this.roundChoice.setValue(String(state.currentRound));
+    const current = String(state.currentRound);
+    if (this.roundChoice.value === current) this.roundChoice.markAsPristine();
+    if (!this.roundChoice.dirty) this.roundChoice.setValue(current);
     if (!this.minutes.dirty) this.minutes.setValue(String(state.roundMinutes));
   }
 }

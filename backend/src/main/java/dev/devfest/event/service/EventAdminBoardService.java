@@ -209,6 +209,7 @@ public class EventAdminBoardService {
       row.teamName(),
       row.groupCode(),
       row.clues(),
+      row.clueRooms(),
       row.penaltyMinutes(),
       row.penaltyEntries(),
       row.finished(),

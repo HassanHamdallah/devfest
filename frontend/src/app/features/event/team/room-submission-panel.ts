@@ -24,6 +24,7 @@ import { formatTime } from "../../../core/event/format";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
+import { UiCopyButton } from "../../../shared/ui/ui-copy-button/ui-copy-button";
 import { UiInput } from "../../../shared/ui/ui-input/ui-input";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { UiTextarea } from "../../../shared/ui/ui-textarea/ui-textarea";
@@ -43,30 +44,13 @@ const CLUE_ANSWER_MAX = 500;
     UiAlert,
     UiButton,
     UiCard,
+    UiCopyButton,
     UiInput,
     UiStatusChip,
     UiTextarea,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: `
-    form,
-    .receipt {
-      display: grid;
-      gap: var(--space-3);
-    }
-    .receipt {
-      margin-top: var(--space-4);
-      padding-top: var(--space-4);
-      border-top: 1px solid var(--color-border);
-    }
-    .receipt h3 {
-      margin: 0;
-      font-size: var(--font-size-base);
-    }
-    .receipt code {
-      overflow-wrap: anywhere;
-    }
-  `,
+  styleUrl: "./room-submission-panel.css",
   templateUrl: "./room-submission-panel.html",
 })
 export class EventRoomSubmissionPanel {

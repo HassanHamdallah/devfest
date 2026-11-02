@@ -66,14 +66,16 @@ const ANSWER_MAX = 500;
         [(ngModel)]="answer"
       />
       @if (feedback(); as text) {
-        <ui-alert variant="error">{{ text }}</ui-alert>
+        <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
       }
       <event-attempt-status [attempt]="attempt" (retry)="retry()" />
-      <div>
-        <ui-button type="submit" [loading]="attempt.sending()"
-          >Submit recovery answer</ui-button
-        >
-      </div>
+      <ui-button
+        type="submit"
+        size="lg"
+        [fullWidth]="true"
+        [loading]="attempt.sending()"
+        >Submit recovery answer</ui-button
+      >
     </form>
   </ui-card>`,
 })

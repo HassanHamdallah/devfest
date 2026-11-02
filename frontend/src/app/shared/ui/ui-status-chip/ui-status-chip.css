@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 2px var(--space-2);
+  padding: 2px var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-base);
@@ -13,25 +13,26 @@
 
 :host(.ui-status-chip-host--success) {
   background: var(--color-success-subtle);
-  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-color: color-mix(in srgb, var(--brand-green) 55%, transparent);
   color: var(--color-success);
 }
 
 :host(.ui-status-chip-host--danger) {
   background: var(--color-error-subtle);
-  border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
+  border-color: color-mix(in srgb, var(--brand-red) 55%, transparent);
   color: var(--color-error);
 }
 
+/* Yellow is a fill only; the label stays ink-dark. */
 :host(.ui-status-chip-host--warning) {
   background: var(--color-warning-subtle);
-  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  border-color: var(--color-warning);
   color: var(--color-warning-text);
 }
 
 :host(.ui-status-chip-host--accent) {
   background: var(--color-event-accent-subtle);
-  border-color: color-mix(in srgb, var(--color-event-accent) 35%, transparent);
+  border-color: color-mix(in srgb, var(--brand-blue) 55%, transparent);
   color: var(--color-event-accent-text);
 }
 

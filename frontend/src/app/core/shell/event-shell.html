@@ -1,0 +1,156 @@
+<app-brand-bar class="shell-brand-bar" />
+<div class="shell" [class.shell--collapsed]="collapsed()">
+  <aside class="shell-sidebar">
+    <a class="shell-brand" [routerLink]="homePath()">
+      <app-logo [size]="collapsed() ? 40 : 48" />
+      <span class="shell-brand__text shell-label">
+        <span class="shell-brand__name">DevFest · Investigation</span>
+        <span class="shell-brand__sub">GDG On Campus · Birzeit</span>
+      </span>
+    </a>
+    <ng-container [ngTemplateOutlet]="navigation" />
+    <div class="shell-user">
+      <div class="shell-user__who shell-label">
+        <span class="shell-user__name">{{ user().name }}</span>
+        <span class="shell-user__role">{{ roleLabel() }}</span>
+      </div>
+      <ui-button
+        variant="secondary"
+        size="sm"
+        [fullWidth]="true"
+        (click)="signOut()"
+        ><app-nav-icon name="signOut" [size]="18" /><span class="shell-label"
+          >Sign out</span
+        ></ui-button
+      >
+      <button
+        type="button"
+        class="shell-collapse"
+        [attr.aria-pressed]="collapsed()"
+        (click)="toggleCollapsed()"
+      >
+        <app-nav-icon name="sidebar" [size]="18" />
+        <span class="shell-label">Collapse sidebar</span>
+        @if (collapsed()) {
+        <span class="event-sr-only">Sidebar collapsed</span>
+        }
+      </button>
+    </div>
+  </aside>
+
+  <div class="shell-column">
+    <header class="shell-header" [class.shell-header--empty]="!showStatus()">
+      <div class="shell-topbar">
+        <button
+          type="button"
+          class="shell-icon-button"
+          aria-controls="event-menu"
+          [attr.aria-expanded]="menuOpen()"
+          (click)="menuOpen.set(true)"
+        >
+          <app-nav-icon name="menu" />
+          <span class="event-sr-only">Menu</span>
+        </button>
+        <a class="shell-topbar__brand" [routerLink]="homePath()">
+          <app-logo [size]="32" />
+          <span class="shell-topbar__name">DevFest</span>
+        </a>
+        @if (isAdmin()) {
+        <button
+          type="button"
+          class="shell-icon-button"
+          (click)="quickJumpOpen.set(true)"
+        >
+          <app-nav-icon name="search" />
+          <span class="event-sr-only">Quick jump</span>
+        </button>
+        }
+        <ui-button variant="secondary" size="sm" (click)="signOut()"
+          >Sign out</ui-button
+        >
+      </div>
+      @if (showStatus()) {
+      @defer (on immediate) {
+      <app-event-status-bar [showResults]="isAdmin()">
+        @if (isAdmin()) {
+        <button
+          type="button"
+          class="shell-search"
+          (click)="quickJumpOpen.set(true)"
+        >
+          <app-nav-icon name="search" [size]="18" />
+          <span>Quick jump</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        }
+      </app-event-status-bar>
+      } @placeholder {
+      <div class="shell-status-placeholder"></div>
+      }
+      }
+    </header>
+    <main class="event-main"><router-outlet /></main>
+  </div>
+</div>
+
+@defer (when menuOpen()) {
+<ui-drawer
+  id="event-menu"
+  side="start"
+  heading="Menu"
+  closeLabel="Close menu"
+  [open]="menuOpen()"
+  (closed)="menuOpen.set(false)"
+>
+  @if (menuOpen()) {
+  <p class="shell-drawer-user">
+    <strong>{{ user().name }}</strong>
+    <span class="event-muted">{{ roleLabel() }}</span>
+  </p>
+  <ng-container [ngTemplateOutlet]="navigation" />
+  }
+</ui-drawer>
+}
+
+<ng-template #navigation>
+  <nav class="shell-nav" aria-label="Event navigation">
+    @for (group of navGroups(); track group.heading) {
+    @if (group.heading) {
+    <p class="shell-nav__heading shell-label">{{ group.heading }}</p>
+    }
+    @for (link of group.links; track link.path) {
+    <a
+      [routerLink]="link.path"
+      routerLinkActive="active"
+      ariaCurrentWhenActive="page"
+      [routerLinkActiveOptions]="{ exact: link.exact }"
+      [attr.title]="collapsed() ? link.label : null"
+    >
+      @if (link.roomCode) {
+      <span class="shell-nav__room room-tone--{{ link.roomCode }}" aria-hidden="true"></span>
+      } @else {
+      <app-nav-icon [name]="link.icon" />
+      }
+      <span class="shell-label">{{ link.label }}</span>
+      @if (badge(link); as b) {
+      <span class="shell-nav__badge"
+        >{{ b.count }}<span class="event-sr-only"> {{ b.label }}</span></span
+      >
+      }
+    </a>
+    }
+    }
+  </nav>
+</ng-template>
+
+@defer (when toasts().length > 0) {
+<app-toast-host />
+}
+@if (isAdmin()) {
+@defer (when quickJumpOpen()) {
+<app-quick-jump [open]="quickJumpOpen()" (closed)="quickJumpOpen.set(false)" />
+}
+@defer (when teamDrawer.teamId() !== null) {
+<app-team-drawer />
+}
+}

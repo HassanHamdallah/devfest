@@ -1,0 +1,94 @@
+.team-drawer {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.team-drawer__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+}
+
+dt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* Same capsules as the team's own home: filled in the room colour when held, dashed when not. */
+.team-drawer__clues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-drawer__clue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 30px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+.team-drawer__dot {
+  inline-size: 12px;
+  block-size: 12px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.team-drawer__clue--held {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  background: var(--room-tint);
+  border: 1.5px solid var(--color-outline);
+}
+
+.team-drawer__clue--held .team-drawer__dot {
+  background: var(--room-color);
+  border-color: var(--color-outline);
+}
+
+h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+}
+
+.team-drawer__actions {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-drawer__actions a {
+  display: flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding: 0 var(--space-4);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.team-drawer__actions a:hover {
+  text-decoration: none;
+  background: var(--color-surface-subtle);
+}

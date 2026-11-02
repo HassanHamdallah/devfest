@@ -16,7 +16,6 @@ import {
 import { formatTime } from "../../../core/event/format";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
-import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 
 /** Long technical output is cut here until the manager expands it, so rows stay scannable. */
 const PREVIEW_CHARACTERS = 280;
@@ -33,7 +32,7 @@ const VERDICT_OPTIONS: readonly { value: ClueOverride; label: string }[] = [
  */
 @Component({
   selector: "event-team-submission",
-  imports: [UiAlert, UiButton, UiStatusChip],
+  imports: [UiAlert, UiButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -42,12 +41,12 @@ const VERDICT_OPTIONS: readonly { value: ClueOverride; label: string }[] = [
     }
     pre {
       margin: 0;
-      padding: var(--space-2) var(--space-3);
+      padding: var(--space-3);
       font-size: var(--font-size-sm);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       background: var(--color-surface-subtle);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
     }
     .toggle {
       justify-self: start;
@@ -84,17 +83,7 @@ const VERDICT_OPTIONS: readonly { value: ClueOverride; label: string }[] = [
         </button>
       }
       <div class="clue" data-clue-verdict>
-        <div class="event-inline">
-          <span class="answer">Clue answer: {{ latest.clueAnswer }}</span>
-          <ui-status-chip
-            [variant]="latest.autoCorrect ? 'success' : 'danger'"
-            [attr.aria-label]="
-              'Automatic result: ' +
-              (latest.autoCorrect ? 'Correct' : 'Incorrect')
-            "
-            >{{ latest.autoCorrect ? "Correct" : "Incorrect" }}</ui-status-chip
-          >
-        </div>
+        <span class="answer">Clue answer: <strong>{{ latest.clueAnswer }}</strong></span>
         <div class="event-inline" role="group" aria-label="Clue verdict">
           @for (option of options; track option.value) {
             <ui-button
@@ -119,7 +108,7 @@ const VERDICT_OPTIONS: readonly { value: ClueOverride; label: string }[] = [
           >
         }
         @if (error(); as text) {
-          <ui-alert variant="error">{{ text }}</ui-alert>
+          <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
         }
       </div>
       <span class="event-muted">{{ summary() }}</span>

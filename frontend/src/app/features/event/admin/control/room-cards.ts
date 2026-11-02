@@ -9,22 +9,34 @@ import { RouterLink } from "@angular/router";
 import { AdminRoomCard } from "../../../../core/event/event-models";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
+import { UiProgress } from "../../../../shared/ui/ui-progress/ui-progress";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { ControlAction, RoomActionError } from "./control-actions";
 import { toRoomCardView } from "./control-view";
 
-/** One card per room (`data-room="<CODE>"`): open state, manager, teams now, progress, open/close. */
+/**
+ * One card per room (`data-room="<CODE>"`) in a 2 × 2 grid: the room's colour, open state, manager, arrival,
+ * teams now, passed/total progress and open/close.
+ */
 @Component({
   selector: "app-room-cards",
-  imports: [RouterLink, UiButton, UiCard, UiStatusChip],
+  imports: [RouterLink, UiButton, UiCard, UiProgress, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<section aria-labelledby="room-cards-heading">
     <h2 id="room-cards-heading">Rooms</h2>
-    <div class="event-grid">
+    <div class="event-grid event-grid--rooms">
       @for (card of cards(); track card.room.id) {
-        <ui-card [attr.data-room]="card.room.code">
+        <ui-card
+          fill
+          [attr.data-room]="card.room.code"
+          [class]="'room-tone--' + card.room.code"
+        >
           <div ui-card-header class="room-card__header">
-            <h3>{{ card.room.name }}</h3>
+            <span class="room-card__strip" aria-hidden="true"></span>
+            <h3>
+              <span class="room-card__dot" aria-hidden="true"></span>
+              {{ card.room.name }}
+            </h3>
             @if (card.room.open) {
               <ui-status-chip variant="success">Open</ui-status-chip>
             } @else {
@@ -36,14 +48,30 @@ import { toRoomCardView } from "./control-view";
             <dd [class.room-card__missing]="!card.hasManager">
               {{ card.managerText }}
             </dd>
+            @if (card.room.arrival; as arrival) {
+              <dt>Arrival</dt>
+              <dd>
+                @if (arrival.ready) {
+                  <span class="room-card__ready">All teams are here</span>
+                } @else {
+                  <span class="event-muted">Waiting for the manager</span>
+                }
+              </dd>
+            }
             <dt>{{ card.groupText }}</dt>
             <dd>{{ card.teamsText }}</dd>
-            <dt>Progress</dt>
-            <dd>
-              {{ card.progressText }}
-              <span class="event-muted">· {{ card.reviewText }}</span>
-            </dd>
           </dl>
+          <div class="room-card__progress">
+            <div class="room-card__progress-text">
+              <strong class="event-num">{{ card.progressText }}</strong>
+              <span class="event-muted event-num">{{ card.reviewText }}</span>
+            </div>
+            <ui-progress
+              [value]="card.room.passed"
+              [max]="card.room.totalTeams"
+              [label]="card.room.name + ' teams passed'"
+            />
+          </div>
           @if (roomError()?.roomId === card.room.id) {
             <p class="room-card__error" role="alert">
               {{ roomError()?.message }}
@@ -52,7 +80,7 @@ import { toRoomCardView } from "./control-view";
               >
             </p>
           }
-          <div ui-card-footer class="event-inline">
+          <div ui-card-footer class="room-card__footer">
             @if (card.room.open) {
               <ui-button
                 variant="secondary"
@@ -82,37 +110,78 @@ import { toRoomCardView } from "./control-view";
       margin: 0 0 var(--space-3);
     }
     h3 {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
       margin: 0;
       font-size: var(--font-size-lg);
     }
     .room-card__header {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: var(--space-2);
     }
+    .room-card__strip {
+      flex-basis: calc(100% + 2 * var(--space-card-inline));
+      block-size: 8px;
+      margin: calc(-1 * var(--space-card-block)) calc(-1 * var(--space-card-inline))
+        var(--space-2);
+      background: var(--room-color);
+      border-block-end: 1.5px solid var(--color-outline);
+    }
+    .room-card__dot {
+      inline-size: 12px;
+      block-size: 12px;
+      background: var(--room-color);
+      border: 1.5px solid var(--color-outline);
+      border-radius: 50%;
+    }
     .room-card__facts {
       display: grid;
-      gap: var(--space-1);
-      margin: 0;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: var(--space-2) var(--space-4);
+      margin: 0 0 var(--space-4);
       font-size: var(--font-size-sm);
     }
     dt {
-      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-muted);
     }
     dd {
-      margin: 0 0 var(--space-2);
+      margin: 0;
     }
     .room-card__missing {
-      color: var(--color-warning-text);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-error);
+    }
+    .room-card__ready {
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-success);
+    }
+    .room-card__progress {
+      display: grid;
+      gap: var(--space-2);
+      --progress-color: var(--room-color);
+    }
+    .room-card__progress-text {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--space-1) var(--space-3);
+      font-size: var(--font-size-sm);
     }
     .room-card__error {
-      margin: var(--space-2) 0 0;
+      margin: var(--space-3) 0 0;
       font-size: var(--font-size-sm);
       color: var(--color-danger);
     }
-    .event-inline {
+    .room-card__footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       justify-content: space-between;
+      gap: var(--space-2);
     }
   `,
 })

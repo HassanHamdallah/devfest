@@ -28,6 +28,7 @@ const STATUS_VARIANTS: Record<TeamRoomStatus, UiStatusChipVariant> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     "[attr.data-room]": "room().code",
+    "[class]": "'room-tone--' + room().code",
     "[class.now]": "room().scheduledNow",
   },
   styles: `
@@ -38,11 +39,13 @@ const STATUS_VARIANTS: Record<TeamRoomStatus, UiStatusChipVariant> = {
       padding: var(--space-4);
       background: var(--color-surface);
       border: 1px solid var(--color-border);
+      border-block-start: 6px solid var(--room-color);
       border-radius: var(--radius-card);
     }
     :host(.now) {
-      background: var(--color-event-accent-subtle);
-      border-color: var(--color-event-accent);
+      background: var(--room-tint);
+      border: var(--border-outline);
+      border-block-start: 6px solid var(--room-color);
     }
     h3 {
       margin: 0;

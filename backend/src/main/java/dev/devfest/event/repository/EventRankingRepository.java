@@ -5,8 +5,11 @@ import static dev.devfest.event.repository.EventJdbc.nullableInt;
 import static dev.devfest.event.repository.EventJdbc.nullableLong;
 
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.RoomCode;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -23,8 +26,10 @@ public class EventRankingRepository {
 
   private static final String RANKING_SQL = """
     WITH clues AS (
-      SELECT team_id, count(*) AS clues, bool_or(source = 'RECOVERY') AS recovery_used
-      FROM collected_clue GROUP BY team_id
+      SELECT cc.team_id, count(*) AS clues, bool_or(cc.source = 'RECOVERY') AS recovery_used,
+             array_agg(r.code ORDER BY r.position) AS clue_rooms
+      FROM collected_clue cc JOIN event_room r ON r.id = cc.room_id
+      GROUP BY cc.team_id
     ), penalties AS (
       SELECT team_id, sum(minutes) AS minutes, count(*) FILTER (WHERE kind <> 'TIME_ADJUSTMENT') AS entries
       FROM penalty WHERE voided_at IS NULL GROUP BY team_id
@@ -33,6 +38,7 @@ public class EventRankingRepository {
     ), scored AS (
       SELECT t.id AS team_id, t.name AS team_name, t.group_code, t.disqualified,
              COALESCE(c.clues, 0) AS clues,
+             COALESCE(c.clue_rooms, ARRAY[]::varchar[]) AS clue_rooms,
              COALESCE(c.recovery_used, FALSE) AS recovery_used,
              COALESCE(p.minutes, 0) AS penalty_minutes,
              COALESCE(p.entries, 0) AS penalty_entries,
@@ -75,6 +81,7 @@ public class EventRankingRepository {
       rs.getString("team_name"),
       GroupCode.valueOf(rs.getString("group_code")),
       rs.getInt("clues"),
+      clueRooms(rs),
       rs.getInt("penalty_minutes"),
       rs.getInt("penalty_entries"),
       finishedAt != null,
@@ -84,5 +91,15 @@ public class EventRankingRepository {
       rs.getInt("accusation_attempts"),
       rs.getBoolean("disqualified")
     );
+  }
+
+  /** The rooms whose clue the team holds, in room position order (empty when none). */
+  private static List<RoomCode> clueRooms(ResultSet rs) throws SQLException {
+    Array array = rs.getArray("clue_rooms");
+    try {
+      return Arrays.stream((String[]) array.getArray()).map(RoomCode::valueOf).toList();
+    } finally {
+      array.free();
+    }
   }
 }

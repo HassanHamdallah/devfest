@@ -17,6 +17,7 @@ import { formatPenaltyMinutes } from "../../../core/event/format";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
+import { UiCopyButton } from "../../../shared/ui/ui-copy-button/ui-copy-button";
 import {
   UiSelect,
   UiSelectOption,
@@ -36,6 +37,7 @@ const TEXT_MAX = 4000;
     UiAlert,
     UiButton,
     UiCard,
+    UiCopyButton,
     UiSelect,
     UiTextarea,
   ],
