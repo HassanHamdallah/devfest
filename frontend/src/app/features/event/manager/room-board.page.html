@@ -19,6 +19,7 @@
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
   }
+  <event-clue-key-card [room]="view.room" (changed)="reload()" />
   <div class="event-grid event-grid--metrics">
     <ui-metric-tile
       label="In room now"
@@ -46,6 +47,7 @@
     <event-room-team-row
       [roomId]="view.room.id"
       [row]="row"
+      [contentEditable]="view.room.contentEditable"
       (changed)="reload()"
     />
     } @if (emptyTeamsTitle(); as title) {

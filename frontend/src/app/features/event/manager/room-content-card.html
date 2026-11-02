@@ -1,18 +1,11 @@
 <ui-card>
-  <h2 ui-card-header>Room content</h2>
+  <h2 ui-card-header>Recovery challenge</h2>
   @if (room().contentEditable) {
   <form (ngSubmit)="save()">
     <p class="event-muted">
-      Teams must type the clue key exactly (spaces and letter case are ignored).
       The recovery challenge is offered in the final to a team that is missing
       only this room's clue.
     </p>
-    <ui-input
-      label="Clue key"
-      name="clueKey"
-      [ngModel]="draft().clueKey"
-      (ngModelChange)="setField('clueKey', $event)"
-    />
     <ui-textarea
       label="Recovery prompt"
       name="recoveryPrompt"
@@ -31,7 +24,7 @@
     }
     <div class="event-inline">
       <ui-button type="submit" variant="secondary" [loading]="saving()"
-        >Save content</ui-button
+        >Save challenge</ui-button
       >
       <span class="event-muted" aria-live="polite"
         >{{ saved() ? "Saved" : "" }}</span
@@ -43,10 +36,6 @@
     >Event content is read-only after the final opens.</ui-alert
   >
   <dl>
-    <div>
-      <dt>Clue key</dt>
-      <dd>{{ room().clueKey || "Not set" }}</dd>
-    </div>
     <div>
       <dt>Recovery prompt</dt>
       <dd>{{ room().recoveryPrompt || "Not set" }}</dd>

@@ -1,6 +1,6 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 import path from "node:path";
-import { EventApiSession, RehearsalAccounts, readRehearsalAccounts } from "./event-api-helper";
+import { EventApiSession, RehearsalAccounts, readRehearsalAccounts, resetRehearsal } from "./event-api-helper";
 import { DESKTOP, PHONE, openRolePage, signIn } from "./event-ui-helper";
 
 let accounts: RehearsalAccounts;
@@ -89,6 +89,8 @@ async function signOutTeam(page: Page, teamName: string) {
 test.beforeAll(() => {
   accounts = readRehearsalAccounts();
 });
+
+test.beforeEach(() => resetRehearsal());
 
 test("teams: planned count, generated sign-ins, one device per team and organizer sign-out", async ({ browser }) => {
   const admin = await openRolePage(browser, "admin", DESKTOP);

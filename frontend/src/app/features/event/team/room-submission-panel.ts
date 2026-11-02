@@ -96,8 +96,17 @@ export class EventRoomSubmissionPanel {
     computation: () => null,
   });
   protected readonly validationError = signal<string | null>(null);
+  /** The receipt from the submit response, replaced by the board's copy so a later re-check shows up. */
+  protected readonly shownReceipt = computed(() => {
+    const local = this.receipt();
+    if (!local) return null;
+    const fromBoard = this.board().rooms.find(
+      (room) => room.lastReceipt?.id === local.id,
+    )?.lastReceipt;
+    return fromBoard ?? local;
+  });
   protected readonly receiptTime = computed(() =>
-    formatTime(this.receipt()?.receivedAt ?? null),
+    formatTime(this.shownReceipt()?.receivedAt ?? null),
   );
 
   protected async submit(): Promise<void> {

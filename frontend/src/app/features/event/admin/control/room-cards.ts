@@ -10,7 +10,7 @@ import { AdminRoomCard } from "../../../../core/event/event-models";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
-import { ControlAction } from "./control-actions";
+import { ControlAction, RoomActionError } from "./control-actions";
 import { toRoomCardView } from "./control-view";
 
 /** One card per room (`data-room="<CODE>"`): open state, manager, teams now, progress, open/close. */
@@ -44,6 +44,14 @@ import { toRoomCardView } from "./control-view";
               <span class="event-muted">· {{ card.reviewText }}</span>
             </dd>
           </dl>
+          @if (roomError()?.roomId === card.room.id) {
+            <p class="room-card__error" role="alert">
+              {{ roomError()?.message }}
+              <a [routerLink]="['/event/room', card.room.id]"
+                >Open the {{ card.room.name }} board</a
+              >
+            </p>
+          }
           <div ui-card-footer class="event-inline">
             @if (card.room.open) {
               <ui-button
@@ -98,6 +106,11 @@ import { toRoomCardView } from "./control-view";
     .room-card__missing {
       color: var(--color-warning-text);
     }
+    .room-card__error {
+      margin: var(--space-2) 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-danger);
+    }
     .event-inline {
       justify-content: space-between;
     }
@@ -106,6 +119,8 @@ import { toRoomCardView } from "./control-view";
 export class RoomCards {
   readonly rooms = input.required<readonly AdminRoomCard[]>();
   readonly busy = input(false);
+  /** A refused "Open room" (shown on that room's card with a link to its board). */
+  readonly roomError = input<RoomActionError | null>(null);
   readonly action = output<ControlAction>();
 
   protected readonly cards = computed(() => this.rooms().map(toRoomCardView));

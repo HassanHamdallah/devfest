@@ -19,7 +19,8 @@ public record TeamRoomProgressRecord(
   boolean clueCollected,
   UUID lastSubmissionId,
   Instant lastReceivedAt,
-  Boolean lastClueCorrect
+  Boolean lastClueCorrect,
+  Boolean lastEffectiveCorrect
 ) {
   public boolean hasSubmission() {
     return lastSubmissionId != null;

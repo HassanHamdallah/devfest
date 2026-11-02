@@ -186,16 +186,13 @@ public abstract class EventIntegrationTest {
     return created;
   }
 
-  /** Complete event content: clue keys, recovery challenges, six suspects, correct suspect and message. */
+  /**
+   * Complete event content: each room's manager sets the clue key and recovery challenge through the API (no
+   * key exists in production code), then six suspects, the correct suspect and the message.
+   */
   protected void loadContent() {
     for (RoomCode code : RoomCode.values()) {
-      db.update(
-        "UPDATE event_room SET clue_key = ?, recovery_prompt = ?, recovery_answer = ? WHERE id = ?",
-        CLUE_KEYS.get(code),
-        "Recovery prompt for " + code,
-        RECOVERY_ANSWERS.get(code),
-        rooms.get(code)
-      );
+      expectOk(saveRoomContent(code, managers.get(code), CLUE_KEYS.get(code), "Recovery prompt for " + code, RECOVERY_ANSWERS.get(code)));
     }
     for (int i = 0; i < SUSPECTS.size(); i++) {
       db.update("INSERT INTO suspect(name, description, position) VALUES (?, ?, ?)", SUSPECTS.get(i), "Suspect " + i, i);
@@ -204,6 +201,33 @@ public abstract class EventIntegrationTest {
       "UPDATE event_content SET encrypted_message = 'WKH SUDFWLFH FOXH', correct_suspect_id = ? WHERE id = 1",
       suspectId(CORRECT_SUSPECT)
     );
+  }
+
+  /** PUT /rooms/{id}/content as {@code token}, at the room's current version. */
+  protected Response saveRoomContent(RoomCode code, String token, String clueKey, String recoveryPrompt, String recoveryAnswer) {
+    String body = "{\"clueKey\":%s,\"recoveryPrompt\":%s,\"recoveryAnswer\":%s,\"version\":%d}".formatted(
+      quote(clueKey),
+      quote(recoveryPrompt),
+      quote(recoveryAnswer),
+      roomVersion(code)
+    );
+    return put("/rooms/" + rooms.get(code) + "/content", token, body);
+  }
+
+  /** The room's manager changes only the clue key, keeping the recovery challenge. */
+  protected Response setClueKey(RoomCode code, String clueKey) {
+    var room = db.queryForMap("SELECT recovery_prompt, recovery_answer FROM event_room WHERE id = ?", rooms.get(code));
+    return saveRoomContent(
+      code,
+      managers.get(code),
+      clueKey,
+      (String) room.get("recovery_prompt"),
+      (String) room.get("recovery_answer")
+    );
+  }
+
+  protected long roomVersion(RoomCode code) {
+    return db.queryForObject("SELECT version FROM event_room WHERE id = ?", Long.class, rooms.get(code));
   }
 
   protected long suspectId(String name) {

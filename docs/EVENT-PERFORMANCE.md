@@ -114,6 +114,19 @@ Totals: 1 468 requests, 0 errors, 79 accepted submissions, 13 same-key retries w
 receipt ids. Worst p95 28.0 ms (previously 28.3 ms): no measurable regression. The 3× run was not repeated; it
 reuses each team token 3 times, which still works because the load test signs each account in only once.
 
+## Re-check after V7 (clue verdicts) — 2026-10-24
+
+Re-check statements on the load-check data (78 submissions, 20 in the largest room), each with
+`enable_seqscan = off` and rolled back: answers + overrides 0.12 ms (`room_submission_room_time`,
+`submission_clue_verdict_pkey`), bulk verdict update 0.46 ms, ROOM-clue delete 0.05 ms (`collected_clue_room`),
+ROOM-clue insert 0.04 ms, one-team recompute 0.06 ms (`room_submission_team_room_time`). The existing indexes
+suffice, so V7 adds none.
+
+1× load check after V7 (managers set the keys through the API first; `docs/event-load-1x.json` holds this run):
+1 465 requests, 0 errors, 78 accepted submissions, 7 same-key retries with 0 mismatches, 0 duplicate receipt
+ids. p95 by endpoint: admin board 26.7 ms, revision 21.8 ms, room board 17.6 ms, team board 22.7 ms,
+submissions 24.1 ms, judgements 24.0 ms; slowest request 29.9 ms.
+
 ## Not measured
 
 Event hardware, WAN/Wi-Fi latency, a reverse proxy, process restarts under load, and browser rendering cost on

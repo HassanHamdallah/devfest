@@ -23,7 +23,8 @@ public record RoomBoard(
     String recoveryPrompt,
     String recoveryAnswer,
     long version,
-    boolean contentEditable
+    boolean contentEditable,
+    boolean clueKeySet
   ) {}
 
   public record RoomCounters(int inRoomNow, int pending, int passed, int failed) {}

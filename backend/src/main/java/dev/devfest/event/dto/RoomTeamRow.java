@@ -1,5 +1,6 @@
 package dev.devfest.event.dto;
 
+import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.GroupCode;
 import java.time.Instant;
 import java.util.List;
@@ -19,12 +20,22 @@ public record RoomTeamRow(
   int activePenaltyMinutes,
   boolean hintPenaltyMismatch
 ) {
+  /**
+   * The latest submission with its clue verdict: {@code clueCorrect} at submission time, {@code autoCorrect}
+   * against the current key, the manager's {@code override}, and {@code effectiveCorrect}, which the team sees.
+   */
   public record SubmissionDetail(
     UUID id,
     int round,
     String technicalOutput,
     String clueAnswer,
     boolean clueCorrect,
-    Instant receivedAt
+    Instant receivedAt,
+    boolean autoCorrect,
+    ClueOverride override,
+    boolean effectiveCorrect,
+    long verdictVersion,
+    String overrideByName,
+    Instant overrideAt
   ) {}
 }

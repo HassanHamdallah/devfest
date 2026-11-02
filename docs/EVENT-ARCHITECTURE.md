@@ -119,6 +119,32 @@ V6 adds `event_state.planned_team_count` (1..64, default 16) and `auth_session.r
   session per minute. The organization query derives `signedIn` (open session seen within 2 minutes) and
   `lastSeenAt` with one LATERAL aggregate per team over `idx_session_user`.
 
+## Clue verdicts (V7)
+
+`room_submission` stays append-only; `clue_correct` is the result at submission time. V7 adds
+`submission_clue_verdict` (one row per submission: `auto_correct` against the current key, `override`
+ACCEPT/REJECT/NULL, `effective_correct`, `version`, who/when for the override; a CHECK forces
+`effective_correct` = ACCEPT → true, REJECT → false, NULL → `auto_correct`) and the append-only
+`submission_clue_verdict_history` (old → new override and effective result, who, when, version). Existing
+submissions were backfilled from `clue_correct`.
+
+- Domain: `ClueCheck` (normalized match; blank key never correct; `keyChanged`), `ClueVerdict.effective`, and
+  `ClueOverride` (AUTOMATIC stored as NULL).
+- Submitting inserts the verdict row in the submission transaction and collects the clue from the effective
+  result. Opening a room and submitting both require a non-empty key; an open room's key cannot be cleared.
+- A content save whose key normalizes differently runs `EventClueReviewService.recheckRoom` in the same
+  transaction (locks: event_state → room): 1 SELECT of the room's answers and overrides, answers checked in
+  Java with `ClueCheck`, 1 UPDATE of all verdicts through unnested arrays, then 1 DELETE and 1 INSERT … ON
+  CONFLICT DO NOTHING that make ROOM-sourced `collected_clue` rows match (earliest effective-correct
+  submission per team; RECOVERY rows untouched). Four statements whatever the number of submissions
+  (`EventClueRecheckStatementsTest`). Audit `EVENT_CLUE_KEY_CHANGED` with the room and count, never the key.
+- `PUT /rooms/{roomId}/submissions/{submissionId}/clue-override` (room manager or ADMIN): optimistic version,
+  repeat of the current verdict = no-op success, 409 after the final opens; history row, audit
+  `EVENT_CLUE_OVERRIDE`, revision bump, and the same two clue statements scoped to the one team.
+- Team-facing receipts carry only `clueCorrect` (effective) and `updatedAfterReview` (effective ≠ result at
+  submission); the manager board adds `autoCorrect`, `override`, `effectiveCorrect`, `verdictVersion` and
+  `room.clueKeySet`.
+
 ## Authorization matrix
 
 Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public). PARTICIPANT gets 403 on
@@ -131,7 +157,7 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 | `GET /results` | ✔ | 403 | ✔ after publication, else 403 |
 | `GET /team/board`, `/team/final`, `/team/submissions[/{id}]` | 403 | 403 | own team (foreign receipt 404) |
 | `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
-| `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content` | any room | own room (else 404) | 403 |
+| `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content`, `PUT /rooms/{id}/submissions/{submissionId}/clue-override` | any room | own room (else 404) | 403 |
 | `POST /penalties/{id}/void` | any | own room's penalties (room-less → 404) | 403 |
 | `/admin/**` (incl. `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
 

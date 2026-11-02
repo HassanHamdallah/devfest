@@ -4,6 +4,7 @@ import static dev.devfest.api.Errors.fail;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.RoomOpenView;
@@ -52,6 +53,7 @@ public class EventControlService {
     access.requireAdmin(principal);
     states.lockForUpdate();
     EventRoomRecord room = rooms.lockForUpdate(roomId).orElseThrow(() -> fail(404, "Room not found."));
+    if (open && !ClueCheck.hasKey(room.clueKey())) throw fail(409, "Set the clue key for this room before opening it.");
     if (room.open() != open) {
       rooms.setOpen(roomId, open);
       states.bumpRevision();

@@ -3,7 +3,13 @@
 param(
  [string]$PgBin='C:\Program Files\PostgreSQL\18\bin',
  [int]$ReadyTimeoutSeconds=240,
- [switch]$NoWait
+ [switch]$NoWait,
+ # Restart only the recorded backend on freshly reset devfest_test data (same credentials); the UI keeps running.
+ # The browser tests call this before each test so every test starts from an untouched event.
+ [switch]$ResetBackend,
+ # After startup, each room's manager sets a practice clue key through the API (for manual rehearsals only;
+ # no clue key exists in the application, and automated tests set their own keys).
+ [switch]$PracticeKeys
 )
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
@@ -85,12 +91,13 @@ function Test-Endpoint([string]$Uri,[switch]$Health) {
  } catch { return $false }
 }
 
+# $Frontend may be $null when only the backend was restarted.
 function Wait-RehearsalReady($Backend,$Frontend) {
  $deadline=[DateTime]::UtcNow.AddSeconds($ReadyTimeoutSeconds)
- $backendUp=$false; $frontendUp=$false
+ $backendUp=$false; $frontendUp=($null -eq $Frontend)
  while([DateTime]::UtcNow -lt $deadline -and -not ($backendUp -and $frontendUp)) {
   if($Backend.HasExited) { throw 'The rehearsal backend exited during startup. See .local/event-backend.log and .local/event-backend-error.log.' }
-  if($Frontend.HasExited) { throw 'The rehearsal frontend exited during startup. See .local/event-frontend.log and .local/event-frontend-error.log.' }
+  if($Frontend -and $Frontend.HasExited) { throw 'The rehearsal frontend exited during startup. See .local/event-frontend.log and .local/event-frontend-error.log.' }
   if(-not $backendUp) { $backendUp=Test-Endpoint 'http://127.0.0.1:8082/api/v1/health' -Health }
   if(-not $frontendUp) { $frontendUp=Test-Endpoint 'http://localhost:4202/' }
   if(-not ($backendUp -and $frontendUp)) { Start-Sleep -Seconds 2 }
@@ -99,8 +106,46 @@ function Wait-RehearsalReady($Backend,$Frontend) {
  if(-not $frontendUp) { throw "The frontend did not respond on 4202 within $ReadyTimeoutSeconds s. See .local/event-frontend.log." }
 }
 
+# Practice values live only in this rehearsal script, never in the application.
+function Set-PracticeClueKeys([string]$SeedPassword) {
+ $api='http://127.0.0.1:8082/api/v1'
+ $keys=[ordered]@{AI='WHITE VAN';PROBLEM_SOLVING='RED CLAY';LINUX='WEST TOWER';HARDWARE='+970-59-881'}
+ foreach($code in $keys.Keys) {
+  $login=Invoke-RestMethod -Method Post -Uri "$api/auth/login" -ContentType 'application/json' -Body (@{email=$managerEmails[$code];password=$SeedPassword} | ConvertTo-Json)
+  $headers=@{Authorization="Bearer $($login.accessToken)"}
+  $roomId=(Invoke-RestMethod -Uri "$api/event/home" -Headers $headers).roomId
+  $room=(Invoke-RestMethod -Uri "$api/event/rooms/$roomId/board" -Headers $headers).room
+  $body=@{clueKey=$keys[$code];recoveryPrompt=$room.recoveryPrompt;recoveryAnswer=$room.recoveryAnswer;version=$room.version} | ConvertTo-Json
+  $null=Invoke-RestMethod -Method Put -Uri "$api/event/rooms/$roomId/content" -Headers $headers -ContentType 'application/json' -Body $body
+ }
+ Write-Output 'Practice clue keys set by the room managers through the API.'
+}
+
+# A recycled PID could belong to anything; only the exact rehearsal backend command line is stopped.
+function Stop-RecordedBackend([int]$ProcessId) {
+ $process=Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId"
+ if(-not $process) { return }
+ if($process.CommandLine -notlike '*devfest-backend-0.1.0.jar*--spring.config.import=*--server.port=8082*') { throw "Refusing to stop unidentified process $ProcessId." }
+ Stop-Process -Id $ProcessId
+ Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
+}
+
 $jar=Join-Path $root 'backend/target/devfest-backend-0.1.0.jar'
 if(-not (Test-Path -LiteralPath $jar)) { throw 'backend/target/devfest-backend-0.1.0.jar is missing. Build the backend first.' }
+$recordPath=Join-Path $local 'event-rehearsal.json'
+if($ResetBackend) {
+ if(-not (Test-Path -LiteralPath $recordPath)) { throw 'No running rehearsal is recorded; start one first.' }
+ $record=Get-Content -Raw -LiteralPath $recordPath | ConvertFrom-Json
+ Stop-RecordedBackend $record.backend
+ Reset-EventTestData
+ $backend=Start-RehearsalBackend $record.adminPassword $record.seedPassword
+ $record.backend=$backend.Id
+ $record | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $recordPath
+ Wait-RehearsalReady $backend $null
+ if($PracticeKeys) { Set-PracticeClueKeys $record.seedPassword }
+ Write-Output 'Rehearsal backend restarted on reset devfest_test data.'
+ return
+}
 Assert-RehearsalPortsFree
 Reset-EventTestData
 $adminPassword=New-RandomSecret 24
@@ -111,8 +156,9 @@ $frontend=Start-RehearsalFrontend
  adminEmail=$adminEmail; adminPassword=$adminPassword; seedPassword=$seedPassword
  managers=$managerEmails; members=$memberEmails
  backend=$backend.Id; frontend=$frontend.Id
-} | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $local 'event-rehearsal.json')
+} | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $recordPath
 Write-Output 'Isolated event rehearsal starting: UI http://localhost:4202, API http://127.0.0.1:8082, disposable devfest_test data. Credentials are in the ignored .local/event-rehearsal.json. Do not run backend tests while rehearsing.'
 if($NoWait) { return }
 Wait-RehearsalReady $backend $frontend
 Write-Output 'Rehearsal ready: backend health is UP and the frontend responds on 4202.'
+if($PracticeKeys) { Set-PracticeClueKeys $seedPassword }

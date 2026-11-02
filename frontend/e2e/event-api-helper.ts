@@ -1,4 +1,5 @@
 import { APIRequestContext, Page, request } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -7,6 +8,26 @@ import { randomUUID } from "node:crypto";
 export const API_BASE = "http://127.0.0.1:8082/api/v1";
 
 export type RoomCode = "AI" | "PROBLEM_SOLVING" | "LINUX" | "HARDWARE";
+
+/** Practice clue keys. They exist only in test code; managers set every key at runtime. */
+export const PRACTICE_KEYS: Record<RoomCode, string> = {
+  AI: "WHITE VAN",
+  PROBLEM_SOLVING: "RED CLAY",
+  LINUX: "WEST TOWER",
+  HARDWARE: "+970-59-881",
+};
+
+/**
+ * Restarts the rehearsal backend on freshly reset devfest_test data (same accounts and passwords), so every
+ * test starts from an untouched event and the suite can repeat (--repeat-each). The UI server keeps running.
+ */
+export function resetRehearsal() {
+  execFileSync(
+    "pwsh",
+    ["-NoProfile", "-File", path.resolve("..", "infrastructure", "start-event-rehearsal.ps1"), "-ResetBackend"],
+    { stdio: "inherit" },
+  );
+}
 
 export interface RehearsalAccounts {
   adminEmail: string;
@@ -112,6 +133,38 @@ export class EventAdminShortcuts {
   private async rooms() {
     const board = await this.admin.send<{ rooms: AdminRoomCard[] }>("GET", "/event/admin/board");
     return board.rooms;
+  }
+}
+
+interface ManagerRoom {
+  room: { id: number; recoveryPrompt: string; recoveryAnswer: string; version: number };
+}
+
+/** A room manager setting the clue key the way the manager board does (PUT /rooms/{id}/content). */
+export class EventManagerShortcuts {
+  constructor(private readonly manager: EventApiSession) {}
+
+  async setClueKey(clueKey: string) {
+    const { roomId } = await this.manager.send<{ roomId: number }>("GET", "/event/home");
+    const { room } = await this.manager.send<ManagerRoom>("GET", `/event/rooms/${roomId}/board`);
+    await this.manager.send("PUT", `/event/rooms/${roomId}/content`, {
+      clueKey,
+      recoveryPrompt: room.recoveryPrompt,
+      recoveryAnswer: room.recoveryAnswer,
+      version: room.version,
+    });
+  }
+}
+
+/** Each listed room's manager signs in through the API and sets the room's practice key. */
+export async function setPracticeKeys(accounts: RehearsalAccounts, rooms: readonly RoomCode[]) {
+  for (const code of rooms) {
+    const session = await EventApiSession.signIn(accounts.managers[code], accounts.seedPassword);
+    try {
+      await new EventManagerShortcuts(session).setClueKey(PRACTICE_KEYS[code]);
+    } finally {
+      await session.dispose();
+    }
   }
 }
 

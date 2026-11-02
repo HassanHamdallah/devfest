@@ -9,6 +9,8 @@ import {
   AdminBoard,
   AdminContent,
   AdminContentRequest,
+  ClueOverrideRequest,
+  ClueVerdictView,
   CreateAccountRequest,
   CreateTeamRequest,
   EventHome,
@@ -113,6 +115,17 @@ export class EventApi {
   }
   saveRoomContent(roomId: number, body: RoomContentRequest) {
     return this.send<RoomContentView>("PUT", `/rooms/${roomId}/content`, body);
+  }
+  setClueOverride(
+    roomId: number,
+    submissionId: string,
+    body: ClueOverrideRequest,
+  ) {
+    return this.send<ClueVerdictView>(
+      "PUT",
+      `/rooms/${roomId}/submissions/${encodeURIComponent(submissionId)}/clue-override`,
+      body,
+    );
   }
 
   // ---- Admin: control ----

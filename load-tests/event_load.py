@@ -253,6 +253,20 @@ def sign_in_everyone(api, config):
     return admin, managers, teams
 
 
+# Practice clue keys exist only in test and script code; each room's manager sets its key like on the board.
+PRACTICE_KEYS = {"AI": "WHITE VAN", "PROBLEM_SOLVING": "RED CLAY", "LINUX": "WEST TOWER", "HARDWARE": "+970-59-881"}
+
+
+def set_clue_keys(api, managers):
+    """A room cannot open without a clue key, so every manager sets one before the admin opens the rooms."""
+    for token in managers:
+        room_id = api.setup("GET", "/event/home", token)["roomId"]
+        room = api.setup("GET", f"/event/rooms/{room_id}/board", token)["room"]
+        api.setup("PUT", f"/event/rooms/{room_id}/content", token, {
+            "clueKey": PRACTICE_KEYS[room["code"]], "recoveryPrompt": room["recoveryPrompt"],
+            "recoveryAnswer": room["recoveryAnswer"], "version": room["version"]})
+
+
 def prepare_round_one(api, admin):
     """Round 1 with every room open gives every group an open scheduled room for the whole run."""
     api.setup("POST", "/event/admin/round", admin, {"round": 1})
@@ -332,6 +346,7 @@ def main():
     config = json.loads((ROOT / ".local/event-rehearsal.json").read_text(encoding="utf-8-sig"))
     # Setup goes through Api.setup, which is never recorded in the measurements.
     admin, managers, teams = sign_in_everyone(api, config)
+    set_clue_keys(api, managers)
     prepare_round_one(api, admin)
     run = LoadRun(api)
     clients = build_clients(run, admin, managers, teams, args.scale)

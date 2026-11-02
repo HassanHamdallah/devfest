@@ -4,8 +4,11 @@ import {
   EventAdminShortcuts,
   EventApiSession,
   EventTeamShortcuts,
+  PRACTICE_KEYS,
   RehearsalAccounts,
   readRehearsalAccounts,
+  resetRehearsal,
+  setPracticeKeys,
 } from "./event-api-helper";
 import {
   DESKTOP,
@@ -42,6 +45,21 @@ function combobox(scope: Page | Locator, name: string) {
   return scope.getByRole("combobox", { name, exact: true });
 }
 
+async function setAiKeyInUi(page: Page) {
+  await signIn(page, accounts.managers.AI, accounts.seedPassword);
+  await expect(heading(page, "AI")).toBeVisible();
+  const card = page.locator("[data-clue-key-card]");
+  await expect(card.getByText("Not set — the room cannot open", { exact: true })).toBeVisible();
+  await button(card, "Set clue key").click();
+  await textbox(card, "Clue key").fill(PRACTICE_KEYS.AI);
+  await button(card, "Save key").click();
+  await expect(card.getByText("Saved. Re-checked 0 answers.", { exact: true })).toBeVisible();
+  await expect(card.getByText("Not set — the room cannot open", { exact: true })).toHaveCount(0);
+  await expect(card.locator("[data-clue-key-value]")).not.toContainText(PRACTICE_KEYS.AI);
+  await button(card, "Show").click();
+  await expect(card.locator("[data-clue-key-value]")).toHaveText(PRACTICE_KEYS.AI);
+}
+
 async function startFirstRound(page: Page) {
   await signIn(page, accounts.adminEmail, accounts.adminPassword);
   await expect(heading(page, "Event control")).toBeVisible();
@@ -66,7 +84,7 @@ async function submitAiClues(page: Page) {
   await expect(page.locator('[data-room="AI"]').getByText("Now", { exact: true })).toBeVisible();
   await submitAnswer(page, "Validation accuracy 0.91", "BLUE CAR");
   await expect(page.getByText("Incorrect — try again", { exact: true }).first()).toBeVisible();
-  await submitAnswer(page, "Validation accuracy 0.94 after tuning", "WHITE VAN");
+  await submitAnswer(page, "Validation accuracy 0.94 after tuning", PRACTICE_KEYS.AI);
   await expect(page.getByText("Correct", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("1 of 4 clues collected").first()).toBeVisible();
   await expectFitsPhone(page);
@@ -74,7 +92,7 @@ async function submitAiClues(page: Page) {
 }
 
 async function judgeAiRoom(page: Page) {
-  await signIn(page, accounts.managers.AI, accounts.seedPassword);
+  await page.reload();
   await expect(heading(page, "AI")).toBeVisible();
   const row = page.locator(`[data-team="${TEAM}"]`);
   await expect(row.getByText("Correct", { exact: true })).toBeVisible();
@@ -92,8 +110,8 @@ async function playRemainingRooms(admin: EventApiSession, team: EventApiSession)
   const control = new EventAdminShortcuts(admin);
   const member = new EventTeamShortcuts(team);
   const visits = [
-    { round: 2, room: "PROBLEM_SOLVING", clue: "RED CLAY" },
-    { round: 3, room: "LINUX", clue: "WEST TOWER" },
+    { round: 2, room: "PROBLEM_SOLVING", clue: PRACTICE_KEYS.PROBLEM_SOLVING },
+    { round: 3, room: "LINUX", clue: PRACTICE_KEYS.LINUX },
   ] as const;
   for (const visit of visits) {
     await control.setRound(visit.round);
@@ -176,6 +194,9 @@ test.beforeAll(() => {
   accounts = readRehearsalAccounts();
 });
 
+// The journey opens the final, which happens once per event: every run starts from a reset event.
+test.beforeEach(() => resetRehearsal());
+
 test("event: rounds, room clues, judging, recovery, accusation, ranking and publication", async ({ browser }) => {
   const admin = await openRolePage(browser, "admin", DESKTOP);
   const member = await openRolePage(browser, "member", PHONE);
@@ -183,6 +204,10 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
   const adminApi = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
   let teamApi: EventApiSession | null = null;
   try {
+    await test.step("AI manager sets the room's clue key on the board", () => setAiKeyInUi(manager.page));
+    await test.step("the other managers set their keys", () =>
+      setPracticeKeys(accounts, ["PROBLEM_SOLVING", "LINUX", "HARDWARE"]),
+    );
     await test.step("admin starts round 1 and opens the AI room", () => startFirstRound(admin.page));
     await test.step("team submits a wrong, then the correct AI clue", () => submitAiClues(member.page));
     await test.step("AI manager passes the team and adds a hint penalty", () => judgeAiRoom(manager.page));

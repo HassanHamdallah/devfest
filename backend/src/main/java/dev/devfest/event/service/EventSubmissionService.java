@@ -5,11 +5,14 @@ import static dev.devfest.event.service.EventText.requireMaxBytes;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
-import dev.devfest.event.domain.AnswerNormalizer;
+import dev.devfest.event.domain.ClueCheck;
+import dev.devfest.event.domain.ClueOverride;
+import dev.devfest.event.domain.ClueVerdict;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.SubmissionRequest;
+import dev.devfest.event.repository.ClueVerdictRepository;
 import dev.devfest.event.repository.CollectedClueRepository;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventRoomRepository;
@@ -24,7 +27,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Room submissions: every accepted one is kept; the first correct clue answer collects the room's clue. */
+/**
+ * Room submissions: every accepted one is kept with a clue verdict; an effectively correct clue answer
+ * collects the room's clue. Key changes and overrides later re-evaluate the verdict (EventClueReviewService).
+ */
 @Service
 public class EventSubmissionService {
 
@@ -35,6 +41,7 @@ public class EventSubmissionService {
   private final EventRoomRepository rooms;
   private final RoomSubmissionRepository submissions;
   private final CollectedClueRepository clues;
+  private final ClueVerdictRepository verdicts;
   private final EventStateRepository states;
   private final AuditLog audit;
   private final EventClock clock;
@@ -45,6 +52,7 @@ public class EventSubmissionService {
     EventRoomRepository rooms,
     RoomSubmissionRepository submissions,
     CollectedClueRepository clues,
+    ClueVerdictRepository verdicts,
     EventStateRepository states,
     AuditLog audit,
     EventClock clock
@@ -54,6 +62,7 @@ public class EventSubmissionService {
     this.rooms = rooms;
     this.submissions = submissions;
     this.clues = clues;
+    this.verdicts = verdicts;
     this.states = states;
     this.audit = audit;
     this.clock = clock;
@@ -90,7 +99,10 @@ public class EventSubmissionService {
       .orElseThrow(() -> fail(404, "Submission not found."));
   }
 
-  /** Contract order: rooms running, then the team's scheduled room, then the room being open. */
+  /**
+   * Contract order: rooms running, then the team's scheduled room, then the room being open, then its clue key
+   * being set (a room cannot open without one, so the last check is only a safety net).
+   */
   private static void requireAcceptingSubmissions(TeamWrite write, EventRoomRecord room) {
     int round = write.state().currentRound();
     if (!Rotation.isRunningRound(round)) throw fail(409, "Rooms are not running right now.");
@@ -99,9 +111,10 @@ public class EventSubmissionService {
       throw fail(409, "This is not your team's room in the current round.");
     }
     if (!room.open()) throw fail(409, "This room is closed.");
+    if (!ClueCheck.hasKey(room.clueKey())) throw fail(409, "This room is not ready yet. Ask the organizer.");
   }
 
-  /** The clue verdict is fixed now and never recomputed, even if the key changes later. */
+  /** clue_correct records the result at submission time; the verdict row starts equal and may change later. */
   private RoomSubmissionRecord store(TeamWrite write, EventRoomRecord room, UUID idempotencyKey, SubmissionRequest request) {
     Instant receivedAt = clock.now();
     RoomSubmissionRecord submission = new RoomSubmissionRecord(
@@ -112,13 +125,33 @@ public class EventSubmissionService {
       write.state().currentRound(),
       request.technicalOutput(),
       request.clueAnswer(),
-      AnswerNormalizer.matches(request.clueAnswer(), room.clueKey()),
+      ClueCheck.isCorrect(request.clueAnswer(), room.clueKey()),
       receivedAt,
       idempotencyKey,
-      write.requestHash()
+      write.requestHash(),
+      false
     );
     submissions.insert(submission);
-    if (submission.clueCorrect()) clues.collectFromRoom(write.team().id(), room.id(), submission.id(), receivedAt);
-    return submission;
+    verdicts.insert(submission.id(), submission.clueCorrect(), receivedAt);
+    boolean effective = ClueVerdict.effective(submission.clueCorrect(), ClueOverride.AUTOMATIC);
+    if (effective) clues.collectFromRoom(write.team().id(), room.id(), submission.id(), receivedAt);
+    return withEffective(submission, effective);
+  }
+
+  private static RoomSubmissionRecord withEffective(RoomSubmissionRecord s, boolean effective) {
+    return new RoomSubmissionRecord(
+      s.id(),
+      s.teamId(),
+      s.roomId(),
+      s.roomCode(),
+      s.round(),
+      s.technicalOutput(),
+      s.clueAnswer(),
+      s.clueCorrect(),
+      s.receivedAt(),
+      s.idempotencyKey(),
+      s.requestHash(),
+      effective
+    );
   }
 }

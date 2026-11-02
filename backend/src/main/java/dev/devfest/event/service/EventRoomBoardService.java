@@ -3,6 +3,7 @@ package dev.devfest.event.service;
 import static java.util.stream.Collectors.groupingBy;
 
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.JudgeStatus;
 import dev.devfest.event.domain.PenaltyRules;
@@ -12,6 +13,7 @@ import dev.devfest.event.dto.RoomBoard.RoomCounters;
 import dev.devfest.event.dto.RoomBoard.RoomDetail;
 import dev.devfest.event.dto.RoomTeamRow;
 import dev.devfest.event.dto.RoomTeamRow.SubmissionDetail;
+import dev.devfest.event.repository.ClueVerdictRecord;
 import dev.devfest.event.repository.EventBoardRepository;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
@@ -89,7 +91,8 @@ public class EventRoomBoardService {
       room.recoveryPrompt(),
       room.recoveryAnswer(),
       room.version(),
-      !state.finalEverOpened()
+      !state.finalEverOpened(),
+      ClueCheck.hasKey(room.clueKey())
     );
   }
 
@@ -106,7 +109,7 @@ public class EventRoomBoardService {
       team.groupCode(),
       scheduledRound == state.currentRound(),
       scheduledRound,
-      submissionDetail(team.latestSubmission()),
+      submissionDetail(team.latestSubmission(), team.latestVerdict()),
       team.submissionCount(),
       EventViews.judgement(team.judgement()),
       teamPenalties.stream().map(EventViews::penalty).toList(),
@@ -115,7 +118,7 @@ public class EventRoomBoardService {
     );
   }
 
-  private static SubmissionDetail submissionDetail(RoomSubmissionRecord submission) {
+  private static SubmissionDetail submissionDetail(RoomSubmissionRecord submission, ClueVerdictRecord verdict) {
     if (submission == null) return null;
     return new SubmissionDetail(
       submission.id(),
@@ -123,7 +126,13 @@ public class EventRoomBoardService {
       submission.technicalOutput(),
       submission.clueAnswer(),
       submission.clueCorrect(),
-      submission.receivedAt()
+      submission.receivedAt(),
+      verdict.autoCorrect(),
+      verdict.override(),
+      verdict.effectiveCorrect(),
+      verdict.version(),
+      verdict.overrideByName(),
+      verdict.overrideAt()
     );
   }
 

@@ -28,8 +28,7 @@ class EventRevisionTest extends EventIntegrationTest {
     assertBumps(() -> expectOk(put(judgement, managers.get(RoomCode.AI), EventJudgingTest.judgement("PASS", 0, "", 0))));
     String penalty = "{\"teamId\":%d,\"kind\":\"HINT\",\"note\":\"\"}".formatted(alpha.id());
     assertBumps(() -> expectOk(post("/rooms/" + rooms.get(RoomCode.AI) + "/penalties", managers.get(RoomCode.AI), penalty)));
-    String content = "{\"clueKey\":\"WHITE VAN\",\"recoveryPrompt\":\"P\",\"recoveryAnswer\":\"A\",\"version\":1}";
-    assertBumps(() -> expectOk(put("/rooms/" + rooms.get(RoomCode.LINUX) + "/content", admin, content)));
+    assertBumps(() -> expectOk(saveRoomContent(RoomCode.LINUX, admin, "WEST TOWER", "P", "A")));
     assertBumps(() -> expectOk(put("/admin/publication", admin, "{\"published\":true}")));
   }
 

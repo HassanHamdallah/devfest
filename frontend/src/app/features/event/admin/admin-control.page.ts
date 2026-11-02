@@ -19,6 +19,7 @@ import { ControlBar } from "./control/control-bar";
 import {
   ConfirmationCopy,
   ControlAction,
+  RoomActionError,
   confirmationFor,
   performControlAction,
   successNotice,
@@ -74,6 +75,8 @@ export class EventAdminControlPage {
 
   protected readonly board = new RemoteData(() => this.eventApi.adminBoard());
   protected readonly actionState = new ActionState();
+  /** Why the last "Open room" failed (e.g. no clue key yet), shown on that room's card. */
+  protected readonly roomError = signal<RoomActionError | null>(null);
   private readonly pendingAction = signal<ControlAction | null>(null);
 
   protected readonly roundLabel = computed(() => {
@@ -123,9 +126,15 @@ export class EventAdminControlPage {
   }
 
   private async execute(action: ControlAction): Promise<void> {
-    await this.actionState.run(
+    const ok = await this.actionState.run(
       () => performControlAction(this.eventApi, action),
       successNotice(action),
+    );
+    const failure = this.actionState.error();
+    this.roomError.set(
+      !ok && action.kind === "openRoom" && failure
+        ? { roomId: action.room.id, message: failure }
+        : null,
     );
     await this.board.load();
   }
