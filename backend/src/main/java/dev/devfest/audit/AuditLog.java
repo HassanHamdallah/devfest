@@ -14,11 +14,17 @@ public class AuditLog {
   }
 
   public void record(Long actorId, String action, String target) {
+    record(actorId, action, target, null);
+  }
+
+  /** {@code reason} is the admin's own words for an override; never a secret, password, answer or key. */
+  public void record(Long actorId, String action, String target, String reason) {
     db.update(
-      "INSERT INTO audit_event(actor_id,action,target) VALUES(?,?,?)",
+      "INSERT INTO audit_event(actor_id,action,target,reason) VALUES(?,?,?,?)",
       actorId,
       action,
-      target
+      target,
+      reason
     );
   }
 }

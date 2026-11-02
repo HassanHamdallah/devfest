@@ -7,16 +7,20 @@ import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.PublicationRequest;
 import dev.devfest.event.dto.RoomOpenView;
 import dev.devfest.event.dto.RoundRequest;
+import dev.devfest.event.dto.TimerAdjustRequest;
 import dev.devfest.event.service.EventAdminBoardService;
 import dev.devfest.event.service.EventControlService;
 import dev.devfest.event.service.EventExportService;
+import dev.devfest.event.service.EventRoundTimerService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,11 +32,48 @@ public class EventAdminController {
   private final EventAdminBoardService boards;
   private final EventControlService control;
   private final EventExportService export;
+  private final EventRoundTimerService timer;
 
-  public EventAdminController(EventAdminBoardService boards, EventControlService control, EventExportService export) {
+  public EventAdminController(
+    EventAdminBoardService boards,
+    EventControlService control,
+    EventExportService export,
+    EventRoundTimerService timer
+  ) {
     this.boards = boards;
     this.control = control;
     this.export = export;
+    this.timer = timer;
+  }
+
+  @PostMapping("/round/timer/start")
+  EventStateView startTimer(@AuthenticationPrincipal AuthService.Principal principal) {
+    return timer.start(principal);
+  }
+
+  @PostMapping("/round/timer/pause")
+  EventStateView pauseTimer(@AuthenticationPrincipal AuthService.Principal principal) {
+    return timer.pause(principal);
+  }
+
+  @PostMapping("/round/timer/resume")
+  EventStateView resumeTimer(@AuthenticationPrincipal AuthService.Principal principal) {
+    return timer.resume(principal);
+  }
+
+  /** Not idempotent by nature: a repeated Idempotency-Key within the same round is ignored. */
+  @PostMapping("/round/timer/adjust")
+  EventStateView adjustTimer(
+    @Valid @RequestBody TimerAdjustRequest request,
+    @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return timer.adjust(principal, request.deltaSeconds(), idempotencyKey);
+  }
+
+  @PostMapping("/round/timer/end")
+  EventStateView endRound(@AuthenticationPrincipal AuthService.Principal principal) {
+    return timer.end(principal);
   }
 
   @GetMapping("/board")

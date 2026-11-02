@@ -145,6 +145,49 @@ submissions were backfilled from `clue_correct`.
   submission); the manager board adds `autoCorrect`, `override`, `effectiveCorrect`, `verdictVersion` and
   `room.clueKeySet`.
 
+## Round timer (V8)
+
+`event_state` gains `round_phase` (ASSIGNED / RUNNING / PAUSED, NULL in rounds 0 and 5), `round_duration_seconds`,
+`round_elapsed_before_seconds`, `round_resumed_at` and `round_ended`; `round_started_at` is now the first start
+of the timer (NULL while ASSIGNED). CHECK constraints tie the phase to rounds 1–4, require a resume time while
+RUNNING, and keep ASSIGNED unstarted. `room_arrival(round, room_id)` holds "All teams are here";
+`round_time_adjustment(round, idempotency_key)` makes a repeated adjust request a no-op.
+
+- `RoundTimer` (domain, immutable, whole seconds) owns all timer math: `remainingSeconds(now)`,
+  `effectivePhase(now)` (TIME_UP derived), `start/pause/resume/addSeconds/removeSeconds/endNow`. A transition
+  into the current state returns the same timer, which the service treats as a no-op (no audit, no bump);
+  an impossible transition throws `IllegalTransition` → 409. No scheduler: TIME_UP is computed on read.
+- `EventControlService.setRound` begins a running round ASSIGNED with `round_minutes × 60` and clears
+  arrivals left from an earlier visit to the same round number. `EventRoundTimerService` (admin) and
+  `EventArrivalService` (room manager or admin) lock `event_state` first, store the transition, audit it and
+  bump the revision in one transaction. The timer ticking never bumps the revision.
+- `EventSubmissionService` checks the phase at `now` under the `event_state` lock, after the idempotent-retry
+  lookup and right after "rooms running": ASSIGNED / PAUSED / TIME_UP → 409.
+- Boards send `RoundClock {currentRound, phase, remainingSeconds, durationSeconds, serverNow}` (the admin's
+  `EventStateView` carries the same fields). The browser counts down from `remainingSeconds` by the local time
+  elapsed since the response arrived (independent of clock offset) and restarts from the server value at every
+  refetch and on tab visibility change.
+
+## Admin overrides (V9)
+
+V9 adds `team_room_exception(round, team_id)`, `event_snapshot` (JSONB copy of deleted rows), `audit_event.reason`,
+`event_team.disqualified*`, the collected-clue source `MANUAL`, and the penalty kind `TIME_ADJUSTMENT` with signed
+minutes (−60..60, ≠ 0; other kinds keep `minutes > 0`). The append-only trigger functions now allow DELETE only
+when the transaction-local setting `devfest.allow_reset` is `on`; UPDATE stays refused.
+
+- `RoomAssignment` (domain) is the single resolver of a team's room in a round (exception, else rotation). It is
+  used by the submission check, the team board, the room boards ("teams expected now", "in room now") and the
+  admin board's "teams now".
+- `RotationPreview` (domain) computes the swap/move preview (rooms visited, remaining rounds, MISS / REPEAT).
+- `EventOverrideService` (swap, move, room exception, manual clue, time adjustment, disqualification) and
+  `EventResetService` (resets, snapshots) are ADMIN only, lock `event_state` → teams by ascending id → room, audit
+  with the reason and bump the revision. Resets save the snapshot first (`EventSnapshotRepository`: one
+  `INSERT … SELECT jsonb_build_object(...)`), then `EventResetRepository.allowResetDeletes()` and one bulk DELETE
+  per table in foreign-key order.
+- The ranking SQL counts `TIME_ADJUSTMENT` minutes in adjusted time but not in penalty entries, and lists
+  disqualified teams last without a rank. The disqualified check sits right after the idempotent-retry lookup of
+  room submissions, recovery answers and accusations.
+
 ## Authorization matrix
 
 Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public). PARTICIPANT gets 403 on
@@ -159,7 +202,8 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 | `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
 | `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content`, `PUT /rooms/{id}/submissions/{submissionId}/clue-override` | any room | own room (else 404) | 403 |
 | `POST /penalties/{id}/void` | any | own room's penalties (room-less → 404) | 403 |
-| `/admin/**` (incl. `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
+| `PUT /rooms/{id}/arrival` | any room | own room (else 404) | 403 |
+| `/admin/**` (incl. `/admin/overrides/**`, `/admin/reset/**`, `/admin/snapshots/**`, `PUT /admin/teams/{id}/group`, `POST /admin/teams/{id}/{disqualify,reinstate}`, `POST /admin/round/timer/{start,pause,resume,adjust,end}`, `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
 
 Defense in depth: `SecurityConfig` restricts `/api/v1/event/admin/**` to ADMIN and `/api/v1/event/**` to the three
 event roles; every public service method additionally starts with an `EventAccessPolicy` check.

@@ -1,8 +1,11 @@
 package dev.devfest.event.repository;
 
 import static dev.devfest.event.repository.EventJdbc.instant;
+import static dev.devfest.event.repository.EventJdbc.nullableInt;
 import static dev.devfest.event.repository.EventJdbc.timestamp;
 
+import dev.devfest.event.domain.RoundPhase;
+import dev.devfest.event.domain.RoundTimer;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -23,7 +26,8 @@ public class EventStateRepository {
 
   private static final String COLUMNS = """
     current_round, round_started_at, round_minutes, final_open, final_started_at,
-    final_closed_at, results_published, revision, updated_at, planned_team_count""";
+    final_closed_at, results_published, revision, updated_at, planned_team_count, round_phase,
+    round_duration_seconds, round_elapsed_before_seconds, round_resumed_at, round_ended""";
 
   private final JdbcTemplate db;
 
@@ -54,12 +58,37 @@ public class EventStateRepository {
     );
   }
 
-  /** {@code roundStartedAt} is null for rounds 0 and 5. */
-  public void setRound(int round, Instant roundStartedAt) {
+  /**
+   * Moves to {@code round}. A running round (1..4) begins ASSIGNED with a fresh {@code timer}; rounds 0 and 5
+   * pass null and clear every timer field.
+   */
+  public void setRound(int round, RoundTimer timer) {
     db.update(
-      "UPDATE event_state SET current_round = ?, round_started_at = ? WHERE id = 1",
+      """
+      UPDATE event_state
+      SET current_round = ?, round_started_at = NULL, round_phase = ?, round_duration_seconds = ?,
+          round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE
+      WHERE id = 1""",
       round,
-      timestamp(roundStartedAt)
+      timer == null ? null : timer.phase().name(),
+      timer == null ? null : timer.durationSeconds()
+    );
+  }
+
+  /** Stores a timer transition; {@code firstStartedAt} sets round_started_at only if it is still empty. */
+  public void saveTimer(RoundTimer timer, Instant firstStartedAt) {
+    db.update(
+      """
+      UPDATE event_state
+      SET round_phase = ?, round_duration_seconds = ?, round_elapsed_before_seconds = ?, round_resumed_at = ?,
+          round_ended = ?, round_started_at = COALESCE(round_started_at, ?)
+      WHERE id = 1""",
+      timer.phase().name(),
+      timer.durationSeconds(),
+      timer.elapsedBeforeSeconds(),
+      timestamp(timer.resumedAt()),
+      timer.ended(),
+      timestamp(firstStartedAt)
     );
   }
 
@@ -78,6 +107,23 @@ public class EventStateRepository {
     db.update(
       "UPDATE event_state SET final_open = FALSE, final_closed_at = ? WHERE id = 1",
       timestamp(closedAt)
+    );
+  }
+
+  /** Final reset: the final may be opened again (final_started_at is what "ever opened" is derived from). */
+  public void resetFinal() {
+    db.update("UPDATE event_state SET final_open = FALSE, final_started_at = NULL, final_closed_at = NULL WHERE id = 1");
+  }
+
+  /** Event reset: not started, no timer, final never opened, results unpublished. Round length and team count stay. */
+  public void resetEvent() {
+    db.update(
+      """
+      UPDATE event_state
+      SET current_round = 0, round_started_at = NULL, round_phase = NULL, round_duration_seconds = NULL,
+          round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE, final_open = FALSE,
+          final_started_at = NULL, final_closed_at = NULL, results_published = FALSE
+      WHERE id = 1"""
     );
   }
 
@@ -100,7 +146,12 @@ public class EventStateRepository {
       rs.getBoolean("results_published"),
       rs.getLong("revision"),
       instant(rs, "updated_at"),
-      rs.getInt("planned_team_count")
+      rs.getInt("planned_team_count"),
+      rs.getString("round_phase") == null ? null : RoundPhase.valueOf(rs.getString("round_phase")),
+      nullableInt(rs, "round_duration_seconds"),
+      rs.getInt("round_elapsed_before_seconds"),
+      instant(rs, "round_resumed_at"),
+      rs.getBoolean("round_ended")
     );
   }
 }

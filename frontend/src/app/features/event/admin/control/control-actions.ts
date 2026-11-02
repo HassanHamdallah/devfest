@@ -1,3 +1,4 @@
+import { formatMinutesSeconds } from "../../../../core/event/countdown";
 import { AdminRoomCard } from "../../../../core/event/event-models";
 import { EventApi } from "../../../../core/event/event-api";
 import { UiButtonVariant } from "../../../../shared/ui/ui-button/ui-button";
@@ -7,7 +8,15 @@ import { ROOMS_FINISHED_ROUND } from "./control-view";
 export type ControlAction =
   | { kind: "openRoom"; room: AdminRoomCard }
   | { kind: "closeRoom"; room: AdminRoomCard }
-  | { kind: "setRound"; round: number }
+  /** `secondsLeft`: time left in the current round, when it is running or paused (asks before moving on). */
+  | { kind: "setRound"; round: number; secondsLeft?: number | null }
+  /** `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key. */
+  | { kind: "startTimer"; waiting: string[]; warnings: string[] }
+  | { kind: "pauseTimer" }
+  | { kind: "resumeTimer" }
+  /** `key` is the Idempotency-Key: one per click, so a repeated request is applied once. */
+  | { kind: "adjustTimer"; deltaSeconds: number; key: string }
+  | { kind: "endRound" }
   | { kind: "saveRoundMinutes"; minutes: number }
   | { kind: "openFinal" }
   | { kind: "closeFinal" }
@@ -38,7 +47,16 @@ export function confirmationFor(
         variant: "danger",
       };
     case "setRound":
-      return roundConfirmation(action.round);
+      return roundConfirmation(action.round, action.secondsLeft ?? null);
+    case "startTimer":
+      return startConfirmation(action.waiting, action.warnings);
+    case "endRound":
+      return {
+        title: "End the round now?",
+        message:
+          "The timer drops to 0:00 and teams can no longer submit answers for this round. You can add time afterwards.",
+        variant: "danger",
+      };
     case "openFinal":
       return {
         title: "Open the final?",
@@ -60,7 +78,35 @@ export function confirmationFor(
   }
 }
 
-function roundConfirmation(round: number): ConfirmationCopy {
+/** Starting is never blocked; rooms that are not ready, closed or without a key only ask for a confirmation. */
+function startConfirmation(
+  waiting: string[],
+  warnings: string[],
+): ConfirmationCopy | null {
+  if (!waiting.length && !warnings.length) return null;
+  const parts = waiting.length ? [`Waiting: ${waiting.join(", ")}.`] : [];
+  return {
+    title: waiting.length
+      ? `${waiting.length} ${waiting.length === 1 ? "room is" : "rooms are"} not ready. Start anyway?`
+      : "Start the timer anyway?",
+    message: [...parts, ...warnings].join(" "),
+    variant: "primary",
+  };
+}
+
+function roundConfirmation(
+  round: number,
+  secondsLeft: number | null,
+): ConfirmationCopy {
+  const copy = plainRoundConfirmation(round);
+  if (!secondsLeft || secondsLeft <= 0) return copy;
+  return {
+    ...copy,
+    message: `The current round still has ${formatMinutesSeconds(secondsLeft)} left. ${copy.message}`,
+  };
+}
+
+function plainRoundConfirmation(round: number): ConfirmationCopy {
   if (round === 0)
     return {
       title: "Reset to not started?",
@@ -77,7 +123,7 @@ function roundConfirmation(round: number): ConfirmationCopy {
   return {
     title: `Start round ${round} of 4?`,
     message:
-      "Each group moves to its room for this round and the countdown starts again.",
+      "Each group is told to go to its room for this round. The timer starts only when you press Start timer.",
     variant: "primary",
   };
 }
@@ -105,6 +151,16 @@ export function successNotice(action: ControlAction): string {
       return `${action.room.name} room closed.`;
     case "setRound":
       return "Round updated.";
+    case "startTimer":
+      return "Timer started.";
+    case "pauseTimer":
+      return "Timer paused.";
+    case "resumeTimer":
+      return "Timer resumed.";
+    case "adjustTimer":
+      return adjustNotice(action.deltaSeconds);
+    case "endRound":
+      return "Round ended.";
     case "saveRoundMinutes":
       return "Round minutes saved.";
     case "openFinal":
@@ -127,6 +183,16 @@ export function performControlAction(
       return eventApi.closeRoom(action.room.id);
     case "setRound":
       return eventApi.setRound(action.round);
+    case "startTimer":
+      return eventApi.startTimer();
+    case "pauseTimer":
+      return eventApi.pauseTimer();
+    case "resumeTimer":
+      return eventApi.resumeTimer();
+    case "adjustTimer":
+      return eventApi.adjustTimer(action.deltaSeconds, action.key);
+    case "endRound":
+      return eventApi.endRound();
     case "saveRoundMinutes":
       return eventApi.saveSettings(action.minutes);
     case "openFinal":
@@ -136,4 +202,13 @@ export function performControlAction(
     case "setPublication":
       return eventApi.setPublication(action.published);
   }
+}
+
+/** "+5 min added." / "1 min removed." */
+function adjustNotice(deltaSeconds: number): string {
+  const minutes = Math.abs(deltaSeconds) / 60;
+  const amount = Number.isInteger(minutes)
+    ? `${minutes} min`
+    : `${Math.abs(deltaSeconds)} s`;
+  return deltaSeconds > 0 ? `+${amount} added.` : `${amount} removed.`;
 }

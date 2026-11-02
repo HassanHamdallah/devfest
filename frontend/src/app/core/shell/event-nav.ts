@@ -53,6 +53,7 @@ function adminGroups(rooms: readonly EventNavRoom[]): EventNavGroup[] {
       { path: "/event/admin", label: "Control", exact: true },
       { path: "/event/admin/teams", label: "Teams & accounts", exact: true },
       { path: "/event/admin/content", label: "Content", exact: true },
+      { path: "/event/admin/overrides", label: "Overrides", exact: true },
       { path: "/event/results", label: "Results", exact: true },
     ]),
   ];

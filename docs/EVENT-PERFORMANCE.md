@@ -20,10 +20,10 @@ event hardware.
 | Endpoint | Statements |
 |---|---|
 | `GET /event/revision` | 1 |
-| `GET /event/team/board` | 4 |
+| `GET /event/team/board` | 5 |
 | `GET /event/team/final` | 3–6 by stage |
-| `GET /event/rooms/{id}/board` | 4 |
-| `GET /event/admin/board` | 6 |
+| `GET /event/rooms/{id}/board` | 6 |
+| `GET /event/admin/board` | 10 |
 | `GET /event/admin/organization` | 5 (event state, accounts, teams with presence, rooms, group sizes) |
 | any authenticated request | 1 session check by primary key; plus 1 conditional `last_seen_at` update at most once per 60 s per session |
 | `GET /event/admin/content` | 4 |
@@ -126,6 +126,26 @@ suffice, so V7 adds none.
 1 465 requests, 0 errors, 78 accepted submissions, 7 same-key retries with 0 mismatches, 0 duplicate receipt
 ids. p95 by endpoint: admin board 26.7 ms, revision 21.8 ms, room board 17.6 ms, team board 22.7 ms,
 submissions 24.1 ms, judgements 24.0 ms; slowest request 29.9 ms.
+
+## Re-check after V8 (manual round timer) — 2026-10-24
+
+The timer adds no statement to board reads except one arrival lookup (admin board 7 statements, room board 5);
+TIME_UP is computed from `event_state` on read, and a submission's phase check reuses the `event_state` row the
+write already locks. 1× load check (the setup starts the timer; `docs/event-load-1x.json` holds this run):
+1 469 requests, 0 errors, 77 accepted submissions, 14 same-key retries with 0 mismatches, 0 duplicate receipt ids.
+p95 by endpoint: admin board 25.9 ms, revision 24.3 ms, room board 26.2 ms, team board 22.7 ms, submissions
+26.2 ms, judgements 30.6 ms. Single slow requests reached 88.8 ms (revision) and 78.8 ms (submission); p99 of
+submissions was 78.8 ms, against 28.9 ms in the previous run — not investigated further on this shared laptop.
+
+## Re-check after V9 (admin overrides) — 2026-10-24
+
+Board reads gained fixed statements only: admin board 10 (team flags, recent overrides, round exceptions), room
+board 6 (round exceptions), team board 5 (the team's exception). 1× load check (`docs/event-load-1x.json` holds this
+run): 1 467 requests, 0 errors, 79 accepted submissions, 12 same-key retries with 0 mismatches, 0 duplicate receipt
+ids. p95 by endpoint: admin board 34.1 ms, revision 25.0 ms, room board 30.1 ms, team board 27.6 ms, submissions
+34.2 ms, judgements 32.8 ms; slowest request 46.1 ms. Medians rose on every endpoint, including `GET /revision`
+whose code did not change (p50 3.9 ms vs 2.7 ms in the previous run), so part of the increase is machine load
+during this run; not investigated further.
 
 ## Not measured
 

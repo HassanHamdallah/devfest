@@ -234,6 +234,12 @@ public class AuthService {
     revoke(p.session(), SessionEnd.LOGOUT);
   }
 
+  /** Re-checks an account's own password for a dangerous action; nothing is logged. */
+  public boolean passwordMatches(long userId, String password) {
+    String stored = db.queryForObject("SELECT password_hash FROM app_user WHERE id=?", String.class, userId);
+    return passwords.matches(password, stored);
+  }
+
   @Transactional
   public void password(Principal p, String current, String replacement) {
     String stored = db.queryForObject(

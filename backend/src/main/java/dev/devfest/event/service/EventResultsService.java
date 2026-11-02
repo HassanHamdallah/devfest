@@ -46,7 +46,8 @@ public class EventResultsService {
           row.clues(),
           row.penaltyMinutes(),
           row.finished(),
-          row.adjustedSeconds()
+          row.adjustedSeconds(),
+          row.disqualified()
         )
       )
       .toList();

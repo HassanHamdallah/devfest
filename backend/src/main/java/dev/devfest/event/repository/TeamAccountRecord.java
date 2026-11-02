@@ -1,6 +1,7 @@
 package dev.devfest.event.repository;
 
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.RoomCode;
 import java.time.Instant;
 
 /** A team with its member account's email and presence, for organization screens. */
@@ -12,5 +13,7 @@ public record TeamAccountRecord(
   String accountEmail,
   boolean active,
   Instant lastSeenAt,
-  boolean signedIn
+  boolean signedIn,
+  boolean disqualified,
+  RoomCode exceptionRoom
 ) {}

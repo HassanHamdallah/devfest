@@ -4,6 +4,7 @@ import static dev.devfest.event.repository.EventJdbc.timestamp;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -56,6 +57,31 @@ public class CollectedClueRepository {
   /** Returns true when this correct submission is the team's first clue for the room. */
   public boolean collectFromRoom(long teamId, long roomId, UUID submissionId, Instant collectedAt) {
     return insertIfAbsent(teamId, roomId, "ROOM", submissionId, collectedAt);
+  }
+
+  /** Returns true when the admin's grant gave the team a clue it did not hold (an existing clue is kept). */
+  public boolean grantManual(long teamId, long roomId, Instant collectedAt) {
+    return insertIfAbsent(teamId, roomId, "MANUAL", null, collectedAt);
+  }
+
+  /** Removes the team's ROOM or MANUAL clue for the room, and a RECOVERY clue only if asked; returns rows removed. */
+  public int revoke(long teamId, long roomId, boolean includeRecovery) {
+    return db.update(
+      """
+      DELETE FROM collected_clue
+      WHERE team_id = ? AND room_id = ? AND (source IN ('ROOM', 'MANUAL') OR (? AND source = 'RECOVERY'))""",
+      teamId,
+      roomId,
+      includeRecovery
+    );
+  }
+
+  /** The source of the team's clue for the room (ROOM, RECOVERY, MANUAL), if it holds one. */
+  public Optional<String> source(long teamId, long roomId) {
+    return db
+      .queryForList("SELECT source FROM collected_clue WHERE team_id = ? AND room_id = ?", String.class, teamId, roomId)
+      .stream()
+      .findFirst();
   }
 
   /** Returns true when the recovery filled the team's missing room. */

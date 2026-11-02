@@ -2,6 +2,7 @@ package dev.devfest.event.dto;
 
 import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.RoomCode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,9 @@ public record RoomTeamRow(
   long teamId,
   String teamName,
   GroupCode groupCode,
+  boolean disqualified,
+  /** The room this team was sent to this round by the admin instead of its rotation room, or null. */
+  RoomCode exceptionRoom,
   boolean scheduledNow,
   int scheduledRound,
   SubmissionDetail latestSubmission,

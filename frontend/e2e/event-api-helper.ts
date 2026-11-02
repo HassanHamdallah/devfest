@@ -105,8 +105,19 @@ export class EventApiSession {
 export class EventAdminShortcuts {
   constructor(private readonly admin: EventApiSession) {}
 
+  /** Moves to the round; a running round begins ASSIGNED (its timer does not start). */
   setRound(round: number) {
     return this.admin.send("POST", "/event/admin/round", { round });
+  }
+
+  startTimer() {
+    return this.admin.send("POST", "/event/admin/round/timer/start");
+  }
+
+  /** Moves to the round and starts its timer, so teams can submit right away. */
+  async startRound(round: number) {
+    await this.setRound(round);
+    if (round >= 1 && round <= 4) await this.startTimer();
   }
 
   async openRoom(code: RoomCode) {

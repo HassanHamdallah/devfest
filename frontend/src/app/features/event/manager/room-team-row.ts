@@ -74,6 +74,12 @@ import { EventTeamSubmission } from "./team-submission";
         @if (row().scheduledNow) {
           <ui-status-chip variant="accent">Now</ui-status-chip>
         }
+        @if (row().disqualified) {
+          <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+        }
+        @if (row().exceptionRoom) {
+          <ui-status-chip variant="warning">Exception: {{ row().exceptionRoom }}</ui-status-chip>
+        }
         <span class="event-muted">{{ scheduleLine() }}</span>
       </div>
     </section>

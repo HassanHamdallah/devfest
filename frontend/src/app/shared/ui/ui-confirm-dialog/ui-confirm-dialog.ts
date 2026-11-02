@@ -31,6 +31,8 @@ export class UiConfirmDialog {
   readonly confirmVariant = input<UiButtonVariant>("primary");
   /** Shows a spinner on "Confirm" and blocks both buttons while the action runs. */
   readonly busy = input(false);
+  /** Keeps "Confirm" disabled until the parent's own check passes (e.g. a typed confirmation word). */
+  readonly confirmDisabled = input(false);
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();

@@ -2,6 +2,7 @@ package dev.devfest.event.service;
 
 import dev.devfest.event.domain.GroupCapacity;
 import dev.devfest.event.domain.RoomCode;
+import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.dto.AdminAlert;
 import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.EventStateView;
@@ -19,6 +20,7 @@ import dev.devfest.event.repository.RoomJudgementRecord;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Record → response mappings shared by several event services. */
@@ -30,15 +32,26 @@ public final class EventViews {
   private EventViews() {}
 
   public static RoundClock roundClock(EventStateRecord state, Instant serverNow) {
-    return new RoundClock(state.currentRound(), state.roundStartedAt(), state.roundMinutes(), serverNow);
+    Optional<RoundTimer> timer = state.timer();
+    return new RoundClock(
+      state.currentRound(),
+      timer.map(t -> t.effectivePhase(serverNow)).orElse(null),
+      timer.map(t -> t.remainingSeconds(serverNow)).orElse(null),
+      timer.map(RoundTimer::durationSeconds).orElse(null),
+      serverNow
+    );
   }
 
   public static EventStateView eventState(EventStateRecord state, Instant serverNow) {
+    RoundClock clock = roundClock(state, serverNow);
     return new EventStateView(
       state.currentRound(),
+      clock.phase(),
+      clock.remainingSeconds(),
+      clock.durationSeconds(),
+      serverNow,
       state.roundStartedAt(),
       state.roundMinutes(),
-      serverNow,
       state.finalOpen(),
       state.finalStartedAt(),
       state.finalClosedAt(),

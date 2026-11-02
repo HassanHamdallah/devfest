@@ -363,7 +363,9 @@ public class EventOrganizationService {
       team.accountEmail(),
       team.active(),
       team.signedIn(),
-      team.lastSeenAt()
+      team.lastSeenAt(),
+      team.disqualified(),
+      team.exceptionRoom()
     );
   }
 

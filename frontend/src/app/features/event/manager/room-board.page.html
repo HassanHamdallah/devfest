@@ -11,6 +11,9 @@
     <ui-status-chip [variant]="view.room.open ? 'success' : 'warning'"
       >{{ view.room.open ? "Open" : "Closed" }}</ui-status-chip
     >
+    @if (phaseLabel(); as label) {
+    <ui-status-chip variant="accent">{{ label }}</ui-status-chip>
+    }
     <ui-countdown [clock]="view.clock" />
     <span>{{ roundLine() }}</span>
   </div>
@@ -18,6 +21,9 @@
 <div class="event-stack">
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
+  }
+  @if (view.clock.phase === "ASSIGNED") {
+  <event-arrival-card [board]="view" (changed)="reload()" />
   }
   <event-clue-key-card [room]="view.room" (changed)="reload()" />
   <div class="event-grid event-grid--metrics">

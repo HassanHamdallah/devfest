@@ -27,6 +27,32 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-10-24: admin overrides toolkit
+
+- New admin page **Overrides**: swap/move teams with a rotation preview, per-team room exception for the current
+  round, manual clues, time adjustments, disqualify/reinstate, snapshots (list, download, take now), and resets of
+  the final, one team or the whole event (RESET + password). Every override is admin only, needs a reason, is
+  audited and confirmed; every reset saves a snapshot first. V9 (room exceptions, snapshots, audit reasons,
+  disqualification, MANUAL clues, TIME_ADJUSTMENT penalties, reset-only deletes of append-only rows). Guide:
+  [docs/EVENT-ADMIN-OVERRIDES.md](docs/EVENT-ADMIN-OVERRIDES.md).
+- Tested: `test-backend.ps1` → `Tests run: 165, Failures: 0, Errors: 0, Skipped: 0` (new: EventOverrideTest 11,
+  two EventRankingTest cases, RotationPreviewTest 6, RoomAssignmentTest 3, one PenaltyRulesTest case); backend
+  package and frontend build succeed; Playwright event suite 4 passed, then `--repeat-each=3` 12 passed (new
+  `e2e/event-overrides.spec.ts`); manual check: RESET_TEAM snapshot holds the team's 3 submissions, 3 verdicts and
+  1 clue; 1× load check 1 467 requests, 0 errors, worst p95 34.2 ms. Restoring a snapshot is not implemented.
+
+### Change set 2026-10-24: manual round timer and arrival check
+
+- "Next round" now only assigns rooms (phase Assigned); the admin starts, pauses, resumes, adds or removes time
+  and ends the round, and room managers confirm "All teams are here". Answers are accepted only while the timer
+  runs. V8 adds the timer fields to `event_state`, `room_arrival` and `round_time_adjustment`; all timer math is
+  in the `RoundTimer` domain class. Procedure: README "Event-day round procedure".
+- Tested: `test-backend.ps1` → `Tests run: 142, Failures: 0, Errors: 0, Skipped: 0` (new: RoundTimerTest 10,
+  EventRoundTimerTest 8); backend package and frontend build succeed; Playwright event suite 3 passed, then
+  `--repeat-each=3` 9 passed (an earlier repeat run lost 1 of 9 to a OneDrive lock on a screenshot file; the
+  screenshot write now retries); manual check: paused at 1495 s, 1495 s after 30 s, resumed at 1495 s;
+  1× load check 1 469 requests, 0 errors, worst p95 30.6 ms.
+
 ### Change set 2026-10-24: room managers own the clue key; results follow key changes
 
 - **Managers must set their room's clue key on the room board before the admin opens the room**; the seed and

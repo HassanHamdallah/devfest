@@ -7,6 +7,7 @@ public record RoomTeamProgressRecord(
   long teamId,
   String teamName,
   GroupCode groupCode,
+  boolean disqualified,
   RoomSubmissionRecord latestSubmission,
   ClueVerdictRecord latestVerdict,
   int submissionCount,

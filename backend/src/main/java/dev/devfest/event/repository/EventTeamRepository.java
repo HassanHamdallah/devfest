@@ -4,12 +4,14 @@ import static dev.devfest.event.repository.EventJdbc.instant;
 import static dev.devfest.event.repository.EventJdbc.timestamp;
 
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.RoomCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,7 +21,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class EventTeamRepository {
 
-  private static final String COLUMNS = "id, name, group_code, account_id, active, created_at";
+  private static final String COLUMNS = "id, name, group_code, account_id, active, created_at, disqualified";
 
   /**
    * Teams with their member account and presence, in one statement (idx_session_user per team). Signed in:
@@ -27,9 +29,12 @@ public class EventTeamRepository {
    */
   private static final String WITH_ACCOUNT = """
     SELECT t.id, t.name, t.group_code, t.account_id, u.email AS account_email, t.active,
-           presence.last_seen_at, presence.signed_in
+           presence.last_seen_at, presence.signed_in, t.disqualified, er.code AS exception_room
     FROM event_team t
     JOIN app_user u ON u.id = t.account_id
+    JOIN event_state st ON st.id = 1
+    LEFT JOIN team_room_exception ex ON ex.team_id = t.id AND ex.round = st.current_round
+    LEFT JOIN event_room er ON er.id = ex.room_id
     CROSS JOIN LATERAL (
       SELECT max(s.last_seen_at) AS last_seen_at,
              coalesce(bool_or(NOT s.revoked AND s.expires_at > ? AND s.last_seen_at >= ?), FALSE) AS signed_in
@@ -133,6 +138,34 @@ public class EventTeamRepository {
     );
   }
 
+  /** Locks the teams in ascending id order (the standard lock order for writes touching several teams). */
+  public List<EventTeamRecord> lockForUpdate(List<Long> teamIds) {
+    return teamIds
+      .stream()
+      .sorted()
+      .map(id -> lockForUpdate(id).orElseThrow(() -> new NoSuchElementException("team " + id)))
+      .toList();
+  }
+
+  public void setGroup(long teamId, GroupCode group) {
+    db.update("UPDATE event_team SET group_code = ? WHERE id = ?", group.name(), teamId);
+  }
+
+  /** {@code reason}, {@code at} and {@code by} are null when reinstating. */
+  public void setDisqualified(long teamId, boolean disqualified, String reason, Instant at, Long by) {
+    db.update(
+      """
+      UPDATE event_team
+      SET disqualified = ?, disqualified_reason = ?, disqualified_at = ?, disqualified_by = ?
+      WHERE id = ?""",
+      disqualified,
+      reason,
+      timestamp(at),
+      by,
+      teamId
+    );
+  }
+
   public void update(long teamId, String name, GroupCode group, long accountId, boolean active) {
     db.update(
       "UPDATE event_team SET name = ?, group_code = ?, account_id = ?, active = ? WHERE id = ?",
@@ -155,7 +188,8 @@ public class EventTeamRepository {
       GroupCode.valueOf(rs.getString("group_code")),
       rs.getLong("account_id"),
       rs.getBoolean("active"),
-      instant(rs, "created_at")
+      instant(rs, "created_at"),
+      rs.getBoolean("disqualified")
     );
   }
 
@@ -168,7 +202,9 @@ public class EventTeamRepository {
       rs.getString("account_email"),
       rs.getBoolean("active"),
       instant(rs, "last_seen_at"),
-      rs.getBoolean("signed_in")
+      rs.getBoolean("signed_in"),
+      rs.getBoolean("disqualified"),
+      rs.getString("exception_room") == null ? null : RoomCode.valueOf(rs.getString("exception_room"))
     );
   }
 }

@@ -4,10 +4,7 @@
     @if (board.data(); as data) {
     <div class="event-page-header__meta">
       <span class="control-round">{{ roundLabel() }}</span>
-      @if (roundRunning()) {
-      <span aria-hidden="true">·</span>
-      <ui-countdown [clock]="data.state" />
-      } @if (finalChip(); as chip) {
+      @if (finalChip(); as chip) {
       <ui-status-chip [variant]="chip.variant">{{ chip.label }}</ui-status-chip>
       }
     </div>
@@ -37,6 +34,13 @@
     >Showing the last loaded board. {{ error }}</ui-alert
   >
   }
+  <app-round-timer-panel
+    [state]="data.state"
+    [rooms]="data.rooms"
+    [startWarnings]="data.startWarnings"
+    [busy]="actionState.busy()"
+    (action)="request($event)"
+  />
   <app-alerts-list [alerts]="data.alerts" />
   <app-room-cards
     [rooms]="data.rooms"

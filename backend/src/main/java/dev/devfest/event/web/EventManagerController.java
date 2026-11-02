@@ -1,6 +1,7 @@
 package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
+import dev.devfest.event.dto.ArrivalRequest;
 import dev.devfest.event.dto.ClueOverrideRequest;
 import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.JudgementRequest;
@@ -11,6 +12,8 @@ import dev.devfest.event.dto.RoomBoard;
 import dev.devfest.event.dto.RoomContentRequest;
 import dev.devfest.event.dto.RoomContentView;
 import dev.devfest.event.dto.VoidPenaltyRequest;
+import dev.devfest.event.dto.RoomArrivalView;
+import dev.devfest.event.service.EventArrivalService;
 import dev.devfest.event.service.EventClueReviewService;
 import dev.devfest.event.service.EventContentService;
 import dev.devfest.event.service.EventJudgingService;
@@ -37,19 +40,31 @@ public class EventManagerController {
   private final EventPenaltyService penalties;
   private final EventContentService content;
   private final EventClueReviewService clueReview;
+  private final EventArrivalService arrivals;
 
   public EventManagerController(
     EventRoomBoardService boards,
     EventJudgingService judging,
     EventPenaltyService penalties,
     EventContentService content,
-    EventClueReviewService clueReview
+    EventClueReviewService clueReview,
+    EventArrivalService arrivals
   ) {
     this.boards = boards;
     this.judging = judging;
     this.penalties = penalties;
     this.content = content;
     this.clueReview = clueReview;
+    this.arrivals = arrivals;
+  }
+
+  @PutMapping("/rooms/{roomId}/arrival")
+  RoomArrivalView setArrival(
+    @PathVariable long roomId,
+    @Valid @RequestBody ArrivalRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return arrivals.setReady(principal, roomId, request.ready());
   }
 
   @PutMapping("/rooms/{roomId}/submissions/{submissionId}/clue-override")

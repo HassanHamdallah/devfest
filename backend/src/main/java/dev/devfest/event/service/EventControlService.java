@@ -6,6 +6,7 @@ import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.Rotation;
+import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.RoomOpenView;
 import dev.devfest.event.repository.EventBoardRepository;
@@ -13,6 +14,7 @@ import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
+import dev.devfest.event.repository.RoomArrivalRepository;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class EventControlService {
   private final EventStateRepository states;
   private final EventRoomRepository rooms;
   private final EventBoardRepository boards;
+  private final RoomArrivalRepository arrivals;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -37,6 +40,7 @@ public class EventControlService {
     EventStateRepository states,
     EventRoomRepository rooms,
     EventBoardRepository boards,
+    RoomArrivalRepository arrivals,
     AuditLog audit,
     EventClock clock
   ) {
@@ -44,6 +48,7 @@ public class EventControlService {
     this.states = states;
     this.rooms = rooms;
     this.boards = boards;
+    this.arrivals = arrivals;
     this.audit = audit;
     this.clock = clock;
   }
@@ -62,17 +67,24 @@ public class EventControlService {
     return new RoomOpenView(room.id(), room.code(), open);
   }
 
-  /** The client sends the absolute round (current + 1), so a repeated "Next round" click cannot skip a round. */
+  /**
+   * The client sends the absolute round (current + 1), so a repeated "Next round" click cannot skip a round.
+   * A running round begins ASSIGNED with the default round length; the timer starts only when the admin starts
+   * it (EventRoundTimerService). Readiness from an earlier visit to the same round number is cleared.
+   */
   @Transactional
   public EventStateView setRound(Principal principal, int round) {
     access.requireAdmin(principal);
     EventStateRecord state = states.lockForUpdate();
     Instant now = clock.now();
     if (state.currentRound() == round) return EventViews.eventState(state, now);
-    states.setRound(round, Rotation.isRunningRound(round) ? now : null);
+    boolean running = Rotation.isRunningRound(round);
+    states.setRound(round, running ? RoundTimer.assigned(state.roundMinutes() * 60) : null);
+    if (running) arrivals.clearRound(round);
     return changed(principal, "EVENT_ROUND", "round:" + round, now);
   }
 
+  /** The default length of rounds that begin later; the current round's timer is never changed. */
   @Transactional
   public EventStateView setRoundMinutes(Principal principal, int roundMinutes) {
     access.requireAdmin(principal);

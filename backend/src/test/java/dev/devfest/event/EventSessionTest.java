@@ -7,62 +7,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import dev.devfest.auth.AuthService;
 import dev.devfest.event.domain.GroupCode;
 import java.sql.Timestamp;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpMethod;
 
 /** One signed-in device per team account, revocation reasons on the 401, team sign-out and last-seen throttling. */
+@Import(ManualClock.Config.class)
 class EventSessionTest extends EventIntegrationTest {
-
-  /** A clock the test moves by hand; it replaces the system clock for every bean in this context. */
-  static final class ManualClock extends Clock {
-
-    private final AtomicReference<Instant> now = new AtomicReference<>(Instant.now().truncatedTo(ChronoUnit.MICROS));
-
-    void advance(Duration duration) {
-      now.updateAndGet(instant -> instant.plus(duration));
-    }
-
-    void reset() {
-      now.set(Instant.now().truncatedTo(ChronoUnit.MICROS));
-    }
-
-    @Override
-    public Instant instant() {
-      return now.get();
-    }
-
-    @Override
-    public ZoneId getZone() {
-      return ZoneOffset.UTC;
-    }
-
-    @Override
-    public Clock withZone(ZoneId zone) {
-      return this;
-    }
-  }
-
-  @TestConfiguration
-  static class ManualClockConfiguration {
-
-    @Bean
-    @Primary
-    ManualClock manualClock() {
-      return new ManualClock();
-    }
-  }
 
   @Autowired
   private ManualClock clock;

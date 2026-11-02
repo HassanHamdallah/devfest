@@ -44,14 +44,15 @@ function Reset-EventTestData {
   if((Invoke-TestDatabaseQuery 'SELECT current_database()') -ne 'devfest_test') { throw 'Test database identity check failed.' }
   $schemaReady=Invoke-TestDatabaseQuery "SELECT to_regclass('public.event_state') IS NOT NULL AND to_regclass('public.team_final') IS NOT NULL"
   if($schemaReady -ne 't') { throw 'The event tables (V5) are missing in devfest_test. Run infrastructure/test-backend.ps1 once to migrate it, then start the rehearsal again.' }
-  # CASCADE also empties event_room (manager_id -> app_user) and event_content (correct_suspect_id -> suspect),
-  # so both are re-created below exactly as V5 inserts them. event_state has no foreign keys and is reset in place.
+  # CASCADE also empties event_room (manager_id -> app_user), event_content (correct_suspect_id -> suspect), and the
+  # round history in room_arrival and round_time_adjustment (-> app_user). event_room and event_content are re-created
+  # below exactly as V5 inserts them. event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(
    'SET client_min_messages=warning;',
    'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, penalty, suspect, recovery_attempt, accusation, team_final RESTART IDENTITY CASCADE;',
    "INSERT INTO event_room(code,name,position) VALUES ('AI','AI',0),('PROBLEM_SOLVING','Problem solving',1),('LINUX','Linux',2),('HARDWARE','Hardware',3) ON CONFLICT (code) DO NOTHING;",
    "INSERT INTO event_content(id) VALUES (1) ON CONFLICT (id) DO UPDATE SET encrypted_message='', correct_suspect_id=NULL, updated_at=now();",
-   'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, final_open=false, final_started_at=NULL, final_closed_at=NULL, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
+   'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, round_phase=NULL, round_duration_seconds=NULL, round_elapsed_before_seconds=0, round_resumed_at=NULL, round_ended=false, final_open=false, final_started_at=NULL, final_closed_at=NULL, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
   ) -join ' '
   & $psql -h 127.0.0.1 -p 55432 -U devfest_test -d devfest_test -v ON_ERROR_STOP=1 -1 -q -c $reset
   if($LASTEXITCODE -ne 0) { throw 'Event fixture reset failed in devfest_test.' }

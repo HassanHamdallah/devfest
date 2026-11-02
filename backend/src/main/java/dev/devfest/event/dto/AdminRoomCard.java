@@ -4,7 +4,10 @@ import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.RoomCode;
 import java.util.List;
 
-/** One room on the admin board; {@code teamsNow} are the active teams of {@code groupNow}. */
+/**
+ * One room on the admin board; {@code teamsNow} are the active teams of {@code groupNow}. {@code arrival} is the
+ * room's "All teams are here" for the current round (null in rounds 0 and 5).
+ */
 public record AdminRoomCard(
   long id,
   RoomCode code,
@@ -18,5 +21,7 @@ public record AdminRoomCard(
   int passed,
   int failed,
   int pending,
-  int totalTeams
+  int totalTeams,
+  boolean hasClueKey,
+  RoomArrivalView arrival
 ) {}

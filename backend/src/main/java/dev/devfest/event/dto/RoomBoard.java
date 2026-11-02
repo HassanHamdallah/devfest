@@ -11,7 +11,9 @@ public record RoomBoard(
   GroupCode scheduledGroup,
   RoomCounters counters,
   List<RoomTeamRow> teams,
-  long revision
+  long revision,
+  RoomArrivalView arrival,
+  List<String> teamsExpectedNow
 ) {
   public record RoomDetail(
     long id,

@@ -59,7 +59,7 @@ test("clues: a typo in the key is fixed and re-checked; a near miss is accepted"
       await expect(heading(manager.page, "Linux")).toBeVisible();
       await saveKey(manager.page, TYPO_KEY, "Set clue key", "Saved. Re-checked 0 answers.");
       const control = new EventAdminShortcuts(adminApi);
-      await control.setRound(1);
+      await control.startRound(1);
       await control.openRoom("LINUX");
     });
     await test.step("the right answer is marked Incorrect against the typo", async () => {

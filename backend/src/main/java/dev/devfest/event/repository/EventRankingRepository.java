@@ -14,7 +14,9 @@ import org.springframework.stereotype.Repository;
 /**
  * The one ranking definition (decision D12), used by the admin board, results and the export.
  * Finished teams: adjusted seconds, then active penalty entries, then finish time; exact ties share a rank.
- * Unfinished teams follow without a rank, by collected clues descending, then name.
+ * Unfinished teams follow without a rank, by collected clues descending, then name. Disqualified teams come
+ * last, never ranked and never counted in rank numbers. Time adjustments (PenaltyKind.TIME_ADJUSTMENT, signed
+ * minutes) count in adjusted seconds but are not penalty entries (PenaltyKind.penaltyEntry()).
  */
 @Repository
 public class EventRankingRepository {
@@ -24,12 +26,12 @@ public class EventRankingRepository {
       SELECT team_id, count(*) AS clues, bool_or(source = 'RECOVERY') AS recovery_used
       FROM collected_clue GROUP BY team_id
     ), penalties AS (
-      SELECT team_id, sum(minutes) AS minutes, count(*) AS entries
+      SELECT team_id, sum(minutes) AS minutes, count(*) FILTER (WHERE kind <> 'TIME_ADJUSTMENT') AS entries
       FROM penalty WHERE voided_at IS NULL GROUP BY team_id
     ), accusations AS (
       SELECT team_id, count(*) AS attempts FROM accusation GROUP BY team_id
     ), scored AS (
-      SELECT t.id AS team_id, t.name AS team_name, t.group_code,
+      SELECT t.id AS team_id, t.name AS team_name, t.group_code, t.disqualified,
              COALESCE(c.clues, 0) AS clues,
              COALESCE(c.recovery_used, FALSE) AS recovery_used,
              COALESCE(p.minutes, 0) AS penalty_minutes,
@@ -47,12 +49,12 @@ public class EventRankingRepository {
       WHERE t.active
     )
     SELECT scored.*,
-           CASE WHEN finished_at IS NOT NULL THEN
-             rank() OVER (PARTITION BY finished_at IS NULL
+           CASE WHEN finished_at IS NOT NULL AND NOT disqualified THEN
+             rank() OVER (PARTITION BY finished_at IS NULL OR disqualified
                           ORDER BY adjusted_seconds, penalty_entries, finished_at)
            END AS rank
     FROM scored
-    ORDER BY finished_at IS NULL, adjusted_seconds, penalty_entries, finished_at, clues DESC, team_name
+    ORDER BY disqualified, finished_at IS NULL, adjusted_seconds, penalty_entries, finished_at, clues DESC, team_name
     """;
 
   private final JdbcTemplate db;
@@ -79,7 +81,8 @@ public class EventRankingRepository {
       finishedAt,
       nullableLong(rs, "adjusted_seconds"),
       rs.getBoolean("recovery_used"),
-      rs.getInt("accusation_attempts")
+      rs.getInt("accusation_attempts"),
+      rs.getBoolean("disqualified")
     );
   }
 }

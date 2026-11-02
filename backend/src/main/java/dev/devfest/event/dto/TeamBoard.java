@@ -16,7 +16,9 @@ public record TeamBoard(
   FinalStage finalStage,
   boolean finalOpen,
   boolean resultsPublished,
-  long revision
+  long revision,
+  boolean disqualified
 ) {
-  public record ScheduledRoom(long roomId, RoomCode code, String name, boolean open) {}
+  /** {@code exception}: the admin sent the team to this room for this round instead of its rotation room. */
+  public record ScheduledRoom(long roomId, RoomCode code, String name, boolean open, boolean exception) {}
 }

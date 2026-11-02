@@ -56,6 +56,11 @@ class TeamWriteGate {
     return new TeamWrite(locked, state, AuthService.hash(discriminator + ":" + json.writeValueAsString(body)));
   }
 
+  /** Checked right after the replay lookup: a disqualified team keeps its receipts but cannot add anything. */
+  static void requireNotDisqualified(TeamWrite write) {
+    if (write.team().disqualified()) throw fail(409, "Your team has been disqualified. Contact the organizer.");
+  }
+
   /** A stored record with this key is a replay only if it was created by the very same request. */
   static void requireSameRequest(String storedHash, TeamWrite write) {
     if (!storedHash.equals(write.requestHash())) {
