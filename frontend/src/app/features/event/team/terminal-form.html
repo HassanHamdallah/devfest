@@ -41,14 +41,6 @@
       [ngModel]="draft().pattern"
       (ngModelChange)="set('pattern', $event)"
     />
-    <ui-textarea
-      label="Encrypted message"
-      name="encryptedMessage"
-      [rows]="3"
-      [disabled]="!editable()"
-      [ngModel]="draft().encryptedMessage"
-      (ngModelChange)="set('encryptedMessage', $event)"
-    />
     <ui-input
       label="Final clue"
       name="finalClue"

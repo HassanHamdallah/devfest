@@ -14,7 +14,6 @@ public record TerminalFormView(
   String username,
   String fileSize,
   String pattern,
-  String encryptedMessage,
   String finalClue,
   Instant savedAt,
   Instant submittedAt

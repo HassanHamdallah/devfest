@@ -16,7 +16,7 @@ with the outcome its own total predicts. Results are written to docs/event-load-
 
 Mode "linux": the Linux room in one compressed round. The manager uploads a package of just under 20 MB unpacked and
 sets the answer keys; the admin sends all 16 teams to the room. Every team starts its terminal (files info, the 20 MB
-package download, then a restart whose If-None-Match must answer 304), saves its six-field form five times and
+package download, then a restart whose If-None-Match must answer 304), saves its five-field form five times and
 submits it once; the last two teams only save, so the round's end submits them. The manager keeps the organizer
 dashboard open (a GET every 5 s). Every team must end with exactly one submission, the dashboard total its own
 answers predict and its clue iff its final clue was right; the backend heap is sampled during the downloads. The
@@ -825,8 +825,7 @@ def quiz_run(args, api, config):
 # ---- Linux room mode ----------------------------------------------------------------------------------------
 
 LINUX_UNPACKED_BYTES = 20 * 1024 * 1024 - 1024
-LINUX_KEYS = {"path": "/srv/rami/uploads", "username": "tech9", "fileSize": "1337c", "pattern": "*.bak",
-              "encryptedMessage": "KHOOR ZRUOG"}
+LINUX_KEYS = {"path": "/srv/rami/uploads", "username": "tech9", "fileSize": "1337c", "pattern": "*.bak"}
 LINUX_SAVES = 5
 DASHBOARD_POLL_SECONDS = 5
 # The last teams only save: the round's end submits them (rules 18.7).
@@ -918,14 +917,14 @@ class LinuxTeamClient(Client):
 
     def draw(self):
         right = {"path": "/srv/rami/uploads/", "username": "tech9", "fileSize": "1337C", "pattern": "\"*.bak\"",
-                 "encryptedMessage": "KHOOR  ZRUOG", "finalClue": "west tower"}
+                 "finalClue": "west tower"}
         wrong = {"path": "/tmp", "username": "nobody", "fileSize": "1c", "pattern": "*.x",
-                 "encryptedMessage": "NOPE", "finalClue": "WRONG"}
-        chances = {"path": .7, "username": .7, "fileSize": .7, "pattern": .7, "encryptedMessage": .8, "finalClue": .7}
+                 "finalClue": "WRONG"}
+        chances = {"path": .7, "username": .7, "fileSize": .7, "pattern": .7, "finalClue": .7}
         picked = {k: (right if self.rng.random() < chances[k] else wrong)[k] for k in chances}
         points = sum(3 for k in ("path", "username", "fileSize", "pattern") if picked[k] == right[k])
-        message_ok, clue_ok = picked["encryptedMessage"] == right["encryptedMessage"], picked["finalClue"] == right["finalClue"]
-        self.expected = points + (3 if message_ok and clue_ok else 0)
+        clue_ok = picked["finalClue"] == right["finalClue"]
+        self.expected = points + (3 if clue_ok else 0)
         self.clue_ok = clue_ok
         return picked
 

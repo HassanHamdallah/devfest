@@ -30,7 +30,7 @@ public class TerminalAnswerKeyRepository {
     return db
       .query(
         """
-        SELECT path_keys, username_keys, file_size_keys, pattern_keys, message_key, updated_at
+        SELECT path_keys, username_keys, file_size_keys, pattern_keys, updated_at
         FROM terminal_answer_key WHERE room_id = ?""",
         (rs, row) -> new StoredKeys(map(rs), instant(rs, "updated_at")),
         roomId
@@ -45,8 +45,7 @@ public class TerminalAnswerKeyRepository {
     db.query(
       """
       SELECT r.id, COALESCE(k.path_keys, '') AS path_keys, COALESCE(k.username_keys, '') AS username_keys,
-             COALESCE(k.file_size_keys, '') AS file_size_keys, COALESCE(k.pattern_keys, '') AS pattern_keys,
-             COALESCE(k.message_key, '') AS message_key
+             COALESCE(k.file_size_keys, '') AS file_size_keys, COALESCE(k.pattern_keys, '') AS pattern_keys
       FROM event_room r LEFT JOIN terminal_answer_key k ON k.room_id = r.id
       WHERE r.activity = 'LINUX_TERMINAL' ORDER BY r.position""",
       rs -> {
@@ -59,18 +58,17 @@ public class TerminalAnswerKeyRepository {
   public void save(long roomId, TerminalAnswerKeys keys, long updatedBy, Instant at) {
     db.update(
       """
-      INSERT INTO terminal_answer_key(room_id, path_keys, username_keys, file_size_keys, pattern_keys, message_key,
+      INSERT INTO terminal_answer_key(room_id, path_keys, username_keys, file_size_keys, pattern_keys,
                                       updated_by, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (room_id) DO UPDATE SET path_keys = EXCLUDED.path_keys, username_keys = EXCLUDED.username_keys,
         file_size_keys = EXCLUDED.file_size_keys, pattern_keys = EXCLUDED.pattern_keys,
-        message_key = EXCLUDED.message_key, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at""",
+        updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at""",
       roomId,
       keys.path(),
       keys.username(),
       keys.fileSize(),
       keys.pattern(),
-      keys.encryptedMessage(),
       updatedBy,
       timestamp(at)
     );
@@ -81,8 +79,7 @@ public class TerminalAnswerKeyRepository {
       rs.getString("path_keys"),
       rs.getString("username_keys"),
       rs.getString("file_size_keys"),
-      rs.getString("pattern_keys"),
-      rs.getString("message_key")
+      rs.getString("pattern_keys")
     );
   }
 }

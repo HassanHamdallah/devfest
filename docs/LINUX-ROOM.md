@@ -202,17 +202,18 @@ if your file is dated 2026-03-04 and the clock says 2026-03-14, `find -mtime 10`
 ## 7. The team form
 
 A room with the **Linux terminal activity** (admin: Content page) shows the team a form next to the terminal instead of
-the usual technical-output and clue-answer boxes. Six fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN**,
-**Encrypted message**, **Final clue**.
+the usual technical-output and clue-answer boxes. Five fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN**,
+**Final clue**. There is no separate encrypted message: your target file holds one encrypted clue, and the team types
+its decryption as the Final clue.
 
 - **Save** stores what is on the screen, as often as the team likes; blanks are fine. **Final submit** (the team is asked
   first) locks the form for good. Everything is kept on the server, so a refresh or a terminal restart changes nothing.
 - A team that saved something but did not submit is submitted automatically when the round ends (End round, removed
   time, or the next round). A team that saved nothing, or only blanks, is not.
-- The final answer becomes the room's ordinary submission: its **technical output** is a summary of the six values
+- The final answer becomes the room's ordinary submission: its **technical output** is a summary of the five values
   (you judge it as usual), and the **Final clue** is checked against the clue key you set on the room board (case and
   spacing do not matter, punctuation does). A correct clue gives the team the room's clue; a blank or wrong one does not.
-- Teams see only **Saved** or **Submitted**: never whether an answer is right, a score, or a key. The other five
+- Teams see only **Saved** or **Submitted**: never whether an answer is right, a score, or a key. The other four
   answers are scored on the organizer dashboard (next section), not at submission.
 
 ## 8. The organizer dashboard
@@ -221,18 +222,16 @@ Open it from the room board (**Organizer dashboard**) or from the admin board's 
 open it. It has three parts:
 
 1. **Answer keys.** One box for PATH, USERNAME, FILE_SIZE and PATTERN, **one accepted value per line** (for example
-   both `/srv/rami/uploads` and a second folder), and one value for the encrypted message. Save them any time before
-   the final opens. A key left empty cannot be awarded automatically: the admin board warns, and you can still award
+   both `/srv/rami/uploads` and a second folder). Save them any time before the final opens. A key left empty cannot be awarded automatically: the admin board warns, and you can still award
    that item by hand. The Final clue is checked against the **clue key** you set on the room board, as always.
    - PATH ignores one trailing slash (`/srv/x/` equals `/srv/x`); PATTERN ignores surrounding quotes (`"*.bak"` equals
-     `*.bak`); FILE_SIZE ignores case (`1337C` equals `1337c`); USERNAME is case-sensitive; the message ignores extra
-     spaces and line breaks but not case or punctuation.
+     `*.bak`); FILE_SIZE ignores case (`1337C` equals `1337c`); USERNAME is case-sensitive.
 2. **Teams, out of 15.** Every active team, in every round, with its status (Not started, Saved, Submitted), what it
    wrote with a tick or cross for each of the five items, its total and when it submitted. The table is sorted by total
-   and refreshes every 5 seconds. Each item is worth 3 points; the fifth item (**Message + clue**) is worth 3 points only
-   when both are right. Scores are computed from the keys every time, so fixing a key or the clue key fixes the table.
+   and refreshes every 5 seconds. Each item is worth 3 points; the fifth item (**Clue**) is worth 3 points when the
+   final clue is right (checked against the clue key, as for collecting the clue). Scores are computed from the keys every time, so fixing a key or the clue key fixes the table.
 3. **Overrides.** Under each item choose **Award** or **Deny** to decide it yourself (it is marked *Overridden* and the
-   change is audited); choose **Automatic** to clear it. Overriding Message + clue changes the points only: it never
+   change is audited); choose **Automatic** to clear it. Overriding Clue changes the points only: it never
    gives a team the room's clue or takes it away (that stays with the clue check and your ordinary Accept/Reject on the
    submission). The 15 points are for this room; the event's ranking does not use them.
 
@@ -251,6 +250,9 @@ find /srv /home /var -type f -size 1337c            # FILE_SIZE -> several files
 find /srv /home /var -type f -name "*.bak"          # PATTERN   -> several files
 find /srv/rami/uploads -user tech9 -size 1337c -name "*.bak"   # exactly one file
 ```
+
+The target file holds one encrypted clue (in the fixture `Encrypted clue: ZHVW WRZHU`, a shift by three of the clue key
+`WEST TOWER`); the team decrypts it and enters the result as the **Final clue**. There is no separate message field.
 
 Keep the decoys believable (same names, sizes and owners as the target in every way except one), and re-read the
 whole listing with `ls -lnR` once through **Test terminal** before the event.

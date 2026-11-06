@@ -19,7 +19,6 @@ import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiInput } from "../../../shared/ui/ui-input/ui-input";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
-import { UiTextarea } from "../../../shared/ui/ui-textarea/ui-textarea";
 
 type Field = keyof TerminalFormRequest;
 type Action = "save" | "submit";
@@ -29,7 +28,6 @@ const EMPTY: TerminalFormRequest = {
   username: "",
   fileSize: "",
   pattern: "",
-  encryptedMessage: "",
   finalClue: "",
 };
 const FIELDS = Object.keys(EMPTY) as Field[];
@@ -49,7 +47,7 @@ interface Unconfirmed {
  */
 @Component({
   selector: "event-terminal-form",
-  imports: [FormsModule, UiAlert, UiButton, UiCard, UiConfirmDialog, UiInput, UiStatusChip, UiTextarea],
+  imports: [FormsModule, UiAlert, UiButton, UiCard, UiConfirmDialog, UiInput, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./terminal-form.css",
   templateUrl: "./terminal-form.html",
@@ -166,7 +164,6 @@ function valuesOf(view: TerminalFormView): TerminalFormRequest {
     username: view.username,
     fileSize: view.fileSize,
     pattern: view.pattern,
-    encryptedMessage: view.encryptedMessage,
     finalClue: view.finalClue,
   };
 }

@@ -32,7 +32,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
   private static final String DIFFERENT_REQUEST = "This Idempotency-Key was already used for a different request.";
   /** The only properties a team's form response may have: no outcome, score or key can hide among them. */
   private static final List<String> FORM_PROPERTIES = List.of(
-    "roomId", "status", "path", "username", "fileSize", "pattern", "encryptedMessage", "finalClue", "savedAt", "submittedAt"
+    "roomId", "status", "path", "username", "fileSize", "pattern", "finalClue", "savedAt", "submittedAt"
   );
 
   private TestTeam alpha;
@@ -62,16 +62,16 @@ class EventTerminalFormTest extends EventIntegrationTest {
     assertEquals("EMPTY", empty.json("$.status"));
     assertEquals("", empty.json("$.path"));
 
-    Response blank = expectOk(save(charlie, UUID.randomUUID(), form("", "", "", "", "", "")));
+    Response blank = expectOk(save(charlie, UUID.randomUUID(), form("", "", "", "", "")));
     assertEquals("SAVED", blank.json("$.status"));
 
     long before = revision();
-    Response saved = expectOk(save(charlie, UUID.randomUUID(), form("/srv/rami/uploads", "tech9", "1337c", "*.bak", "KHOOR", "")));
+    Response saved = expectOk(save(charlie, UUID.randomUUID(), form("/srv/rami/uploads", "tech9", "1337c", "*.bak", "")));
     assertEquals("SAVED", saved.json("$.status"));
     assertEquals("tech9", saved.json("$.username"));
     assertNotNull(saved.json("$.savedAt"));
     assertNull(saved.<Object>json("$.submittedAt"));
-    expectOk(save(charlie, UUID.randomUUID(), form("/srv/rami/uploads", "tech9", "1337c", "*.bak", "KHOOR", "WEST TOWER")));
+    expectOk(save(charlie, UUID.randomUUID(), form("/srv/rami/uploads", "tech9", "1337c", "*.bak", "WEST TOWER")));
     assertEquals(before, revision(), "Save never bumps the event revision");
 
     // A refresh (a new GET) and a terminal restart read the same state from the server.
@@ -85,14 +85,14 @@ class EventTerminalFormTest extends EventIntegrationTest {
   void aRetryWithTheSameKeyIsAnsweredAgainAndAStaleRetryNeverOverwritesANewerSave() {
     startLinuxRound();
     UUID first = UUID.randomUUID();
-    String firstBody = form("a", "", "", "", "", "");
+    String firstBody = form("a", "", "", "", "");
     expectOk(save(charlie, first, firstBody));
-    expectOk(save(charlie, UUID.randomUUID(), form("newer", "", "", "", "", "")));
+    expectOk(save(charlie, UUID.randomUUID(), form("newer", "", "", "", "")));
 
     Response retry = expectOk(save(charlie, first, firstBody));
     assertEquals("newer", retry.json("$.path"), "the old key's retry is answered with the current state, not applied again");
     assertEquals(2, (int) db.queryForObject("SELECT count(*) FROM terminal_form_request", Integer.class));
-    expectError(save(charlie, first, form("other", "", "", "", "", "")), 409, DIFFERENT_REQUEST);
+    expectError(save(charlie, first, form("other", "", "", "", "")), 409, DIFFERENT_REQUEST);
     expectError(submit(charlie, first, firstBody), 409, DIFFERENT_REQUEST);
     assertEquals("newer", expectOk(view(charlie)).json("$.path"));
   }
@@ -100,9 +100,9 @@ class EventTerminalFormTest extends EventIntegrationTest {
   @Test
   void valuesAreLimitedToFiveHundredBytesAndMustBeText() {
     startLinuxRound();
-    expectOk(save(charlie, UUID.randomUUID(), form("é".repeat(250), "", "", "", "", "")));
-    expectError(save(charlie, UUID.randomUUID(), form("é".repeat(250) + "x", "", "", "", "", "")), 400, "PATH is too long (max 500 bytes).");
-    expectError(save(charlie, UUID.randomUUID(), form("", "", "", "", "", "a\\u0000b")), 400, "Final clue must be text.");
+    expectOk(save(charlie, UUID.randomUUID(), form("é".repeat(250), "", "", "", "")));
+    expectError(save(charlie, UUID.randomUUID(), form("é".repeat(250) + "x", "", "", "", "")), 400, "PATH is too long (max 500 bytes).");
+    expectError(save(charlie, UUID.randomUUID(), form("", "", "", "", "a\\u0000b")), 400, "Final clue must be text.");
     assertEquals(400, teamPost(charlie, formPath(linux) + "/save", UUID.randomUUID(), "{\"path\":\"x\"}").status());
   }
 
@@ -113,33 +113,33 @@ class EventTerminalFormTest extends EventIntegrationTest {
     expectNotFound(view(charlie), "round 0");
     assignRound(1);
     assertEquals("EMPTY", expectOk(view(charlie)).json("$.status"), "the form is visible while the round is assigned");
-    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), 409, "The timer has not started yet.");
+    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")), 409, "The timer has not started yet.");
     startTimer();
-    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), 409, "This room is closed.");
+    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")), 409, "This room is closed.");
     openRoom(RoomCode.LINUX);
 
     expectOk(post("/admin/round/timer/pause", admin, null));
-    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), 409, "The round is paused.");
-    expectError(submit(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), 409, "The round is paused.");
+    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")), 409, "The round is paused.");
+    expectError(submit(charlie, UUID.randomUUID(), form("x", "", "", "", "")), 409, "The round is paused.");
     expectOk(post("/admin/round/timer/resume", admin, null));
-    expectOk(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")));
+    expectOk(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")));
 
     expectOk(post("/admin/round/timer/end", admin, null));
-    expectError(save(charlie, UUID.randomUUID(), form("late", "", "", "", "", "")), 409, "Time is up for this round.");
+    expectError(save(charlie, UUID.randomUUID(), form("late", "", "", "", "")), 409, "Time is up for this round.");
     assertEquals("SUBMITTED", expectOk(view(charlie)).json("$.status"), "a form with something saved is submitted at Time's up");
     assertEquals("x", expectOk(view(charlie)).json("$.path"));
 
     assignRound(2);
     expectNotFound(view(charlie), "a later round in another room");
-    expectNotFound(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), "a later round in another room");
+    expectNotFound(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")), "a later round in another room");
   }
 
   @Test
   void onlyTheAssignedTeamReachesTheFormAndEveryoneElseGetsA404OrAnAccessError() {
     startLinuxRound();
     expectNotFound(view(alpha), "another group");
-    expectNotFound(save(alpha, UUID.randomUUID(), form("x", "", "", "", "", "")), "another group");
-    expectNotFound(submit(alpha, UUID.randomUUID(), form("x", "", "", "", "", "")), "another group");
+    expectNotFound(save(alpha, UUID.randomUUID(), form("x", "", "", "", "")), "another group");
+    expectNotFound(submit(alpha, UUID.randomUUID(), form("x", "", "", "", "")), "another group");
     // Not the activity room: the AI room has no form.
     assertEquals(404, get(formPath(rooms.get(RoomCode.AI)), charlie.token()).status());
     assertEquals(404, get(formPath(Long.MAX_VALUE - 1), charlie.token()).status());
@@ -150,13 +150,13 @@ class EventTerminalFormTest extends EventIntegrationTest {
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM terminal_form", Integer.class));
 
     expectOk(post("/admin/teams/" + charlie.id() + "/disqualify", admin, "{" + REASON + "}"));
-    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "", "")), 409, "Your team has been disqualified. Contact the organizer.");
+    expectError(save(charlie, UUID.randomUUID(), form("x", "", "", "", "")), 409, "Your team has been disqualified. Contact the organizer.");
     expectOk(post("/admin/teams/" + charlie.id() + "/reinstate", admin, "{" + REASON + "}"));
 
     expectOk(put("/admin/overrides/room-exception", admin, "{\"teamId\":%d,\"roomId\":%d,%s}".formatted(charlie.id(), rooms.get(RoomCode.AI), REASON)));
     expectNotFound(view(charlie), "moved out of the room by an exception");
     expectOk(put("/admin/overrides/room-exception", admin, "{\"teamId\":%d,\"roomId\":%d,%s}".formatted(alpha.id(), linux, REASON)));
-    expectOk(save(alpha, UUID.randomUUID(), form("moved in", "", "", "", "", "")));
+    expectOk(save(alpha, UUID.randomUUID(), form("moved in", "", "", "", "")));
   }
 
   @Test
@@ -174,10 +174,10 @@ class EventTerminalFormTest extends EventIntegrationTest {
   @Test
   void aCorrectFinalSubmitRecordsOneSubmissionCollectsTheClueAndLocksTheForm() {
     startLinuxRound();
-    expectOk(save(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "KHOOR", "")));
+    expectOk(save(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "")));
     long before = revision();
     UUID key = UUID.randomUUID();
-    String body = form("/srv/rami/uploads", "tech9", "1337c", "*.bak", "KHOOR ZRUOG", " " + CLUE.toLowerCase() + " ");
+    String body = form("/srv/rami/uploads", "tech9", "1337c", "*.bak", " " + CLUE.toLowerCase() + " ");
     Response submitted = expectOk(submit(charlie, key, body));
     assertEquals("SUBMITTED", submitted.json("$.status"));
     assertEquals("*.bak", submitted.json("$.pattern"), "the submit carries the screen's current values");
@@ -186,7 +186,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
 
     Map<String, Object> row = db.queryForMap("SELECT technical_output, clue_answer, clue_correct, round FROM room_submission");
     assertEquals(
-      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nPATTERN: *.bak\nEncrypted message: KHOOR ZRUOG\nFinal clue:  " + CLUE.toLowerCase() + " ",
+      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nPATTERN: *.bak\nFinal clue:  " + CLUE.toLowerCase() + " ",
       row.get("technical_output")
     );
     assertEquals(true, row.get("clue_correct"));
@@ -213,7 +213,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
   @Test
   void aBlankOrWrongClueIsRecordedButCollectsNoClue() {
     startLinuxRound();
-    expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "KHOOR", "")));
+    expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "")));
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM collected_clue", Integer.class));
     assertEquals(false, db.queryForObject("SELECT clue_correct FROM room_submission", Boolean.class));
     assertEquals(1, (int) db.queryForObject("SELECT count(*) FROM room_submission", Integer.class));
@@ -221,14 +221,14 @@ class EventTerminalFormTest extends EventIntegrationTest {
 
     TestTeam bravo = team("Bravo", GroupCode.B);
     setRound(2);
-    expectOk(submit(bravo, UUID.randomUUID(), form("", "", "", "", "", "NOT THE CLUE")));
+    expectOk(submit(bravo, UUID.randomUUID(), form("", "", "", "", "NOT THE CLUE")));
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM collected_clue WHERE team_id = ?", Integer.class, bravo.id()));
   }
 
   @Test
   void aNewClueKeyRechecksAFormAnswerLikeAnyOtherSubmission() {
     startLinuxRound();
-    expectOk(submit(charlie, UUID.randomUUID(), form("", "", "", "", "", "NEW KEY")));
+    expectOk(submit(charlie, UUID.randomUUID(), form("", "", "", "", "NEW KEY")));
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM collected_clue", Integer.class));
     expectOk(setClueKey(RoomCode.LINUX, "NEW KEY"));
     assertEquals(1, (int) db.queryForObject("SELECT count(*) FROM collected_clue WHERE team_id = ?", Integer.class, charlie.id()));
@@ -245,11 +245,11 @@ class EventTerminalFormTest extends EventIntegrationTest {
     TestTeam submitted = team("Done", GroupCode.C);
     team("Elsewhere", GroupCode.D);
     startLinuxRound();
-    expectOk(save(saved, UUID.randomUUID(), form("/p", "u", "1", "n", "m", CLUE)));
-    expectOk(save(blank, UUID.randomUUID(), form("", " ", "", "", "", "")));
-    expectOk(save(disqualified, UUID.randomUUID(), form("x", "", "", "", "", CLUE)));
+    expectOk(save(saved, UUID.randomUUID(), form("/p", "u", "1", "n", CLUE)));
+    expectOk(save(blank, UUID.randomUUID(), form("", " ", "", "", "")));
+    expectOk(save(disqualified, UUID.randomUUID(), form("x", "", "", "", CLUE)));
     expectOk(post("/admin/teams/" + disqualified.id() + "/disqualify", admin, "{" + REASON + "}"));
-    expectOk(submit(submitted, UUID.randomUUID(), form("done", "", "", "", "", "wrong")));
+    expectOk(submit(submitted, UUID.randomUUID(), form("done", "", "", "", "wrong")));
     long before = revision();
 
     expectOk(post("/admin/round/timer/end", admin, null));
@@ -277,7 +277,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
   @Test
   void movingToTheNextRoundSubmitsTheFormsOfTheRoundThatEnds() {
     startLinuxRound();
-    expectOk(save(charlie, UUID.randomUUID(), form("/p", "", "", "", "", CLUE)));
+    expectOk(save(charlie, UUID.randomUUID(), form("/p", "", "", "", CLUE)));
     assignRound(2);
     assertEquals(1, (int) db.queryForObject("SELECT count(*) FROM room_submission WHERE round = 1", Integer.class));
     assertEquals(1, (int) db.queryForObject("SELECT count(*) FROM collected_clue WHERE team_id = ?", Integer.class, charlie.id()));
@@ -295,7 +295,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
       int round = roundFor(racer.group(), RoomCode.LINUX);
       setRound(round);
       openRoom(RoomCode.LINUX);
-      String body = form("/p", "u", "1", "n", "m", CLUE);
+      String body = form("/p", "u", "1", "n", CLUE);
       expectOk(save(racer, UUID.randomUUID(), body));
 
       CountDownLatch start = new CountDownLatch(1);
@@ -325,7 +325,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
   void theSameFinalSubmitSentTwiceAtOnceIsOneSubmission() throws Exception {
     startLinuxRound();
     UUID key = UUID.randomUUID();
-    String body = form("/p", "u", "1", "n", "m", CLUE);
+    String body = form("/p", "u", "1", "n", CLUE);
     CountDownLatch start = new CountDownLatch(1);
     ExecutorService pool = Executors.newFixedThreadPool(2);
     Callable<Response> send = () -> {
@@ -349,12 +349,12 @@ class EventTerminalFormTest extends EventIntegrationTest {
     startLinuxRound();
     List<String> bodies = new ArrayList<>();
     bodies.add(expectOk(view(charlie)).body());
-    bodies.add(expectOk(save(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "KHOOR", "guess"))).body());
+    bodies.add(expectOk(save(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "guess"))).body());
     bodies.add(expectOk(view(charlie)).body());
     for (String body : bodies) {
       assertEquals(FORM_PROPERTIES.stream().sorted().toList(), propertiesOf(body).stream().sorted().toList(), body);
     }
-    bodies.add(expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "KHOOR", "guess"))).body());
+    bodies.add(expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "tech9", "1c", "*.x", "guess"))).body());
     bodies.add(expectOk(view(charlie)).body());
     bodies.add(expectOk(get("/team/board", charlie.token())).body());
     bodies.add(expectOk(get("/team/submissions", charlie.token())).body());
@@ -377,8 +377,8 @@ class EventTerminalFormTest extends EventIntegrationTest {
   @Test
   void resettingATeamAndTheEventDeleteTheFormsAfterASnapshotThatIncludesThem() {
     startLinuxRound();
-    expectOk(save(charlie, UUID.randomUUID(), form("/srv", "", "", "", "", "")));
-    expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "", "", "", "", CLUE)));
+    expectOk(save(charlie, UUID.randomUUID(), form("/srv", "", "", "", "")));
+    expectOk(submit(charlie, UUID.randomUUID(), form("/srv", "", "", "", CLUE)));
 
     Response reset = expectOk(post("/admin/reset/team/" + charlie.id(), admin, "{" + REASON + "}"));
     long snapshot = ((Number) reset.json("$.snapshotId")).longValue();
@@ -393,7 +393,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
     String email = db.queryForObject("SELECT email FROM app_user WHERE id = ?", String.class, charlie.accountId());
     charlie = new TestTeam(charlie.id(), charlie.name(), charlie.group(), charlie.accountId(), login(email));
     assertEquals("EMPTY", expectOk(view(charlie)).json("$.status"));
-    expectOk(save(charlie, UUID.randomUUID(), form("again", "", "", "", "", "")));
+    expectOk(save(charlie, UUID.randomUUID(), form("again", "", "", "", "")));
     String body = "{\"confirmText\":\"RESET\",\"password\":\"%s\",%s}".formatted(PASSWORD, REASON);
     Response event = expectOk(post("/admin/reset/event", admin, body));
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM terminal_form", Integer.class));
@@ -419,9 +419,9 @@ class EventTerminalFormTest extends EventIntegrationTest {
     return teamPost(team, formPath(linux) + "/submit", key, body);
   }
 
-  private static String form(String path, String username, String fileSize, String pattern, String message, String clue) {
-    return "{\"path\":%s,\"username\":%s,\"fileSize\":%s,\"pattern\":%s,\"encryptedMessage\":%s,\"finalClue\":%s}".formatted(
-      quote(path), quote(username), quote(fileSize), quote(pattern), quote(message), quote(clue)
+  private static String form(String path, String username, String fileSize, String pattern, String clue) {
+    return "{\"path\":%s,\"username\":%s,\"fileSize\":%s,\"pattern\":%s,\"finalClue\":%s}".formatted(
+      quote(path), quote(username), quote(fileSize), quote(pattern), quote(clue)
     ).replace("\\\\u0000", "\\u0000");
   }
 

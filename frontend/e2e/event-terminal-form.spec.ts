@@ -23,7 +23,7 @@ const PUSHED = { timeout: 8000 };
 const TEAM_ONE = 8;
 const TEAM_TWO = 9;
 const ALLOWED_PROPERTIES = [
-  "encryptedMessage", "fileSize", "finalClue", "path", "pattern", "roomId", "savedAt", "status", "submittedAt", "username",
+  "fileSize", "finalClue", "path", "pattern", "roomId", "savedAt", "status", "submittedAt", "username",
 ];
 
 test.beforeAll(() => {
@@ -67,10 +67,10 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       if (response.url().includes("/terminal-form")) formResponses.push(await response.json().catch(() => null));
     });
 
-    await test.step("the room shows the six-field form instead of the plain answer form", async () => {
+    await test.step("the room shows the five-field form instead of the plain answer form", async () => {
       await expect(page.getByRole("heading", { name: "Your answers", exact: true })).toBeVisible();
       await expect(chip(page)).toHaveText("Not saved yet");
-      for (const label of ["PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Encrypted message", "Final clue"]) {
+      for (const label of ["PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Final clue"]) {
         await expect(field(page, label)).toBeVisible();
       }
       await expect(page.getByRole("textbox", { name: "Technical output", exact: true })).toHaveCount(0);
@@ -83,10 +83,9 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       await expect(terminal(page)).toContainText("Rami's server is mounted.");
       await expectFindChallenge(page, fixture);
       await terminal(page).locator(".xterm").click();
-      await page.keyboard.type(`head -n 2 /${fixture.target.file}`);
+      await page.keyboard.type(`head -n 1 /${fixture.target.file}`);
       await page.keyboard.press("Enter");
-      await expect(terminal(page)).toContainText(fixture.message.slice(0, 40));
-      await expect(terminal(page)).toContainText(`Final clue: ${fixture.clue}`);
+      await expect(terminal(page)).toContainText(fixture.encryptedClue);
     });
 
     await test.step("there is no 'use selection' button, only a copy button", async () => {
@@ -99,7 +98,6 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       USERNAME: fixture.target.user,
       FILE_SIZE: fixture.target.size,
       PATTERN: fixture.target.pattern,
-      "Encrypted message": fixture.message.replace("Encrypted message: ", ""),
       "Final clue": PRACTICE_KEYS.LINUX.toLowerCase(),
     };
 
@@ -110,9 +108,9 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       await expect(chip(page)).toHaveText("Saved");
       await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(0);
       // A second save with a blank field is fine and repeatable.
-      await field(page, "Encrypted message").fill("");
+      await field(page, "USERNAME").fill("");
       await page.getByRole("button", { name: "Save", exact: true }).click();
-      await field(page, "Encrypted message").fill(answers["Encrypted message"]);
+      await field(page, "USERNAME").fill(answers.USERNAME);
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(0);
 

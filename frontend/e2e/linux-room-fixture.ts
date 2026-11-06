@@ -80,7 +80,8 @@ export interface LinuxRoomFixture {
   fileCount: number;
   /** The four search parameters; together they match exactly one file, each alone matches many. */
   target: { path: string; user: string; size: string; pattern: string; file: string };
-  message: string;
+  /** The one encrypted clue the target file holds (its decryption is `clue`, the room's clue key). */
+  encryptedClue: string;
   clue: string;
   binary: { path: string; size: number };
   owners: string[];
@@ -116,7 +117,7 @@ export function buildLinuxRoomFixture(): LinuxRoomFixture {
     pattern: "*.bak",
     file: "srv/rami/uploads/handover-0427.bak",
   };
-  const message = "Encrypted message: KHOOR ZRUOG, WKH ZHVW WRZHU";
+  const encryptedClue = "Encrypted clue: ZHVW WRZHU";
   const clue = "WEST TOWER";
   const entries = new Map<string, { data: Buffer; owner: string }>();
   const filler = (size: number, label: string) => {
@@ -124,7 +125,7 @@ export function buildLinuxRoomFixture(): LinuxRoomFixture {
     return Buffer.from(line.repeat(Math.ceil(size / line.length)).slice(0, size));
   };
 
-  const body = `${message}\nFinal clue: ${clue}\n`;
+  const body = `${encryptedClue}\n`;
   entries.set(target.file, {
     data: Buffer.concat([Buffer.from(body), filler(1337 - body.length, "target")]),
     owner: target.user,
@@ -163,7 +164,7 @@ export function buildLinuxRoomFixture(): LinuxRoomFixture {
     zip: buildZip(files),
     fileCount: entries.size + 1,
     target,
-    message,
+    encryptedClue,
     clue,
     binary,
     owners: ["guard2", "rami", "tech9"],
@@ -295,9 +296,8 @@ export function buildServerFixture(): ServerFixture {
     return Buffer.from(line.repeat(Math.ceil(size / line.length)).slice(0, size));
   };
 
-  const message = "Encrypted message: KHOOR ZRUOG, WKH ZHVW WRZHU";
-  const clue = "WEST TOWER";
-  const body = `${message}\nFinal clue: ${clue}\n`;
+  const encryptedClue = "Encrypted clue: ZHVW WRZHU";
+  const body = `${encryptedClue}\n`;
   put(target.file, Buffer.concat([Buffer.from(body), text(1337 - body.length, "target")]), "tech9", "tech9", "0644", "2025-12-24T18:00:00Z");
 
   const sampleText = Buffer.from("Server notes: the quick brown fox jumps over the lazy dog.\nSecond line of plain text.\n");

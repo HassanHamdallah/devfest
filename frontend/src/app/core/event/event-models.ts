@@ -641,7 +641,6 @@ export interface TerminalFormRequest {
   username: string;
   fileSize: string;
   pattern: string;
-  encryptedMessage: string;
   finalClue: string;
 }
 
@@ -657,7 +656,7 @@ export interface TerminalFormView extends TerminalFormRequest {
 
 // ---- Linux room organizer dashboard (rules §18.8) ----
 
-export type TerminalScoreItem = "PATH" | "USERNAME" | "FILE_SIZE" | "PATTERN" | "MESSAGE_CLUE";
+export type TerminalScoreItem = "PATH" | "USERNAME" | "FILE_SIZE" | "PATTERN" | "CLUE";
 export type TerminalDashboardStatus = "NOT_STARTED" | "SAVED" | "SUBMITTED";
 
 export interface TerminalItemScore {
@@ -681,9 +680,7 @@ export interface TerminalDashboardTeam {
   username: string;
   fileSize: string;
   pattern: string;
-  encryptedMessage: string;
   finalClue: string;
-  messageCorrect: boolean;
   clueCorrect: boolean;
   items: TerminalItemScore[];
   total: number;
@@ -692,13 +689,12 @@ export interface TerminalDashboardTeam {
   cause: "SUBMIT" | "TIME_UP" | null;
 }
 
-/** The answer keys: the first four hold one value per line. */
+/** The answer keys: each holds one value per line. */
 export interface TerminalAnswerKeys {
   path: string;
   username: string;
   fileSize: string;
   pattern: string;
-  encryptedMessage: string;
 }
 
 /** GET /rooms/{id}/terminal-dashboard: for the room's manager and the ADMIN only (it carries the keys). */

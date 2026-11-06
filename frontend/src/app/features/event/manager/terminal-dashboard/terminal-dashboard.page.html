@@ -28,8 +28,8 @@
     <h2 ui-card-header>Answer keys</h2>
     <p class="event-muted dashboard__intro">
       Each parameter accepts several values, one per line. PATH ignores one trailing slash, PATTERN ignores surrounding
-      quotes, FILE_SIZE ignores case, USERNAME is case-sensitive, and the encrypted message ignores extra spaces. The
-      final clue is checked against the room's clue key. A parameter without a key cannot be awarded automatically.
+      quotes, FILE_SIZE ignores case, USERNAME is case-sensitive. The final clue is checked against the room's clue key,
+      like any clue answer. A parameter without a key cannot be awarded automatically.
     </p>
     @if (view.emptyKeys.length) {
     <ui-alert variant="warning" data-empty-keys>
@@ -73,13 +73,6 @@
         [ngModel]="draft.pattern"
         (ngModelChange)="setKey('pattern', $event)"
       />
-      <ui-input
-        label="Encrypted message"
-        name="keyMessage"
-        [disabled]="!view.keysEditable"
-        [ngModel]="draft.encryptedMessage"
-        (ngModelChange)="setKey('encryptedMessage', $event)"
-      />
       <div class="event-inline dashboard__keys-actions">
         <ui-button type="submit" [disabled]="!view.keysEditable || !keysDirty()" [loading]="keysBusy()">Save answer keys</ui-button>
         @if (keysDirty()) {
@@ -99,7 +92,7 @@
     <p class="event-muted">There are no active teams.</p>
     } @else {
     <p class="event-muted dashboard__intro">
-      {{ view.pointsPerItem }} points per item; the last item needs both the message and the clue. Choose Award or Deny
+      {{ view.pointsPerItem }} points per item; the last item (Clue) is awarded when the final clue is correct. Choose Award or Deny
       to override an item; Automatic follows the keys. Overriding never grants or removes the room's clue.
     </p>
     <div class="dashboard__scroll" tabindex="0" role="region" aria-label="Team scores">
@@ -114,7 +107,7 @@
             <th scope="col">USERNAME</th>
             <th scope="col">FILE_SIZE</th>
             <th scope="col">PATTERN</th>
-            <th scope="col">Message + clue</th>
+            <th scope="col">Clue</th>
           </tr>
         </thead>
         <tbody>

@@ -29,7 +29,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
   private static final String CLUE = CLUE_KEYS.get(RoomCode.LINUX);
   private static final String REASON = "\"reason\":\"Dashboard test\"";
   private static final String NOT_FOUND = "Dashboard not found.";
-  private static final String KEYS = "{\"path\":\"/srv/rami/uploads\\n/var/uploads\",\"username\":\"tech9\",\"fileSize\":\"1337c\",\"pattern\":\"*.bak\",\"encryptedMessage\":\"KHOOR ZRUOG\"}";
+  private static final String KEYS = "{\"path\":\"/srv/rami/uploads\\n/var/uploads\",\"username\":\"tech9\",\"fileSize\":\"1337c\",\"pattern\":\"*.bak\"}";
 
   @MockitoSpyBean
   private JdbcTemplate spiedJdbc;
@@ -81,12 +81,12 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
   @Test
   void theKeysAreSavedReturnedAndWarnedAboutWhileEmptyAndNeverAuditedAsContent() {
     Response empty = expectOk(get("/rooms/" + linux + "/terminal-dashboard", manager));
-    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Encrypted message"), empty.json("$.emptyKeys"));
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN"), empty.json("$.emptyKeys"));
     assertEquals(15, (int) empty.json("$.maxPoints"));
     assertEquals(3, (int) empty.json("$.pointsPerItem"));
     List<String> warnings = expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_KEYS_MISSING')].message");
     assertEquals(1, warnings.size());
-    assertTrue(warnings.get(0).startsWith("Room Linux has no answer key for PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted message"), warnings.get(0));
+    assertTrue(warnings.get(0).startsWith("Room Linux has no answer key for PATH, USERNAME, FILE_SIZE, PATTERN"), warnings.get(0));
     assertEquals(List.of("/event/room/" + linux + "/dashboard"), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_KEYS_MISSING')].link"));
 
     long before = revision();
@@ -96,22 +96,21 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     assertEquals(List.of(), saved.json("$.emptyKeys"));
     assertEquals(List.of(), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_KEYS_MISSING')]"));
 
-    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", admin, keysJson("", "tech9", "", "", "")));
+    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", admin, keysJson("", "tech9", "", "")));
     assertEquals(
-      List.of("PATH", "FILE_SIZE", "PATTERN", "Encrypted message"),
+      List.of("PATH", "FILE_SIZE", "PATTERN"),
       expectOk(get("/rooms/" + linux + "/terminal-dashboard", manager)).json("$.emptyKeys"),
       "an empty key is allowed and warned about"
     );
     String audits = db.queryForList("SELECT action || ' ' || target || ' ' || COALESCE(reason, '') FROM audit_event WHERE action = 'EVENT_TERMINAL_KEYS_SAVED'", String.class).toString();
     assertTrue(audits.contains("EVENT_TERMINAL_KEYS_SAVED room:" + linux));
-    assertFalse(audits.contains("KHOOR") || audits.contains("tech9") || audits.contains("rami"), "answers never reach the audit log");
+    assertFalse(audits.contains("tech9") || audits.contains("rami"), "answers never reach the audit log");
   }
 
   @Test
   void keysAreValidatedAndFollowTheContentLockWhileOverridesDoNot() {
     String keys = "/rooms/" + linux + "/terminal-dashboard/keys";
-    expectError(put(keys, manager, keysJson("a\n".repeat(21), "", "", "", "")), 400, "PATH accepts at most 20 values.");
-    expectError(put(keys, manager, keysJson("", "", "", "", "one\\ntwo")), 400, "Encrypted message has one value.");
+    expectError(put(keys, manager, keysJson("a\n".repeat(21), "", "", "")), 400, "PATH accepts at most 20 values.");
     assertEquals(400, put(keys, manager, "{\"path\":\"x\"}").status());
     expectOk(put(keys, manager, KEYS));
     TestTeam alpha = team("Alpha", GroupCode.A);
@@ -131,11 +130,11 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     Scenario s = new Scenario(team("Charlie", GroupCode.C), team("Bravo", GroupCode.B), team("Alpha", GroupCode.A), team("Delta", GroupCode.D));
     setRound(1);
     openRoom(RoomCode.LINUX);
-    expectOk(teamPost(s.charlie(), formPath() + "/submit", UUID.randomUUID(), form("/srv/rami/uploads/", "tech9", "1337C", "\"*.bak\"", "KHOOR  ZRUOG", " " + CLUE.toLowerCase())));
+    expectOk(teamPost(s.charlie(), formPath() + "/submit", UUID.randomUUID(), form("/srv/rami/uploads/", "tech9", "1337C", "\"*.bak\"", " " + CLUE.toLowerCase())));
     setRound(2);
-    expectOk(teamPost(s.bravo(), formPath() + "/submit", UUID.randomUUID(), form("/var/uploads", "nobody", "1337c", "*.log", "KHOOR ZRUOG", "wrong")));
+    expectOk(teamPost(s.bravo(), formPath() + "/submit", UUID.randomUUID(), form("/var/uploads", "nobody", "1337c", "*.log", "wrong")));
     setRound(3);
-    expectOk(teamPost(s.alpha(), formPath() + "/save", UUID.randomUUID(), form("/srv/rami/uploads", "", "", "", "", "")));
+    expectOk(teamPost(s.alpha(), formPath() + "/save", UUID.randomUUID(), form("/srv/rami/uploads", "", "", "", "")));
     return s;
   }
 
@@ -148,11 +147,12 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     assertEquals(List.of("SUBMITTED", "SUBMITTED", "SAVED", "NOT_STARTED"), view.json("$.teams[*].status"));
     assertEquals(java.util.Arrays.asList("SUBMIT", "SUBMIT", null, null), view.json("$.teams[*].cause"));
     assertEquals(List.of(true, true, true, true, true), view.json("$.teams[0].items[*].awarded"));
-    assertEquals(List.of(true, false, true, false, false), view.json("$.teams[1].items[*].awarded"), "path and size right, user and pattern wrong, message right but clue wrong");
-    assertEquals(true, view.json("$.teams[1].messageCorrect"));
+    assertEquals(List.of(true, false, true, false, false), view.json("$.teams[1].items[*].awarded"), "path and size right, user, pattern and clue wrong");
     assertEquals(false, view.json("$.teams[1].clueCorrect"));
     assertEquals("/var/uploads", view.json("$.teams[1].path"), "the submitted values are shown");
-    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "MESSAGE_CLUE"), view.json("$.teams[0].items[*].item"));
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "CLUE"), view.json("$.teams[0].items[*].item"));
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Clue"), view.json("$.teams[0].items[*].label"));
+    assertFalse(view.body().contains("messageCorrect") || view.body().contains("encryptedMessage"), "the dashboard has no message field");
     assertNull(view.<Object>json("$.teams[3].submittedAt"));
     assertEquals(4, ((List<?>) view.json("$.teams[*]")).size());
   }
@@ -162,7 +162,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     Scenario s = scenario();
     assertEquals(6, total(s.bravo()));
     // The organizer now accepts the other pattern too, and the manager fixes the clue key.
-    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", manager, keysJson("/srv/rami/uploads\\n/var/uploads", "tech9\\nnobody", "1337c", "*.bak\\n*.log", "KHOOR ZRUOG")));
+    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", manager, keysJson("/srv/rami/uploads\\n/var/uploads", "tech9\\nnobody", "1337c", "*.bak\\n*.log")));
     assertEquals(12, total(s.bravo()), "username and pattern now count");
     expectOk(setClueKey(RoomCode.LINUX, "WRONG"));
     assertEquals(15, total(s.bravo()), "and the clue follows the current clue key");
@@ -171,6 +171,25 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
       0,
       (int) db.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('terminal_form', 'terminal_form_override', 'terminal_answer_key') AND (column_name LIKE '%total%' OR column_name LIKE '%score%')", Integer.class),
       "no total or score column exists"
+    );
+  }
+
+  @Test
+  void thereIsNoSeparateEncryptedMessageAnywhereInTheLinuxFormTablesWhileTheFinalKeepsItsOwn() {
+    assertEquals(
+      0,
+      (int) db.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('terminal_form', 'terminal_answer_key', 'terminal_form_override') AND column_name LIKE '%message%'", Integer.class),
+      "V17 dropped the message answer and the message key"
+    );
+    assertEquals(
+      1,
+      (int) db.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name = 'event_content' AND column_name = 'encrypted_message'", Integer.class),
+      "the final's encrypted message is untouched"
+    );
+    // The check constraint knows the new item and not the old one (an item the API would never send).
+    assertEquals(
+      1,
+      (int) db.queryForObject("SELECT count(*) FROM pg_constraint WHERE conname = 'terminal_form_override_item_check' AND pg_get_constraintdef(oid) LIKE '%''CLUE''%' AND pg_get_constraintdef(oid) NOT LIKE '%MESSAGE_CLUE%'", Integer.class)
     );
   }
 
@@ -189,10 +208,11 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     assertEquals(List.of(false), denied.json("$.teams[?(@.teamName == 'Bravo')].items[0].awarded"));
     assertEquals(List.of(true), denied.json("$.teams[?(@.teamName == 'Bravo')].items[0].auto"), "the automatic result stays visible");
 
-    // The fifth item: awarding it changes the points, never the room's clue.
-    Response fifth = expectOk(put(bravoPath + "MESSAGE_CLUE", manager, "{\"awarded\":true}"));
+    // The fifth item (Clue): awarding it changes the points, never the room's clue. The old item name no longer exists.
+    assertEquals(400, put(bravoPath + "MESSAGE_CLUE", manager, "{\"awarded\":true}").status());
+    Response fifth = expectOk(put(bravoPath + "CLUE", manager, "{\"awarded\":true}"));
     assertEquals(9, total(fifth, s.bravo()));
-    expectOk(put("/rooms/" + linux + "/terminal-dashboard/teams/" + s.charlie().id() + "/items/MESSAGE_CLUE", manager, "{\"awarded\":false}"));
+    expectOk(put("/rooms/" + linux + "/terminal-dashboard/teams/" + s.charlie().id() + "/items/CLUE", manager, "{\"awarded\":false}"));
     assertEquals(12, total(s.charlie()));
     assertEquals(cluesBefore, (int) db.queryForObject("SELECT count(*) FROM collected_clue", Integer.class), "no clue was granted or revoked");
     assertEquals(submissionsBefore, (int) db.queryForObject("SELECT count(*) FROM room_submission", Integer.class));
@@ -202,7 +222,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     // Clearing returns to automatic.
     expectOk(put(bravoPath + "USERNAME", manager, "{\"awarded\":null}"));
     expectOk(put(bravoPath + "PATH", manager, "{\"awarded\":null}"));
-    expectOk(put(bravoPath + "MESSAGE_CLUE", manager, "{}"));
+    expectOk(put(bravoPath + "CLUE", manager, "{}"));
     assertEquals(6, total(s.bravo()));
     assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM terminal_form_override WHERE team_id = ?", Integer.class, s.bravo().id()));
 
@@ -212,16 +232,16 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
       List.of(
         bravo + " item:USERNAME award",
         bravo + " item:PATH deny",
-        bravo + " item:MESSAGE_CLUE award",
-        "room:" + linux + " team:" + s.charlie().id() + " item:MESSAGE_CLUE deny",
+        bravo + " item:CLUE award",
+        "room:" + linux + " team:" + s.charlie().id() + " item:CLUE deny",
         bravo + " item:USERNAME auto",
         bravo + " item:PATH auto",
-        bravo + " item:MESSAGE_CLUE auto"
+        bravo + " item:CLUE auto"
       ),
       audits,
       "every set and every clear is audited"
     );
-    assertFalse(audits.toString().contains("KHOOR"), "no answers in the audit");
+    assertFalse(audits.toString().contains("tech9"), "no answers in the audit");
   }
 
   @Test
@@ -239,13 +259,13 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     String before = expectOk(get("/admin/board", admin)).json("$.ranking").toString();
     String resultsBefore = expectOk(get("/admin/board", admin)).json("$.ranking[*].clues").toString();
     expectOk(put("/rooms/" + linux + "/terminal-dashboard/teams/" + s.bravo().id() + "/items/PATH", manager, "{\"awarded\":true}"));
-    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", manager, keysJson("x", "x", "x", "x", "x")));
+    expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", manager, keysJson("x", "x", "x", "x")));
     assertEquals(before, expectOk(get("/admin/board", admin)).json("$.ranking").toString());
     assertEquals(resultsBefore, expectOk(get("/admin/board", admin)).json("$.ranking[*].clues").toString());
     // And nothing here reaches a team.
     for (TestTeam team : List.of(s.charlie(), s.bravo())) {
       String board = expectOk(get("/team/board", team.token())).body();
-      assertFalse(board.contains("KHOOR") || board.contains("terminal-dashboard") || board.contains("answerKey"), board);
+      assertFalse(board.contains("tech9") || board.contains("terminal-dashboard") || board.contains("answerKey"), board);
     }
   }
 
@@ -272,7 +292,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     Response csv = expectOk(get("/rooms/" + linux + "/terminal-dashboard.csv", manager));
     String[] lines = csv.body().split("\r\n");
     assertEquals(
-      "team,group,status,submittedAt,path,username,fileSize,pattern,encryptedMessage,finalClue,pathPoints,usernamePoints,fileSizePoints,patternPoints,messageCluePoints,total,overridden",
+      "team,group,status,submittedAt,path,username,fileSize,pattern,finalClue,pathPoints,usernamePoints,fileSizePoints,patternPoints,cluePoints,total,overridden",
       lines[0]
     );
     assertEquals(5, lines.length);
@@ -329,13 +349,13 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     return statements;
   }
 
-  private static String keysJson(String path, String username, String fileSize, String pattern, String message) {
-    return "{\"path\":\"%s\",\"username\":\"%s\",\"fileSize\":\"%s\",\"pattern\":\"%s\",\"encryptedMessage\":\"%s\"}".formatted(path.replace("\n", "\\n"), username, fileSize, pattern, message);
+  private static String keysJson(String path, String username, String fileSize, String pattern) {
+    return "{\"path\":\"%s\",\"username\":\"%s\",\"fileSize\":\"%s\",\"pattern\":\"%s\"}".formatted(path.replace("\n", "\\n"), username, fileSize, pattern);
   }
 
-  private static String form(String path, String username, String fileSize, String pattern, String message, String clue) {
-    return "{\"path\":%s,\"username\":%s,\"fileSize\":%s,\"pattern\":%s,\"encryptedMessage\":%s,\"finalClue\":%s}".formatted(
-      quote(path), quote(username), quote(fileSize), quote(pattern), quote(message), quote(clue)
+  private static String form(String path, String username, String fileSize, String pattern, String clue) {
+    return "{\"path\":%s,\"username\":%s,\"fileSize\":%s,\"pattern\":%s,\"finalClue\":%s}".formatted(
+      quote(path), quote(username), quote(fileSize), quote(pattern), quote(clue)
     );
   }
 }

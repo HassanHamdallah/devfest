@@ -27,6 +27,15 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-07: Linux room form without the encrypted message
+
+- The target file holds one encrypted clue, so the Linux team form has **five** fields (PATH, USERNAME, FILE_SIZE,
+  PATTERN, Final clue) and the answer keys four. The fifth scored item is **Clue** (3 points when the Final clue is
+  correct, still checked against the room's clue key and collected as before); the total stays 15. Overriding it still
+  never grants or revokes a clue. V17 drops `terminal_form.message_value` and `terminal_answer_key.message_key` and
+  renames the override item `MESSAGE_CLUE` to `CLUE` (existing overrides carry over). The CSV loses the message column
+  (`cluePoints` replaces `messageCluePoints`). The event's final and its encrypted message are untouched.
+
 ### Change set 2026-11-07: Linux room, challenge package tools, file dates and terminal clock
 
 - **Extra tools** for rooms with a server package (not for other rooms): `file` (+ magic database), `base64`, `bzip2`,

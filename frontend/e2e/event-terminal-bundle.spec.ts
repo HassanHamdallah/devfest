@@ -127,10 +127,9 @@ test("server package: the manager uploads a ZIP and the terminal installs 300 fi
         "guard2:2000 rami:2001 tech9:2002",
       );
       await terminal(page).locator(".xterm").click();
-      await page.keyboard.type(`head -n 2 /${target.file}`);
+      await page.keyboard.type(`head -n 1 /${target.file}`);
       await page.keyboard.press("Enter");
-      await expect(terminal(page)).toContainText(fixture.message.slice(0, 40));
-      await expect(terminal(page)).toContainText(`Final clue: ${fixture.clue}`);
+      await expect(terminal(page)).toContainText(fixture.encryptedClue);
     });
 
     await test.step("the binary file keeps its exact size and bytes", async () => {

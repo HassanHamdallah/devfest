@@ -6,8 +6,8 @@ public enum TerminalScoreItem {
   USERNAME("USERNAME"),
   FILE_SIZE("FILE_SIZE"),
   PATTERN("PATTERN"),
-  /** Worth its points only when both the encrypted message and the final clue are correct. */
-  MESSAGE_CLUE("Message + clue");
+  /** Worth its points when the final clue is correct (the room's clue check). */
+  CLUE("Clue");
 
   private final String label;
 

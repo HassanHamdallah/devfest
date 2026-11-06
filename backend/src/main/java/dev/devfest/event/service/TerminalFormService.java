@@ -34,7 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The team form of a LINUX_TERMINAL room (rules §18.7): six answers the team Saves as often as it likes and then
+ * The team form of a LINUX_TERMINAL room (rules §18.7): five answers the team Saves as often as it likes and then
  * submits once. The final answer, by the team or at the round's end for a form with something saved, is recorded
  * through the ordinary room-submission path, so the room counts as finished and the clue check, evidence, boards and
  * the final keep working. The team only ever sees "Saved" or "Submitted". Saves do not bump the event revision
@@ -97,7 +97,7 @@ public class TerminalFormService {
   }
 
   /**
-   * Saves the six values. Order: replay of the same Idempotency-Key (same request → the stored state, other request
+   * Saves the five values. Order: replay of the same Idempotency-Key (same request → the stored state, other request
    * → 409), disqualification, the team's form room this round (404), room open, timer running, not submitted yet,
    * then the values. Blanks are fine; the event revision is not bumped.
    */
@@ -200,7 +200,6 @@ public class TerminalFormService {
       request.username(),
       request.fileSize(),
       request.pattern(),
-      request.encryptedMessage(),
       request.finalClue()
     );
     values.problem().ifPresent(problem -> {
@@ -249,7 +248,7 @@ public class TerminalFormService {
   private static TerminalFormView view(long roomId, Optional<TerminalFormRecord> form) {
     if (form.isEmpty()) {
       TerminalFormValues empty = TerminalFormValues.empty();
-      return new TerminalFormView(roomId, TerminalFormStatus.EMPTY, empty.path(), empty.username(), empty.fileSize(), empty.pattern(), empty.encryptedMessage(), empty.finalClue(), null, null);
+      return new TerminalFormView(roomId, TerminalFormStatus.EMPTY, empty.path(), empty.username(), empty.fileSize(), empty.pattern(), empty.finalClue(), null, null);
     }
     TerminalFormRecord record = form.get();
     TerminalFormValues values = record.values();
@@ -260,7 +259,6 @@ public class TerminalFormService {
       values.username(),
       values.fileSize(),
       values.pattern(),
-      values.encryptedMessage(),
       values.finalClue(),
       record.savedAt(),
       record.submittedAt()

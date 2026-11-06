@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 class TerminalFormScoringTest {
 
   private static final String CLUE_KEY = "WEST TOWER";
-  private static final TerminalAnswerKeys KEYS = new TerminalAnswerKeys("/srv/rami/uploads", "tech9", "1337c", "*.bak", "KHOOR ZRUOG");
-  private static final TerminalFormValues PERFECT = new TerminalFormValues("/srv/rami/uploads/", "tech9", "1337C", "\"*.bak\"", "KHOOR  ZRUOG", " west tower ");
+  private static final TerminalAnswerKeys KEYS = new TerminalAnswerKeys("/srv/rami/uploads", "tech9", "1337c", "*.bak");
+  private static final TerminalFormValues PERFECT = new TerminalFormValues("/srv/rami/uploads/", "tech9", "1337C", "\"*.bak\"", " west tower ");
   private static final Map<TerminalScoreItem, Boolean> NO_OVERRIDES = new EnumMap<>(TerminalScoreItem.class);
 
   private static Item item(Score score, TerminalScoreItem which) {
@@ -36,37 +36,43 @@ class TerminalFormScoringTest {
     assertEquals(15, score.total());
     assertEquals(5, score.items().size());
     assertTrue(score.items().stream().allMatch(item -> item.points() == 3 && item.awarded() && item.override() == null));
-    assertTrue(score.messageCorrect() && score.clueCorrect());
+    assertTrue(score.clueCorrect());
   }
 
   @Test
   void eachParameterIsWorth3OnItsOwn() {
-    TerminalFormValues onlyPath = new TerminalFormValues("/srv/rami/uploads", "x", "x", "x", "x", "x");
+    TerminalFormValues onlyPath = new TerminalFormValues("/srv/rami/uploads", "x", "x", "x", "x");
     Score score = TerminalFormScoring.score(KEYS, onlyPath, CLUE_KEY, NO_OVERRIDES);
     assertEquals(3, score.total());
     assertTrue(item(score, TerminalScoreItem.PATH).awarded());
     assertFalse(item(score, TerminalScoreItem.USERNAME).awarded());
-    assertEquals(9, TerminalFormScoring.score(KEYS, new TerminalFormValues("/srv/rami/uploads", "tech9", "1337c", "x", "", ""), CLUE_KEY, NO_OVERRIDES).total());
+    assertEquals(9, TerminalFormScoring.score(KEYS, new TerminalFormValues("/srv/rami/uploads", "tech9", "1337c", "x", ""), CLUE_KEY, NO_OVERRIDES).total());
   }
 
   @Test
-  void theMessageAndTheClueAreWorth3OnlyTogether() {
-    TerminalFormValues messageOnly = new TerminalFormValues("", "", "", "", "KHOOR ZRUOG", "wrong");
-    TerminalFormValues clueOnly = new TerminalFormValues("", "", "", "", "wrong", "West Tower");
-    TerminalFormValues both = new TerminalFormValues("", "", "", "", "KHOOR ZRUOG", "WEST   TOWER");
-    assertEquals(0, TerminalFormScoring.score(KEYS, messageOnly, CLUE_KEY, NO_OVERRIDES).total());
-    assertEquals(0, TerminalFormScoring.score(KEYS, clueOnly, CLUE_KEY, NO_OVERRIDES).total());
-    Score score = TerminalFormScoring.score(KEYS, both, CLUE_KEY, NO_OVERRIDES);
-    assertEquals(3, score.total());
-    assertTrue(item(score, TerminalScoreItem.MESSAGE_CLUE).awarded());
-    assertTrue(TerminalFormScoring.score(KEYS, messageOnly, CLUE_KEY, NO_OVERRIDES).messageCorrect());
-    assertTrue(TerminalFormScoring.score(KEYS, clueOnly, CLUE_KEY, NO_OVERRIDES).clueCorrect());
+  void aCorrectFinalClueIsWorth3OnItsOwn() {
+    TerminalFormValues wrong = new TerminalFormValues("", "", "", "", "wrong");
+    TerminalFormValues right = new TerminalFormValues("", "", "", "", "West   Tower");
+    Score miss = TerminalFormScoring.score(KEYS, wrong, CLUE_KEY, NO_OVERRIDES);
+    assertEquals(0, miss.total());
+    assertFalse(miss.clueCorrect());
+    assertFalse(item(miss, TerminalScoreItem.CLUE).awarded());
+    Score hit = TerminalFormScoring.score(KEYS, right, CLUE_KEY, NO_OVERRIDES);
+    assertEquals(3, hit.total(), "the usual clue check: case and spaces are ignored");
+    assertTrue(hit.clueCorrect());
+    assertTrue(item(hit, TerminalScoreItem.CLUE).awarded());
+    assertEquals("Clue", item(hit, TerminalScoreItem.CLUE).item().label());
+    assertEquals(
+      java.util.List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "CLUE"),
+      hit.items().stream().map(item -> item.item().name()).toList()
+    );
   }
 
   @Test
   void anEmptyKeyCannotBeAwardedAutomaticallyAndNeitherCanABlankClueKey() {
     Score none = TerminalFormScoring.score(TerminalAnswerKeys.empty(), PERFECT, CLUE_KEY, NO_OVERRIDES);
-    assertEquals(0, none.total(), "no keys, no automatic points");
+    assertEquals(3, none.total(), "no keys: only the Clue scores, because it has no key here (the room's clue key decides)");
+    assertFalse(item(none, TerminalScoreItem.PATH).awarded());
     Score noClueKey = TerminalFormScoring.score(KEYS, PERFECT, "", NO_OVERRIDES);
     assertEquals(12, noClueKey.total(), "an empty clue key never matches");
   }
@@ -80,12 +86,12 @@ class TerminalFormScoringTest {
     assertFalse(path.auto(), "the automatic result is kept next to the override");
     assertEquals(Boolean.TRUE, path.override());
 
-    Score denied = TerminalFormScoring.score(KEYS, PERFECT, CLUE_KEY, overrides(TerminalScoreItem.USERNAME, false, TerminalScoreItem.MESSAGE_CLUE, false));
+    Score denied = TerminalFormScoring.score(KEYS, PERFECT, CLUE_KEY, overrides(TerminalScoreItem.USERNAME, false, TerminalScoreItem.CLUE, false));
     assertEquals(9, denied.total());
     assertTrue(item(denied, TerminalScoreItem.USERNAME).auto());
     assertFalse(item(denied, TerminalScoreItem.USERNAME).awarded());
-    assertFalse(item(denied, TerminalScoreItem.MESSAGE_CLUE).awarded());
-    assertTrue(denied.messageCorrect() && denied.clueCorrect(), "denying the item does not change what was right");
+    assertFalse(item(denied, TerminalScoreItem.CLUE).awarded());
+    assertTrue(denied.clueCorrect(), "denying the item does not change what was right");
   }
 
   @Test
@@ -94,7 +100,7 @@ class TerminalFormScoringTest {
       KEYS,
       TerminalFormValues.empty(),
       CLUE_KEY,
-      overrides(TerminalScoreItem.PATH, true, TerminalScoreItem.USERNAME, true, TerminalScoreItem.FILE_SIZE, true, TerminalScoreItem.PATTERN, true, TerminalScoreItem.MESSAGE_CLUE, true)
+      overrides(TerminalScoreItem.PATH, true, TerminalScoreItem.USERNAME, true, TerminalScoreItem.FILE_SIZE, true, TerminalScoreItem.PATTERN, true, TerminalScoreItem.CLUE, true)
     );
     assertEquals(15, all.total());
     Score cleared = TerminalFormScoring.score(KEYS, TerminalFormValues.empty(), CLUE_KEY, NO_OVERRIDES);
@@ -110,7 +116,7 @@ class TerminalFormScoringTest {
 
   @Test
   void theCluePartFollowsTheCurrentKey() {
-    TerminalFormValues values = new TerminalFormValues("", "", "", "", "KHOOR ZRUOG", "NEW KEY");
+    TerminalFormValues values = new TerminalFormValues("", "", "", "", "NEW KEY");
     assertEquals(0, TerminalFormScoring.score(KEYS, values, CLUE_KEY, NO_OVERRIDES).total());
     assertEquals(3, TerminalFormScoring.score(KEYS, values, "new  key", NO_OVERRIDES).total(), "the same answer scores when the key changes");
   }

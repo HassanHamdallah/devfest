@@ -16,7 +16,6 @@ import { formatTime } from "../../../../core/event/format";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
-import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
 import { UiPageState } from "../../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { UiTextarea } from "../../../../shared/ui/ui-textarea/ui-textarea";
@@ -44,7 +43,7 @@ type Decision = "auto" | "award" | "deny";
  * room's current package. Scores are computed by the server on every read; they stay inside this room.
  */
 @Component({
-  imports: [FormsModule, RouterLink, EventLinuxTerminal, UiAlert, UiButton, UiCard, UiInput, UiPageState, UiStatusChip, UiTextarea],
+  imports: [FormsModule, RouterLink, EventLinuxTerminal, UiAlert, UiButton, UiCard, UiPageState, UiStatusChip, UiTextarea],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./terminal-dashboard.page.css",
   templateUrl: "./terminal-dashboard.page.html",
@@ -140,7 +139,7 @@ export class EventTerminalDashboardPage {
     return item.override === null ? "auto" : item.override ? "award" : "deny";
   }
 
-  /** The submitted text for one scored item (the message item shows the message and the clue). */
+  /** The submitted text for one scored item (the Clue item shows the final clue and whether it was right). */
   protected valuesOf(team: TerminalDashboardTeam, item: TerminalScoreItem): { text: string; ok: boolean | null }[] {
     switch (item) {
       case "PATH":
@@ -151,11 +150,8 @@ export class EventTerminalDashboardPage {
         return [{ text: team.fileSize, ok: null }];
       case "PATTERN":
         return [{ text: team.pattern, ok: null }];
-      case "MESSAGE_CLUE":
-        return [
-          { text: team.encryptedMessage, ok: team.messageCorrect },
-          { text: team.finalClue, ok: team.clueCorrect },
-        ];
+      case "CLUE":
+        return [{ text: team.finalClue, ok: team.clueCorrect }];
     }
   }
 

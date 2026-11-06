@@ -100,6 +100,6 @@ only traffic excluded from the 300 ms p95 limit; the backend JVM's heap and work
 the first 30 s (the downloads).
 
 Afterwards, for every team: exactly one submission on the room board, status Submitted on the dashboard, a dashboard
-total equal to the score its own answers predict (3 per correct parameter, 3 when message and clue are right) and its
+total equal to the score its own answers predict (3 per correct parameter, 3 when the final clue is right) and its
 clue only when its final clue was right. Output `docs/event-load-linux.json`. The script exits non-zero on any error,
 retry mismatch, restart that is not a 304, team without a submitted form, or p95 ≥ 300 ms outside the downloads.

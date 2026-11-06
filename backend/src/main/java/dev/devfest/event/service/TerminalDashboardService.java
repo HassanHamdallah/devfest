@@ -87,8 +87,7 @@ public class TerminalDashboardService {
       request.path(),
       request.username(),
       request.fileSize(),
-      request.pattern(),
-      request.encryptedMessage()
+      request.pattern()
     );
     values.problem().ifPresent(problem -> {
       throw fail(400, problem);
@@ -125,13 +124,13 @@ public class TerminalDashboardService {
     EventRoomRecord room = requireFormRoom(principal, roomId);
     TerminalDashboardView view = build(room, states.state());
     StringBuilder csv = new StringBuilder(
-      "team,group,status,submittedAt,path,username,fileSize,pattern,encryptedMessage,finalClue,"
-        + "pathPoints,usernamePoints,fileSizePoints,patternPoints,messageCluePoints,total,overridden\r\n"
+      "team,group,status,submittedAt,path,username,fileSize,pattern,finalClue,"
+        + "pathPoints,usernamePoints,fileSizePoints,patternPoints,cluePoints,total,overridden\r\n"
     );
     for (TeamRow row : view.teams()) {
       csv.append(csvCell(row.teamName())).append(',').append(row.group()).append(',').append(row.status()).append(',');
       csv.append(row.submittedAt() == null ? "" : row.submittedAt().toString()).append(',');
-      for (String text : List.of(row.path(), row.username(), row.fileSize(), row.pattern(), row.encryptedMessage(), row.finalClue())) {
+      for (String text : List.of(row.path(), row.username(), row.fileSize(), row.pattern(), row.finalClue())) {
         csv.append(csvCell(text)).append(',');
       }
       for (ItemScore item : row.items()) csv.append(item.points()).append(',');
@@ -168,7 +167,7 @@ public class TerminalDashboardService {
       room.id(),
       room.name(),
       !state.finalEverOpened(),
-      new TerminalDashboardView.Keys(answerKeys.path(), answerKeys.username(), answerKeys.fileSize(), answerKeys.pattern(), answerKeys.encryptedMessage()),
+      new TerminalDashboardView.Keys(answerKeys.path(), answerKeys.username(), answerKeys.fileSize(), answerKeys.pattern()),
       answerKeys.emptyKeys(),
       TerminalFormScoring.POINTS_PER_ITEM,
       TerminalFormScoring.MAX_POINTS,
@@ -204,9 +203,7 @@ public class TerminalDashboardService {
       values.username(),
       values.fileSize(),
       values.pattern(),
-      values.encryptedMessage(),
       values.finalClue(),
-      score.messageCorrect(),
       score.clueCorrect(),
       items,
       score.total(),

@@ -8,31 +8,29 @@ import java.util.function.UnaryOperator;
 
 /**
  * The organizer's answer keys of a Linux terminal room (rules §18.8): PATH, USERNAME, FILE_SIZE and PATTERN each
- * accept several values (one per line), the encrypted message has one. An empty key can never be matched, so the
- * item cannot be awarded automatically. The final clue is not here: it uses the room's clue key.
+ * accept several values (one per line). An empty key can never be matched, so the item cannot be awarded
+ * automatically. The final clue is not here: it uses the room's clue key.
  *
  * <p>Comparison: every value is trimmed. PATH also ignores one trailing slash; PATTERN also ignores one pair of
- * surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive; the encrypted message collapses every
- * whitespace run to one space (and is otherwise case-sensitive).
+ * surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive.
  */
-public record TerminalAnswerKeys(String path, String username, String fileSize, String pattern, String encryptedMessage) {
+public record TerminalAnswerKeys(String path, String username, String fileSize, String pattern) {
 
   public static final int MAX_VALUES = 20;
   public static final int MAX_VALUE_BYTES = 500;
 
   public static TerminalAnswerKeys empty() {
-    return new TerminalAnswerKeys("", "", "", "", "");
+    return new TerminalAnswerKeys("", "", "", "");
   }
 
   /** Why the keys cannot be stored (too many values, a value too long, a NUL character), or empty when they can. */
   public Optional<String> problem() {
-    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Encrypted message" };
-    String[] texts = { path, username, fileSize, pattern, encryptedMessage };
+    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "PATTERN" };
+    String[] texts = { path, username, fileSize, pattern };
     for (int i = 0; i < texts.length; i++) {
       if (texts[i].indexOf('\0') >= 0) return Optional.of(labels[i] + " must be text.");
       List<String> values = values(texts[i]);
       if (values.size() > MAX_VALUES) return Optional.of(labels[i] + " accepts at most " + MAX_VALUES + " values.");
-      if (i == 4 && values.size() > 1) return Optional.of("Encrypted message has one value.");
       for (String value : values) {
         if (value.getBytes(StandardCharsets.UTF_8).length > MAX_VALUE_BYTES) {
           return Optional.of(labels[i] + " has a value that is too long (max " + MAX_VALUE_BYTES + " bytes).");
@@ -49,7 +47,6 @@ public record TerminalAnswerKeys(String path, String username, String fileSize, 
     if (values(username).isEmpty()) empty.add("USERNAME");
     if (values(fileSize).isEmpty()) empty.add("FILE_SIZE");
     if (values(pattern).isEmpty()) empty.add("PATTERN");
-    if (values(encryptedMessage).isEmpty()) empty.add("Encrypted message");
     return empty;
   }
 
@@ -67,10 +64,6 @@ public record TerminalAnswerKeys(String path, String username, String fileSize, 
 
   public boolean patternCorrect(String given) {
     return matches(given, pattern, TerminalAnswerKeys::patternForm, false);
-  }
-
-  public boolean messageCorrect(String given) {
-    return matches(given, encryptedMessage, TerminalAnswerKeys::messageForm, false);
   }
 
   /** The non-blank lines of a multi-value key, trimmed. */
@@ -109,10 +102,5 @@ public record TerminalAnswerKeys(String path, String username, String fileSize, 
       }
     }
     return trimmed;
-  }
-
-  /** Trimmed, every whitespace run one space. */
-  private static String messageForm(String text) {
-    return text.strip().replaceAll("\\s+", " ");
   }
 }

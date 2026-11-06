@@ -23,8 +23,8 @@ public record TerminalDashboardView(
   List<TeamRow> teams,
   Instant generatedAt
 ) {
-  /** Each of the first four holds one value per line. */
-  public record Keys(String path, String username, String fileSize, String pattern, String encryptedMessage) {}
+  /** Each holds one value per line. */
+  public record Keys(String path, String username, String fileSize, String pattern) {}
 
   public enum Status {
     NOT_STARTED,
@@ -45,9 +45,7 @@ public record TerminalDashboardView(
     String username,
     String fileSize,
     String pattern,
-    String encryptedMessage,
     String finalClue,
-    boolean messageCorrect,
     boolean clueCorrect,
     List<ItemScore> items,
     int total,

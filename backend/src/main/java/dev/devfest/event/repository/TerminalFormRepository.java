@@ -27,7 +27,7 @@ public class TerminalFormRepository {
   public record StoredRequest(String kind, String requestHash) {}
 
   private static final String SELECT = """
-    SELECT team_id, room_id, path_value, username_value, file_size_value, pattern_value, message_value, clue_value,
+    SELECT team_id, room_id, path_value, username_value, file_size_value, pattern_value, clue_value,
            saved_at, submitted_at, submission_id, cause
     FROM terminal_form
     """;
@@ -52,11 +52,11 @@ public class TerminalFormRepository {
     return db.update(
       """
       INSERT INTO terminal_form(team_id, room_id, path_value, username_value, file_size_value, pattern_value,
-                                message_value, clue_value, saved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                clue_value, saved_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (team_id, room_id) DO UPDATE SET path_value = EXCLUDED.path_value,
         username_value = EXCLUDED.username_value, file_size_value = EXCLUDED.file_size_value,
-        pattern_value = EXCLUDED.pattern_value, message_value = EXCLUDED.message_value,
+        pattern_value = EXCLUDED.pattern_value,
         clue_value = EXCLUDED.clue_value, saved_at = EXCLUDED.saved_at
       WHERE terminal_form.submitted_at IS NULL""",
       teamId,
@@ -65,7 +65,6 @@ public class TerminalFormRepository {
       values.username(),
       values.fileSize(),
       values.pattern(),
-      values.encryptedMessage(),
       values.finalClue(),
       timestamp(at)
     );
@@ -79,11 +78,11 @@ public class TerminalFormRepository {
     return db.update(
       """
       INSERT INTO terminal_form(team_id, room_id, path_value, username_value, file_size_value, pattern_value,
-                                message_value, clue_value, saved_at, submitted_at, submission_id, cause)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                clue_value, saved_at, submitted_at, submission_id, cause)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (team_id, room_id) DO UPDATE SET path_value = EXCLUDED.path_value,
         username_value = EXCLUDED.username_value, file_size_value = EXCLUDED.file_size_value,
-        pattern_value = EXCLUDED.pattern_value, message_value = EXCLUDED.message_value,
+        pattern_value = EXCLUDED.pattern_value,
         clue_value = EXCLUDED.clue_value, saved_at = EXCLUDED.saved_at, submitted_at = EXCLUDED.submitted_at,
         submission_id = EXCLUDED.submission_id, cause = EXCLUDED.cause
       WHERE terminal_form.submitted_at IS NULL""",
@@ -93,7 +92,6 @@ public class TerminalFormRepository {
       values.username(),
       values.fileSize(),
       values.pattern(),
-      values.encryptedMessage(),
       values.finalClue(),
       timestamp(at),
       timestamp(at),
@@ -107,7 +105,7 @@ public class TerminalFormRepository {
     return db.query(
       """
       SELECT t.id AS team_id, t.name AS team_name, t.group_code, t.disqualified, f.room_id AS form_room_id,
-             f.path_value, f.username_value, f.file_size_value, f.pattern_value, f.message_value, f.clue_value,
+             f.path_value, f.username_value, f.file_size_value, f.pattern_value, f.clue_value,
              f.saved_at, f.submitted_at, f.submission_id, f.cause
       FROM event_team t
       LEFT JOIN terminal_form f ON f.team_id = t.id AND f.room_id = ?
@@ -124,7 +122,6 @@ public class TerminalFormRepository {
               rs.getString("username_value"),
               rs.getString("file_size_value"),
               rs.getString("pattern_value"),
-              rs.getString("message_value"),
               rs.getString("clue_value")
             ),
             instant(rs, "saved_at"),
@@ -178,7 +175,6 @@ public class TerminalFormRepository {
         rs.getString("username_value"),
         rs.getString("file_size_value"),
         rs.getString("pattern_value"),
-        rs.getString("message_value"),
         rs.getString("clue_value")
       ),
       instant(rs, "saved_at"),
