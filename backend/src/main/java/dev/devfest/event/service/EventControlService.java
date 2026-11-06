@@ -6,6 +6,7 @@ import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.Rotation;
+import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.RoomOpenView;
@@ -32,6 +33,8 @@ public class EventControlService {
   private final EventRoomRepository rooms;
   private final EventBoardRepository boards;
   private final RoomArrivalRepository arrivals;
+  private final AiRoomEvaluationService quizEvaluation;
+  private final TerminalFormService terminalForms;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -41,6 +44,8 @@ public class EventControlService {
     EventRoomRepository rooms,
     EventBoardRepository boards,
     RoomArrivalRepository arrivals,
+    AiRoomEvaluationService quizEvaluation,
+    TerminalFormService terminalForms,
     AuditLog audit,
     EventClock clock
   ) {
@@ -49,6 +54,8 @@ public class EventControlService {
     this.rooms = rooms;
     this.boards = boards;
     this.arrivals = arrivals;
+    this.quizEvaluation = quizEvaluation;
+    this.terminalForms = terminalForms;
     this.audit = audit;
     this.clock = clock;
   }
@@ -70,7 +77,8 @@ public class EventControlService {
   /**
    * The client sends the absolute round (current + 1), so a repeated "Next round" click cannot skip a round.
    * A running round begins ASSIGNED with the default round length; the timer starts only when the admin starts
-   * it (EventRoundTimerService). Readiness from an earlier visit to the same round number is cleared.
+   * it (EventRoundTimerService). Readiness from an earlier visit to the same round number is cleared. Leaving a
+   * round whose timer was started ends it: AI room teams not evaluated yet are evaluated first (rules §19.6).
    */
   @Transactional
   public EventStateView setRound(Principal principal, int round) {
@@ -78,6 +86,11 @@ public class EventControlService {
     EventStateRecord state = states.lockForUpdate();
     Instant now = clock.now();
     if (state.currentRound() == round) return EventViews.eventState(state, now);
+    boolean timerStarted = state.timer().map(timer -> timer.phase() != RoundPhase.ASSIGNED).orElse(false);
+    if (timerStarted) {
+      quizEvaluation.evaluateRoundEnd(principal.id(), state, now);
+      terminalForms.submitRoundEnd(principal.id(), state, now);
+    }
     boolean running = Rotation.isRunningRound(round);
     states.setRound(round, running ? RoundTimer.assigned(state.roundMinutes() * 60) : null);
     if (running) arrivals.clearRound(round);

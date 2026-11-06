@@ -229,6 +229,44 @@ octet_length ≤ 2 MiB, size_bytes = octet_length(content), updated_by → app_u
 with a CHECK on the path characters. `audit_event.target` widens to 200 characters so a terminal audit can name the
 120-character path. Terminal files are content: resets keep them.
 
+**Server package (V13, rules §18.6)**: `room_terminal_bundle(room_id PK → event_room, archive BYTEA (STORAGE EXTERNAL),
+archive_bytes, sha256, file_count, unpacked_bytes, owners, etc_passwd, etc_group, uploaded_by, uploaded_at)` is kept
+apart from the room rows so that no board or list query reads the blob (`RoomTerminalBundleRepository.find` leaves the
+column out; only `archive(roomId)` reads it, in one statement together with its digest). Layers: pure domain classes
+`TerminalPackageReader` (ZIP → members under hard limits, real bytes counted), `TerminalPackagePaths`, `TerminalManifest`,
+`TerminalAccounts` (ids from 2000 by name), `TerminalTarWriter` (ustar + gzip, byte-exact, numeric owners, prefix field
+for long paths) and `TerminalBundles` (the whole build, deterministic: the same ZIP gives the same SHA-256);
+`EventTerminalBundleService` validates and builds **before** its transaction starts (no connection or lock is held
+while a large ZIP is processed), then stores under the usual event lock and edit lock and audits hash and counts;
+`EventTerminalBundleController` serves it. Delivery shares the gate of the text files
+(`EventTerminalService.requireDeliverable`), then answers 404/304/200 from one light query; `TerminalBundleCache` holds
+the last served archive of each room softly so simultaneous downloads share one load (an entry is used only when its
+digest equals the database's). `event_room.activity` also accepts `LINUX_TERMINAL` (V13 sets it for `LINUX` on a fresh
+setup). The page installs the package in `linux-session.ts`: 9p `create_file`, one invisible shell
+command, a failure mark that ends in a clear error.
+
+**Team form (V14, rules §18.7)**: `terminal_form(team_id, room_id → PK, six value columns ≤ 500 bytes, saved_at,
+submitted_at, submission_id UNIQUE → room_submission, cause SUBMIT | TIME_UP)` and `terminal_form_request(team_id,
+idempotency_key → PK, room_id, kind SAVE | SUBMIT, request_hash)` (every Save and Final submit by its key, so a retry is
+replayed and a stale retry cannot overwrite a newer save). `TerminalFormService` takes the usual `TeamWriteGate` locks;
+the final answer goes through `EventSubmissionService.recordFormAnswer` (the ordinary insert, clue check and ROOM
+clue; a blank clue is stored as a note because a submission keeps at least one byte) and the guarded
+`TerminalFormRepository.submit` (`WHERE submitted_at IS NULL`) makes a second trigger a no-op. The round's end hook
+`TerminalFormService.submitRoundEnd` runs next to `AiRoomEvaluationService.evaluateRoundEnd` in the same two places
+(`EventRoundTimerService.apply`, `EventControlService.setRound`), under the same event_state lock, so a Final submit
+and Time's up run one after the other. A form submission is hidden from the team's receipts (`NOT_ACTIVITY_RESULT`) and
+counts as a recorded result for `EvidenceVisibility`; resets and snapshots list both tables.
+
+**Organizer dashboard (V15, rules §18.8)**: `terminal_answer_key(room_id PK, four multi-value text columns)`
+and `terminal_form_override(team_id, room_id, item PK, awarded)` (items PATH, USERNAME, FILE_SIZE, PATTERN, CLUE; absence = automatic; clearing deletes the row, the
+audit keeps the history). Pure domain classes: `TerminalAnswerKeys` (the comparison rules) and `TerminalFormScoring`
+(3 points per item, 15 at most, overrides applied; **nothing is stored**: every read recomputes from the form rows, the
+current keys, the room's clue key and the overrides). `TerminalDashboardService.view` reads in 5 statements whatever
+the number of teams (room, event state, keys, all active teams LEFT JOIN their forms, overrides); access is
+`EventAccessPolicy.requireOrganizerOf`, which answers 404 to every other account so the page's existence stays hidden.
+The admin board adds one statement (`TerminalAnswerKeyRepository.forFormRooms`) for its "no answer key" warning.
+Overrides never touch `collected_clue` or `room_submission`; the event ranking queries do not read these tables.
+
 **Server side** (`EventTerminalService`, `RoomTerminalFileRepository`, `EventTerminalController`, domain
 `TerminalFiles`):
 
@@ -414,3 +452,62 @@ or file I/O. Fail-fast settings: Hikari `connection-timeout=5000` ms and `spring
   `features/event/team/` (home, final), `features/event/results/`. All routes are lazy; Monaco loads only with the
   coding workspace route.
 - `shared/ui/`: existing controls plus `ui-status-chip`, `ui-metric-tile`, `ui-countdown`, `ui-confirm-dialog`, `ui-page-state`.
+
+## AI room activity (V11–V12, rules §19)
+
+**Data (V11)**: `event_room.activity` (`AI_QUIZ` or NULL; the migration sets it for `AI`, no code path tests the
+room code) and `event_room.quiz_mcq_minutes` (default 14). Content: `quiz_question` (section, position, prompt,
+points 1–10, explanation) → `quiz_option` (position, text, correct; partial unique index = at most one correct),
+`quiz_repair` (title, instructions, points) → `quiz_snippet` (correct_position, code). Options and snippets are
+inserted in a random order so their ids reveal nothing. Team state: `quiz_team_progress` (first action,
+mcq_finished_at), `quiz_mcq_answer` (PK team+question, UNIQUE team+Idempotency-Key, points_earned NUMERIC(6,2)) and
+`quiz_repair_answer` (PK team+repair, snippet_order BIGINT[], correct_positions, points_earned) — both append-only
+(the shared trigger; resets delete them and snapshot them first).
+
+**Data (V12)**: drops V11's `quiz_team_progress.cipher_key`; adds `event_room.quiz_pass_score` (0–100, default 60)
+and `quiz_evaluation` (PK team+room, UNIQUE submission_id → `room_submission`, total NUMERIC(6,2), pass_score,
+passed with `CHECK(passed = total >= pass_score)`, cause `LAST_REPAIR`/`TIME_UP`, evaluated_at; append-only).
+
+**Domain (pure, unit-tested)**: `QuizScoring` (MCQ points, positions in place, partial credit HALF_UP to 2 decimals,
+`passes` = total ≥ pass score), `QuizShuffle` (HMAC-SHA256 seeds from a server secret + kind + team + item;
+section/option shuffles; `shuffleAwayFrom` never returns the correct snippet order), `QuizWindow` (NOT_STARTED / MCQ /
+REPAIRS / TIME_UP from `RoundTimer` running time), `QuizContentRules` (validation and the 20/15/6/3/1 + 3 + 100
+warnings), `EvidenceVisibility` (an evaluated activity room is finished for its team at once).
+
+**Services**: `AiRoomActivityService` (team view, answer, repair, finish; `TeamWriteGate.openActivity` = the usual
+locks with its own 60-per-minute bucket; answers do not bump the revision; writes are refused once the team is
+evaluated; the last repair calls the evaluation), `AiRoomViews` (the only mapping to the member DTO — no correct
+flags, positions, points, totals or pass score; once evaluated only `result` = clue unlocked + clue),
+`AiRoomEvaluationService` (evaluates one team, or at the round's end every assigned, active, not disqualified team
+not evaluated yet; records the result through `EventSubmissionService.recordActivityResult` — the same `store` as a
+team submission, with the verdict = passed and the ROOM clue on a pass — and inserts `quiz_evaluation`),
+`AiRoomShuffleSecret` (`DEVFEST_QUIZ_SHUFFLE_SECRET`; development fallback with a warning; `StartupSafety` refuses a
+non-development start without it), `AiRoomStartCheck` (blocking problems: no clue key, no questions),
+`AiRoomContentService` (editor, CRUD, import/export, MCQ minutes, pass score with its lock, admin activity switch;
+revision bump + audit naming ids only), `AiRoomResultsService` (results with status and clue granted, ranking, CSV via
+`csvCell`).
+
+**Round end without a scheduler**: `EventRoundTimerService` evaluates when a transition leaves the timer at TIME_UP
+(End round, also as a no-op after the timer ran out; removing the remaining time), and `EventControlService.setRound`
+evaluates before leaving a round whose timer was started. Both hold the event_state lock like every team write, so the
+last repair and the round end serialize; `quiz_evaluation`'s primary key is the backstop. The evaluation's submission
+uses a random Idempotency-Key, so no team request can collide with it. A key change never re-checks it
+(`ClueVerdictRepository.answersForRoom` skips evaluation submissions); manager overrides work as for any submission.
+Team receipts and the room card's receipt leave evaluations out; the team's evidence for an activity room carries no
+technical output, answer or result, only the clue when collected. `POST /admin/round/timer/start` takes an optional
+`{"anyway": true}`; without it the start is refused (409) while `AiRoomStartCheck` lists problems.
+
+| Endpoint | Who | SQL statements |
+|---|---|---|
+| `GET /team/rooms/{id}/activity` | the team assigned this round (else 404) | 10 (team, state, room, exception, questions, repairs, MCQ answers, repair answers, progress, evaluation), constant |
+| `POST /team/rooms/{id}/activity/answers`, `…/repairs/{repairId}` (Idempotency-Key), `…/finish-mcq` | same | — |
+| `GET /rooms/{id}/quiz`, `POST/PUT/DELETE …/quiz/questions[/{qid}]`, `…/quiz/repairs[/{rid}]`, `PUT …/quiz/settings` (`mcqMinutes`, `passScore`), `GET …/quiz/export`, `POST …/quiz/import` | room manager (own room, else 404) or ADMIN | editor: 5 |
+| `GET /rooms/{id}/quiz/results`, `GET …/quiz/results.csv` | room manager or ADMIN | 8 |
+| `PUT /admin/rooms/{id}/activity` | ADMIN | — |
+
+The admin board adds one statement (quiz content stats per activity room, with the clue key flag) for the blocking
+`QUIZ_WITHOUT_CLUE_KEY` / `QUIZ_WITHOUT_QUESTIONS` alerts (`AdminAlert.blocking`, `AdminBoard.startBlockers`) and the
+`QUIZ_PLAN` warnings. **Browser**: `features/event/team/ai-room/` is loaded with `@defer` only for a room with the
+activity (lazy chunk `ai-room-activity`), and such a room shows no answer form; `features/event/manager/quiz/` holds
+the lazy editor and results routes `/event/room/:roomId/quiz` and `/event/room/:roomId/quiz/results` (polls every 5 s
+while visible).

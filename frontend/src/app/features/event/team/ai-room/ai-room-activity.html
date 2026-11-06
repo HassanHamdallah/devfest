@@ -1,0 +1,98 @@
+<ui-card>
+  <div ui-card-header class="activity__head">
+    <span class="activity__dot" aria-hidden="true"></span>
+    <h2>AI room activity</h2>
+    @if (activity(); as view) {
+    @if (view.result) {
+    <ui-status-chip variant="accent">Finished</ui-status-chip>
+    } @else {
+    <ui-status-chip [variant]="view.stage === 'TIME_UP' ? 'danger' : view.stage === 'NOT_STARTED' ? 'neutral' : 'accent'">{{
+      titles[view.stage]
+    }}</ui-status-chip>
+    }
+    @if (paused() && !view.result) {
+    <ui-status-chip variant="warning">Paused</ui-status-chip>
+    }
+    }
+  </div>
+
+  @if (loader.initialError(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  <ui-button variant="secondary" size="sm" (click)="reload()">Try again</ui-button>
+  } @else if (loader.loading()) {
+  <p class="event-muted">Loading the activity…</p>
+  }
+
+  @if (activity(); as view) {
+  @if (loader.refreshError(); as text) {
+  <ui-alert variant="warning">{{ text }}</ui-alert>
+  }
+
+  @if (view.result; as result) {
+  @if (result.clueUnlocked && result.clue) {
+  <section class="activity__result activity__result--unlocked" data-quiz-result="unlocked" aria-labelledby="quiz-result-heading">
+    <h3 id="quiz-result-heading">Clue unlocked</h3>
+    <p>This room's clue is now in your evidence. Keep it for the final.</p>
+    <event-masked-clue [value]="result.clue" />
+  </section>
+  } @else {
+  <section class="activity__result" data-quiz-result="not-reached" role="status">
+    <p>You did not reach the required score for this room's clue.</p>
+  </section>
+  }
+  } @else if (view.questionCount === 0) {
+  <p class="activity__notice" data-quiz-not-ready>Questions are not ready yet. Wait for the organizer.</p>
+  } @else {
+  @if (paused()) {
+  <p class="activity__notice">The round is paused. Answers are accepted again when the timer resumes.</p>
+  } @else if (!board().scheduledRoom?.open) {
+  <p class="activity__notice">The room is closed right now. Wait for the organizer to open it.</p>
+  }
+
+  @switch (view.stage) {
+  @case ("NOT_STARTED") {
+  <div class="activity__intro">
+    <p>
+      When the timer starts you get <strong>{{ view.questionCount }} multiple-choice questions</strong> for
+      {{ view.mcqMinutes }} minutes, then <strong>{{ view.repairCount }} code repairs</strong>. When you submit the
+      last repair, or when time is up, your team's result is recorded: reaching the room's required score unlocks its
+      clue.
+    </p>
+    <ul class="activity__sections">
+      @for (section of view.sections; track section.section) {
+      @if (section.questions > 0) {
+      <li><strong>{{ section.label }}</strong> · {{ section.questions }} · aim {{ section.paceSeconds }} s each</li>
+      }
+      }
+    </ul>
+    <p class="event-muted">Answers lock when you save them. You will only see "Response saved", never the score.</p>
+  </div>
+  }
+  @case ("MCQ") {
+  <event-quiz-mcq
+    [activity]="view"
+    [secondsLeft]="mcqLeft()"
+    [secondsLeftLabel]="mcqLeftLabel()"
+    [readOnly]="readOnly()"
+    (saved)="reload()"
+    (finished)="replace($event)"
+  />
+  }
+  @case ("REPAIRS") {
+  <p class="activity__summary event-num">
+    Multiple choice closed · {{ view.answeredCount }} of {{ view.questionCount }} answered · repairs
+    {{ view.submittedCount }} of {{ view.repairCount }} submitted
+  </p>
+  <event-quiz-repairs [activity]="view" [readOnly]="readOnly()" (submitted)="reload()" />
+  }
+  @case ("TIME_UP") {
+  <p class="activity__summary event-num">
+    Time is up · {{ view.answeredCount }} of {{ view.questionCount }} answered · repairs
+    {{ view.submittedCount }} of {{ view.repairCount }} submitted
+  </p>
+  <p class="event-muted" data-quiz-pending>Your result is recorded when the organizer ends the round.</p>
+  }
+  }
+  }
+  }
+</ui-card>

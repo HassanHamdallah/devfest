@@ -19,7 +19,7 @@ $config=Get-Content -Raw -LiteralPath (Join-Path $local 'database.json') | Conve
 $adminEmail='rehearsal-admin@event.test'
 $managerEmails=[ordered]@{AI='manager.ai@event.test';PROBLEM_SOLVING='manager.ps@event.test';LINUX='manager.linux@event.test';HARDWARE='manager.hw@event.test'}
 $memberEmails=@(1..16 | ForEach-Object { 'team{0:D2}@event.test' -f $_ })
-$childEnvironment=@('DEVFEST_DB_URL','DEVFEST_DB_USER','DEVFEST_DB_PASSWORD','DEVFEST_JWT_SECRET','DEVFEST_ADMIN_EMAIL','DEVFEST_ADMIN_PASSWORD','DEVFEST_EVENT_SEED_PASSWORD','DEVFEST_DEVELOPMENT','DEVFEST_SEED','DEVFEST_WORKER_ENABLED','JUDGE0_URL','PORT')
+$childEnvironment=@('DEVFEST_DB_URL','DEVFEST_DB_USER','DEVFEST_DB_PASSWORD','DEVFEST_JWT_SECRET','DEVFEST_QUIZ_SHUFFLE_SECRET','DEVFEST_ADMIN_EMAIL','DEVFEST_ADMIN_PASSWORD','DEVFEST_EVENT_SEED_PASSWORD','DEVFEST_DEVELOPMENT','DEVFEST_SEED','DEVFEST_WORKER_ENABLED','JUDGE0_URL','PORT')
 
 function Assert-RehearsalPortsFree {
  foreach($port in @(8082,4202)) {
@@ -45,13 +45,15 @@ function Reset-EventTestData {
   $schemaReady=Invoke-TestDatabaseQuery "SELECT to_regclass('public.event_state') IS NOT NULL AND to_regclass('public.team_final') IS NOT NULL"
   if($schemaReady -ne 't') { throw 'The event tables (V5) are missing in devfest_test. Run infrastructure/test-backend.ps1 once to migrate it, then start the rehearsal again.' }
   # CASCADE also empties event_room (manager_id -> app_user), event_content (correct_suspect_id -> suspect), the
-  # room terminal files (-> event_room) and the round history in room_arrival and round_time_adjustment (-> app_user).
-  # event_room and event_content are re-created below as V5 inserts them, with V10's default (terminal on for LINUX).
+  # room terminal files and AI quiz content (-> event_room), the teams' quiz answers (-> event_team) and the round
+  # history in room_arrival and round_time_adjustment (-> app_user). event_room and event_content are re-created
+  # below as V5 inserts them, with V10's to V14's defaults (terminal on for LINUX, AI quiz on for AI, pass score 60); the Linux terminal activity (V13 turns it on for a fresh database) is left off here, so the plain-answer-form specs keep working: the Linux form specs switch it on through the API.
+  # The teams' AI quiz evaluations go with event_team and room_submission.
   # event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(
    'SET client_min_messages=warning;',
    'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, penalty, suspect, recovery_attempt, accusation, team_final RESTART IDENTITY CASCADE;',
-   "INSERT INTO event_room(code,name,position,terminal_enabled) VALUES ('AI','AI',0,false),('PROBLEM_SOLVING','Problem solving',1,false),('LINUX','Linux',2,true),('HARDWARE','Hardware',3,false) ON CONFLICT (code) DO NOTHING;",
+   "INSERT INTO event_room(code,name,position,terminal_enabled,activity) VALUES ('AI','AI',0,false,'AI_QUIZ'),('PROBLEM_SOLVING','Problem solving',1,false,NULL),('LINUX','Linux',2,true,NULL),('HARDWARE','Hardware',3,false,NULL) ON CONFLICT (code) DO NOTHING;",
    "INSERT INTO event_content(id) VALUES (1) ON CONFLICT (id) DO UPDATE SET encrypted_message='', correct_suspect_id=NULL, updated_at=now();",
    'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, round_phase=NULL, round_duration_seconds=NULL, round_elapsed_before_seconds=0, round_resumed_at=NULL, round_ended=false, final_open=false, final_started_at=NULL, final_closed_at=NULL, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
   ) -join ' '
@@ -65,6 +67,7 @@ function Start-RehearsalBackend([string]$AdminPassword,[string]$SeedPassword) {
  $env:DEVFEST_DB_USER='devfest_test'
  $env:DEVFEST_DB_PASSWORD=$config.testPassword
  $env:DEVFEST_JWT_SECRET=New-RandomSecret 48
+ $env:DEVFEST_QUIZ_SHUFFLE_SECRET=New-RandomSecret 48
  $env:DEVFEST_ADMIN_EMAIL=$adminEmail
  $env:DEVFEST_ADMIN_PASSWORD=$AdminPassword
  $env:DEVFEST_EVENT_SEED_PASSWORD=$SeedPassword

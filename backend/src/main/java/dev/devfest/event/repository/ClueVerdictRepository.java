@@ -106,14 +106,17 @@ public class ClueVerdictRepository {
     );
   }
 
-  /** Every submission of the room with its answer and override, locked for the re-check. One statement. */
+  /**
+   * Every submission of the room with its answer and override, locked for the re-check. One statement. AI room
+   * results (quiz_evaluation) are not clue answers and are never re-checked against a key.
+   */
   public List<ClueAnswerRecord> answersForRoom(long roomId) {
     return db.query(
       """
       SELECT s.id, s.clue_answer, v.override
       FROM room_submission s
       JOIN submission_clue_verdict v ON v.submission_id = s.id
-      WHERE s.room_id = ?
+      WHERE s.room_id = ? AND NOT EXISTS (SELECT 1 FROM quiz_evaluation e WHERE e.submission_id = s.id)
       FOR UPDATE OF v""",
       (rs, row) -> new ClueAnswerRecord(uuid(rs, "id"), rs.getString("clue_answer"), ClueOverride.fromStored(rs.getString("override"))),
       roomId

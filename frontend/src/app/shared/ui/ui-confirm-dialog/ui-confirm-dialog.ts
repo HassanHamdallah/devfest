@@ -29,6 +29,8 @@ export class UiConfirmDialog {
   readonly title = input.required<string>();
   readonly message = input<string | null>(null);
   readonly confirmVariant = input<UiButtonVariant>("primary");
+  /** The confirm button's text, e.g. "Start anyway". */
+  readonly confirmLabel = input("Confirm");
   /** Shows a spinner on "Confirm" and blocks both buttons while the action runs. */
   readonly busy = input(false);
   /** Keeps "Confirm" disabled until the parent's own check passes (e.g. a typed confirmation word). */

@@ -1,0 +1,89 @@
+<ui-card>
+  <div ui-card-header class="terminal-form__head">
+    <h2>Your answers</h2>
+    <ui-status-chip [variant]="chipVariant()">{{ statusLabel() }}</ui-status-chip>
+  </div>
+
+  @if (loadError(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  }
+  @if (view()) {
+  <form class="terminal-form__fields" (ngSubmit)="save()" aria-label="Your answers">
+    <p class="event-muted terminal-form__intro">
+      Find the file in the terminal and write down what you found. Save as often as you like; Final submit locks your
+      answers for good.
+    </p>
+    <ui-input
+      label="PATH"
+      name="path"
+      [disabled]="!editable()"
+      [ngModel]="draft().path"
+      (ngModelChange)="set('path', $event)"
+    />
+    <ui-input
+      label="USERNAME"
+      name="username"
+      [disabled]="!editable()"
+      [ngModel]="draft().username"
+      (ngModelChange)="set('username', $event)"
+    />
+    <ui-input
+      label="FILE_SIZE"
+      name="fileSize"
+      [disabled]="!editable()"
+      [ngModel]="draft().fileSize"
+      (ngModelChange)="set('fileSize', $event)"
+    />
+    <ui-input
+      label="PATTERN"
+      name="pattern"
+      [disabled]="!editable()"
+      [ngModel]="draft().pattern"
+      (ngModelChange)="set('pattern', $event)"
+    />
+    <ui-input
+      label="Final clue"
+      name="finalClue"
+      [disabled]="!editable()"
+      [ngModel]="draft().finalClue"
+      (ngModelChange)="set('finalClue', $event)"
+    />
+
+    @if (submitted()) {
+    <ui-alert variant="info">Submitted. Your answers are locked.</ui-alert>
+    } @else if (!running()) {
+    <p class="event-muted terminal-form__note">The form accepts answers only while your round is running.</p>
+    }
+    @if (error(); as text) {
+    <ui-alert variant="error">{{ text }}</ui-alert>
+    }
+    @if (unconfirmed()) {
+    <ui-button variant="secondary" (click)="retry()" [loading]="busy() !== null">Retry</ui-button>
+    }
+
+    @if (!submitted()) {
+    <div class="terminal-form__actions">
+      <ui-button type="submit" variant="secondary" [disabled]="!editable()" [loading]="busy() === 'save'">Save</ui-button>
+      <ui-button [disabled]="!editable()" [loading]="busy() === 'submit'" (click)="confirming.set(true)"
+        >Final submit</ui-button
+      >
+      @if (dirty() && editable()) {
+      <span class="event-muted terminal-form__dirty">Unsaved changes</span>
+      }
+    </div>
+    }
+  </form>
+  } @else if (!loadError()) {
+  <p class="event-muted">Loading your answers…</p>
+  }
+</ui-card>
+
+<ui-confirm-dialog
+  [open]="confirming()"
+  title="Submit your final answers?"
+  message="This cannot be undone. After the final submit you can no longer change your answers."
+  confirmLabel="Final submit"
+  confirmVariant="danger"
+  (confirmed)="confirmSubmit()"
+  (cancelled)="confirming.set(false)"
+/>

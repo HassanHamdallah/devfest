@@ -63,6 +63,8 @@ export async function expectFitsPhone(page: Page) {
  * the image is captured first and its write is retried briefly; a capture failure still fails the test.
  */
 export async function saveScreenshot(page: Page, file: string, fullPage = true) {
+  // DEVFEST_NO_SCREENSHOTS=1 re-runs a spec without rewriting the committed images.
+  if (process.env.DEVFEST_NO_SCREENSHOTS) return;
   const image = await page.screenshot({ fullPage });
   for (let attempt = 1; ; attempt++) {
     try {

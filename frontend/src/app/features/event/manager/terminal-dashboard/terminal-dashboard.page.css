@@ -1,0 +1,121 @@
+.dashboard h1,
+.dashboard h2 {
+  margin: 0;
+}
+
+.dashboard__header {
+  display: grid;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 6px solid var(--room-color);
+}
+
+.dashboard__back {
+  color: var(--color-primary-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dashboard__intro {
+  margin: 0 0 var(--space-3);
+}
+
+.dashboard__keys {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  align-items: start;
+}
+
+.dashboard__keys-actions {
+  grid-column: 1 / -1;
+}
+
+/* The wide table scrolls inside its card; the page itself never scrolls sideways. */
+.dashboard__scroll {
+  overflow-x: auto;
+  max-inline-size: 100%;
+}
+
+.dashboard__scroll:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+}
+
+.dashboard__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.dashboard__table th,
+.dashboard__table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.dashboard__table thead th {
+  white-space: nowrap;
+}
+
+.dashboard__table tbody th {
+  white-space: nowrap;
+}
+
+.dashboard__item {
+  min-inline-size: 7.5rem;
+}
+
+.dashboard__value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.dashboard__text {
+  max-inline-size: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+}
+
+.dashboard__verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}
+
+.dashboard__mark {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-error-text, #b3261e);
+}
+
+.dashboard__mark--ok {
+  color: var(--color-success-text, #1e6b34);
+}
+
+.dashboard__mark--item {
+  font-size: var(--font-size-md, 1rem);
+}
+
+.dashboard__select {
+  max-inline-size: 6.5rem;
+  font: inherit;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border-strong, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dashboard__num {
+  text-align: end;
+  white-space: nowrap;
+}
+
+.dashboard__total {
+  font-weight: var(--font-weight-semibold);
+}

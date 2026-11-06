@@ -27,6 +27,107 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-07: Linux room form without the encrypted message
+
+- The target file holds one encrypted clue, so the Linux team form has **five** fields (PATH, USERNAME, FILE_SIZE,
+  PATTERN, Final clue) and the answer keys four. The fifth scored item is **Clue** (3 points when the Final clue is
+  correct, still checked against the room's clue key and collected as before); the total stays 15. Overriding it still
+  never grants or revokes a clue. V17 drops `terminal_form.message_value` and `terminal_answer_key.message_key` and
+  renames the override item `MESSAGE_CLUE` to `CLUE` (existing overrides carry over). The CSV loses the message column
+  (`cluePoints` replaces `messageCluePoints`). The event's final and its encrypted message are untouched.
+
+### Change set 2026-11-07: Linux room, challenge package tools, file dates and terminal clock
+
+- **Extra tools** for rooms with a server package (not for other rooms): `file` (+ magic database), `base64`, `bzip2`,
+  `bunzip2`, `bzcat`, `zip` and GNU `find` (+ `xargs`), from official Alpine Linux v3.24 x86 (musl) packages verified
+  against Alpine's signed index and pinned by SHA-256 (`infrastructure/build-terminal-tools.py`,
+  `infrastructure/terminal-tools.lock.json`), shipped as one static, deterministic archive
+  `frontend/public/terminal/devfest-tools.tgz` (1,886,271 bytes, not part of the room package), unpacked into
+  `/usr/local` during the invisible setup with `/usr/local/bin` first on `PATH`. Licenses: `TOOLS-LICENSES.txt`.
+  Package rooms use an 80 MB guest (measured necessary: 6 MB free with 64 MB, 21 to 22 MB with 80 MB).
+- **Manifest 5th column** `mtime` (`2026-03-14T09:26:00Z`, 1970 to 2099): files and folders keep exact dates; folders are
+  written after their contents; four-column manifests unchanged.
+- **Terminal clock** per room (V16 `room_terminal_bundle.terminal_clock`, `PUT /rooms/{id}/terminal-bundle/clock`): set
+  without re-upload, content-locked, audited, member/other manager 404; the setup runs `date -s`.
+- Tests: backend 376 (was 362), 0 failures; Playwright event suite 17 passed, `--repeat-each=2` 34 passed; Linux load
+  test (16 teams, tools archive included) 0 errors, p95 26.3 ms excluding downloads. Details: LINUX-ROOM.md §4, §6, §10.
+
+### Change set 2026-11-06: Linux room, part C (organizer dashboard and scoring)
+
+- A separate page `/event/room/{id}/dashboard` for the room's manager and the admin (everyone else: 404): the **answer
+  keys** (PATH, USERNAME, FILE_SIZE, PATTERN with several values one per line, and the message; empty = not auto-awarded,
+  with an admin board warning), every active team's form with ✓/✗ per item, an **Award / Deny / Automatic** override
+  per item (audited, "Overridden", clearable), the score out of 15 (3 per correct parameter, 3 when message and clue are
+  both right; computed on read, never stored), submit time, sorted by total, refreshing every 5 s, CSV export through the
+  formula-safe helper, and Test terminal with the current package. Overriding the fifth item never grants or revokes a
+  clue. The 15 points stay in the room; the ranking is unchanged. V15 `terminal_answer_key`, `terminal_form_override`;
+  resets and snapshots include the overrides. Rules §18.8, [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md) §7.
+
+### Change set 2026-11-06: Linux room, part B (team form)
+
+- A room with the `LINUX_TERMINAL` activity (the admin's activity switch, now with a second checkbox; V13 turns it on
+  for the Linux room on a fresh setup) shows the team a six-field form next to the terminal instead of the answer form:
+  PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted message, Final clue. Save (repeatable, Idempotency-Key) and Final
+  submit (confirmation, irreversible; V14 `terminal_form`, `terminal_form_request`). State comes from the server; only
+  the assigned team, while its round runs, the room is open and the form is not submitted (404 / the usual 409s
+  otherwise); the team sees only Saved / Submitted. The final answer — by the team or at the round's end for a form
+  with something saved, once, inside the existing round-end transition — is recorded through the ordinary
+  room-submission path (technical output = a server-made summary; Final clue checked against the manager's clue key; a
+  correct one is added as a ROOM clue). "Use selection as technical output" is hidden for this room; "Copy selection"
+  stays. Rules §18.7, [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md) §6.
+- The answers other than the clue are stored but not checked yet (the organizer dashboard, scoring and answer keys are
+  part C).
+
+### Change set 2026-11-06: Linux room, part A (server package for the terminal)
+
+- A room manager (or the admin) uploads **one ZIP** on the room board (**Server package**); the server validates it
+  (every problem at once), builds one gzip-compressed ustar archive and stores it with its SHA-256 in
+  `room_terminal_bundle` (V13), apart from the room rows. The assigned team's terminal downloads it under exactly the
+  gates of the text files (`GET /team/rooms/{id}/terminal-bundle`; ETag and `If-None-Match` → 304 without loading the
+  archive), installs it from `/` with `gzip -dc | tar -xf - -C /`, adds the owners to `/etc/passwd` and `/etc/group`
+  before the shell starts, and shows "Rami's server is mounted. There is no internet in this terminal.". Rooms without
+  a package keep the text files unchanged. `RoomActivity` has a second value, `LINUX_TERMINAL` (V13 sets it for the
+  Linux room); it changes nothing for teams yet (the team form and the organizer dashboard are parts B and C).
+- Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §18.6, author guide [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md)
+  (ZIP and manifest format with an example, commands available and missing), design in
+  [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md) "Server package".
+- Tested: see the numbers recorded in the report of this change; screenshots in `docs/ui-after/`
+  (`terminal-package-1440/390`, `terminal-package-errors-1440/390`).
+
+### Change set 2026-11-02: AI room activity (quiz, code repairs, pass score)
+
+- Rooms with the **AI quiz activity** (admin setting on the Content page; V11 turns it on for the AI room only) show
+  teams only the activity — no answer form: 45 auto-scored multiple-choice questions and 3 code-snippet ordering
+  repairs (partial credit). MCQs are open for the room's MCQ minutes of running time (default 14) or until "Finish
+  MCQs"; repairs until Time's up. Answers lock on save (Idempotency-Key; "Already answered."); teams only see
+  "Response saved". The room manager authors the content (or imports/exports one JSON file) under **AI quiz →
+  Questions and repairs**, sets the **pass score** (0–100, default 60; locked by the first evaluation) and follows
+  **AI room results** (status, clue granted, live every 5 s, CSV).
+- **Evaluation (V12)**: each team once, at its last repair or at the round's end (End round, removing the time left,
+  or the next round; no scheduler), race-safe under the event lock with one `quiz_evaluation` row per team and room.
+  A total ≥ the pass score is recorded through the existing room-submission path as CORRECT and collects the
+  manager's clue as a ROOM clue; otherwise INCORRECT. The room is then finished for the team, the revision is bumped
+  and broadcast after commit, and manager overrides still apply. Teams see "Clue unlocked" with the clue in the
+  masked clue display, or "You did not reach the required score for this room's clue." — never a score, the total or
+  the pass score.
+- The first version's team cipher (Vigenère key, fragments, ciphertext; never committed) is removed from code, UI,
+  tests and docs, and V12 drops its column. The shuffle secret now comes from `DEVFEST_QUIZ_SHUFFLE_SECRET` in
+  `backend/.env` (development fallback with a warning; any other backend refuses to start). An AI quiz room without a
+  clue key or questions is a blocking admin alert, and the timer starts only with **Start anyway**.
+- Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §19, design [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md)
+  "AI room activity", manager guide and JSON format in the README. Final ranking unchanged.
+- Tested: `test-backend.ps1` → `Tests run: 244, Failures: 0, Errors: 0, Skipped: 0` (EventAiRoomTest 24, incl. the
+  pass-score edge, both triggers racing, clue added once, override, lock, no leakage and 404s; AiRoomShuffleSecretTest
+  2; StartupSafetyTest +2; QuizScoringTest +1; EvidenceVisibilityTest +1); team activity endpoint 10 statements with 3
+  teams and no answers or 19 teams and 30 answers; backend package and frontend build succeed (initial bundle
+  355.12 kB raw / 97.69 kB transfer vs. 353.06 / 97.32 kB at HEAD: +0.58 % / +0.38 %); fresh rehearsal → Playwright
+  event suite 11 passed, then `--repeat-each=2` 22 passed (`e2e/event-ai-room.spec.ts`: one team passes and sees the
+  clue, one does not; empty quiz blocks the timer until Start anyway); quiz load check 16 teams in one round: 2 472
+  requests, 0 errors, worst p95 35.2 ms, 154 retries identical, 30/30 duplicate answers refused, 16 evaluations
+  (2 passed, 14 not, pass score 30) each matching its own total (`docs/event-load-quiz.json`); screenshots in
+  `docs/ui-after/` (`ai-room-mcq`, `ai-room-repair`, `ai-room-clue-unlocked` at 1440 and 390, `ai-room-not-reached-1440`,
+  `admin-ai-quiz-blocked-1440`, `manager-ai-quiz-editor-1440`, `manager-ai-results` 1440 and 390).
+
 ### Change set 2026-10-27: team evidence with masked clues
 
 - After a room is finished for a team (its round is over, by rotation or admin exception; round 5 or the final

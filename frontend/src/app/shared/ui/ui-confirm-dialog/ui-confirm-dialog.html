@@ -24,7 +24,7 @@
       [loading]="busy()"
       [disabled]="confirmDisabled()"
       (click)="confirmed.emit()"
-      >Confirm</ui-button
+      >{{ confirmLabel() }}</ui-button
     >
   </div>
 </dialog>

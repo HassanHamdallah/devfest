@@ -1,0 +1,126 @@
+{
+  "alpine": {
+    "branch": "v3.24",
+    "repository": "main",
+    "arch": "x86",
+    "keyName": "alpine-devel@lists.alpinelinux.org-61666e3f.rsa.pub",
+    "keySha256": "128d34d4aec39b0daedea8163cd8dc24dff36fd3d848630ab97eeb1d3084bbb3",
+    "indexSha256": "38327f9a43949eb03225632b8127cc77bce457bbeb423d4eafee59df5dcbc878"
+  },
+  "packages": [
+    {
+      "name": "musl",
+      "version": "1.2.6-r3",
+      "file": "musl-1.2.6-r3.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/musl-1.2.6-r3.apk",
+      "sha256": "9e875b4ad655f8314019075560c88f6b4eb05b7f5eb30f4ed038d4fc56f70da3",
+      "bytes": 415831,
+      "license": "MIT",
+      "upstream": "https://musl.libc.org/",
+      "origin": "musl"
+    },
+    {
+      "name": "libbz2",
+      "version": "1.0.8-r6",
+      "file": "libbz2-1.0.8-r6.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libbz2-1.0.8-r6.apk",
+      "sha256": "636ace113aaf002da7b28dfb9e99e0d04df466cc177ffa27f68c4e6ebbb4ce2c",
+      "bytes": 36459,
+      "license": "bzip2-1.0.6",
+      "upstream": "https://sourceware.org/bzip2/",
+      "origin": "bzip2"
+    },
+    {
+      "name": "bzip2",
+      "version": "1.0.8-r6",
+      "file": "bzip2-1.0.8-r6.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/bzip2-1.0.8-r6.apk",
+      "sha256": "8803cb3782ba0a89451a06a3050ca8deecd3222480664c51ba5b8456367d4948",
+      "bytes": 148317,
+      "license": "bzip2-1.0.6",
+      "upstream": "https://sourceware.org/bzip2/",
+      "origin": "bzip2"
+    },
+    {
+      "name": "libmagic",
+      "version": "5.47-r2",
+      "file": "libmagic-5.47-r2.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libmagic-5.47-r2.apk",
+      "sha256": "bc2f1db78a6f2c2959ecdc84bb2b36f7e841347ef67a050f311983d5357009ac",
+      "bytes": 531221,
+      "license": "BSD-2-Clause",
+      "upstream": "https://www.darwinsys.com/file/",
+      "origin": "file"
+    },
+    {
+      "name": "file",
+      "version": "5.47-r2",
+      "file": "file-5.47-r2.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/file-5.47-r2.apk",
+      "sha256": "7bb5c6bc5b1be0a9d677314f70f8576c38fd00c67cce29d68dc19702538d7c2c",
+      "bytes": 9792,
+      "license": "BSD-2-Clause",
+      "upstream": "https://www.darwinsys.com/file/",
+      "origin": "file"
+    },
+    {
+      "name": "findutils",
+      "version": "4.10.0-r1",
+      "file": "findutils-4.10.0-r1.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/findutils-4.10.0-r1.apk",
+      "sha256": "8a3227f462cdcac121850e252122fe43c7e0e5523846242d9af732afd3f0fb81",
+      "bytes": 138665,
+      "license": "GPL-3.0-or-later",
+      "upstream": "https://www.gnu.org/software/findutils/",
+      "origin": "findutils"
+    },
+    {
+      "name": "zip",
+      "version": "3.0-r13",
+      "file": "zip-3.0-r13.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/zip-3.0-r13.apk",
+      "sha256": "546054e32b36c18c5020175af4a96d84783be72aac69d8a38bad4e1da0038ead",
+      "bytes": 195377,
+      "license": "Info-ZIP",
+      "upstream": "http://www.info-zip.org/pub/infozip/Zip.html",
+      "origin": "zip"
+    },
+    {
+      "name": "busybox-static",
+      "version": "1.37.0-r31",
+      "file": "busybox-static-1.37.0-r31.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/busybox-static-1.37.0-r31.apk",
+      "sha256": "26d45cc895b3fa99ba7500d0860c3934a363e74e464eeb5fc623f08147c33cfd",
+      "bytes": 641578,
+      "license": "GPL-2.0-only",
+      "upstream": "https://busybox.net/",
+      "origin": "busybox"
+    }
+  ],
+  "licenses": {
+    "GPL-3.0": {
+      "url": "https://www.gnu.org/licenses/gpl-3.0.txt",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "GPL-2.0": {
+      "url": "https://www.gnu.org/licenses/gpl-2.0.txt",
+      "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
+    },
+    "MIT": {
+      "url": "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT",
+      "sha256": "b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b"
+    },
+    "BSD-2-Clause": {
+      "url": "https://raw.githubusercontent.com/file/file/master/COPYING",
+      "sha256": "0bfa856a9930bddadbef95d1be1cf4e163c0be618e76ea3275caaf255283e274"
+    },
+    "bzip2": {
+      "url": "https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;hb=HEAD",
+      "sha256": "c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3"
+    }
+  },
+  "infoZipSource": {
+    "url": "https://downloads.sourceforge.net/project/infozip/Zip%203.x%20%28latest%29/3.0/zip30.tar.gz",
+    "sha256": "f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369"
+  }
+}

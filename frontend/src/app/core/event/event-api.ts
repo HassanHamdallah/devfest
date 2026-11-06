@@ -9,6 +9,8 @@ import {
   AdminBoard,
   AdminContent,
   AdminContentRequest,
+  AiRoomActivity,
+  AiRoomResults,
   ClueOverrideRequest,
   ClueVerdictView,
   CreateAccountRequest,
@@ -24,10 +26,16 @@ import {
   OverrideOutcome,
   PenaltyRequest,
   PenaltyView,
+  QuizDocument,
+  QuizEditorView,
+  QuizQuestionRequest,
+  QuizRepairRequest,
+  QuizSavedReceipt,
   Receipt,
   RecoveryRequest,
   RecoveryResult,
   ResultsView,
+  RoomActivity,
   RoomBoard,
   RoomContentRequest,
   RoomArrivalView,
@@ -46,7 +54,12 @@ import {
   TeamView,
   TerminalFileContent,
   TerminalFileList,
+  TerminalAnswerKeys,
+  TerminalDashboard,
   TerminalFileRequest,
+  TerminalFormRequest,
+  TerminalFormView,
+  TerminalScoreItem,
   TerminalSettingView,
   TerminalStartFiles,
   UpdateTeamRequest,
@@ -111,6 +124,39 @@ export class EventApi {
   teamTerminalFiles(roomId: number) {
     return this.get<TerminalStartFiles>(`/team/rooms/${roomId}/terminal-files`);
   }
+  /** 404 unless the room has the Linux terminal activity and is the team's room this round (rules §18.7). */
+  teamTerminalForm(roomId: number) {
+    return this.get<TerminalFormView>(`/team/rooms/${roomId}/terminal-form`);
+  }
+  saveTerminalForm(roomId: number, body: TerminalFormRequest, key: string) {
+    return this.postIdempotent<TerminalFormView>(`${EVENT}/team/rooms/${roomId}/terminal-form/save`, body, key);
+  }
+  /** Irreversible: locks the form and records the final answer. */
+  submitTerminalForm(roomId: number, body: TerminalFormRequest, key: string) {
+    return this.postIdempotent<TerminalFormView>(`${EVENT}/team/rooms/${roomId}/terminal-form/submit`, body, key);
+  }
+  /** 404 unless the room has the AI quiz and is the team's room this round (rules §19). */
+  teamActivity(roomId: number) {
+    return this.get<AiRoomActivity>(`/team/rooms/${roomId}/activity`);
+  }
+  /** The key is the answer's: a retry with the same key and body gets the same receipt. */
+  saveQuizAnswer(roomId: number, questionId: number, optionId: number, key: string) {
+    return this.postIdempotent<QuizSavedReceipt>(
+      `${EVENT}/team/rooms/${roomId}/activity/answers`,
+      { questionId, optionId },
+      key,
+    );
+  }
+  submitQuizRepair(roomId: number, repairId: number, snippetIds: number[], key: string) {
+    return this.postIdempotent<QuizSavedReceipt>(
+      `${EVENT}/team/rooms/${roomId}/activity/repairs/${repairId}`,
+      { snippetIds },
+      key,
+    );
+  }
+  finishQuizMcq(roomId: number) {
+    return this.send<AiRoomActivity>("POST", `/team/rooms/${roomId}/activity/finish-mcq`, {});
+  }
   /** Resends a stored attempt with its original key and body (submission reliability contract). */
   resendPending<T>(pending: PendingRequest<unknown>) {
     return this.postIdempotent<T>(pending.path, pending.body, pending.key);
@@ -174,13 +220,98 @@ export class EventApi {
   deleteTerminalFile(roomId: number, fileId: number) {
     return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-files/${fileId}`);
   }
+  /** Uploads (or replaces) the room's server package; a rejected ZIP answers 400 with every problem in `problems`. */
+  uploadTerminalBundle(roomId: number, zip: File) {
+    const form = new FormData();
+    form.append("file", zip, zip.name);
+    return this.send<TerminalFileList>("PUT", `/rooms/${roomId}/terminal-bundle`, form);
+  }
+  terminalDashboard(roomId: number) {
+    return this.get<TerminalDashboard>(`/rooms/${roomId}/terminal-dashboard`);
+  }
+  saveTerminalKeys(roomId: number, keys: TerminalAnswerKeys) {
+    return this.send<TerminalDashboard>("PUT", `/rooms/${roomId}/terminal-dashboard/keys`, keys);
+  }
+  /** true awards the item's points, false denies them, null goes back to automatic. */
+  setTerminalOverride(roomId: number, teamId: number, item: TerminalScoreItem, awarded: boolean | null) {
+    return this.send<TerminalDashboard>("PUT", `/rooms/${roomId}/terminal-dashboard/teams/${teamId}/items/${item}`, {
+      awarded,
+    });
+  }
+  /** Downloads GET /rooms/{id}/terminal-dashboard.csv as linux-room-scores.csv. */
+  async downloadTerminalDashboardCsv(roomId: number): Promise<void> {
+    const csv = await firstValueFrom(
+      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/terminal-dashboard.csv`, { responseType: "text" }),
+    );
+    saveFile(csv, "text/csv", "linux-room-scores.csv");
+  }
+  /** Sets (an ISO UTC instant such as 2026-03-14T09:26:00Z) or clears (null) the package's terminal clock. */
+  setTerminalClock(roomId: number, clock: string | null) {
+    return this.send<TerminalFileList>("PUT", `/rooms/${roomId}/terminal-bundle/clock`, { clock });
+  }
+  deleteTerminalBundle(roomId: number) {
+    return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-bundle`);
+  }
+  /**
+   * The room's package as gzip bytes. The server answers with an ETag and "no-cache", so the browser revalidates
+   * and a restarted terminal gets a 304 instead of the bytes.
+   */
+  terminalBundle(roomId: number, scope: "team" | "manager"): Promise<ArrayBuffer> {
+    const path = scope === "team" ? `/team/rooms/${roomId}/terminal-bundle` : `/rooms/${roomId}/terminal-bundle`;
+    return firstValueFrom(this.http.get(`${BASE}${EVENT}${path}`, { responseType: "arraybuffer" }));
+  }
+
+  quizEditor(roomId: number) {
+    return this.get<QuizEditorView>(`/rooms/${roomId}/quiz`);
+  }
+  createQuizQuestion(roomId: number, body: QuizQuestionRequest) {
+    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/questions`, body);
+  }
+  updateQuizQuestion(roomId: number, questionId: number, body: QuizQuestionRequest) {
+    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/questions/${questionId}`, body);
+  }
+  deleteQuizQuestion(roomId: number, questionId: number) {
+    return this.send<QuizEditorView>("DELETE", `/rooms/${roomId}/quiz/questions/${questionId}`);
+  }
+  createQuizRepair(roomId: number, body: QuizRepairRequest) {
+    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/repairs`, body);
+  }
+  updateQuizRepair(roomId: number, repairId: number, body: QuizRepairRequest) {
+    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/repairs/${repairId}`, body);
+  }
+  deleteQuizRepair(roomId: number, repairId: number) {
+    return this.send<QuizEditorView>("DELETE", `/rooms/${roomId}/quiz/repairs/${repairId}`);
+  }
+  /** `passScore` null keeps the room's pass score (it is locked once a team was evaluated). */
+  saveQuizSettings(roomId: number, mcqMinutes: number, passScore: number | null) {
+    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/settings`, { mcqMinutes, passScore });
+  }
+  exportQuiz(roomId: number) {
+    return this.get<QuizDocument>(`/rooms/${roomId}/quiz/export`);
+  }
+  /** Replaces every question and repair of the room (refused once a team answered). */
+  importQuiz(roomId: number, document: unknown) {
+    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/import`, document);
+  }
+  quizResults(roomId: number) {
+    return this.get<AiRoomResults>(`/rooms/${roomId}/quiz/results`);
+  }
+
+  /** Downloads GET /rooms/{id}/quiz/results.csv as ai-room-results.csv. */
+  async downloadQuizResultsCsv(roomId: number): Promise<void> {
+    const csv = await firstValueFrom(
+      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/quiz/results.csv`, { responseType: "text" }),
+    );
+    saveFile(csv, "text/csv", "ai-room-results.csv");
+  }
 
   // ---- Admin: control ----
   adminBoard() {
     return this.get<AdminBoard>("/admin/board");
   }
-  startTimer() {
-    return this.send<EventStateView>("POST", "/admin/round/timer/start", {});
+  /** `anyway`: start although the board lists blocking alerts ("Start anyway"). */
+  startTimer(anyway = false) {
+    return this.send<EventStateView>("POST", "/admin/round/timer/start", anyway ? { anyway } : {});
   }
   pauseTimer() {
     return this.send<EventStateView>("POST", "/admin/round/timer/pause", {});
@@ -277,6 +408,11 @@ export class EventApi {
   }
   setTerminalEnabled(roomId: number, enabled: boolean) {
     return this.send<TerminalSettingView>("PUT", `/admin/rooms/${roomId}/terminal`, { enabled });
+  }
+  setRoomActivity(roomId: number, activity: RoomActivity | null) {
+    return this.send<{ roomId: number; activity: RoomActivity | null }>("PUT", `/admin/rooms/${roomId}/activity`, {
+      activity,
+    });
   }
   saveAdminContent(body: AdminContentRequest) {
     return this.send<AdminContent>("PUT", "/admin/content", body);
@@ -385,4 +521,14 @@ export class EventApi {
   private postIdempotent<T>(path: string, body: unknown, key: string) {
     return this.api.request<T>("POST", path, body, { "Idempotency-Key": key });
   }
+}
+
+/** Offers `content` to the browser as a downloaded file. */
+export function saveFile(content: string, type: string, fileName: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }

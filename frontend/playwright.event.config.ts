@@ -3,12 +3,17 @@ export default defineConfig({
   testDir: "./e2e",
   // Each spec resets the rehearsal backend before every test (resetRehearsal), so order and repeats don't matter.
   testMatch: [
+    "event-ai-room.spec.ts",
     "event-clues.spec.ts",
     "event-evidence.spec.ts",
     "event-live.spec.ts",
     "event-overrides.spec.ts",
     "event-teams.spec.ts",
     "event-terminal.spec.ts",
+    "event-terminal-bundle.spec.ts",
+    "event-terminal-form.spec.ts",
+    "event-terminal-tools.spec.ts",
+    "event-terminal-dashboard.spec.ts",
     "event.spec.ts",
   ],
   timeout: 300000,
@@ -28,3 +33,5 @@ export default defineConfig({
     ["json", { outputFile: "../docs/event-browser-results.json" }],
   ],
 });
+
+

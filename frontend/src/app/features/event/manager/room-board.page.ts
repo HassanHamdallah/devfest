@@ -11,7 +11,7 @@ import {
   untracked,
 } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { ActivatedRoute } from "@angular/router";
+import { ActivatedRoute, RouterLink } from "@angular/router";
 import { PHASE_LABELS } from "../../../core/event/countdown";
 import { EventApi } from "../../../core/event/event-api";
 import { EventLiveStore } from "../../../core/event/event-live-store";
@@ -21,6 +21,7 @@ import { roundStatusLabel } from "../../../core/event/format";
 import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { NavIcon } from "../../../core/shell/nav-icon";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
+import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { UiCountdown } from "../../../shared/ui/ui-countdown/ui-countdown";
 import { UiEmptyState } from "../../../shared/ui/ui-empty-state/ui-empty-state";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
@@ -52,7 +53,9 @@ import {
     EventRoomTeamRow,
     EventTerminalFilesCard,
     NavIcon,
+    RouterLink,
     UiButton,
+    UiCard,
     UiCountdown,
     UiEmptyState,
     UiPageState,

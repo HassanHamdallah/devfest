@@ -1,5 +1,6 @@
 import { computed, signal } from "@angular/core";
 import type { V86, V86Options } from "v86";
+import { TOOLS_VERSION } from "./tools-version";
 
 /**
  * The self-hosted emulator files in public/terminal (versions and hashes in ATTRIBUTION.md). They contain no
@@ -26,6 +27,14 @@ const FILES = {
 /** A classic script (the CSP allows only same-origin script URLs); compressed by the server where it can. */
 const LIBRARY: AssetFile = { path: "terminal/libv86.js", bytes: 359_839 };
 
+/**
+ * The extra command line tools (file, base64, bzip2, zip, GNU find) installed in rooms that have a server package,
+ * built by infrastructure/build-terminal-tools.py. A plain gzip file that is handed to the guest as it is (".tgz",
+ * so that no server or browser inflates it on the way); like the other assets it holds no event data.
+ */
+const TOOLS_PATH = "terminal/devfest-tools.tgz";
+const TOOLS_BYTES_LIMIT = 6 * 1024 * 1024;
+
 export type TerminalBuffers = Record<keyof typeof FILES, ArrayBuffer>;
 export type V86Constructor = new (options: V86Options) => V86;
 
@@ -41,6 +50,7 @@ class TerminalAssetStore {
   readonly loadedBytes = computed(() => Object.values(this.received()).reduce((sum, n) => sum + n, 0));
   private pending: Promise<TerminalBuffers> | null = null;
   private library: Promise<V86Constructor> | null = null;
+  private toolsPending: Promise<ArrayBuffer> | null = null;
 
   /** Starts (or joins) the download; a failed download can be started again. */
   load(): Promise<TerminalBuffers> {
@@ -49,6 +59,20 @@ class TerminalAssetStore {
       throw error;
     });
     return this.pending;
+  }
+
+  /** The tools archive (gzip, about 2 MB), downloaded once per page visit and kept for restarts; a failure can be retried. */
+  tools(): Promise<ArrayBuffer> {
+    this.toolsPending ??= this.downloadTools().catch((error: unknown) => {
+      this.toolsPending = null;
+      throw error;
+    });
+    return this.toolsPending;
+  }
+
+  /** Forgets the downloaded tools (they could not be installed), so the next start downloads them again. */
+  dropTools(): void {
+    this.toolsPending = null;
   }
 
   /** libv86.js defines the global V86 constructor; loaded by a script tag (it is not an ES module). */
@@ -78,6 +102,7 @@ class TerminalAssetStore {
   /** Drops the downloaded bytes; the emulator library stays loaded (a script cannot be unloaded). */
   release(): void {
     this.pending = null;
+    this.toolsPending = null;
     this.received.set(this.library ? { [LIBRARY.path]: LIBRARY.bytes } : {});
   }
 
@@ -103,6 +128,23 @@ class TerminalAssetStore {
     }
     this.progress(file.path, file.bytes);
     return gunzip(new Blob(chunks as BlobPart[]));
+  }
+
+  private async downloadTools(): Promise<ArrayBuffer> {
+    const url = new URL(`${TOOLS_PATH}?v=${TOOLS_VERSION}`, document.baseURI).href;
+    let bytes: ArrayBuffer;
+    try {
+      const response = await fetch(url, { cache: "default" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      bytes = await response.arrayBuffer();
+    } catch {
+      throw new Error("The terminal's extra tools could not be downloaded. Check the connection and press Restart terminal.");
+    }
+    const head = new Uint8Array(bytes.slice(0, 2));
+    if (bytes.byteLength === 0 || bytes.byteLength > TOOLS_BYTES_LIMIT || head[0] !== 0x1f || head[1] !== 0x8b) {
+      throw new Error("The terminal's extra tools arrived damaged. Press Restart terminal.");
+    }
+    return bytes;
   }
 
   private progress(path: string, bytes: number): void {

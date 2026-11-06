@@ -37,4 +37,9 @@ if (-not (Test-Path -LiteralPath $envfile)) {
  $admin=[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(18))
  @("DEVFEST_DB_URL=jdbc:postgresql://127.0.0.1:55432/devfest","DEVFEST_DB_USER=devfest","DEVFEST_DB_PASSWORD=$($config.password)","DEVFEST_JWT_SECRET=$jwt",'DEVFEST_ADMIN_EMAIL=admin@devfest.local',"DEVFEST_ADMIN_PASSWORD=$admin",'DEVFEST_SEED=true','DEVFEST_DEVELOPMENT=true','JUDGE0_URL=https://ce.judge0.com') | Set-Content -LiteralPath $envfile
 }
+# The AI quiz's order secret (added later): appended once to an existing .env, never printed.
+if (-not (Select-String -LiteralPath $envfile -Pattern '^DEVFEST_QUIZ_SHUFFLE_SECRET=' -Quiet)) {
+ $shuffle=[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+ Add-Content -LiteralPath $envfile -Value "DEVFEST_QUIZ_SHUFFLE_SECRET=$shuffle"
+}
 Write-Output 'DevFest-only cluster ready on 127.0.0.1:55432. Development credentials are in backend/.env; test credentials in .local/database.json. No credentials printed.'

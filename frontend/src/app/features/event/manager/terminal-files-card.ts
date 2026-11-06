@@ -8,6 +8,7 @@ import {
   signal,
   untracked,
 } from "@angular/core";
+import { HttpErrorResponse } from "@angular/common/http";
 import { FormsModule } from "@angular/forms";
 import { message } from "../../../core/api";
 import { EventApi } from "../../../core/event/event-api";
@@ -39,6 +40,12 @@ interface FileDraft {
 }
 
 const EMPTY_DRAFT: FileDraft = { id: null, path: "", content: "" };
+
+/** Every rule a rejected server package broke (the server lists them all at once). */
+function problemsOf(error: unknown): string[] {
+  const problems: unknown = error instanceof HttpErrorResponse ? error.error?.problems : null;
+  return Array.isArray(problems) ? problems.filter((problem): problem is string => typeof problem === "string") : [];
+}
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -96,7 +103,12 @@ export class EventTerminalFilesCard {
   protected readonly notice = signal<string | null>(null);
   protected readonly deleting = signal<TerminalFileEntry | null>(null);
   protected readonly testing = signal(false);
+  protected readonly problems = signal<string[]>([]);
+  /** The terminal clock input (a UTC date and time as the browser's datetime-local control writes it). */
+  protected readonly clockDraft = signal("");
+  protected readonly removingPackage = signal(false);
   protected readonly loadTestFiles = () => this.eventApi.terminalStartFiles(this.room().id);
+  protected readonly loadTestBundle = () => this.eventApi.terminalBundle(this.room().id, "manager");
   protected readonly formatBytes = formatBytes;
   protected readonly formatTime = formatTime;
   /** "logs/lock.log" → ["logs/", "lock.log"]: a narrow table breaks the path after a slash, not inside a name. */
@@ -114,6 +126,34 @@ export class EventTerminalFilesCard {
       this.room().id;
       this.revision();
       untracked(() => void this.loader.load());
+    });
+    // The input shows the stored clock whenever the list changes (another person's change included).
+    effect(() => {
+      const clock = this.list()?.bundle?.clock ?? null;
+      untracked(() => this.clockDraft.set(clock ? clock.slice(0, 19) : ""));
+    });
+  }
+
+  /** "2026-03-14T09:26:00Z" shown as "2026-03-14 09:26:00". */
+  protected formatClock(clock: string): string {
+    return clock.slice(0, 19).replace("T", " ");
+  }
+
+  protected async saveClock(): Promise<void> {
+    const value = this.clockDraft();
+    if (!value || this.busy()) return;
+    // datetime-local writes minutes ("2026-03-14T09:26") or, with step 1, seconds; the server wants a UTC instant.
+    const instant = `${value.length === 16 ? `${value}:00` : value}Z`;
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.setTerminalClock(this.room().id, instant));
+      this.notice.set("Terminal clock set. Teams get it the next time their terminal starts.");
+    });
+  }
+
+  protected async clearClock(): Promise<void> {
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.setTerminalClock(this.room().id, null));
+      this.notice.set("The terminals use real time again.");
     });
   }
 
@@ -168,6 +208,35 @@ export class EventTerminalFilesCard {
     this.error.set(null);
   }
 
+  /** Sends the chosen ZIP as the room's server package; a rejected package lists every problem at once. */
+  protected async uploadPackage(event: Event): Promise<void> {
+    const picker = event.target as HTMLInputElement;
+    const file = picker.files?.[0];
+    picker.value = "";
+    const list = this.list();
+    if (!file || !list || this.busy()) return;
+    this.problems.set([]);
+    if (file.size > list.maxBundleUploadBytes) {
+      this.error.set(`${file.name} is larger than ${formatBytes(list.maxBundleUploadBytes)}.`);
+      return;
+    }
+    const replacing = list.bundle !== null;
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.uploadTerminalBundle(this.room().id, file));
+      this.notice.set(
+        `${replacing ? "Replaced" : "Uploaded"} the server package. Teams get it the next time their terminal starts.`,
+      );
+    });
+  }
+
+  protected async confirmRemovePackage(): Promise<void> {
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.deleteTerminalBundle(this.room().id));
+      this.notice.set("Removed the server package.");
+    });
+    this.removingPackage.set(false);
+  }
+
   protected async save(): Promise<void> {
     const draft = this.draft();
     const list = this.list();
@@ -205,10 +274,12 @@ export class EventTerminalFilesCard {
     this.busy.set(true);
     this.error.set(null);
     this.notice.set(null);
+    this.problems.set([]);
     try {
       await work();
     } catch (e) {
       this.error.set(message(e));
+      this.problems.set(problemsOf(e));
     } finally {
       this.busy.set(false);
     }

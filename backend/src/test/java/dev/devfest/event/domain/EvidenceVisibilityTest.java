@@ -32,7 +32,7 @@ class EvidenceVisibilityTest {
   void roundFiveAndTheFinalFinishEveryRoom() {
     for (RoomCode room : RoomCode.values()) {
       assertTrue(finished(room, NO_EXCEPTIONS, 5, null), room.name());
-      assertTrue(EvidenceVisibility.roomFinished(room, GroupCode.A, NO_EXCEPTIONS, 2, RoundPhase.RUNNING, true));
+      assertTrue(EvidenceVisibility.roomFinished(room, GroupCode.A, NO_EXCEPTIONS, 2, RoundPhase.RUNNING, true, false));
     }
   }
 
@@ -49,11 +49,17 @@ class EvidenceVisibilityTest {
     assertTrue(EvidenceVisibility.clueVisible(true, true));
     assertFalse(EvidenceVisibility.clueVisible(true, false), "finished but not collected");
     assertFalse(EvidenceVisibility.clueVisible(false, false));
-    boolean finalOpen = EvidenceVisibility.roomFinished(RoomCode.HARDWARE, GroupCode.A, NO_EXCEPTIONS, 5, null, true);
+    boolean finalOpen = EvidenceVisibility.roomFinished(RoomCode.HARDWARE, GroupCode.A, NO_EXCEPTIONS, 5, null, true, false);
     assertTrue(EvidenceVisibility.clueVisible(finalOpen, true), "final open + collected");
   }
 
+  @Test
+  void aRecordedActivityResultFinishesTheRoomAtOnce() {
+    assertTrue(EvidenceVisibility.roomFinished(RoomCode.AI, GroupCode.A, NO_EXCEPTIONS, 1, RoundPhase.RUNNING, false, true));
+    assertTrue(EvidenceVisibility.clueVisible(true, true), "passed: the clue shows while the round still runs");
+  }
+
   private static boolean finished(RoomCode room, Map<Integer, RoomCode> exceptions, int round, RoundPhase phase) {
-    return EvidenceVisibility.roomFinished(room, GroupCode.A, exceptions, round, phase, false);
+    return EvidenceVisibility.roomFinished(room, GroupCode.A, exceptions, round, phase, false, false);
   }
 }

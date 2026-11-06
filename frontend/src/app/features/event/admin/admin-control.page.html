@@ -28,6 +28,7 @@
     [state]="data.state"
     [rooms]="data.rooms"
     [startWarnings]="data.startWarnings"
+    [startBlockers]="data.startBlockers"
     [busy]="actionState.busy()"
     (action)="request($event)"
   />
@@ -59,6 +60,7 @@
   [title]="confirmation().title"
   [message]="confirmation().message"
   [confirmVariant]="confirmation().variant"
+  [confirmLabel]="confirmation().confirmLabel ?? 'Confirm'"
   [busy]="actionState.busy()"
   (confirmed)="confirm()"
   (cancelled)="cancel()"

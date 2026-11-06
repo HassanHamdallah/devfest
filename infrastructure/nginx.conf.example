@@ -15,7 +15,8 @@ server {
     gzip_types text/css application/javascript text/javascript application/json image/svg+xml;
     # In-browser terminal: the emulator and Linux image never change under one ?v= version, so they are cached for a
     # year. The binaries are stored as .gz and inflated by the page; they must go out as they are (no gzip again,
-    # no Content-Encoding), so only libv86.js is compressed here (gzip_types above).
+    # no Content-Encoding), so only libv86.js is compressed here (gzip_types above). devfest-tools.tgz (the extra tools
+    # of rooms with a server package) is such a file too: the page hands it to the guest as it is.
     location /terminal/ {
         add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header X-Content-Type-Options nosniff always;

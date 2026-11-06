@@ -6,7 +6,8 @@ import { EventMaskedClue } from "./masked-clue";
 
 /**
  * A finished room on the team home: the team's latest technical output and clue answer with its result, and the
- * room's official clue behind the eye toggle when the team collected it.
+ * room's official clue behind the eye toggle when the team collected it. A room with an activity (AI quiz) shows
+ * only its outcome: "Clue unlocked" with the clue, or that the required score was not reached.
  */
 @Component({
   selector: "event-team-evidence-card",
@@ -63,7 +64,27 @@ import { EventMaskedClue } from "./masked-clue";
       <h3>Evidence</h3>
     </div>
     <dl>
-      @if (evidence().technicalOutput === null && evidence().clueAnswer === null) {
+      @if (evidence().activity === "LINUX_TERMINAL") {
+        <dt>Your answers</dt>
+        <dd data-form-outcome>
+          @if (evidence().resultRecorded) {
+            <ui-status-chip variant="success">Submitted</ui-status-chip>
+          } @else {
+            <span class="event-muted">Not submitted</span>
+          }
+        </dd>
+      } @else if (evidence().activity) {
+        <dt>AI quiz</dt>
+        <dd data-quiz-outcome>
+          @if (evidence().clueValue) {
+            <ui-status-chip variant="success">Clue unlocked</ui-status-chip>
+          } @else if (evidence().resultRecorded) {
+            You did not reach the required score for this room's clue.
+          } @else {
+            <span class="event-muted">No result recorded</span>
+          }
+        </dd>
+      } @else if (evidence().technicalOutput === null && evidence().clueAnswer === null) {
         <dt>Your answer</dt>
         <dd class="event-muted">No answer submitted</dd>
       } @else {

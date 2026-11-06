@@ -21,12 +21,13 @@ import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiProgress } from "../../../shared/ui/ui-progress/ui-progress";
-import { LinuxSession, TERMINAL_COLS, TERMINAL_ROWS } from "./linux-session";
+import { LinuxSession, TERMINAL_COLS, TERMINAL_ROWS, TOOLS_FAILED, TerminalBundle } from "./linux-session";
 import { terminalAssets } from "./terminal-assets";
 
 type TerminalState = "downloading" | "booting" | "ready" | "ended" | "failed";
 
 const BANNER = "\x1b[1mYour files are in ~/logs. There is no internet in this terminal.\x1b[0m\r\n";
+const SERVER_BANNER = "\x1b[1mRami's server is mounted. There is no internet in this terminal.\x1b[0m\r\n";
 const TIME_UP = "\r\n\x1b[1;31mTime is up.\x1b[0m The terminal no longer accepts input.\r\n";
 const MB = 1024 * 1024;
 
@@ -47,6 +48,8 @@ const MB = 1024 * 1024;
 export class EventLinuxTerminal {
   /** Loads the files the terminal starts with (and again on every restart). */
   readonly loadFiles = input.required<() => Promise<TerminalStartFiles>>();
+  /** Downloads the room's server package; needed only when the files response says the room has one. */
+  readonly loadBundle = input<(() => Promise<ArrayBuffer>) | null>(null);
   /** The round is over: the terminal stops and says "Time is up" (Restart works again if time is added). */
   readonly ended = input(false);
   /** Shows "Use selection as technical output" (the team's answer form is next to the terminal). */
@@ -153,9 +156,11 @@ export class EventLinuxTerminal {
         terminalAssets.load(),
         this.loadFiles()(),
       ]);
+      const bundle = await this.downloadBundle(files);
       if (!current() || this.ended()) return;
       this.state.set("booting");
-      const session = await LinuxSession.boot(Emulator, buffers, files, BANNER, (byte) => this.write(byte));
+      const banner = bundle ? SERVER_BANNER : BANNER;
+      const session = await LinuxSession.boot(Emulator, buffers, files, bundle, banner, (byte) => this.write(byte));
       if (!current() || this.ended()) {
         await session.destroy();
         return;
@@ -166,9 +171,19 @@ export class EventLinuxTerminal {
       this.terminal?.focus();
     } catch (error) {
       if (!current()) return;
+      if (error instanceof Error && error.message === TOOLS_FAILED) terminalAssets.dropTools();
       this.error.set(message(error));
       this.state.set("failed");
     }
+  }
+
+  /** The room's server package, when it has one (the browser revalidates it by ETag on a restart). */
+  private async downloadBundle(files: TerminalStartFiles): Promise<TerminalBundle | null> {
+    if (!files.bundle) return null;
+    const load = this.loadBundle();
+    if (!load) throw new Error("This terminal cannot load the room's server package.");
+    const [archive, tools] = await Promise.all([load(), terminalAssets.tools()]);
+    return { info: files.bundle, archive, tools };
   }
 
   /** Time is up: input stops, the VM is frozen, the screen keeps its text (it can still be selected). */

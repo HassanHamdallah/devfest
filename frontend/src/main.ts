@@ -57,6 +57,31 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/room/:roomId/quiz",
+    pathMatch: "full",
+    canActivate: [managerGuard],
+    loadComponent: () =>
+      import("./app/features/event/manager/quiz/quiz-editor.page").then(
+        (m) => m.EventQuizEditorPage,
+      ),
+  },
+  {
+    path: "event/room/:roomId/quiz/results",
+    canActivate: [managerGuard],
+    loadComponent: () =>
+      import("./app/features/event/manager/quiz/quiz-results.page").then(
+        (m) => m.EventQuizResultsPage,
+      ),
+  },
+  {
+    path: "event/room/:roomId/dashboard",
+    canActivate: [managerGuard],
+    loadComponent: () =>
+      import("./app/features/event/manager/terminal-dashboard/terminal-dashboard.page").then(
+        (m) => m.EventTerminalDashboardPage,
+      ),
+  },
+  {
     path: "event/room/:roomId",
     canActivate: [managerGuard],
     loadComponent: () =>

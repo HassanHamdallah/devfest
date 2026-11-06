@@ -1,6 +1,7 @@
 package dev.devfest.event.dto;
 
 import dev.devfest.event.domain.GroupCode;
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 import java.util.List;
 
@@ -27,7 +28,8 @@ public record RoomBoard(
     long version,
     boolean contentEditable,
     boolean clueKeySet,
-    boolean terminalEnabled
+    boolean terminalEnabled,
+    RoomActivity activity
   ) {}
 
   public record RoomCounters(int inRoomNow, int pending, int passed, int failed) {}

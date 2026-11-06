@@ -1,0 +1,89 @@
+<div class="mcq__bar">
+  <span class="event-num">{{ activity().answeredCount }} of {{ activity().questionCount }} answered</span>
+  <span class="mcq__time" [class.mcq__time--low]="secondsLeft() <= 60" aria-live="off">
+    Multiple-choice time left <strong class="event-num" data-mcq-time>{{ secondsLeftLabel() }}</strong>
+  </span>
+</div>
+
+@if (question(); as q) {
+<section class="mcq__question" aria-labelledby="mcq-prompt">
+  <p class="mcq__section">
+    Question {{ q.number }} of {{ activity().questions.length }} ·
+    @if (section(); as s) {
+    <strong>{{ s.label }}</strong> · aim {{ s.paceSeconds }} s
+    }
+  </p>
+  <h3 id="mcq-prompt" class="mcq__prompt">{{ q.prompt }}</h3>
+  <fieldset class="mcq__options" [disabled]="q.selectedOptionId !== null || readOnly()">
+    <legend class="event-sr-only">Options for question {{ q.number }}</legend>
+    @for (option of q.options; track option.id) {
+    <label class="mcq__option" [class.mcq__option--chosen]="choice() === option.id">
+      <input
+        type="radio"
+        [name]="'mcq-' + q.id"
+        [value]="option.id"
+        [checked]="choice() === option.id"
+        (change)="choice.set(option.id)"
+      />
+      <span>{{ option.text }}</span>
+    </label>
+    }
+  </fieldset>
+
+  <div class="mcq__actions">
+    @if (q.selectedOptionId !== null) {
+    <ui-status-chip variant="success">Response saved</ui-status-chip>
+    } @else {
+    <ui-button
+      size="lg"
+      [loading]="sending()"
+      [disabled]="choice() === null || readOnly()"
+      (click)="save()"
+      >Save answer</ui-button
+    >
+    }
+    <ui-button variant="ghost" (click)="step(-1)">Previous</ui-button>
+    <ui-button variant="ghost" (click)="step(1)">Next</ui-button>
+  </div>
+  @if (justSaved() !== null && justSaved() !== q.id) {
+  <p class="mcq__saved" role="status">Response saved</p>
+  }
+  @if (error(); as text) {
+  <ui-alert variant="error" [dismissible]="true" (dismissed)="error.set(null)">{{ text }}</ui-alert>
+  }
+</section>
+}
+
+<nav class="mcq__dots" aria-label="All questions">
+  @for (item of activity().questions; track item.id; let i = $index) {
+  <button
+    type="button"
+    class="mcq__dot"
+    [class.mcq__dot--answered]="item.selectedOptionId !== null"
+    [class.mcq__dot--current]="i === current()"
+    [attr.aria-current]="i === current() ? 'step' : null"
+    [attr.aria-label]="'Question ' + item.number + (item.selectedOptionId !== null ? ', answered' : ', not answered')"
+    (click)="go(i)"
+  >
+    {{ item.number }}
+  </button>
+  }
+</nav>
+
+<div class="mcq__finish">
+  <p class="event-muted">
+    Done early? Finishing opens the code repairs now; questions you skipped stay unanswered.
+  </p>
+  <ui-button variant="secondary" [disabled]="readOnly()" (click)="confirmFinish.set(true)">Finish MCQs</ui-button>
+</div>
+
+<ui-confirm-dialog
+  [open]="confirmFinish()"
+  title="Finish the multiple-choice part?"
+  [message]="unanswered() > 0
+    ? unanswered() + ' questions are still unanswered and stay that way. You cannot come back to the questions.'
+    : 'You cannot come back to the questions.'"
+  [busy]="finishing()"
+  (confirmed)="finish()"
+  (cancelled)="confirmFinish.set(false)"
+/>

@@ -1,14 +1,23 @@
 import type { V86 } from "v86";
-import type { TerminalStartFiles } from "../../../core/event/event-models";
+import type { TerminalBundleInfo, TerminalStartFiles } from "../../../core/event/event-models";
 import type { TerminalBuffers, V86Constructor } from "./terminal-assets";
 
 export const TERMINAL_COLS = 80;
+export const BUNDLE_FAILED =
+  "The room's server could not be set up in this terminal. Press Restart terminal, or ask an organizer.";
+export const TOOLS_FAILED =
+  "The terminal's extra tools could not be installed. Press Restart terminal, or ask an organizer.";
+/** Memory of the guest: the 64 MB of every terminal, and more for a room with a package (its files and the tools live in RAM). */
+const BASE_MEMORY = 64 * 1024 * 1024;
+const PACKAGE_MEMORY = 80 * 1024 * 1024;
 export const TERMINAL_ROWS = 24;
 
 const BOOT_TIMEOUT_MS = 120_000;
 /** The shell prompt at the end of the serial output ("~% " in the image, "# " or "$ " elsewhere). */
 const PROMPT = /[#%$] $/;
-const READY_MARK = "__DEVFEST_READY__";
+const READY_PATTERN = /__DEVFEST_READY__\r?\n/;
+const FAILED_PATTERN = /__DEVFEST_FAILED__\r?\n/;
+const TOOLS_FAILED_PATTERN = /__DEVFEST_TOOLS_FAILED__\r?\n/;
 /**
  * Typed into the shell once, invisibly: the room's files are on the 9p share (/mnt) and are copied into the home
  * directory. The quotes split the mark so the echoed command line never matches it.
@@ -16,6 +25,43 @@ const READY_MARK = "__DEVFEST_READY__";
 const SETUP =
   `stty cols ${TERMINAL_COLS} rows ${TERMINAL_ROWS} 2>/dev/null; mkdir -p ~/logs; cp -r /mnt/. ~/ 2>/dev/null; cd ~;` +
   ` echo __DEVFEST""_READY__\n`;
+
+/** The files a server package puts on the 9p share (created by the page, removed by the setup). */
+const BUNDLE_FILE = "devfest-bundle.tgz";
+const PASSWD_FILE = "devfest-passwd";
+const GROUP_FILE = "devfest-group";
+const TOOLS_FILE = "devfest-tools.tgz";
+const CLOCK_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
+
+/**
+ * Typed into the shell once, invisibly, for a room with a server package. This BusyBox tar has no -z flag, so
+ * gzip unpacks into the pipe. In order: the package from the root of the file system, the owners appended to
+ * /etc/passwd and /etc/group, the extra tools (into /usr/local, which then leads the PATH so that "find" is GNU
+ * find), the room's terminal clock if it has one (date -s; the guest runs on UTC), the removal of the setup files
+ * from the share and the move to the home directory. A failing package step ends in the failure mark, a failing
+ * tools step in its own mark; only a complete setup ends in the ready mark.
+ */
+export function bundleSetup(clock: string | null): string {
+  const match = clock ? CLOCK_PATTERN.exec(clock) : null;
+  const setClock = match ? ` date -s "${match[1]} ${match[2]}" >/dev/null;` : "";
+  return (
+    `stty cols ${TERMINAL_COLS} rows ${TERMINAL_ROWS} 2>/dev/null;` +
+    ` if gzip -dc /mnt/${BUNDLE_FILE} | tar -xf - -C / && cat /mnt/${PASSWD_FILE} >> /etc/passwd &&` +
+    ` cat /mnt/${GROUP_FILE} >> /etc/group; then` +
+    ` if gzip -dc /mnt/${TOOLS_FILE} | tar -xf - -C /; then` +
+    ` rm -f /mnt/${BUNDLE_FILE} /mnt/${PASSWD_FILE} /mnt/${GROUP_FILE} /mnt/${TOOLS_FILE};` +
+    ` export PATH=/usr/local/bin:$PATH;${setClock} cd ~; echo __DEVFEST""_READY__;` +
+    ` else echo __DEVFEST""_TOOLS_FAILED__; fi;` +
+    ` else echo __DEVFEST""_FAILED__; fi\n`
+  );
+}
+
+/** A room's server package as the page downloaded it: the gzip bytes, the accounts to add and the tools archive. */
+export interface TerminalBundle {
+  info: TerminalBundleInfo;
+  archive: ArrayBuffer;
+  tools: ArrayBuffer;
+}
 
 /** The v86 9p filesystem object (not part of v86.d.ts); only these two methods are used. */
 interface Fs9p {
@@ -37,13 +83,15 @@ export class LinuxSession {
   ) {}
 
   /**
-   * Boots, places `files` under the home directory and resolves once the shell is ready. `banner` is shown right
-   * before the first prompt.
+   * Boots, places `files` under the home directory (or installs `bundle` from the root of the file system) and
+   * resolves once the shell is ready. `banner` is shown right before the first prompt. A failing package setup
+   * rejects with a clear message instead of handing over a half-prepared shell.
    */
   static async boot(
     Emulator: V86Constructor,
     buffers: TerminalBuffers,
     files: TerminalStartFiles,
+    bundle: TerminalBundle | null,
     banner: string,
     onOutput: (byte: number) => void,
   ): Promise<LinuxSession> {
@@ -52,7 +100,7 @@ export class LinuxSession {
       bios: { buffer: buffers.bios },
       vga_bios: { buffer: buffers.vgaBios },
       cdrom: { buffer: buffers.image },
-      memory_size: 64 * 1024 * 1024,
+      memory_size: bundle ? PACKAGE_MEMORY : BASE_MEMORY,
       filesystem: {},
       // "none" is neither ne2k nor virtio, so v86 creates no network card at all (its default is an NE2000).
       net_device: { type: "none" as "ne2k" },
@@ -63,7 +111,7 @@ export class LinuxSession {
     });
     const session = new LinuxSession(emulator, onOutput);
     try {
-      await session.start(files, new TextEncoder().encode(banner));
+      await session.start(files, bundle, new TextEncoder().encode(banner));
     } catch (error) {
       await session.destroy();
       throw error;
@@ -86,7 +134,7 @@ export class LinuxSession {
     await this.emulator.destroy();
   }
 
-  private async start(files: TerminalStartFiles, banner: Uint8Array): Promise<void> {
+  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array): Promise<void> {
     let text = "";
     // `matched` runs synchronously inside the output listener, before the next byte arrives.
     let waiter: { test: (text: string) => boolean; matched: () => void } | null = null;
@@ -111,17 +159,35 @@ export class LinuxSession {
 
     await waitFor((output) => PROMPT.test(output));
     text = "";
-    // Everything after the mark, starting with the next prompt, is the team's terminal.
-    const ready = waitFor(
-      (output) => output.includes(`${READY_MARK}\n`) || output.includes(`${READY_MARK}\r\n`),
+    // Everything after the ready mark, starting with the next prompt, is the team's terminal.
+    let failure: string | null = null;
+    const finished = waitFor(
+      (output) => READY_PATTERN.test(output) || FAILED_PATTERN.test(output) || TOOLS_FAILED_PATTERN.test(output),
       () => {
+        failure = FAILED_PATTERN.test(text) ? BUNDLE_FAILED : TOOLS_FAILED_PATTERN.test(text) ? TOOLS_FAILED : null;
+        if (failure) return;
         this.forwarding = true;
         banner.forEach((byte) => this.onOutput(byte));
       },
     );
-    await this.placeFiles(files);
-    this.send(SETUP);
-    await ready;
+    if (bundle) {
+      await this.placeBundle(bundle);
+      this.send(bundleSetup(bundle.info.clock));
+    } else {
+      await this.placeFiles(files);
+      this.send(SETUP);
+    }
+    await finished;
+    if (failure) throw new Error(failure);
+  }
+
+  /** The package, its accounts and the tools as files on the share; the setup removes them again. */
+  private async placeBundle(bundle: TerminalBundle): Promise<void> {
+    const encoder = new TextEncoder();
+    await this.emulator.create_file(`/${BUNDLE_FILE}`, new Uint8Array(bundle.archive));
+    await this.emulator.create_file(`/${PASSWD_FILE}`, encoder.encode(bundle.info.etcPasswd));
+    await this.emulator.create_file(`/${GROUP_FILE}`, encoder.encode(bundle.info.etcGroup));
+    await this.emulator.create_file(`/${TOOLS_FILE}`, new Uint8Array(bundle.tools));
   }
 
   private async placeFiles(files: TerminalStartFiles): Promise<void> {

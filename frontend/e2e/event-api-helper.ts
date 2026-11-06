@@ -97,6 +97,17 @@ export class EventApiSession {
     return (await response.json()) as T;
   }
 
+  /** Uploads one file as multipart form data (field "file"), the way the room board's upload does. */
+  async upload(route: string, name: string, buffer: Buffer, mimeType = "application/zip") {
+    const response = await this.http.fetch(`${API_BASE}${route}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${this.accessToken}` },
+      multipart: { file: { name, mimeType, buffer } },
+    });
+    if (!response.ok()) throw new Error(`PUT ${route} failed: ${response.status()} ${await response.text()}`);
+    return response.json();
+  }
+
   /** The HTTP status of a GET, for checks that expect a refusal (no console noise in the page). */
   async status(route: string): Promise<number> {
     const response = await this.http.get(`${API_BASE}${route}`, {
@@ -166,6 +177,11 @@ export class EventAdminShortcuts {
 
   async roomId(code: RoomCode) {
     return (await this.room(code)).id;
+  }
+
+  /** The room's team activity; null gives the room the plain answer form (technical output + clue). */
+  async setRoomActivity(code: RoomCode, activity: "AI_QUIZ" | "LINUX_TERMINAL" | null) {
+    await this.admin.send("PUT", `/event/admin/rooms/${await this.roomId(code)}/activity`, { activity });
   }
 
   private async room(code: RoomCode) {

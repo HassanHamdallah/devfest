@@ -1,0 +1,555 @@
+{
+  "testedAt": "2026-11-06T22:49:06.044037+00:00",
+  "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic Linux room traffic; no WAN latency.",
+  "baseUrl": "http://127.0.0.1:8082/api/v1",
+  "mode": "linux",
+  "seconds": 90,
+  "elapsedSeconds": 90.0,
+  "teams": 16,
+  "packageUnpackedBytes": 20970496,
+  "endpoints": {
+    "GET /event/admin/board": {
+      "requests": 5,
+      "errors": 0,
+      "p50Ms": 11.7,
+      "p95Ms": 44.0,
+      "p99Ms": 44.0,
+      "maxMs": 44.0
+    },
+    "GET /event/revision": {
+      "requests": 162,
+      "errors": 0,
+      "p50Ms": 3.7,
+      "p95Ms": 23.5,
+      "p99Ms": 29.0,
+      "maxMs": 29.4
+    },
+    "GET /event/rooms/{id}/board": {
+      "requests": 4,
+      "errors": 0,
+      "p50Ms": 8.5,
+      "p95Ms": 32.2,
+      "p99Ms": 32.2,
+      "maxMs": 32.2
+    },
+    "GET /event/rooms/{id}/terminal-dashboard": {
+      "requests": 19,
+      "errors": 0,
+      "p50Ms": 5.7,
+      "p95Ms": 31.4,
+      "p99Ms": 31.4,
+      "maxMs": 31.4
+    },
+    "GET /event/rooms/{id}/terminal-dashboard.csv": {
+      "requests": 1,
+      "errors": 0,
+      "p50Ms": 9.5,
+      "p95Ms": 9.5,
+      "p99Ms": 9.5,
+      "maxMs": 9.5
+    },
+    "GET /event/team/board": {
+      "requests": 72,
+      "errors": 0,
+      "p50Ms": 5.6,
+      "p95Ms": 25.7,
+      "p99Ms": 35.9,
+      "maxMs": 35.9
+    },
+    "GET /event/team/rooms/{id}/terminal-files": {
+      "requests": 16,
+      "errors": 0,
+      "p50Ms": 6.3,
+      "p95Ms": 17.1,
+      "p99Ms": 17.1,
+      "maxMs": 17.1
+    },
+    "GET /event/team/rooms/{id}/terminal-form": {
+      "requests": 94,
+      "errors": 0,
+      "p50Ms": 4.7,
+      "p95Ms": 25.6,
+      "p99Ms": 29.4,
+      "maxMs": 29.4
+    },
+    "GET conditional /event/team/rooms/{id}/terminal-bundle": {
+      "requests": 16,
+      "errors": 0,
+      "p50Ms": 5.2,
+      "p95Ms": 24.9,
+      "p99Ms": 24.9,
+      "maxMs": 24.9
+    },
+    "GET download /event/team/rooms/{id}/terminal-bundle": {
+      "requests": 16,
+      "errors": 0,
+      "p50Ms": 33.9,
+      "p95Ms": 345.7,
+      "p99Ms": 345.7,
+      "maxMs": 345.7
+    },
+    "GET download tools /terminal/devfest-tools.tgz": {
+      "requests": 16,
+      "errors": 0,
+      "p50Ms": 10.7,
+      "p95Ms": 46.5,
+      "p99Ms": 46.5,
+      "maxMs": 46.5
+    },
+    "POST /event/team/rooms/{id}/terminal-form/save": {
+      "requests": 100,
+      "errors": 0,
+      "p50Ms": 7.7,
+      "p95Ms": 28.3,
+      "p99Ms": 32.9,
+      "maxMs": 39.0
+    },
+    "POST /event/team/rooms/{id}/terminal-form/submit": {
+      "requests": 15,
+      "errors": 0,
+      "p50Ms": 9.0,
+      "p95Ms": 19.2,
+      "p99Ms": 19.2,
+      "maxMs": 19.2
+    }
+  },
+  "totals": {
+    "requests": 536,
+    "errors": 0,
+    "p95ExcludingBundleDownloadMs": 26.3,
+    "worstEndpointP95ExcludingBundleDownloadMs": 44.0,
+    "submittedForms": 16,
+    "retries": 21,
+    "retryMismatches": 0,
+    "conditionalRestarts304": 16
+  },
+  "bundleDownloads": {
+    "count": 16,
+    "downloads": [
+      {
+        "team": 3,
+        "bytes": 20977096,
+        "ms": 340.4
+      },
+      {
+        "team": 12,
+        "bytes": 20977096,
+        "ms": 345.7
+      },
+      {
+        "team": 4,
+        "bytes": 20977096,
+        "ms": 29.0
+      },
+      {
+        "team": 9,
+        "bytes": 20977096,
+        "ms": 118.0
+      },
+      {
+        "team": 8,
+        "bytes": 20977096,
+        "ms": 37.1
+      },
+      {
+        "team": 16,
+        "bytes": 20977096,
+        "ms": 66.5
+      },
+      {
+        "team": 1,
+        "bytes": 20977096,
+        "ms": 33.9
+      },
+      {
+        "team": 13,
+        "bytes": 20977096,
+        "ms": 34.8
+      },
+      {
+        "team": 15,
+        "bytes": 20977096,
+        "ms": 53.1
+      },
+      {
+        "team": 7,
+        "bytes": 20977096,
+        "ms": 30.7
+      },
+      {
+        "team": 2,
+        "bytes": 20977096,
+        "ms": 25.8
+      },
+      {
+        "team": 6,
+        "bytes": 20977096,
+        "ms": 35.8
+      },
+      {
+        "team": 14,
+        "bytes": 20977096,
+        "ms": 25.6
+      },
+      {
+        "team": 11,
+        "bytes": 20977096,
+        "ms": 29.6
+      },
+      {
+        "team": 5,
+        "bytes": 20977096,
+        "ms": 32.8
+      },
+      {
+        "team": 10,
+        "bytes": 20977096,
+        "ms": 32.9
+      }
+    ],
+    "maxMs": 345.7
+  },
+  "toolsDownloads": {
+    "count": 16,
+    "bytes": 1886271,
+    "maxMs": 46.5
+  },
+  "serverHeap": {
+    "before": {
+      "pid": 22556,
+      "heapCommittedMb": 298.0,
+      "heapUsedMb": 39.6,
+      "liveThreads": 30,
+      "workingSetMb": 473.7
+    },
+    "after": {
+      "pid": 22556,
+      "heapCommittedMb": 298.0,
+      "heapUsedMb": 227.6,
+      "liveThreads": 30,
+      "workingSetMb": 488.2
+    },
+    "samplesDuringDownloads": 22,
+    "maxHeapUsedMb": 191.2,
+    "maxWorkingSetMb": 503.5,
+    "samples": [
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 39.7,
+        "liveThreads": 30,
+        "workingSetMb": 473.9
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 42.9,
+        "liveThreads": 30,
+        "workingSetMb": 467.9
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 43.9,
+        "liveThreads": 30,
+        "workingSetMb": 468.9
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 44.4,
+        "liveThreads": 30,
+        "workingSetMb": 469.3
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 45.1,
+        "liveThreads": 30,
+        "workingSetMb": 481.3
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 177.2,
+        "liveThreads": 30,
+        "workingSetMb": 497.2
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 178.0,
+        "liveThreads": 30,
+        "workingSetMb": 497.5
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 178.9,
+        "liveThreads": 30,
+        "workingSetMb": 503.5
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 179.6,
+        "liveThreads": 30,
+        "workingSetMb": 474.9
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 180.7,
+        "liveThreads": 30,
+        "workingSetMb": 481.6
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 181.4,
+        "liveThreads": 30,
+        "workingSetMb": 481.7
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 181.6,
+        "liveThreads": 30,
+        "workingSetMb": 485.8
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 182.4,
+        "liveThreads": 30,
+        "workingSetMb": 476.2
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 182.6,
+        "liveThreads": 30,
+        "workingSetMb": 476.2
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 186.1,
+        "liveThreads": 30,
+        "workingSetMb": 480.2
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 186.6,
+        "liveThreads": 30,
+        "workingSetMb": 480.5
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 187.6,
+        "liveThreads": 30,
+        "workingSetMb": 481.0
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 188.1,
+        "liveThreads": 30,
+        "workingSetMb": 481.1
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 188.3,
+        "liveThreads": 30,
+        "workingSetMb": 481.1
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 189.6,
+        "liveThreads": 30,
+        "workingSetMb": 481.6
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 190.9,
+        "liveThreads": 30,
+        "workingSetMb": 481.7
+      },
+      {
+        "pid": 22556,
+        "heapCommittedMb": 298.0,
+        "heapUsedMb": 191.2,
+        "liveThreads": 30,
+        "workingSetMb": 481.7
+      }
+    ]
+  },
+  "formsCrossCheck": [
+    {
+      "team": 1,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 9,
+      "expectedTotal": 9,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 2,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 6,
+      "expectedTotal": 6,
+      "cluesCollected": 0,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 3,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 15,
+      "expectedTotal": 15,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 4,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 15,
+      "expectedTotal": 15,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 5,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 3,
+      "expectedTotal": 3,
+      "cluesCollected": 0,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 6,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 9,
+      "expectedTotal": 9,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 7,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 15,
+      "expectedTotal": 15,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 8,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 9,
+      "expectedTotal": 9,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 9,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 12,
+      "expectedTotal": 12,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 10,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 12,
+      "expectedTotal": 12,
+      "cluesCollected": 0,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 11,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 12,
+      "expectedTotal": 12,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 12,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 15,
+      "expectedTotal": 15,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 13,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 12,
+      "expectedTotal": 12,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 14,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 9,
+      "expectedTotal": 9,
+      "cluesCollected": 1,
+      "cause": "SUBMIT",
+      "ok": true
+    },
+    {
+      "team": 15,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 6,
+      "expectedTotal": 6,
+      "cluesCollected": 1,
+      "cause": "TIME_UP",
+      "ok": true
+    },
+    {
+      "team": 16,
+      "submissions": 1,
+      "status": "SUBMITTED",
+      "total": 15,
+      "expectedTotal": 15,
+      "cluesCollected": 1,
+      "cause": "TIME_UP",
+      "ok": true
+    }
+  ],
+  "errorSamples": []
+}

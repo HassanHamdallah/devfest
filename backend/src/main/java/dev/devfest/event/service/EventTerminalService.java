@@ -8,6 +8,9 @@ import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.TerminalFiles;
+import dev.devfest.event.domain.TerminalPackageReader;
+import dev.devfest.event.dto.TerminalBundleInfo;
+import dev.devfest.event.dto.TerminalBundleView;
 import dev.devfest.event.dto.TerminalFileContent;
 import dev.devfest.event.dto.TerminalFileList;
 import dev.devfest.event.dto.TerminalFileRequest;
@@ -18,8 +21,10 @@ import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
+import dev.devfest.event.repository.RoomTerminalBundleRepository;
 import dev.devfest.event.repository.RoomTerminalFileRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
+import dev.devfest.event.repository.TerminalBundleRecord;
 import dev.devfest.event.repository.TerminalFileRecord;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -40,6 +45,7 @@ public class EventTerminalService {
   private final EventStateRepository states;
   private final EventRoomRepository rooms;
   private final RoomTerminalFileRepository files;
+  private final RoomTerminalBundleRepository bundles;
   private final TeamRoomExceptionRepository exceptions;
   private final AuditLog audit;
   private final EventClock clock;
@@ -49,6 +55,7 @@ public class EventTerminalService {
     EventStateRepository states,
     EventRoomRepository rooms,
     RoomTerminalFileRepository files,
+    RoomTerminalBundleRepository bundles,
     TeamRoomExceptionRepository exceptions,
     AuditLog audit,
     EventClock clock
@@ -57,17 +64,28 @@ public class EventTerminalService {
     this.states = states;
     this.rooms = rooms;
     this.files = files;
+    this.bundles = bundles;
     this.exceptions = exceptions;
     this.audit = audit;
     this.clock = clock;
   }
 
   /**
-   * The files for the caller's team (5 SQL statements: team, state, room, the team's exception this round, files).
-   * Only the team assigned to the room this round (rotation or room exception), while the round is ASSIGNED,
-   * RUNNING or PAUSED and the room's terminal is enabled; every other case looks like an unknown room (404).
+   * The files for the caller's team (5 or 6 SQL statements: team, state, room, the team's exception this round,
+   * the package description, and the text files when the room has no package). Only the team assigned to the room
+   * this round (rotation or room exception), while the round is ASSIGNED, RUNNING or PAUSED and the room's
+   * terminal is enabled; every other case looks like an unknown room (404).
    */
   public TerminalStartFiles teamFiles(Principal principal, long roomId) {
+    requireDeliverable(principal, roomId);
+    return startFiles(roomId);
+  }
+
+  /**
+   * The gate shared by every team download of a room's terminal content (text files and server package): the
+   * caller must be the team assigned to the room right now, otherwise the room looks unknown (404).
+   */
+  void requireDeliverable(Principal principal, long roomId) {
     EventTeamRecord team = access.requireTeamOf(principal);
     EventStateRecord state = states.state();
     EventRoomRecord room = rooms.find(roomId).orElseThrow(() -> fail(404, NOT_FOUND));
@@ -84,7 +102,6 @@ public class EventTerminalService {
       exception
     );
     if (!deliverable) throw fail(404, NOT_FOUND);
-    return startFiles(roomId);
   }
 
   /** The room's manager (or ADMIN) may always load the room's files, e.g. for "Test terminal". */
@@ -93,7 +110,7 @@ public class EventTerminalService {
     return startFiles(roomId);
   }
 
-  /** 3 SQL statements: room (access check), event state, file summaries (no content). */
+  /** 4 SQL statements: room (access check), event state, file summaries (no content), package summary (no archive). */
   public TerminalFileList list(Principal principal, long roomId) {
     EventRoomRecord room = access.requireManagerOf(principal, roomId);
     return fileList(room, states.state());
@@ -158,10 +175,10 @@ public class EventTerminalService {
     return new TerminalSettingView(roomId, enabled);
   }
 
-  private record Locked(EventStateRecord state, EventRoomRecord room) {}
+  record Locked(EventStateRecord state, EventRoomRecord room) {}
 
   /** Lock order event_state → room; content is read-only after the final opens, files need the terminal on. */
-  private Locked lockEditable(long roomId) {
+  Locked lockEditable(long roomId) {
     EventStateRecord state = states.lockForUpdate();
     EventContentService.requireContentEditable(state);
     EventRoomRecord room = rooms.lockForUpdate(roomId).orElseThrow(() -> fail(404, "Room not found."));
@@ -186,16 +203,23 @@ public class EventTerminalService {
     }
   }
 
+  /** A room with a server package starts from the package alone; the text files are for rooms without one. */
   private TerminalStartFiles startFiles(long roomId) {
+    Optional<TerminalBundleRecord> bundle = bundles.find(roomId);
+    if (bundle.isPresent()) {
+      TerminalBundleRecord record = bundle.get();
+      var info = new TerminalBundleInfo(record.sha256(), record.archiveBytes(), record.etcPasswd(), record.etcGroup(), record.terminalClock());
+      return new TerminalStartFiles(List.of(), info);
+    }
     List<TerminalStartFiles.File> start = files
       .withContent(roomId)
       .stream()
       .map(file -> new TerminalStartFiles.File(file.path(), file.content()))
       .toList();
-    return new TerminalStartFiles(start);
+    return new TerminalStartFiles(start, null);
   }
 
-  private TerminalFileList fileList(EventRoomRecord room, EventStateRecord state) {
+  TerminalFileList fileList(EventRoomRecord room, EventStateRecord state) {
     List<TerminalFileList.Entry> entries = files
       .summaries(room.id())
       .stream()
@@ -210,7 +234,23 @@ public class EventTerminalService {
       total,
       TerminalFiles.MAX_FILES,
       TerminalFiles.MAX_FILE_BYTES,
-      TerminalFiles.MAX_ROOM_BYTES
+      TerminalFiles.MAX_ROOM_BYTES,
+      bundles.find(room.id()).map(EventTerminalService::bundleView).orElse(null),
+      TerminalPackageReader.MAX_UPLOAD_BYTES
+    );
+  }
+
+  private static TerminalBundleView bundleView(TerminalBundleRecord bundle) {
+    List<String> owners = bundle.owners().isEmpty() ? List.of() : List.of(bundle.owners().split(","));
+    return new TerminalBundleView(
+      bundle.sha256(),
+      bundle.fileCount(),
+      bundle.unpackedBytes(),
+      bundle.archiveBytes(),
+      owners,
+      bundle.uploadedByName(),
+      bundle.uploadedAt(),
+      bundle.terminalClock()
     );
   }
 

@@ -61,6 +61,8 @@ test("evidence: finished rooms show the answer and the masked clue; the final li
   const borrowed: EventApiSession[] = [];
   try {
     await setPracticeKeys(accounts, ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
+    // The evidence shows the technical output the team typed in the AI room's plain answer form.
+    await control.setRoomActivity("AI", null);
     await control.startRound(1);
     await control.openRoom("AI");
     await signIn(member.page, accounts.members[0], accounts.seedPassword);

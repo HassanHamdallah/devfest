@@ -36,6 +36,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     "app.bootstrap-email=",
     "app.event-seed-password=",
     "app.jwt-secret=devfest-test-only-secret-with-48-characters-123456",
+    "app.quiz-shuffle-secret=devfest-test-only-quiz-shuffle-secret-48-characters",
     "spring.config.import=",
   }
 )
@@ -109,7 +110,7 @@ public abstract class EventIntegrationTest {
       """
       TRUNCATE audit_event, auth_session, refresh_token, rate_bucket, app_user, event_team, room_submission,
                room_judgement, room_judgement_history, collected_clue, penalty, suspect, recovery_attempt,
-               accusation, team_final, event_content
+               accusation, team_final, event_content, quiz_question, quiz_repair
       RESTART IDENTITY CASCADE"""
     );
     db.update(
@@ -120,7 +121,8 @@ public abstract class EventIntegrationTest {
     );
     db.update(
       "UPDATE event_room SET manager_id = NULL, is_open = FALSE, clue_key = '', recovery_prompt = '', " +
-      "recovery_answer = '', version = 1, terminal_enabled = (code = 'LINUX')"
+      "recovery_answer = '', version = 1, terminal_enabled = (code = 'LINUX'), activity = NULL, quiz_mcq_minutes = 14, " +
+      "quiz_pass_score = 60"
     );
     db.update("INSERT INTO event_content(id) VALUES (1)");
     db.update(

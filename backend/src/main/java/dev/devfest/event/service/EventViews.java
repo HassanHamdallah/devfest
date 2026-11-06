@@ -68,20 +68,25 @@ public final class EventViews {
           exceptions,
           state.currentRound(),
           phase,
-          state.finalEverOpened()
+          state.finalEverOpened(),
+          room.resultRecorded()
         );
         if (!finished) {
-          return new RoomEvidence(room.code(), room.name(), false, null, null, null, room.clueCollected(), null);
+          return new RoomEvidence(room.code(), room.name(), room.activity(), false, null, null, null, room.clueCollected(), null, false);
         }
+        // An activity's stored result says nothing the team may see beyond the clue (rules §19.7).
+        boolean plain = room.activity() == null;
         return new RoomEvidence(
           room.code(),
           room.name(),
+          room.activity(),
           true,
-          room.lastTechnicalOutput(),
-          room.lastClueAnswer(),
-          room.lastEffectiveCorrect(),
+          plain ? room.lastTechnicalOutput() : null,
+          plain ? room.lastClueAnswer() : null,
+          plain ? room.lastEffectiveCorrect() : null,
           room.clueCollected(),
-          EvidenceVisibility.clueVisible(finished, room.clueCollected()) ? room.collectedClueKey() : null
+          EvidenceVisibility.clueVisible(finished, room.clueCollected()) ? room.collectedClueKey() : null,
+          room.resultRecorded()
         );
       })
       .toList();
@@ -172,7 +177,8 @@ public final class EventViews {
       room.recoveryAnswer(),
       room.version(),
       recheckedSubmissions,
-      room.terminalEnabled()
+      room.terminalEnabled(),
+      room.activity()
     );
   }
 

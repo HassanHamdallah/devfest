@@ -9,8 +9,10 @@ import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
+import dev.devfest.event.repository.QuizContentRepository;
 import dev.devfest.event.repository.RoundAdjustmentRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import org.springframework.stereotype.Service;
@@ -19,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The admin's manual round timer: start, pause, resume, add or remove time, end the round. All math lives in
  * {@link RoundTimer}; this service locks event_state, stores the transition, audits it and bumps the revision.
- * A transition into the state the timer is already in (a double click) returns 200 without a write.
+ * A transition into the state the timer is already in (a double click) returns 200 without a write. A transition
+ * that leaves the round at Time's up (End round, or removing the time left) also evaluates the AI room teams that
+ * have not finished (rules §19.6), in the same transaction.
  */
 @Service
 public class EventRoundTimerService {
@@ -27,6 +31,9 @@ public class EventRoundTimerService {
   private final EventAccessPolicy access;
   private final EventStateRepository states;
   private final RoundAdjustmentRepository adjustments;
+  private final QuizContentRepository quizContent;
+  private final AiRoomEvaluationService quizEvaluation;
+  private final TerminalFormService terminalForms;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -34,19 +41,37 @@ public class EventRoundTimerService {
     EventAccessPolicy access,
     EventStateRepository states,
     RoundAdjustmentRepository adjustments,
+    QuizContentRepository quizContent,
+    AiRoomEvaluationService quizEvaluation,
+    TerminalFormService terminalForms,
     AuditLog audit,
     EventClock clock
   ) {
     this.access = access;
     this.states = states;
     this.adjustments = adjustments;
+    this.quizContent = quizContent;
+    this.quizEvaluation = quizEvaluation;
+    this.terminalForms = terminalForms;
     this.audit = audit;
     this.clock = clock;
   }
 
+  /**
+   * Refused (409) while an AI quiz room cannot run (no clue key, no questions) unless {@code anyway}: the admin
+   * pressed "Start anyway" after seeing the blocking alerts.
+   */
   @Transactional
-  public EventStateView start(Principal principal) {
-    return transition(principal, RoundTimer::start, "EVENT_TIMER_STARTED");
+  public EventStateView start(Principal principal, boolean anyway) {
+    access.requireAdmin(principal);
+    EventStateRecord state = states.lockForUpdate();
+    Instant now = clock.now();
+    boolean starts = requireTimer(state).effectivePhase(now) == RoundPhase.ASSIGNED;
+    List<String> blockers = starts ? AiRoomStartCheck.blockers(quizContent.stats()).stream().map(AiRoomStartCheck.Blocker::message).toList() : List.of();
+    if (!blockers.isEmpty() && !anyway) {
+      throw fail(409, "The AI quiz is not ready: " + String.join(" ", blockers) + " Press Start anyway to start regardless.");
+    }
+    return apply(principal, state, now, RoundTimer::start, "EVENT_TIMER_STARTED", blockers.isEmpty() ? "" : " anyway");
   }
 
   @Transactional
@@ -110,7 +135,17 @@ public class EventRoundTimerService {
     } catch (RoundTimer.IllegalTransition e) {
       throw fail(409, e.getMessage());
     }
-    if (next.equals(current)) return EventViews.eventState(state, now);
+    // Ending a round that already ran out by itself changes no timer field, but still records the AI room results
+    // and submits the saved Linux room forms.
+    boolean timeUp = next.effectivePhase(now) == RoundPhase.TIME_UP;
+    int evaluated = timeUp
+      ? quizEvaluation.evaluateRoundEnd(principal.id(), state, now) + terminalForms.submitRoundEnd(principal.id(), state, now)
+      : 0;
+    if (next.equals(current)) {
+      if (evaluated == 0) return EventViews.eventState(state, now);
+      states.bumpRevision();
+      return EventViews.eventState(states.state(), now);
+    }
     states.saveTimer(next, next.phase() == RoundPhase.ASSIGNED ? null : now);
     states.bumpRevision();
     audit.record(principal.id(), action, "round:" + state.currentRound() + detail);

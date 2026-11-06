@@ -1,0 +1,229 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the AI quiz…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (view(); as quiz) {
+<div class="event-stack quiz-editor room-tone--AI">
+  <header class="quiz-editor__header">
+    <a class="quiz-editor__back" [routerLink]="['/event/room', quiz.roomId]">← {{ quiz.roomName }} board</a>
+    <h1>AI quiz · {{ quiz.roomName }}</h1>
+    <div class="event-inline">
+      <a class="quiz-editor__link" [routerLink]="['/event/room', quiz.roomId, 'quiz', 'results']">AI room results</a>
+      @if (!quiz.activity) {
+      <ui-status-chip variant="warning">Activity off — the admin enables it on the Content page</ui-status-chip>
+      }
+      @if (!quiz.editable) {
+      <ui-status-chip variant="neutral">Read-only after the final opened</ui-status-chip>
+      }
+    </div>
+  </header>
+
+  @if (error(); as text) {
+  <ui-alert variant="error" [dismissible]="true" (dismissed)="error.set(null)">{{ text }}</ui-alert>
+  }
+  @if (notice(); as text) {
+  <p class="quiz-editor__notice" role="status">{{ text }}</p>
+  }
+
+  <ui-card>
+    <h2 ui-card-header>Plan</h2>
+    <table class="quiz-editor__totals">
+      <caption class="event-sr-only">Questions and points per section</caption>
+      <thead>
+        <tr><th scope="col">Section</th><th scope="col">Questions</th><th scope="col">Planned</th><th scope="col">Points</th></tr>
+      </thead>
+      <tbody>
+        @for (section of quiz.sections; track section.section) {
+        <tr [class.quiz-editor__off]="section.questions !== section.planned">
+          <th scope="row">{{ section.label }}</th>
+          <td class="event-num">{{ section.questions }}</td>
+          <td class="event-num">{{ section.planned }}</td>
+          <td class="event-num">{{ section.points }}</td>
+        </tr>
+        }
+        <tr>
+          <th scope="row">Repairs</th>
+          <td class="event-num">{{ quiz.repairs.length }}</td>
+          <td class="event-num">3</td>
+          <td class="event-num">{{ quiz.repairPoints }}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          <td class="event-num">{{ quiz.questions.length }} + {{ quiz.repairs.length }}</td>
+          <td class="event-num">45 + 3</td>
+          <td class="event-num" data-quiz-total>{{ quiz.totalPoints }} / 100</td>
+        </tr>
+      </tfoot>
+    </table>
+    @if (quiz.warnings.length) {
+    <ui-alert variant="warning">
+      <ul class="quiz-editor__warnings">
+        @for (warning of quiz.warnings; track warning) {
+        <li>{{ warning }}</li>
+        }
+      </ul>
+    </ui-alert>
+    }
+    <form class="quiz-editor__minutes" (ngSubmit)="saveSettings()" aria-label="Quiz settings">
+      <ui-input
+        label="Multiple-choice minutes"
+        name="mcqMinutes"
+        type="number"
+        hint="Running time of the round (pauses do not count). Repairs open after it, or when a team finishes early."
+        [disabled]="!quiz.editable || !quiz.activity"
+        [ngModel]="mcqMinutes()"
+        (ngModelChange)="mcqMinutes.set($event)"
+      />
+      <ui-input
+        label="Pass score"
+        name="passScore"
+        type="number"
+        data-pass-score
+        [hint]="
+          quiz.passScoreLocked
+            ? 'Locked: a team was already evaluated against it.'
+            : 'Points (0–100) a team needs for the room\'s clue. Locked once the first team is evaluated.'
+        "
+        [disabled]="!quiz.editable || !quiz.activity || quiz.passScoreLocked"
+        [ngModel]="passScore()"
+        (ngModelChange)="passScore.set($event)"
+      />
+      @if (quiz.editable && quiz.activity) {
+      <ui-button type="submit" variant="secondary" [loading]="busy()">Save settings</ui-button>
+      }
+    </form>
+  </ui-card>
+
+  <ui-card>
+    <h2 ui-card-header>Import and export</h2>
+    <p class="event-muted quiz-editor__text">
+      One JSON file holds every question and repair (format in the README). Importing replaces all of them and is
+      possible only until a team answers.
+    </p>
+    <div class="event-inline">
+      @if (quiz.editable && quiz.activity && !quiz.answered) {
+      <label class="quiz-editor__file">
+        <span>Import a JSON file</span>
+        <input type="file" accept=".json,application/json" (change)="chooseFile($event)" />
+      </label>
+      }
+      <ui-button variant="secondary" (click)="exportFile()">Export JSON</ui-button>
+    </div>
+  </ui-card>
+
+  <ui-card>
+    <div ui-card-header class="quiz-editor__section-head">
+      <h2>Questions</h2>
+      <span class="event-muted event-num">{{ quiz.questions.length }} · {{ quiz.mcqPoints }} points</span>
+    </div>
+    @for (group of groups(); track group.section) {
+    <section class="quiz-editor__group" [attr.aria-label]="group.label">
+      <h3>{{ group.label }} <span class="event-muted event-num">{{ group.items.length }} of {{ group.planned }}</span></h3>
+      @if (!group.items.length) {
+      <p class="event-muted">No questions yet.</p>
+      }
+      <ol class="quiz-editor__items">
+        @for (q of group.items; track q.id) {
+        <li class="quiz-editor__item" [attr.data-question-id]="q.id">
+          <div class="quiz-editor__item-head">
+            <strong class="quiz-editor__prompt">{{ q.prompt }}</strong>
+            <span class="event-num quiz-editor__points">{{ q.points }} pt</span>
+            @if (q.locked) {
+            <ui-status-chip variant="neutral">Answered · locked</ui-status-chip>
+            }
+          </div>
+          <ul class="quiz-editor__options">
+            @for (option of q.options; track $index; let i = $index) {
+            <li [class.quiz-editor__correct]="i === q.correctOption">
+              {{ i === q.correctOption ? "✓" : "·" }} {{ option }}
+            </li>
+            }
+          </ul>
+          @if (q.explanation) {
+          <p class="event-muted quiz-editor__text">{{ q.explanation }}</p>
+          }
+          @if (quiz.editable && quiz.activity && !q.locked) {
+          <div class="event-inline">
+            <ui-button variant="ghost" size="sm" (click)="edit({ kind: 'question', item: q })">Edit</ui-button>
+            <ui-button variant="ghost" size="sm" (click)="deleting.set({ kind: 'question', id: q.id, label: 'the question' })">Delete</ui-button>
+          </div>
+          }
+        </li>
+        }
+      </ol>
+    </section>
+    }
+    @if (draft(); as d) {
+    @if (d.kind === "question") {
+    <event-quiz-question-form [question]="d.item" [busy]="busy()" (saved)="saveQuestion($event)" (cancelled)="draft.set(null)" />
+    }
+    } @else if (quiz.editable && quiz.activity) {
+    <ui-button variant="secondary" (click)="edit({ kind: 'question', item: null })">Add question</ui-button>
+    }
+  </ui-card>
+
+  <ui-card>
+    <div ui-card-header class="quiz-editor__section-head">
+      <h2>Repairs</h2>
+      <span class="event-muted event-num">{{ quiz.repairs.length }} · {{ quiz.repairPoints }} points</span>
+    </div>
+    <p class="event-muted quiz-editor__text">Repair n reveals letter n of each team's 3-letter key.</p>
+    <ol class="quiz-editor__items">
+      @for (r of quiz.repairs; track r.id) {
+      <li class="quiz-editor__item" [attr.data-repair-id]="r.id">
+        <div class="quiz-editor__item-head">
+          <strong>{{ r.number }}. {{ r.title }}</strong>
+          <span class="event-num quiz-editor__points">{{ r.points }} pt</span>
+          @if (r.locked) {
+          <ui-status-chip variant="neutral">Submitted · locked</ui-status-chip>
+          }
+        </div>
+        @if (r.instructions) {
+        <p class="event-muted quiz-editor__text">{{ r.instructions }}</p>
+        }
+        <ol class="quiz-editor__code">
+          @for (snippet of r.snippets; track $index) {
+          <li><pre><code>{{ snippet }}</code></pre></li>
+          }
+        </ol>
+        @if (quiz.editable && quiz.activity && !r.locked) {
+        <div class="event-inline">
+          <ui-button variant="ghost" size="sm" (click)="edit({ kind: 'repair', item: r })">Edit</ui-button>
+          <ui-button variant="ghost" size="sm" (click)="deleting.set({ kind: 'repair', id: r.id, label: 'the repair' })">Delete</ui-button>
+        </div>
+        }
+      </li>
+      }
+    </ol>
+    @if (draft(); as d) {
+    @if (d.kind === "repair") {
+    <event-quiz-repair-form [repair]="d.item" [busy]="busy()" (saved)="saveRepair($event)" (cancelled)="draft.set(null)" />
+    }
+    } @else if (quiz.editable && quiz.activity) {
+    <ui-button variant="secondary" (click)="edit({ kind: 'repair', item: null })">Add repair</ui-button>
+    }
+  </ui-card>
+</div>
+}
+
+<ui-confirm-dialog
+  [open]="deleting() !== null"
+  [title]="'Delete ' + (deleting()?.label ?? '') + '?'"
+  message="This cannot be undone. Teams will not get it."
+  confirmVariant="danger"
+  [busy]="busy()"
+  (confirmed)="confirmDelete()"
+  (cancelled)="deleting.set(null)"
+/>
+<ui-confirm-dialog
+  [open]="pendingImport() !== null"
+  title="Replace all questions and repairs?"
+  [message]="'Import ' + (pendingImport()?.questions ?? 0) + ' questions and ' + (pendingImport()?.repairs ?? 0) + ' repairs from ' + (pendingImport()?.name ?? '') + '. The current content is replaced.'"
+  [busy]="busy()"
+  (confirmed)="confirmImport()"
+  (cancelled)="pendingImport.set(null)"
+/>
