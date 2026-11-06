@@ -21,7 +21,7 @@ import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiProgress } from "../../../shared/ui/ui-progress/ui-progress";
-import { LinuxSession, TERMINAL_COLS, TERMINAL_ROWS, TerminalBundle } from "./linux-session";
+import { LinuxSession, TERMINAL_COLS, TERMINAL_ROWS, TOOLS_FAILED, TerminalBundle } from "./linux-session";
 import { terminalAssets } from "./terminal-assets";
 
 type TerminalState = "downloading" | "booting" | "ready" | "ended" | "failed";
@@ -171,6 +171,7 @@ export class EventLinuxTerminal {
       this.terminal?.focus();
     } catch (error) {
       if (!current()) return;
+      if (error instanceof Error && error.message === TOOLS_FAILED) terminalAssets.dropTools();
       this.error.set(message(error));
       this.state.set("failed");
     }
@@ -181,7 +182,8 @@ export class EventLinuxTerminal {
     if (!files.bundle) return null;
     const load = this.loadBundle();
     if (!load) throw new Error("This terminal cannot load the room's server package.");
-    return { info: files.bundle, archive: await load() };
+    const [archive, tools] = await Promise.all([load(), terminalAssets.tools()]);
+    return { info: files.bundle, archive, tools };
   }
 
   /** Time is up: input stops, the VM is frozen, the screen keeps its text (it can still be selected). */

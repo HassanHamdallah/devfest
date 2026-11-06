@@ -208,7 +208,7 @@ public class EventTerminalService {
     Optional<TerminalBundleRecord> bundle = bundles.find(roomId);
     if (bundle.isPresent()) {
       TerminalBundleRecord record = bundle.get();
-      var info = new TerminalBundleInfo(record.sha256(), record.archiveBytes(), record.etcPasswd(), record.etcGroup());
+      var info = new TerminalBundleInfo(record.sha256(), record.archiveBytes(), record.etcPasswd(), record.etcGroup(), record.terminalClock());
       return new TerminalStartFiles(List.of(), info);
     }
     List<TerminalStartFiles.File> start = files
@@ -249,7 +249,8 @@ public class EventTerminalService {
       bundle.archiveBytes(),
       owners,
       bundle.uploadedByName(),
-      bundle.uploadedAt()
+      bundle.uploadedAt(),
+      bundle.terminalClock()
     );
   }
 

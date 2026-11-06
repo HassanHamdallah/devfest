@@ -341,6 +341,120 @@ class EventTerminalBundleTest extends EventIntegrationTest {
     assertEquals(List.of(), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_WITHOUT_FILES')]"));
   }
 
+  // ---- manifest dates and the terminal clock ----------------------------------------------------------
+
+  @Test
+  void aManifestWithAndWithoutTheDateColumnBuildsAndTheDatesReachTheStoredArchive() {
+    byte[] dated = zip(
+      files(
+        "devfest-manifest.csv",
+        "path,owner,group,mode,mtime\n/home/server/**,rami,rami,0644,2026-03-14T09:26:00Z\n/home/server/old.txt,rami,rami,0600,2025-01-02T03:04:05Z\n",
+        "home/server/a.txt",
+        "a",
+        "home/server/old.txt",
+        "o"
+      )
+    );
+    expectOk(upload(linux, linuxManager, dated));
+    Map<String, TarMember> tar = tarByPath(storedArchive());
+    assertEquals(java.time.Instant.parse("2026-03-14T09:26:00Z").getEpochSecond(), tar.get("home/server/a.txt").mtime());
+    assertEquals(java.time.Instant.parse("2025-01-02T03:04:05Z").getEpochSecond(), tar.get("home/server/old.txt").mtime());
+    assertEquals(java.time.Instant.parse("2026-03-14T09:26:00Z").getEpochSecond(), tar.get("home/server").mtime(), "the folder is dated too");
+    assertEquals(0600, tar.get("home/server/old.txt").mode());
+
+    // The four-column manifest of the earlier examples is still valid.
+    expectOk(upload(linux, linuxManager, sample()));
+    assertEquals(0640, tarByPath(storedArchive()).get("srv/rami/logs/a.log").mode());
+  }
+
+  @Test
+  void anInvalidDateIsRejectedTogetherWithTheOtherProblems() {
+    byte[] bad = zip(
+      files(
+        "devfest-manifest.csv",
+        "srv/a,rami,rami,0644,not-a-date\nsrv/b,Bad,rami,0644,2026-03-14T09:26:00Z\nsrv/c,rami,rami,0644,2101-01-01T00:00:00Z\n",
+        "srv/a",
+        "x",
+        "srv/b",
+        "y",
+        "srv/c",
+        "z"
+      )
+    );
+    Response rejected = upload(linux, linuxManager, bad);
+    assertEquals(400, rejected.status(), rejected.body());
+    List<String> problems = rejected.json("$.problems");
+    assertEquals(3, problems.size(), problems.toString());
+    assertTrue(problems.get(0).contains("\"not-a-date\" is not a valid date"), problems.toString());
+    assertTrue(problems.get(1).contains("not a valid owner name"), problems.toString());
+    assertTrue(problems.get(2).contains("\"2101-01-01T00:00:00Z\" is not a valid date"), problems.toString());
+  }
+
+  @Test
+  void theTerminalClockIsSetClearedAuditedAndDeliveredOnlyThroughTheGatedResponses() {
+    String clockPath = "/rooms/" + linux + "/terminal-bundle/clock";
+    expectError(put(clockPath, linuxManager, "{\"clock\":\"2026-03-14T09:26:00Z\"}"), 409, "Upload a server package first.");
+    expectOk(upload(linux, linuxManager, sample()));
+    String sha = expectOk(get("/rooms/" + linux + "/terminal-files", linuxManager)).json("$.bundle.sha256");
+    assertNull(expectOk(get("/rooms/" + linux + "/terminal-files", linuxManager)).<Object>json("$.bundle.clock"), "real time by default");
+
+    long before = revision();
+    Response set = expectOk(put(clockPath, linuxManager, "{\"clock\":\"2026-03-14T09:26:00Z\"}"));
+    assertEquals("2026-03-14T09:26:00Z", set.json("$.bundle.clock"));
+    assertEquals(sha, set.json("$.bundle.sha256"), "the package itself is untouched");
+    assertTrue(revision() > before);
+    long afterSet = revision();
+    expectOk(put(clockPath, admin, "{\"clock\":\"2026-03-14T09:26:00Z\"}"));
+    assertEquals(afterSet, revision(), "setting the same value again changes nothing");
+
+    // Delivered to the assigned team and to the manager's Test terminal, and to no one else.
+    setRound(1);
+    assertEquals("2026-03-14T09:26:00Z", expectOk(get("/team/rooms/" + linux + "/terminal-files", charlie.token())).json("$.bundle.clock"));
+    assertEquals("2026-03-14T09:26:00Z", expectOk(get("/rooms/" + linux + "/terminal-files/content", linuxManager)).json("$.bundle.clock"));
+    assertEquals(404, get("/team/rooms/" + linux + "/terminal-files", alpha.token()).status());
+
+    // Replacing the package keeps the clock; clearing goes back to real time.
+    expectOk(upload(linux, linuxManager, zip(files("srv/other.txt", "different"))));
+    assertEquals("2026-03-14T09:26:00Z", expectOk(get("/rooms/" + linux + "/terminal-files", linuxManager)).json("$.bundle.clock"));
+    assertNull(expectOk(put(clockPath, linuxManager, "{\"clock\":null}")).<Object>json("$.bundle.clock"));
+    assertNull(expectOk(get("/team/rooms/" + linux + "/terminal-files", charlie.token())).<Object>json("$.bundle.clock"));
+
+    List<String> audits = db.queryForList("SELECT target FROM audit_event WHERE action = 'EVENT_TERMINAL_CLOCK_SET' ORDER BY id", String.class);
+    assertEquals(List.of("room:" + linux + " clock:2026-03-14T09:26:00Z", "room:" + linux + " clock:none"), audits);
+  }
+
+  @Test
+  void theClockSettingIsForTheRoomsOrganizersOnlyFollowsTheLockAndIsRangeChecked() {
+    String clockPath = "/rooms/" + linux + "/terminal-bundle/clock";
+    String body = "{\"clock\":\"2026-03-14T09:26:00Z\"}";
+    expectOk(upload(linux, linuxManager, sample()));
+    expectError(put(clockPath, managers.get(RoomCode.AI), body), 404, "Room not found.");
+    expectError(put(clockPath, charlie.token(), body), 404, "Room not found.");
+    assertEquals(401, put(clockPath, null, body).status());
+    expectOk(put(clockPath, admin, body));
+
+    expectError(put(clockPath, linuxManager, "{\"clock\":\"1969-12-31T23:59:59Z\"}"), 400, "The terminal clock must be between 1970 and 2099.");
+    expectError(put(clockPath, linuxManager, "{\"clock\":\"2100-01-01T00:00:00Z\"}"), 400, "The terminal clock must be between 1970 and 2099.");
+    assertEquals(400, put(clockPath, linuxManager, "{\"clock\":\"yesterday\"}").status());
+
+    loadContent();
+    expectOk(put("/admin/rooms/" + linux + "/terminal", admin, "{\"enabled\":false}"));
+    expectError(put(clockPath, linuxManager, "{\"clock\":null}"), 409, "The terminal is not enabled for this room.");
+    expectOk(put("/admin/rooms/" + linux + "/terminal", admin, "{\"enabled\":true}"));
+    openFinal();
+    expectError(put(clockPath, linuxManager, "{\"clock\":null}"), 409, READ_ONLY);
+    assertEquals("2026-03-14T09:26:00Z", expectOk(get("/rooms/" + linux + "/terminal-files", linuxManager)).json("$.bundle.clock"));
+  }
+
+  @Test
+  void removingThePackageRemovesItsClock() {
+    expectOk(upload(linux, linuxManager, sample()));
+    expectOk(put("/rooms/" + linux + "/terminal-bundle/clock", linuxManager, "{\"clock\":\"2026-03-14T09:26:00Z\"}"));
+    expectOk(delete("/rooms/" + linux + "/terminal-bundle", linuxManager));
+    expectOk(upload(linux, linuxManager, sample()));
+    assertNull(expectOk(get("/rooms/" + linux + "/terminal-files", linuxManager)).<Object>json("$.bundle.clock"));
+  }
+
   // ---- helpers ------------------------------------------------------------------------------------
 
   private static byte[] sample() {

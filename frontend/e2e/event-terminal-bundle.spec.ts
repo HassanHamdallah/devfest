@@ -82,9 +82,16 @@ test("server package: the manager uploads a ZIP and the terminal installs 300 fi
       await expect(summary).toContainText(`${fixture.fileCount} · `);
       await expect(summary).toContainText(fixture.owners.join(", "));
       await expect(card.locator(".terminal-files__problems")).toHaveCount(0);
-      await card.scrollIntoViewIfNeeded();
+      await expect(card.locator("[data-clock]")).toHaveText("Real time");
+      // The terminal clock is set without uploading the package again.
+      await card.locator('input[type="datetime-local"]').fill("2026-03-14T09:26");
+      await card.getByRole("button", { name: "Set clock", exact: true }).click();
+      await expect(card.locator("[data-clock]")).toHaveText("2026-03-14 09:26:00 UTC");
+      await expect(card.getByText("Terminal clock set.", { exact: false })).toBeVisible();
       for (const [label, size] of [["1440", WIDE], ["390", NARROW]] as const) {
         await page.setViewportSize(size);
+        // Scroll after resizing: the card sits elsewhere on a phone, and the picture must show it.
+        await card.locator("[data-clock]").scrollIntoViewIfNeeded();
         await saveScreenshot(page, path.join(shots, `terminal-package-${label}.png`), false);
       }
       await expectFitsPhone(page);

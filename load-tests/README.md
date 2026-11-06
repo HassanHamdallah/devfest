@@ -91,10 +91,11 @@ Setup (not measured): sign-ins and clue keys as above; the admin switches the AI
 activity on, the Linux manager uploads a package of just under 20 MB unpacked (one incompressible file) and saves the
 answer keys, the admin sends the 12 teams of groups A, B and D to the Linux room with room exceptions, opens it and
 starts round 1 — so all 16 teams use the room in one round. Each team client starts its terminal (the files
-description, the package download, then a restart whose `If-None-Match` must be answered 304), saves its six-field
+description, the package download, the extra tools archive (`/terminal/devfest-tools.tgz`, a static file of the site read from
+`--ui-url`, default `http://localhost:4202`, so the UI must be running), then a restart whose `If-None-Match` must be answered 304), saves its six-field
 form five times (early saves are partly blank; about 20 % are retried with the same Idempotency-Key and must return the
 identical answer) and submits it once; the last two teams only save, so the round's end submits them. The Linux manager
-keeps the organizer dashboard open (a GET every 5 s). The package download is recorded as `GET download` and is the
+keeps the organizer dashboard open (a GET every 5 s). The package download is recorded as `GET download` and the tools archive as `GET download tools`; they are the
 only traffic excluded from the 300 ms p95 limit; the backend JVM's heap and working set are sampled every second for
 the first 30 s (the downloads).
 

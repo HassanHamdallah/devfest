@@ -388,13 +388,14 @@ the terminal only helps produce the technical output.
 6. **Server package.** Instead of text files, the room's manager (or the admin) may upload **one ZIP** on the room
    board under **Server package**. Its files are installed from the root of the team's Linux (`srv/rami/logs/a.log`
    becomes `/srv/rami/logs/a.log`) with the owners, groups and modes of an optional `devfest-manifest.csv`
-   (`path,owner,group,mode`; defaults `root:root`, `0644` for files, `0755` for folders; the manifest itself is not
-   installed). Format, limits and an example: [LINUX-ROOM.md](LINUX-ROOM.md).
+   (`path,owner,group,mode[,mtime]`; defaults `root:root`, `0644` for files, `0755` for folders; the optional UTC
+   `mtime` such as `2026-03-14T09:26:00Z` sets the modification time of files and folders, blank keeps the ZIP entry's;
+   the manifest itself is not installed, anywhere). Format, limits and an example: [LINUX-ROOM.md](LINUX-ROOM.md).
    - **Validation.** Every problem is reported at once and nothing is stored while there is one: upload at most 25 MB,
      at most 5000 entries, at most 20 MB unpacked (counted from the bytes really inflated, never from the sizes the
      ZIP claims); no `..`, absolute or backslash path and no NUL; nothing under `bin`, `sbin`, `lib`, `usr/bin`,
      `usr/sbin`, `dev`, `proc`, `sys`, `mnt` and not `etc/passwd` or `etc/group`; valid owner and group names; valid
-     modes; no manifest row that matches nothing.
+     modes; valid dates (UTC, years 1970 to 2099); no manifest row that matches nothing.
    - **Storage.** The server builds one gzip-compressed ustar archive (numeric ids; owners other than `root` get user
      ids from 2000 and groups group ids from 2000, in name order) and keeps it in a table of its own with its SHA-256,
      file count, unpacked size, owners, uploader and time. The archive is never part of a board or list response.
@@ -406,9 +407,23 @@ the terminal only helps produce the technical output.
      no-cache`; `If-None-Match` is checked after the gates and answers `304` without loading the archive.
    - **In the terminal.** Before the shell is handed over, and out of the team's sight, the page places the archive on
      the 9p share and runs `gzip -dc /mnt/<bundle> | tar -xf - -C /` (this BusyBox `tar` has no `-z`), appends the
-     owners to `/etc/passwd` and `/etc/group`, removes the setup files and changes to `~`. A failure shows a clear
+     owners to `/etc/passwd` and `/etc/group`, installs the **extra tools** (below) into `/usr/local`, sets the room's
+     **terminal clock** if there is one, removes the setup files and changes to `~`. A folder is written after
+     everything below it, so extracting files never changes a folder's date. A failure shows a clear
      error ("The room's server could not be set up in this terminal. …") instead of a half-built shell. The banner is
      "Rami's server is mounted. There is no internet in this terminal."
+   - **Extra tools.** A room with a package also gets `file`, `base64`, `bzip2`, `bunzip2`, `bzcat`, `zip` and **GNU
+     find** (and xargs): official Alpine Linux x86 (musl) packages verified against Alpine's signed index and pinned by
+     SHA-256 (`infrastructure/build-terminal-tools.py`, sources and licenses in LINUX-ROOM.md section 10), shipped as one
+     static file of the site (`/terminal/devfest-tools.tgz`, under 2 MB, not part of the package and not counted in its
+     20 MB), unpacked into `/usr/local` whose `bin` leads the shell's `PATH`. A download or installation failure shows a
+     clear error and no shell. A room with a package uses an 80 MB guest (others keep 64 MB); rooms without a package are
+     unchanged.
+   - **Terminal clock.** An optional UTC date-time on the package card (1970 to 2099), editable without uploading the
+     package again, saved with it (replacing the package keeps it, removing the package removes it), audited, and under
+     the content lock (rule 13). When set, the setup runs `date -s`, so `find -mtime` gives the same result on any event
+     day; the clock then runs normally and a restart starts again from it. Empty = real time. Only the room's manager and
+     the admin set it (anyone else gets a 404); teams receive it only in the gated answer that describes their package.
    - While a package exists, teams get the package and **not** the text files; a room without a package keeps the
      text-file behaviour of item 2 to 5 unchanged.
 7. **Team form (rooms with the `LINUX_TERMINAL` activity).** On the same page as the terminal the team sees six

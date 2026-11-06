@@ -125,6 +125,18 @@ ui-progress {
   overflow-wrap: anywhere;
 }
 
+.terminal-files__clock {
+  display: grid;
+  gap: var(--space-2);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.terminal-files__clock-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
 /* Phones: the "Last change" column gives way to path and size. */
 @media (max-width: 599px) {
   .terminal-files__table th:nth-child(3),

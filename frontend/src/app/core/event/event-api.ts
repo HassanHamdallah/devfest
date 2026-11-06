@@ -245,6 +245,10 @@ export class EventApi {
     );
     saveFile(csv, "text/csv", "linux-room-scores.csv");
   }
+  /** Sets (an ISO UTC instant such as 2026-03-14T09:26:00Z) or clears (null) the package's terminal clock. */
+  setTerminalClock(roomId: number, clock: string | null) {
+    return this.send<TerminalFileList>("PUT", `/rooms/${roomId}/terminal-bundle/clock`, { clock });
+  }
   deleteTerminalBundle(roomId: number) {
     return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-bundle`);
   }

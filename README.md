@@ -80,8 +80,10 @@ terminal that runs inside their browser — no internet, nothing runs on the ser
   root (`path,owner,group,mode`, `/**` for a folder and everything below it) sets owners, groups and modes; defaults
   are `root:root`, `0644` files, `0755` folders. A package with any problem is refused with **every** problem listed
   and nothing is stored. While a package exists teams get it **instead of** the text files. Format, limits, the
-  commands the image has (and the ones it lacks, such as `file`, `stat`, `tree`, `base64`, `nano`) and an example:
-  [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md).
+  commands the image has and an example: [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md). A room with a package also gets
+  `file`, `base64`, `bzip2`, `zip` and **GNU find** (a static tools archive, `infrastructure/build-terminal-tools.py`),
+  the manifest takes an optional fifth column `mtime` (`2026-03-14T09:26:00Z`) for exact file and folder dates, and the
+  package card has an optional **Terminal clock** (so `find -mtime` gives the same result on any day).
 - **Team form.** With the **Linux terminal activity** switched on for the room (admin, **Content** page; on by default
   for the Linux room), teams get a six-field form next to the terminal (PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted
   message, Final clue) instead of the technical-output and clue-answer boxes. **Save** is repeatable, **Final submit**

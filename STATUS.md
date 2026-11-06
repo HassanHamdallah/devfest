@@ -27,6 +27,22 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-07: Linux room, challenge package tools, file dates and terminal clock
+
+- **Extra tools** for rooms with a server package (not for other rooms): `file` (+ magic database), `base64`, `bzip2`,
+  `bunzip2`, `bzcat`, `zip` and GNU `find` (+ `xargs`), from official Alpine Linux v3.24 x86 (musl) packages verified
+  against Alpine's signed index and pinned by SHA-256 (`infrastructure/build-terminal-tools.py`,
+  `infrastructure/terminal-tools.lock.json`), shipped as one static, deterministic archive
+  `frontend/public/terminal/devfest-tools.tgz` (1,886,271 bytes, not part of the room package), unpacked into
+  `/usr/local` during the invisible setup with `/usr/local/bin` first on `PATH`. Licenses: `TOOLS-LICENSES.txt`.
+  Package rooms use an 80 MB guest (measured necessary: 6 MB free with 64 MB, 21 to 22 MB with 80 MB).
+- **Manifest 5th column** `mtime` (`2026-03-14T09:26:00Z`, 1970 to 2099): files and folders keep exact dates; folders are
+  written after their contents; four-column manifests unchanged.
+- **Terminal clock** per room (V16 `room_terminal_bundle.terminal_clock`, `PUT /rooms/{id}/terminal-bundle/clock`): set
+  without re-upload, content-locked, audited, member/other manager 404; the setup runs `date -s`.
+- Tests: backend 376 (was 362), 0 failures; Playwright event suite 17 passed, `--repeat-each=2` 34 passed; Linux load
+  test (16 teams, tools archive included) 0 errors, p95 26.3 ms excluding downloads. Details: LINUX-ROOM.md §4, §6, §10.
+
 ### Change set 2026-11-06: Linux room, part C (organizer dashboard and scoring)
 
 - A separate page `/event/room/{id}/dashboard` for the room's manager and the admin (everyone else: 404): the **answer

@@ -29,7 +29,7 @@ public class RoomTerminalBundleRepository {
       .query(
         """
         SELECT b.room_id, b.sha256, b.archive_bytes, b.file_count, b.unpacked_bytes, b.owners, b.etc_passwd,
-               b.etc_group, u.name AS uploaded_by_name, b.uploaded_at
+               b.etc_group, u.name AS uploaded_by_name, b.uploaded_at, b.terminal_clock
         FROM room_terminal_bundle b JOIN app_user u ON u.id = b.uploaded_by
         WHERE b.room_id = ?""",
         RoomTerminalBundleRepository::map,
@@ -87,6 +87,11 @@ public class RoomTerminalBundleRepository {
     );
   }
 
+  /** Sets or (null) clears the terminal clock of the room's package; false when the room has no package. */
+  public boolean setClock(long roomId, Instant clock) {
+    return db.update("UPDATE room_terminal_bundle SET terminal_clock = ? WHERE room_id = ?", timestamp(clock), roomId) == 1;
+  }
+
   public boolean delete(long roomId) {
     return db.update("DELETE FROM room_terminal_bundle WHERE room_id = ?", roomId) == 1;
   }
@@ -102,7 +107,8 @@ public class RoomTerminalBundleRepository {
       rs.getString("etc_passwd"),
       rs.getString("etc_group"),
       rs.getString("uploaded_by_name"),
-      instant(rs, "uploaded_at")
+      instant(rs, "uploaded_at"),
+      instant(rs, "terminal_clock")
     );
   }
 }

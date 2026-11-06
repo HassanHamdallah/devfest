@@ -56,6 +56,7 @@ def parse_args():
     parser.add_argument("--scale", type=int, choices=(1, 3), default=1, help="team clients per team account")
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
+    parser.add_argument("--ui-url", default="http://localhost:4202", help="linux: where the site's static files are served")
     parser.add_argument("--mode", choices=("mixed", "sse", "quiz", "linux"), default="mixed")
     parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
     parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
@@ -858,8 +859,12 @@ def upload_package(api, path, token, data):
 
 
 def raw_get(api, path, token, headers=None):
-    """GET that reads the whole body without parsing it: (status, bytes read, elapsed ms, ETag)."""
-    request = urllib.request.Request(api.base + path, headers={"Authorization": "Bearer " + token, **(headers or {})})
+    """GET that reads the whole body without parsing it: (status, bytes read, elapsed ms, ETag). An absolute URL
+    (the site's static files) is fetched without the API's token."""
+    if path.startswith("http"):
+        request = urllib.request.Request(path, headers=headers or {})
+    else:
+        request = urllib.request.Request(api.base + path, headers={"Authorization": "Bearer " + token, **(headers or {})})
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=120) as response:
@@ -883,6 +888,7 @@ class LinuxLedger:
         self.conditional_hits = 0
         self.retries = self.retry_mismatches = 0
         self.downloads = []
+        self.tools = []
 
     def replay(self, first, second):
         with self.lock:
@@ -896,8 +902,9 @@ class LinuxTeamClient(Client):
     request that must answer 304), saves its form five times, submits it once (the last teams only save, so the
     round's end submits them) and reads its form after every write like the page does."""
 
-    def __init__(self, run, token, team, room_id, gap, submits):
+    def __init__(self, run, token, team, room_id, gap, submits, tools_url):
         super().__init__(run, token, "/event/team/board")
+        self.tools_url = tools_url
         self.team, self.room_id, self.gap, self.submits = team, room_id, gap, submits
         self.form_path = f"/event/team/rooms/{room_id}/terminal-form"
         self.bundle_path = f"/event/team/rooms/{room_id}/terminal-bundle"
@@ -942,11 +949,23 @@ class LinuxTeamClient(Client):
             self.request("GET", f"/event/team/rooms/{self.room_id}/terminal-files")
         elif step == "download":
             self.download({})
+            self.download_tools()
         elif step == "restart":
             self.download({"If-None-Match": next(iter(self.run_state.linux.etags), '"none"')}, conditional=True)
         else:
             self.write(step, values)
         return self.next_time() if self.steps else math.inf
+
+    def download_tools(self):
+        """The terminal's extra tools (a static file of the site), downloaded with the package; excluded from p95."""
+        status, size, elapsed, _ = raw_get(self.run_state.api, self.tools_url, self.token)
+        self.run_state.metrics.record("GET download tools", "/terminal/devfest-tools.tgz", status, elapsed)
+        ledger = self.run_state.linux
+        with ledger.lock:
+            if status == 200 and size > 1_000_000:
+                ledger.tools.append({"team": self.team, "bytes": size, "ms": round(elapsed, 1)})
+            else:
+                self.run_state.metrics.error(f"team {self.team}: tools download {status}, {size} bytes")
 
     def download(self, headers, conditional=False):
         status, size, elapsed, etag = raw_get(self.run_state.api, self.bundle_path, self.token, headers)
@@ -1031,7 +1050,13 @@ def linux_run(args, api, config):
     run.linux = LinuxLedger()
     gap = args.seconds * 0.55 / (LINUX_SAVES + 1)
     clients = [Client(run, admin, "/event/admin/board"), DashboardClient(run, manager, room)]
-    clients += [LinuxTeamClient(run, token, number, room, gap, number <= len(teams) - LINUX_SAVE_ONLY)
+    version = re.search(r'TOOLS_VERSION = "([0-9a-f]+)"',
+                        (ROOT / "frontend/src/app/features/event/terminal/tools-version.ts").read_text(encoding="utf-8")).group(1)
+    tools_url = f"{args.ui_url.rstrip('/')}/terminal/devfest-tools.tgz?v={version}"
+    status, _, _, _ = raw_get(api, tools_url, "")
+    if status != 200:
+        raise SystemExit(f"The site's tools archive is not served at {tools_url} (HTTP {status}); start the UI first.")
+    clients += [LinuxTeamClient(run, token, number, room, gap, number <= len(teams) - LINUX_SAVE_ONLY, tools_url)
                 for number, token in enumerate(teams, 1)]
     before = java_memory()
     sampler = HeapSampler(min(30, args.seconds))
@@ -1096,6 +1121,8 @@ def linux_run(args, api, config):
                    "retryMismatches": run.linux.retry_mismatches, "conditionalRestarts304": run.linux.conditional_hits},
         "bundleDownloads": {"count": len(run.linux.downloads), "downloads": run.linux.downloads,
                             "maxMs": max((d["ms"] for d in run.linux.downloads), default=None)},
+        "toolsDownloads": {"count": len(run.linux.tools), "bytes": run.linux.tools[0]["bytes"] if run.linux.tools else None,
+                           "maxMs": max((d["ms"] for d in run.linux.tools), default=None)},
         "serverHeap": {"before": before, "after": after, "samplesDuringDownloads": len(sampler.samples),
                        "maxHeapUsedMb": max(heap, default=None), "maxWorkingSetMb": max(working, default=None),
                        "samples": sampler.samples},
@@ -1105,7 +1132,8 @@ def linux_run(args, api, config):
     output = ROOT / "docs/event-load-linux.json"
     output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print_summary(report)
-    print(json.dumps({"bundleDownloads": {k: v for k, v in report["bundleDownloads"].items() if k != "downloads"},
+    print(json.dumps({"toolsDownloads": report["toolsDownloads"],
+                      "bundleDownloads": {k: v for k, v in report["bundleDownloads"].items() if k != "downloads"},
                       "serverHeap": {k: v for k, v in report["serverHeap"].items() if k != "samples"}}))
     totals = report["totals"]
     if (totals["errors"] or totals["retryMismatches"] or totals["submittedForms"] != len(teams)

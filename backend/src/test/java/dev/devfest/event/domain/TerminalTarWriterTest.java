@@ -112,4 +112,11 @@ class TerminalTarWriterTest {
       () -> TerminalTarWriter.gzip(List.of(Entry.file("a", new byte[0], 0644, 8_000_000, 0, 0)))
     );
   }
+
+  @Test
+  void aFolderEntryCarriesItsOwnModificationTime() {
+    List<TarMember> back = untar(TerminalTarWriter.gzip(List.of(Entry.directory("srv/rami", 0750, 2000, 2001, 1_773_480_360L))));
+    assertEquals(1_773_480_360L, back.get(0).mtime());
+    assertEquals('5', back.get(0).type());
+  }
 }

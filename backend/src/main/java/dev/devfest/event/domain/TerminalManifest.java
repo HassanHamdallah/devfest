@@ -1,5 +1,7 @@
 package dev.devfest.event.domain;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -10,7 +12,8 @@ import java.util.regex.Pattern;
 
 /**
  * The optional {@code devfest-manifest.csv} of a terminal package: one rule per line,
- * {@code path,owner,group,mode}. A path ends in {@code /**} to cover a folder and everything below it; the most
+ * {@code path,owner,group,mode[,mtime]}; the optional fifth column is a UTC time such as {@code 2026-03-14T09:26:00Z}
+ * (blank keeps the date of the ZIP entry). A path ends in {@code /**} to cover a folder and everything below it; the most
  * specific rule wins (an exact path beats any {@code /**} rule, a deeper folder beats a shallower one).
  */
 public final class TerminalManifest {
@@ -18,9 +21,17 @@ public final class TerminalManifest {
   public static final String FILE_NAME = "devfest-manifest.csv";
   private static final Pattern MODE = Pattern.compile("[0-7]{3,4}");
   private static final String HEADER = "path,owner,group,mode";
+  private static final String HEADER_WITH_TIME = "path,owner,group,mode,mtime";
+  private static final Pattern TIME = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
+  /** 1970-01-01T00:00:00Z and 2099-12-31T23:59:59Z. */
+  private static final long MIN_TIME = 0L;
+  private static final long MAX_TIME = 4_102_444_799L;
 
-  /** {@code base} has no leading or trailing slash ("" = the whole tree); {@code line} is 1-based. */
-  public record Rule(int line, String written, String base, boolean recursive, String owner, String group, int mode) {}
+  /**
+   * {@code base} has no leading or trailing slash ("" = the whole tree); {@code line} is 1-based; {@code mtime} is the
+   * rule's modification time in epoch seconds, null when its column is absent or blank.
+   */
+  public record Rule(int line, String written, String base, boolean recursive, String owner, String group, int mode, Long mtime) {}
 
   /** The rules read from a manifest and every problem found in it. */
   public record Parsed(List<Rule> rules, List<String> problems) {}
@@ -37,14 +48,15 @@ public final class TerminalManifest {
       String line = lines[i].strip();
       int number = i + 1;
       if (line.isEmpty() || line.startsWith("#")) continue;
-      if (first && line.replace(" ", "").equalsIgnoreCase(HEADER)) {
+      String compact = line.replace(" ", "");
+      if (first && (compact.equalsIgnoreCase(HEADER) || compact.equalsIgnoreCase(HEADER_WITH_TIME))) {
         first = false;
         continue;
       }
       first = false;
       List<String> fields = fields(line);
-      if (fields == null || fields.size() != 4) {
-        problems.add(FILE_NAME + " line " + number + ": expected path,owner,group,mode.");
+      if (fields == null || fields.size() < 4 || fields.size() > 5) {
+        problems.add(FILE_NAME + " line " + number + ": expected path,owner,group,mode[,mtime].");
         continue;
       }
       List<String> own = new ArrayList<>();
@@ -80,6 +92,7 @@ public final class TerminalManifest {
     String owner = fields.get(1).strip();
     String group = fields.get(2).strip();
     String modeText = fields.get(3).strip();
+    String timeText = fields.size() > 4 ? fields.get(4).strip() : "";
     boolean recursive = false;
     String base = written.startsWith("/") ? written.substring(1) : written;
     if (base.equals("**")) {
@@ -105,8 +118,26 @@ public final class TerminalManifest {
     if (!MODE.matcher(modeText).matches()) {
       problems.add("\"" + modeText + "\" is not a valid mode (3 or 4 octal digits such as 0644).");
     }
+    Long mtime = null;
+    if (!timeText.isEmpty()) {
+      mtime = parseTime(timeText);
+      if (mtime == null) {
+        problems.add("\"" + timeText + "\" is not a valid date (UTC like 2026-03-14T09:26:00Z, years 1970 to 2099).");
+      }
+    }
     if (!problems.isEmpty()) return null;
-    return new Rule(line, written, base, recursive, owner, group, Integer.parseInt(modeText, 8));
+    return new Rule(line, written, base, recursive, owner, group, Integer.parseInt(modeText, 8), mtime);
+  }
+
+  /** {@code 2026-03-14T09:26:00Z} as epoch seconds; null for any other text, a date that does not exist, or a year outside 1970-2099. */
+  public static Long parseTime(String text) {
+    if (!TIME.matcher(text).matches()) return null;
+    try {
+      long seconds = Instant.parse(text).getEpochSecond();
+      return seconds < MIN_TIME || seconds > MAX_TIME ? null : seconds;
+    } catch (DateTimeParseException e) {
+      return null;
+    }
   }
 
   /** Splits one CSV line; double quotes may wrap a field (and "" inside them is a quote). Null: unbalanced quotes. */

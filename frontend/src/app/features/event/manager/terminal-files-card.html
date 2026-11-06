@@ -35,7 +35,31 @@
       <div><dt>Owners</dt><dd>{{ pack.owners.length ? pack.owners.join(", ") : "root only" }}</dd></div>
       <div><dt>Uploaded</dt><dd>{{ pack.uploadedBy }} · {{ formatTime(pack.uploadedAt) }}</dd></div>
       <div><dt>Fingerprint</dt><dd><code>{{ pack.sha256.slice(0, 12) }}</code></dd></div>
+      <div><dt>Terminal clock</dt><dd data-clock>{{ pack.clock ? formatClock(pack.clock) + " UTC" : "Real time" }}</dd></div>
     </dl>
+    @if (view.editable) {
+    <form class="terminal-files__clock" (ngSubmit)="saveClock()" aria-label="Terminal clock">
+      <label class="terminal-files__pick">
+        <span class="terminal-files__pick-label">Terminal clock (UTC date and time)</span>
+        <input
+          type="datetime-local"
+          name="terminalClock"
+          step="1"
+          [disabled]="busy()"
+          [ngModel]="clockDraft()"
+          (ngModelChange)="clockDraft.set($event)"
+        />
+      </label>
+      <div class="event-inline">
+        <ui-button type="submit" size="sm" variant="secondary" [loading]="busy()" [disabled]="!clockDraft()">Set clock</ui-button>
+        <ui-button variant="ghost" size="sm" [disabled]="busy() || !pack.clock" (click)="clearClock()">Use real time</ui-button>
+      </div>
+      <p class="event-muted terminal-files__clock-hint">
+        When set, every team's terminal starts at this date and time (so <code>find -mtime</code> gives the same result
+        on any day) and then runs normally; a restart starts again from it. Empty means real time.
+      </p>
+    </form>
+    }
     } @else {
     <p class="terminal-files__empty">No server package yet.</p>
     }

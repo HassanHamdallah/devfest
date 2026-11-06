@@ -12,6 +12,7 @@ import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.RoomTerminalBundleRepository;
 import dev.devfest.event.repository.TerminalBundleBytes;
 import dev.devfest.event.repository.TerminalBundleRecord;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -24,6 +25,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class EventTerminalBundleService {
 
   private static final String NOT_FOUND = "Terminal files not found.";
+  private static final Instant MIN_CLOCK = Instant.parse("1970-01-01T00:00:00Z");
+  private static final Instant MAX_CLOCK = Instant.parse("2100-01-01T00:00:00Z");
 
   private final EventAccessPolicy access;
   private final EventTerminalService terminal;
@@ -74,6 +77,28 @@ public class EventTerminalBundleService {
       cache.forget(roomId);
       states.bumpRevision();
       audit.record(principal.id(), "EVENT_TERMINAL_BUNDLE_DELETED", describe(roomId, current));
+      return terminal.fileList(locked.room(), locked.state());
+    });
+  }
+
+  /**
+   * Sets (or, with null, clears) the terminal clock of the room's package without uploading it again. Same edit lock
+   * as the package, audited. A page for the room's organizers only: a member or another room's manager gets a 404.
+   */
+  public TerminalFileList setClock(Principal principal, long roomId, Instant clock) {
+    access.requireOrganizerOf(principal, roomId, "Room not found.");
+    if (clock != null && (clock.isBefore(MIN_CLOCK) || !clock.isBefore(MAX_CLOCK))) {
+      throw fail(400, "The terminal clock must be between 1970 and 2099.");
+    }
+    return transaction.execute(status -> {
+      EventTerminalService.Locked locked = terminal.lockEditable(roomId);
+      TerminalBundleRecord current = bundles.find(roomId).orElseThrow(() -> fail(409, "Upload a server package first."));
+      if (!java.util.Objects.equals(current.terminalClock(), clock)) {
+        bundles.setClock(roomId, clock);
+        cache.forget(roomId);
+        states.bumpRevision();
+        audit.record(principal.id(), "EVENT_TERMINAL_CLOCK_SET", "room:" + roomId + " clock:" + (clock == null ? "none" : clock));
+      }
       return terminal.fileList(locked.room(), locked.state());
     });
   }

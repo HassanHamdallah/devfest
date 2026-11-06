@@ -3,6 +3,7 @@ package dev.devfest.event.web;
 import dev.devfest.auth.AuthService;
 import dev.devfest.event.domain.TerminalBundleEtag;
 import dev.devfest.event.dto.TerminalBundleDelivery;
+import dev.devfest.event.dto.TerminalClockRequest;
 import dev.devfest.event.dto.TerminalFileList;
 import dev.devfest.event.service.EventTerminalBundleService;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -44,6 +46,15 @@ public class EventTerminalBundleController {
     @AuthenticationPrincipal AuthService.Principal principal
   ) throws IOException {
     return bundles.upload(principal, roomId, file.getBytes());
+  }
+
+  @PutMapping("/rooms/{roomId}/terminal-bundle/clock")
+  TerminalFileList setClock(
+    @PathVariable long roomId,
+    @RequestBody TerminalClockRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return bundles.setClock(principal, roomId, request.clock());
   }
 
   @DeleteMapping("/rooms/{roomId}/terminal-bundle")

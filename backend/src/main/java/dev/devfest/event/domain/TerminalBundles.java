@@ -3,6 +3,7 @@ package dev.devfest.event.domain;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +26,7 @@ public final class TerminalBundles {
   /** The finished bundle: {@code archive} is gzip(ustar), {@code sha256} its lower-case hex digest. */
   public record Built(byte[] archive, String sha256, int fileCount, long unpackedBytes, TerminalAccounts accounts) {}
 
-  private record Resolved(String path, TerminalPackageReader.Member member, String owner, String group, int mode) {}
+  private record Resolved(String path, TerminalPackageReader.Member member, String owner, String group, int mode, Long mtime) {}
 
   private TerminalBundles() {}
 
@@ -60,6 +61,8 @@ public final class TerminalBundles {
     if (!problems.isEmpty()) throw new TerminalPackageRejectedException(capped(problems));
 
     List<Resolved> installed = resolve(read.members(), implicitDirectories, rules);
+    // A folder goes after everything below it, so extracting its files cannot change the date the archive gives it.
+    installed.sort(Comparator.comparing(TerminalBundles::extractionKey));
     TerminalAccounts accounts = TerminalAccounts.of(
       installed.stream().map(Resolved::owner).toList(),
       installed.stream().map(Resolved::group).toList()
@@ -72,12 +75,13 @@ public final class TerminalBundles {
       int gid = accounts.gid(item.group());
       TerminalPackageReader.Member member = item.member();
       if (member != null && !member.directory()) {
-        entries.add(TerminalTarWriter.Entry.file(item.path(), member.data(), item.mode(), uid, gid, member.mtimeSeconds()));
+        long mtime = item.mtime() != null ? item.mtime() : member.mtimeSeconds();
+        entries.add(TerminalTarWriter.Entry.file(item.path(), member.data(), item.mode(), uid, gid, mtime));
         files++;
         bytes += member.data().length;
       } else {
-        long mtime = member != null ? member.mtimeSeconds() : TerminalPackageReader.DEFAULT_MTIME;
-        entries.add(TerminalTarWriter.Entry.directory(item.path(), item.mode(), uid, gid, mtime));
+        long fallback = member != null ? member.mtimeSeconds() : TerminalPackageReader.DEFAULT_MTIME;
+        entries.add(TerminalTarWriter.Entry.directory(item.path(), item.mode(), uid, gid, item.mtime() != null ? item.mtime() : fallback));
       }
     }
     byte[] archive = TerminalTarWriter.gzip(entries);
@@ -140,7 +144,8 @@ public final class TerminalBundles {
           member,
           rule.map(TerminalManifest.Rule::owner).orElse(TerminalAccounts.ROOT),
           rule.map(TerminalManifest.Rule::group).orElse(TerminalAccounts.ROOT),
-          modeFor(directory, rule)
+          modeFor(directory, rule),
+          rule.map(TerminalManifest.Rule::mtime).orElse(null)
         )
       );
     }
@@ -156,6 +161,12 @@ public final class TerminalBundles {
     int mode = rule.get().mode();
     if (directory && rule.get().recursive()) mode |= (mode & 0444) >> 2;
     return mode;
+  }
+
+  /** Files sort by path; a folder sorts after every path below it ("a/b" before the folder "a"). */
+  private static String extractionKey(Resolved item) {
+    boolean directory = item.member() == null || item.member().directory();
+    return directory ? item.path() + "\uffff" : item.path();
   }
 
   private static List<String> capped(List<String> problems) {

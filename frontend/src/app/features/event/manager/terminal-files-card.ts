@@ -104,6 +104,8 @@ export class EventTerminalFilesCard {
   protected readonly deleting = signal<TerminalFileEntry | null>(null);
   protected readonly testing = signal(false);
   protected readonly problems = signal<string[]>([]);
+  /** The terminal clock input (a UTC date and time as the browser's datetime-local control writes it). */
+  protected readonly clockDraft = signal("");
   protected readonly removingPackage = signal(false);
   protected readonly loadTestFiles = () => this.eventApi.terminalStartFiles(this.room().id);
   protected readonly loadTestBundle = () => this.eventApi.terminalBundle(this.room().id, "manager");
@@ -124,6 +126,34 @@ export class EventTerminalFilesCard {
       this.room().id;
       this.revision();
       untracked(() => void this.loader.load());
+    });
+    // The input shows the stored clock whenever the list changes (another person's change included).
+    effect(() => {
+      const clock = this.list()?.bundle?.clock ?? null;
+      untracked(() => this.clockDraft.set(clock ? clock.slice(0, 19) : ""));
+    });
+  }
+
+  /** "2026-03-14T09:26:00Z" shown as "2026-03-14 09:26:00". */
+  protected formatClock(clock: string): string {
+    return clock.slice(0, 19).replace("T", " ");
+  }
+
+  protected async saveClock(): Promise<void> {
+    const value = this.clockDraft();
+    if (!value || this.busy()) return;
+    // datetime-local writes minutes ("2026-03-14T09:26") or, with step 1, seconds; the server wants a UTC instant.
+    const instant = `${value.length === 16 ? `${value}:00` : value}Z`;
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.setTerminalClock(this.room().id, instant));
+      this.notice.set("Terminal clock set. Teams get it the next time their terminal starts.");
+    });
+  }
+
+  protected async clearClock(): Promise<void> {
+    await this.run(async () => {
+      this.loader.data.set(await this.eventApi.setTerminalClock(this.room().id, null));
+      this.notice.set("The terminals use real time again.");
     });
   }
 

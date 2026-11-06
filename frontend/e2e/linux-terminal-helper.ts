@@ -1,5 +1,8 @@
 import { expect, Page } from "@playwright/test";
-import type { LinuxRoomFixture } from "./linux-room-fixture";
+/** What the find challenge needs of a fixture (both the 300-file and the 2000-file packages have it). */
+export interface FindChallenge {
+  target: { path: string; user: string; size: string; pattern: string; file: string };
+}
 
 /** Shared by the Linux room specs: driving the real in-browser terminal (v86 + xterm.js). */
 
@@ -16,15 +19,22 @@ export async function screen(page: Page): Promise<string> {
  * Types a command and waits for `marker=<value>` in its output. The command echo contains "marker=$(" or
  * "marker=`", never a digit or word right after the equals sign, so only the real output matches.
  */
-export async function ask(page: Page, command: string, marker: string): Promise<string> {
+export async function ask(page: Page, command: string, marker: string, timeout = 30000): Promise<string> {
   await terminal(page).locator(".xterm").click();
   await page.keyboard.type(command);
   await page.keyboard.press("Enter");
   const pattern = new RegExp(`\\b${marker}=([^\\s$\`][^\\n]*)`);
   let value = "";
-  await expect
-    .poll(async () => (value = ((await screen(page)).match(pattern)?.[1] ?? "").trim()), { timeout: 30000 })
-    .not.toBe("");
+  try {
+    await expect
+      .poll(async () => (value = ((await screen(page)).match(pattern)?.[1] ?? "").trim()), { timeout })
+      .not.toBe("");
+  } catch (error) {
+    // Say which command had no answer and what the terminal showed instead.
+    throw new Error(`No "${marker}=" answer to: ${command}
+--- terminal ---
+${await screen(page)}`, { cause: error });
+  }
   return value;
 }
 
@@ -32,13 +42,13 @@ export async function ask(page: Page, command: string, marker: string): Promise<
  * The challenge the fixture is built for: each of the four parameters alone returns several files, and the full
  * `find <PATH> -user <USERNAME> -size <FILE_SIZE> -name "<PATTERN>"` returns exactly the target file.
  */
-export async function expectFindChallenge(page: Page, fixture: LinuxRoomFixture): Promise<void> {
+export async function expectFindChallenge(page: Page, fixture: FindChallenge, roots = "/srv /home /var"): Promise<void> {
   const { target } = fixture;
   const byPath = Number(await ask(page, `echo pcount=$(find ${target.path} -type f | wc -l)`, "pcount"));
-  const byUser = Number(await ask(page, `echo ucount=$(find /srv /home /var -user ${target.user} -type f | wc -l)`, "ucount"));
-  const bySize = Number(await ask(page, `echo scount=$(find /srv /home /var -type f -size ${target.size} | wc -l)`, "scount"));
+  const byUser = Number(await ask(page, `echo ucount=$(find ${roots} -user ${target.user} -type f | wc -l)`, "ucount"));
+  const bySize = Number(await ask(page, `echo scount=$(find ${roots} -type f -size ${target.size} | wc -l)`, "scount"));
   const byName = Number(
-    await ask(page, `echo ncount=$(find /srv /home /var -type f -name "${target.pattern}" | wc -l)`, "ncount"),
+    await ask(page, `echo ncount=$(find ${roots} -type f -name "${target.pattern}" | wc -l)`, "ncount"),
   );
   for (const [label, count] of [
     ["PATH", byPath],

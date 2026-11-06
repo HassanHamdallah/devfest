@@ -335,4 +335,98 @@ class TerminalBundlesTest {
     entries.put("devfest-manifest.csv", new byte[] { (byte) 0xff, (byte) 0xfe, 'x' });
     assertTrue(all(rejected(zip(entries))).contains("not valid UTF-8"));
   }
+
+  // ---- dates from the manifest; folders after their contents ---------------------------------------------
+
+  private static long utc(String text) {
+    return java.time.Instant.parse(text).getEpochSecond();
+  }
+
+  @Test
+  void aManifestDateWinsOverTheZipDateForFilesAndFolders() {
+    Built built = TerminalBundles.build(
+      zip(
+        files(
+          "devfest-manifest.csv",
+          "path,owner,group,mode,mtime\n"
+            + "home/server/**,rami,rami,0644,2026-03-14T09:26:00Z\n"
+            + "home/server/docs/**,rami,rami,0644,2026-04-01T08:00:00Z\n"
+            + "home/server/docs/old.txt,rami,rami,0644,2025-01-02T03:04:05Z\n"
+            + "home/server/plain.txt,rami,rami,0644,\n",
+          "home/server/a.txt",
+          "a",
+          "home/server/docs/b.txt",
+          "b",
+          "home/server/docs/old.txt",
+          "o",
+          "home/server/plain.txt",
+          "p"
+        )
+      )
+    );
+    Map<String, TarMember> members = byPath(built);
+    assertEquals(utc("2026-03-14T09:26:00Z"), members.get("home/server/a.txt").mtime());
+    assertEquals(utc("2026-04-01T08:00:00Z"), members.get("home/server/docs/b.txt").mtime(), "the deeper folder rule wins");
+    assertEquals(utc("2025-01-02T03:04:05Z"), members.get("home/server/docs/old.txt").mtime(), "an exact rule wins");
+    assertEquals(LocalDateTime.of(2026, 3, 14, 9, 30, 0).toEpochSecond(ZoneOffset.UTC), members.get("home/server/plain.txt").mtime(), "a blank date keeps the ZIP entry's time");
+    assertEquals(utc("2026-03-14T09:26:00Z"), members.get("home/server").mtime(), "folders are dated by /** rules too");
+    assertEquals(utc("2026-04-01T08:00:00Z"), members.get("home/server/docs").mtime());
+  }
+
+  @Test
+  void aFourColumnManifestBuildsExactlyAsBefore() {
+    byte[] four = zip(files("devfest-manifest.csv", "srv/**,rami,rami,0640\n", "srv/a.txt", "a"));
+    byte[] five = zip(files("devfest-manifest.csv", "srv/**,rami,rami,0640,\n", "srv/a.txt", "a"));
+    assertEquals(TerminalBundles.build(four).sha256(), TerminalBundles.build(five).sha256(), "a blank fifth column changes nothing");
+  }
+
+  @Test
+  void everyFolderIsWrittenAfterEverythingBelowItSoExtractingFilesCannotChangeItsDate() {
+    Built built = TerminalBundles.build(
+      zip(
+        files(
+          "devfest-manifest.csv",
+          "srv/**,rami,rami,0644,2026-03-14T09:26:00Z\n",
+          "srv/a/x.txt",
+          "x",
+          "srv/a/b/y.txt",
+          "y",
+          "srv/a-b.txt",
+          "z",
+          "srv/z.txt",
+          "z"
+        )
+      )
+    );
+    List<String> order = untar(built.archive()).stream().map(TarMember::path).toList();
+    for (TarMember member : untar(built.archive())) {
+      if (member.type() != '5') continue;
+      int folder = order.indexOf(member.path());
+      for (int i = 0; i < order.size(); i++) {
+        if (order.get(i).startsWith(member.path() + "/")) assertTrue(i < folder, order.get(i) + " must come before its folder " + member.path() + ": " + order);
+      }
+    }
+    assertEquals(List.of("srv/a/b", "srv/a", "srv"), order.stream().filter(path -> path.equals("srv") || path.equals("srv/a") || path.equals("srv/a/b")).toList(), "inner folders first: " + order);
+  }
+
+  @Test
+  void invalidDatesAreRejectedTogetherWithEveryOtherProblem() {
+    List<String> problems = rejected(
+      zip(
+        files(
+          "../up.txt",
+          "x",
+          "devfest-manifest.csv",
+          "srv/ok.txt,rami,rami,0644,2026-99-99T00:00:00Z\nsrv/ok.txt,BAD,rami,0644,2101-01-01T00:00:00Z\nnowhere,rami,rami,0644,2026-03-14T09:26:00Z\n",
+          "srv/ok.txt",
+          "x"
+        )
+      )
+    );
+    String all = all(problems);
+    assertTrue(all.contains("\"..\""), all);
+    assertTrue(all.contains("line 1: \"2026-99-99T00:00:00Z\" is not a valid date"), all);
+    assertTrue(all.contains("line 2:") && all.contains("not a valid owner name") && all.contains("\"2101-01-01T00:00:00Z\" is not a valid date"), all);
+    assertTrue(all.contains("line 3: the path nowhere matches nothing"), all);
+  }
 }

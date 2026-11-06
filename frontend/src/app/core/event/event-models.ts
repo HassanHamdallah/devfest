@@ -573,6 +573,8 @@ export interface TerminalBundleInfo {
   archiveBytes: number;
   etcPasswd: string;
   etcGroup: string;
+  /** The terminal clock (a UTC instant) the setup sets with date -s; null = real time. */
+  clock: string | null;
 }
 
 /** The manager's summary of a room's server package (never the archive itself). */
@@ -584,6 +586,8 @@ export interface TerminalBundleView {
   owners: string[];
   uploadedBy: string;
   uploadedAt: string;
+  /** The terminal clock (a UTC instant); null = real time. */
+  clock: string | null;
 }
 
 /**
