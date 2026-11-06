@@ -74,6 +74,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/room/:roomId/dashboard",
+    canActivate: [managerGuard],
+    loadComponent: () =>
+      import("./app/features/event/manager/terminal-dashboard/terminal-dashboard.page").then(
+        (m) => m.EventTerminalDashboardPage,
+      ),
+  },
+  {
     path: "event/room/:roomId",
     canActivate: [managerGuard],
     loadComponent: () =>

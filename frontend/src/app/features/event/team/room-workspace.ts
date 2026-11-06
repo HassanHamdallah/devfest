@@ -10,6 +10,7 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
 } from "@angular/core";
 import { effectivePhase, remainingSeconds } from "../../../core/event/countdown";
 import { EventApi } from "../../../core/event/event-api";
@@ -19,6 +20,7 @@ import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { EventLinuxTerminal } from "../terminal/linux-terminal";
 import { EventAiRoomActivity } from "./ai-room/ai-room-activity";
 import { EventRoomSubmissionPanel } from "./room-submission-panel";
+import { EventTerminalForm } from "./terminal-form";
 
 /** The split view needs room for an 80-column terminal next to the answer form. */
 const WIDE_QUERY = "(min-width: 900px)";
@@ -37,7 +39,7 @@ interface TerminalSession {
  */
 @Component({
   selector: "event-team-room-workspace",
-  imports: [EventAiRoomActivity, EventLinuxTerminal, EventRoomSubmissionPanel, UiButton, UiCard],
+  imports: [EventAiRoomActivity, EventLinuxTerminal, EventRoomSubmissionPanel, EventTerminalForm, UiButton, UiCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./room-workspace.css",
   templateUrl: "./room-workspace.html",
@@ -64,6 +66,15 @@ export class EventTeamRoomWorkspace {
     return { roomId: room.roomId, round: board.clock.currentRound };
   });
 
+  /** The room's six-field form replaces the answer form when its activity is the Linux terminal (rules §18.7). */
+  protected readonly formRoomId = computed(() => {
+    const room = this.board().scheduledRoom;
+    return room?.activity === "LINUX_TERMINAL" ? room.roomId : null;
+  });
+  /** The team's round is running on this page's clock (the form accepts answers only then). */
+  protected readonly running = computed(() => this.phase() === "RUNNING");
+  private readonly panel = viewChild(EventRoomSubmissionPanel);
+
   protected readonly wide = signal(matchMedia(WIDE_QUERY).matches);
   /** A phone user asked for the terminal anyway. */
   protected readonly opened = signal(false);
@@ -76,6 +87,7 @@ export class EventTeamRoomWorkspace {
   protected readonly showTerminal = computed(() => this.eligible() !== null || this.session() !== null);
   protected readonly preparing = signal(false);
   protected readonly loadFiles = () => this.eventApi.teamTerminalFiles(this.session()?.roomId ?? 0);
+  protected readonly loadBundle = () => this.eventApi.terminalBundle(this.session()?.roomId ?? 0, "team");
   private assets: Promise<typeof import("../terminal/terminal-assets")> | null = null;
 
   constructor() {
@@ -94,6 +106,11 @@ export class EventTeamRoomWorkspace {
       // Leaving the page frees the downloaded image; the terminal component destroys its VM itself.
       void this.assets?.then((module) => module.releaseTerminal());
     });
+  }
+
+  /** "Use selection as technical output": only rooms with the plain answer form offer it. */
+  protected useOutput(text: string): void {
+    this.panel()?.useTechnicalOutput(text);
   }
 
   protected start(): void {

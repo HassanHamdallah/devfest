@@ -27,6 +27,48 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-06: Linux room, part C (organizer dashboard and scoring)
+
+- A separate page `/event/room/{id}/dashboard` for the room's manager and the admin (everyone else: 404): the **answer
+  keys** (PATH, USERNAME, FILE_SIZE, PATTERN with several values one per line, and the message; empty = not auto-awarded,
+  with an admin board warning), every active team's form with ✓/✗ per item, an **Award / Deny / Automatic** override
+  per item (audited, "Overridden", clearable), the score out of 15 (3 per correct parameter, 3 when message and clue are
+  both right; computed on read, never stored), submit time, sorted by total, refreshing every 5 s, CSV export through the
+  formula-safe helper, and Test terminal with the current package. Overriding the fifth item never grants or revokes a
+  clue. The 15 points stay in the room; the ranking is unchanged. V15 `terminal_answer_key`, `terminal_form_override`;
+  resets and snapshots include the overrides. Rules §18.8, [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md) §7.
+
+### Change set 2026-11-06: Linux room, part B (team form)
+
+- A room with the `LINUX_TERMINAL` activity (the admin's activity switch, now with a second checkbox; V13 turns it on
+  for the Linux room on a fresh setup) shows the team a six-field form next to the terminal instead of the answer form:
+  PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted message, Final clue. Save (repeatable, Idempotency-Key) and Final
+  submit (confirmation, irreversible; V14 `terminal_form`, `terminal_form_request`). State comes from the server; only
+  the assigned team, while its round runs, the room is open and the form is not submitted (404 / the usual 409s
+  otherwise); the team sees only Saved / Submitted. The final answer — by the team or at the round's end for a form
+  with something saved, once, inside the existing round-end transition — is recorded through the ordinary
+  room-submission path (technical output = a server-made summary; Final clue checked against the manager's clue key; a
+  correct one is added as a ROOM clue). "Use selection as technical output" is hidden for this room; "Copy selection"
+  stays. Rules §18.7, [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md) §6.
+- The answers other than the clue are stored but not checked yet (the organizer dashboard, scoring and answer keys are
+  part C).
+
+### Change set 2026-11-06: Linux room, part A (server package for the terminal)
+
+- A room manager (or the admin) uploads **one ZIP** on the room board (**Server package**); the server validates it
+  (every problem at once), builds one gzip-compressed ustar archive and stores it with its SHA-256 in
+  `room_terminal_bundle` (V13), apart from the room rows. The assigned team's terminal downloads it under exactly the
+  gates of the text files (`GET /team/rooms/{id}/terminal-bundle`; ETag and `If-None-Match` → 304 without loading the
+  archive), installs it from `/` with `gzip -dc | tar -xf - -C /`, adds the owners to `/etc/passwd` and `/etc/group`
+  before the shell starts, and shows "Rami's server is mounted. There is no internet in this terminal.". Rooms without
+  a package keep the text files unchanged. `RoomActivity` has a second value, `LINUX_TERMINAL` (V13 sets it for the
+  Linux room); it changes nothing for teams yet (the team form and the organizer dashboard are parts B and C).
+- Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §18.6, author guide [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md)
+  (ZIP and manifest format with an example, commands available and missing), design in
+  [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md) "Server package".
+- Tested: see the numbers recorded in the report of this change; screenshots in `docs/ui-after/`
+  (`terminal-package-1440/390`, `terminal-package-errors-1440/390`).
+
 ### Change set 2026-11-02: AI room activity (quiz, code repairs, pass score)
 
 - Rooms with the **AI quiz activity** (admin setting on the Content page; V11 turns it on for the AI room only) show

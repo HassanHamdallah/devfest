@@ -78,7 +78,7 @@ public class QuizContentRepository {
            (SELECT COALESCE(sum(p.points), 0) FROM quiz_repair p WHERE p.room_id = r.id) AS repair_points
     FROM event_room r
     LEFT JOIN quiz_question q ON q.room_id = r.id
-    WHERE r.activity IS NOT NULL
+    WHERE r.activity = 'AI_QUIZ'
     GROUP BY r.id
     ORDER BY r.position
     """;

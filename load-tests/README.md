@@ -79,3 +79,26 @@ the outcome its own total predicts (status Passed / Not passed, clue granted, an
 pass), and the activity JSON must never name a total, points or the pass score. Output
 `docs/event-load-quiz.json` (per-endpoint latencies, totals, results cross-check). The script exits non-zero on any
 unexpected error, retry mismatch, accepted duplicate answer, wrong total, wrong or missing evaluation, or an endpoint p95 ≥ 300 ms.
+
+### Linux mode (terminal package, team form and organizer dashboard)
+
+```
+./infrastructure/start-event-rehearsal.ps1
+python load-tests/event_load.py --mode linux --seconds 90
+./infrastructure/stop-event-rehearsal.ps1
+```
+Setup (not measured): sign-ins and clue keys as above; the admin switches the AI quiz off and the Linux terminal
+activity on, the Linux manager uploads a package of just under 20 MB unpacked (one incompressible file) and saves the
+answer keys, the admin sends the 12 teams of groups A, B and D to the Linux room with room exceptions, opens it and
+starts round 1 — so all 16 teams use the room in one round. Each team client starts its terminal (the files
+description, the package download, then a restart whose `If-None-Match` must be answered 304), saves its six-field
+form five times (early saves are partly blank; about 20 % are retried with the same Idempotency-Key and must return the
+identical answer) and submits it once; the last two teams only save, so the round's end submits them. The Linux manager
+keeps the organizer dashboard open (a GET every 5 s). The package download is recorded as `GET download` and is the
+only traffic excluded from the 300 ms p95 limit; the backend JVM's heap and working set are sampled every second for
+the first 30 s (the downloads).
+
+Afterwards, for every team: exactly one submission on the room board, status Submitted on the dashboard, a dashboard
+total equal to the score its own answers predict (3 per correct parameter, 3 when message and clue are right) and its
+clue only when its final clue was right. Output `docs/event-load-linux.json`. The script exits non-zero on any error,
+retry mismatch, restart that is not a 304, team without a submitted form, or p95 ≥ 300 ms outside the downloads.

@@ -69,4 +69,21 @@
     </p>
     <app-action-status [state]="activityState" />
   </div>
+  <div class="room-content__terminal">
+    <label class="room-content__toggle">
+      <input
+        type="checkbox"
+        name="linuxTerminal"
+        [checked]="room().activity === 'LINUX_TERMINAL'"
+        [disabled]="activityState.busy()"
+        (change)="setLinuxTerminal($event)"
+      />
+      <span>Linux terminal activity</span>
+    </label>
+    <p class="room-content__hint">
+      The room's terminal comes with a server package and a team form instead
+      of the answer form. A room has one activity: choosing this one replaces
+      the AI quiz.
+    </p>
+  </div>
 </ui-card>

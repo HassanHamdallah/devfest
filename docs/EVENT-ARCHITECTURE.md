@@ -229,6 +229,44 @@ octet_length ≤ 2 MiB, size_bytes = octet_length(content), updated_by → app_u
 with a CHECK on the path characters. `audit_event.target` widens to 200 characters so a terminal audit can name the
 120-character path. Terminal files are content: resets keep them.
 
+**Server package (V13, rules §18.6)**: `room_terminal_bundle(room_id PK → event_room, archive BYTEA (STORAGE EXTERNAL),
+archive_bytes, sha256, file_count, unpacked_bytes, owners, etc_passwd, etc_group, uploaded_by, uploaded_at)` is kept
+apart from the room rows so that no board or list query reads the blob (`RoomTerminalBundleRepository.find` leaves the
+column out; only `archive(roomId)` reads it, in one statement together with its digest). Layers: pure domain classes
+`TerminalPackageReader` (ZIP → members under hard limits, real bytes counted), `TerminalPackagePaths`, `TerminalManifest`,
+`TerminalAccounts` (ids from 2000 by name), `TerminalTarWriter` (ustar + gzip, byte-exact, numeric owners, prefix field
+for long paths) and `TerminalBundles` (the whole build, deterministic: the same ZIP gives the same SHA-256);
+`EventTerminalBundleService` validates and builds **before** its transaction starts (no connection or lock is held
+while a large ZIP is processed), then stores under the usual event lock and edit lock and audits hash and counts;
+`EventTerminalBundleController` serves it. Delivery shares the gate of the text files
+(`EventTerminalService.requireDeliverable`), then answers 404/304/200 from one light query; `TerminalBundleCache` holds
+the last served archive of each room softly so simultaneous downloads share one load (an entry is used only when its
+digest equals the database's). `event_room.activity` also accepts `LINUX_TERMINAL` (V13 sets it for `LINUX` on a fresh
+setup). The page installs the package in `linux-session.ts`: 9p `create_file`, one invisible shell
+command, a failure mark that ends in a clear error.
+
+**Team form (V14, rules §18.7)**: `terminal_form(team_id, room_id → PK, six value columns ≤ 500 bytes, saved_at,
+submitted_at, submission_id UNIQUE → room_submission, cause SUBMIT | TIME_UP)` and `terminal_form_request(team_id,
+idempotency_key → PK, room_id, kind SAVE | SUBMIT, request_hash)` (every Save and Final submit by its key, so a retry is
+replayed and a stale retry cannot overwrite a newer save). `TerminalFormService` takes the usual `TeamWriteGate` locks;
+the final answer goes through `EventSubmissionService.recordFormAnswer` (the ordinary insert, clue check and ROOM
+clue; a blank clue is stored as a note because a submission keeps at least one byte) and the guarded
+`TerminalFormRepository.submit` (`WHERE submitted_at IS NULL`) makes a second trigger a no-op. The round's end hook
+`TerminalFormService.submitRoundEnd` runs next to `AiRoomEvaluationService.evaluateRoundEnd` in the same two places
+(`EventRoundTimerService.apply`, `EventControlService.setRound`), under the same event_state lock, so a Final submit
+and Time's up run one after the other. A form submission is hidden from the team's receipts (`NOT_ACTIVITY_RESULT`) and
+counts as a recorded result for `EvidenceVisibility`; resets and snapshots list both tables.
+
+**Organizer dashboard (V15, rules §18.8)**: `terminal_answer_key(room_id PK, four multi-value text columns, message_key)`
+and `terminal_form_override(team_id, room_id, item PK, awarded)` (absence = automatic; clearing deletes the row, the
+audit keeps the history). Pure domain classes: `TerminalAnswerKeys` (the comparison rules) and `TerminalFormScoring`
+(3 points per item, 15 at most, overrides applied; **nothing is stored**: every read recomputes from the form rows, the
+current keys, the room's clue key and the overrides). `TerminalDashboardService.view` reads in 5 statements whatever
+the number of teams (room, event state, keys, all active teams LEFT JOIN their forms, overrides); access is
+`EventAccessPolicy.requireOrganizerOf`, which answers 404 to every other account so the page's existence stays hidden.
+The admin board adds one statement (`TerminalAnswerKeyRepository.forFormRooms`) for its "no answer key" warning.
+Overrides never touch `collected_clue` or `room_submission`; the event ranking queries do not read these tables.
+
 **Server side** (`EventTerminalService`, `RoomTerminalFileRepository`, `EventTerminalController`, domain
 `TerminalFiles`):
 

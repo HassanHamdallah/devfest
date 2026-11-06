@@ -10,6 +10,9 @@ export default defineConfig({
     "event-overrides.spec.ts",
     "event-teams.spec.ts",
     "event-terminal.spec.ts",
+    "event-terminal-bundle.spec.ts",
+    "event-terminal-form.spec.ts",
+    "event-terminal-dashboard.spec.ts",
     "event.spec.ts",
   ],
   timeout: 300000,
@@ -29,3 +32,4 @@ export default defineConfig({
     ["json", { outputFile: "../docs/event-browser-results.json" }],
   ],
 });
+

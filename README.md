@@ -74,6 +74,24 @@ terminal that runs inside their browser — no internet, nothing runs on the ser
   `head`, `tail`, `less`). The admin control screen warns while an enabled terminal has no files.
 - Files can be changed until the final opens; a team sees changes the next time its terminal starts (or after
   **Restart terminal**).
+- **Server package (a whole fake server instead of text files).** Under **Server package** on the same card, upload
+  **one ZIP** (up to 25 MB, 5000 entries, 20 MB unpacked). Paths in the ZIP count from `/` and are written without the
+  leading slash: `srv/rami/logs/a.log` appears as `/srv/rami/logs/a.log`. An optional `devfest-manifest.csv` in the ZIP
+  root (`path,owner,group,mode`, `/**` for a folder and everything below it) sets owners, groups and modes; defaults
+  are `root:root`, `0644` files, `0755` folders. A package with any problem is refused with **every** problem listed
+  and nothing is stored. While a package exists teams get it **instead of** the text files. Format, limits, the
+  commands the image has (and the ones it lacks, such as `file`, `stat`, `tree`, `base64`, `nano`) and an example:
+  [docs/LINUX-ROOM.md](docs/LINUX-ROOM.md).
+- **Team form.** With the **Linux terminal activity** switched on for the room (admin, **Content** page; on by default
+  for the Linux room), teams get a six-field form next to the terminal (PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted
+  message, Final clue) instead of the technical-output and clue-answer boxes. **Save** is repeatable, **Final submit**
+  locks the form, and a saved form is submitted automatically when the round ends. The final answer is recorded as the
+  room's submission and its Final clue is checked against your clue key; teams only ever see Saved or Submitted.
+- **Organizer dashboard.** The room board links to it (manager of the room and admin only). Set the **answer keys**
+  there (one accepted value per line for PATH, USERNAME, FILE_SIZE and PATTERN), then follow every active team's answers
+  with a tick or cross per item, its score out of 15 (3 per correct parameter, 3 when the message and the clue are both
+  right), award or deny single items by hand, export the table as CSV and open **Test terminal** with the current
+  package. It refreshes every 5 seconds; the 15 points stay in this room and do not change the event's ranking.
 - Teams receive the files only while their Linux round is Assigned, Running or Paused; at Time's up the terminal says
   "Time is up" and stops taking input. They still type the answer into the usual form (the **Use selection as
   technical output** button copies selected terminal text into it).

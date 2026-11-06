@@ -132,6 +132,18 @@ export class RoomContentForm {
     this.changed.emit();
   }
 
+  /** Same endpoint as the AI quiz switch; a room has one activity, so this replaces any other. */
+  protected async setLinuxTerminal(event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const enabled = box.checked;
+    const saved = await this.activityState.run(
+      () => this.eventApi.setRoomActivity(this.room().roomId, enabled ? "LINUX_TERMINAL" : null),
+      enabled ? "Linux terminal activity enabled." : "Linux terminal activity disabled.",
+    );
+    if (!saved) box.checked = !enabled;
+    this.changed.emit();
+  }
+
   /** "Reload" after a conflict: drop local edits and take the server's current room content. */
   protected discardEdits(): void {
     this.form.markAsPristine();

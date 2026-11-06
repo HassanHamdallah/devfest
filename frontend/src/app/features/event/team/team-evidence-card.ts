@@ -64,7 +64,16 @@ import { EventMaskedClue } from "./masked-clue";
       <h3>Evidence</h3>
     </div>
     <dl>
-      @if (evidence().activity) {
+      @if (evidence().activity === "LINUX_TERMINAL") {
+        <dt>Your answers</dt>
+        <dd data-form-outcome>
+          @if (evidence().resultRecorded) {
+            <ui-status-chip variant="success">Submitted</ui-status-chip>
+          } @else {
+            <span class="event-muted">Not submitted</span>
+          }
+        </dd>
+      } @else if (evidence().activity) {
         <dt>AI quiz</dt>
         <dd data-quiz-outcome>
           @if (evidence().clueValue) {

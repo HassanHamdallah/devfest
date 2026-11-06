@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EventSubmissionService {
 
   static final int RECENT_RECEIPTS = 50;
+  static final String NO_CLUE_ENTERED = "(no clue entered)";
   static final String ACTIVITY_ROOM = "This room records its result from its activity; there is no answer form.";
 
   private final EventAccessPolicy access;
@@ -89,7 +90,7 @@ public class EventSubmissionService {
     requireMaxBytes(request.clueAnswer(), 500, "Clue answer");
     Optional<RoomCode> exception = exceptions.find(write.state().currentRound(), write.team().id());
     requireAcceptingSubmissions(write, room, clock.now(), exception);
-    if (room.hasQuiz()) throw fail(409, ACTIVITY_ROOM);
+    if (room.activity() != null) throw fail(409, ACTIVITY_ROOM);
     boolean correct = ClueCheck.isCorrect(request.clueAnswer(), room.clueKey());
     RoomSubmissionRecord submission = store(write, room, idempotencyKey, request.technicalOutput(), request.clueAnswer(), correct);
     states.bumpRevision();
@@ -112,6 +113,21 @@ public class EventSubmissionService {
     boolean correct
   ) {
     return store(write, room, idempotencyKey, technicalOutput, resultText, correct);
+  }
+
+  /**
+   * The final answer of a LINUX_TERMINAL room's form, recorded through the ordinary submission path (rules §18.7):
+   * the clue answer gets the automatic clue check against the room's key, a correct one collects the room's clue as
+   * a ROOM clue, a blank or wrong one does not, and the manager's override and later key re-checks work as for any
+   * submission. The caller holds the event_state, team and room locks and bumps the revision. The room's open flag
+   * and the timer are not checked here: the team's own submit checked them, and the round's end submits at Time's up.
+   */
+  RoomSubmissionRecord recordFormAnswer(TeamWrite write, EventRoomRecord room, String technicalOutput, String clueAnswer) {
+    boolean correct = ClueCheck.isCorrect(clueAnswer, room.clueKey());
+    // A submission keeps at least one byte of clue answer; a blank one is stored as this note (and never matches).
+    String stored = clueAnswer.isBlank() ? NO_CLUE_ENTERED : clueAnswer;
+    // A random key: the form's own request key belongs to terminal_form_request, not to room_submission.
+    return store(write, room, UUID.randomUUID(), technicalOutput, stored, correct);
   }
 
   public List<Receipt> recent(Principal principal) {

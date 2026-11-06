@@ -91,6 +91,18 @@
   @if (view.room.terminalEnabled) {
   <event-terminal-files-card [room]="view.room" [revision]="view.revision" />
   }
+  @if (view.room.activity === "LINUX_TERMINAL") {
+  <ui-card>
+    <h2 ui-card-header>Linux room scores</h2>
+    <p class="event-muted board__quiz-intro">
+      Teams in this room fill in a six-field form. Set the answer keys and follow every team's answers and score out of
+      15 on the organizer dashboard.
+    </p>
+    <div class="event-inline">
+      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'dashboard']">Organizer dashboard</a>
+    </div>
+  </ui-card>
+  }
   @if (view.room.activity === "AI_QUIZ") {
   <ui-card>
     <h2 ui-card-header>AI quiz</h2>

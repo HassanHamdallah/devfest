@@ -1,14 +1,17 @@
 import type { V86 } from "v86";
-import type { TerminalStartFiles } from "../../../core/event/event-models";
+import type { TerminalBundleInfo, TerminalStartFiles } from "../../../core/event/event-models";
 import type { TerminalBuffers, V86Constructor } from "./terminal-assets";
 
 export const TERMINAL_COLS = 80;
+export const BUNDLE_FAILED =
+  "The room's server could not be set up in this terminal. Press Restart terminal, or ask an organizer.";
 export const TERMINAL_ROWS = 24;
 
 const BOOT_TIMEOUT_MS = 120_000;
 /** The shell prompt at the end of the serial output ("~% " in the image, "# " or "$ " elsewhere). */
 const PROMPT = /[#%$] $/;
-const READY_MARK = "__DEVFEST_READY__";
+const READY_PATTERN = /__DEVFEST_READY__\r?\n/;
+const FAILED_PATTERN = /__DEVFEST_FAILED__\r?\n/;
 /**
  * Typed into the shell once, invisibly: the room's files are on the 9p share (/mnt) and are copied into the home
  * directory. The quotes split the mark so the echoed command line never matches it.
@@ -16,6 +19,27 @@ const READY_MARK = "__DEVFEST_READY__";
 const SETUP =
   `stty cols ${TERMINAL_COLS} rows ${TERMINAL_ROWS} 2>/dev/null; mkdir -p ~/logs; cp -r /mnt/. ~/ 2>/dev/null; cd ~;` +
   ` echo __DEVFEST""_READY__\n`;
+
+/** The three files a server package puts on the 9p share (created by the page, removed by the setup). */
+const BUNDLE_FILE = "devfest-bundle.tgz";
+const PASSWD_FILE = "devfest-passwd";
+const GROUP_FILE = "devfest-group";
+/**
+ * Typed into the shell once, invisibly, for a room with a server package. This BusyBox tar has no -z flag, so
+ * gzip unpacks into the pipe. The owners are appended to /etc/passwd and /etc/group before the shell is handed
+ * over, then the setup files are removed. Any failing step ends in the failure mark instead of the ready mark.
+ */
+const BUNDLE_SETUP =
+  `stty cols ${TERMINAL_COLS} rows ${TERMINAL_ROWS} 2>/dev/null;` +
+  ` if gzip -dc /mnt/${BUNDLE_FILE} | tar -xf - -C / && cat /mnt/${PASSWD_FILE} >> /etc/passwd &&` +
+  ` cat /mnt/${GROUP_FILE} >> /etc/group; then rm -f /mnt/${BUNDLE_FILE} /mnt/${PASSWD_FILE} /mnt/${GROUP_FILE};` +
+  ` cd ~; echo __DEVFEST""_READY__; else echo __DEVFEST""_FAILED__; fi\n`;
+
+/** A room's server package as the page downloaded it: the gzip bytes and the accounts to add. */
+export interface TerminalBundle {
+  info: TerminalBundleInfo;
+  archive: ArrayBuffer;
+}
 
 /** The v86 9p filesystem object (not part of v86.d.ts); only these two methods are used. */
 interface Fs9p {
@@ -37,13 +61,15 @@ export class LinuxSession {
   ) {}
 
   /**
-   * Boots, places `files` under the home directory and resolves once the shell is ready. `banner` is shown right
-   * before the first prompt.
+   * Boots, places `files` under the home directory (or installs `bundle` from the root of the file system) and
+   * resolves once the shell is ready. `banner` is shown right before the first prompt. A failing package setup
+   * rejects with a clear message instead of handing over a half-prepared shell.
    */
   static async boot(
     Emulator: V86Constructor,
     buffers: TerminalBuffers,
     files: TerminalStartFiles,
+    bundle: TerminalBundle | null,
     banner: string,
     onOutput: (byte: number) => void,
   ): Promise<LinuxSession> {
@@ -63,7 +89,7 @@ export class LinuxSession {
     });
     const session = new LinuxSession(emulator, onOutput);
     try {
-      await session.start(files, new TextEncoder().encode(banner));
+      await session.start(files, bundle, new TextEncoder().encode(banner));
     } catch (error) {
       await session.destroy();
       throw error;
@@ -86,7 +112,7 @@ export class LinuxSession {
     await this.emulator.destroy();
   }
 
-  private async start(files: TerminalStartFiles, banner: Uint8Array): Promise<void> {
+  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array): Promise<void> {
     let text = "";
     // `matched` runs synchronously inside the output listener, before the next byte arrives.
     let waiter: { test: (text: string) => boolean; matched: () => void } | null = null;
@@ -111,17 +137,34 @@ export class LinuxSession {
 
     await waitFor((output) => PROMPT.test(output));
     text = "";
-    // Everything after the mark, starting with the next prompt, is the team's terminal.
-    const ready = waitFor(
-      (output) => output.includes(`${READY_MARK}\n`) || output.includes(`${READY_MARK}\r\n`),
+    // Everything after the ready mark, starting with the next prompt, is the team's terminal.
+    let failed = false;
+    const finished = waitFor(
+      (output) => READY_PATTERN.test(output) || FAILED_PATTERN.test(output),
       () => {
+        failed = FAILED_PATTERN.test(text);
+        if (failed) return;
         this.forwarding = true;
         banner.forEach((byte) => this.onOutput(byte));
       },
     );
-    await this.placeFiles(files);
-    this.send(SETUP);
-    await ready;
+    if (bundle) {
+      await this.placeBundle(bundle);
+      this.send(BUNDLE_SETUP);
+    } else {
+      await this.placeFiles(files);
+      this.send(SETUP);
+    }
+    await finished;
+    if (failed) throw new Error(BUNDLE_FAILED);
+  }
+
+  /** The package and its accounts as three files on the share; the setup removes them again. */
+  private async placeBundle(bundle: TerminalBundle): Promise<void> {
+    const encoder = new TextEncoder();
+    await this.emulator.create_file(`/${BUNDLE_FILE}`, new Uint8Array(bundle.archive));
+    await this.emulator.create_file(`/${PASSWD_FILE}`, encoder.encode(bundle.info.etcPasswd));
+    await this.emulator.create_file(`/${GROUP_FILE}`, encoder.encode(bundle.info.etcGroup));
   }
 
   private async placeFiles(files: TerminalStartFiles): Promise<void> {

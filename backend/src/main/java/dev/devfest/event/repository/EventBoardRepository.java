@@ -28,7 +28,8 @@ public class EventBoardRepository {
            ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct,
            ls.effective_correct AS last_effective_correct, ls.technical_output AS last_technical_output,
            ls.clue_answer AS last_clue_answer,
-           EXISTS(SELECT 1 FROM quiz_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id) AS result_recorded
+           (EXISTS(SELECT 1 FROM quiz_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id)
+             OR EXISTS(SELECT 1 FROM terminal_form f WHERE f.team_id = t.id AND f.room_id = r.id AND f.submitted_at IS NOT NULL)) AS result_recorded
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
@@ -75,7 +76,8 @@ public class EventBoardRepository {
            r.clue_key ~ '\\S' AS has_clue_key,
            r.recovery_prompt ~ '\\S' AND r.recovery_answer ~ '\\S' AS has_recovery,
            r.terminal_enabled,
-           (SELECT count(*) FROM room_terminal_file f WHERE f.room_id = r.id) AS terminal_files,
+           (SELECT count(*) FROM room_terminal_file f WHERE f.room_id = r.id)
+             + (SELECT count(*) FROM room_terminal_bundle b WHERE b.room_id = r.id) AS terminal_files,
            count(t.id) FILTER (WHERE j.status = 'PASS') AS passed,
            count(t.id) FILTER (WHERE j.status = 'FAIL') AS failed,
            count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending

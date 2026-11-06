@@ -78,6 +78,53 @@ ui-progress {
   margin-block: var(--space-3);
 }
 
+.terminal-files__package {
+  display: grid;
+  gap: var(--space-3);
+  margin-block: var(--space-3) var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.terminal-files__package h3,
+.terminal-files__package p {
+  margin: 0;
+}
+
+.terminal-files__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.terminal-files__summary div {
+  min-inline-size: 0;
+}
+
+.terminal-files__summary dt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.terminal-files__summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.terminal-files__pick {
+  display: inline-grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.terminal-files__problems {
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-5);
+  overflow-wrap: anywhere;
+}
+
 /* Phones: the "Last change" column gives way to path and size. */
 @media (max-width: 599px) {
   .terminal-files__table th:nth-child(3),

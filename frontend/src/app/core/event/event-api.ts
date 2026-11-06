@@ -54,7 +54,12 @@ import {
   TeamView,
   TerminalFileContent,
   TerminalFileList,
+  TerminalAnswerKeys,
+  TerminalDashboard,
   TerminalFileRequest,
+  TerminalFormRequest,
+  TerminalFormView,
+  TerminalScoreItem,
   TerminalSettingView,
   TerminalStartFiles,
   UpdateTeamRequest,
@@ -118,6 +123,17 @@ export class EventApi {
   /** 404 unless the team is assigned to the room this round and the round is not over (rules §18). */
   teamTerminalFiles(roomId: number) {
     return this.get<TerminalStartFiles>(`/team/rooms/${roomId}/terminal-files`);
+  }
+  /** 404 unless the room has the Linux terminal activity and is the team's room this round (rules §18.7). */
+  teamTerminalForm(roomId: number) {
+    return this.get<TerminalFormView>(`/team/rooms/${roomId}/terminal-form`);
+  }
+  saveTerminalForm(roomId: number, body: TerminalFormRequest, key: string) {
+    return this.postIdempotent<TerminalFormView>(`${EVENT}/team/rooms/${roomId}/terminal-form/save`, body, key);
+  }
+  /** Irreversible: locks the form and records the final answer. */
+  submitTerminalForm(roomId: number, body: TerminalFormRequest, key: string) {
+    return this.postIdempotent<TerminalFormView>(`${EVENT}/team/rooms/${roomId}/terminal-form/submit`, body, key);
   }
   /** 404 unless the room has the AI quiz and is the team's room this round (rules §19). */
   teamActivity(roomId: number) {
@@ -203,6 +219,42 @@ export class EventApi {
   }
   deleteTerminalFile(roomId: number, fileId: number) {
     return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-files/${fileId}`);
+  }
+  /** Uploads (or replaces) the room's server package; a rejected ZIP answers 400 with every problem in `problems`. */
+  uploadTerminalBundle(roomId: number, zip: File) {
+    const form = new FormData();
+    form.append("file", zip, zip.name);
+    return this.send<TerminalFileList>("PUT", `/rooms/${roomId}/terminal-bundle`, form);
+  }
+  terminalDashboard(roomId: number) {
+    return this.get<TerminalDashboard>(`/rooms/${roomId}/terminal-dashboard`);
+  }
+  saveTerminalKeys(roomId: number, keys: TerminalAnswerKeys) {
+    return this.send<TerminalDashboard>("PUT", `/rooms/${roomId}/terminal-dashboard/keys`, keys);
+  }
+  /** true awards the item's points, false denies them, null goes back to automatic. */
+  setTerminalOverride(roomId: number, teamId: number, item: TerminalScoreItem, awarded: boolean | null) {
+    return this.send<TerminalDashboard>("PUT", `/rooms/${roomId}/terminal-dashboard/teams/${teamId}/items/${item}`, {
+      awarded,
+    });
+  }
+  /** Downloads GET /rooms/{id}/terminal-dashboard.csv as linux-room-scores.csv. */
+  async downloadTerminalDashboardCsv(roomId: number): Promise<void> {
+    const csv = await firstValueFrom(
+      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/terminal-dashboard.csv`, { responseType: "text" }),
+    );
+    saveFile(csv, "text/csv", "linux-room-scores.csv");
+  }
+  deleteTerminalBundle(roomId: number) {
+    return this.send<TerminalFileList>("DELETE", `/rooms/${roomId}/terminal-bundle`);
+  }
+  /**
+   * The room's package as gzip bytes. The server answers with an ETag and "no-cache", so the browser revalidates
+   * and a restarted terminal gets a 304 instead of the bytes.
+   */
+  terminalBundle(roomId: number, scope: "team" | "manager"): Promise<ArrayBuffer> {
+    const path = scope === "team" ? `/team/rooms/${roomId}/terminal-bundle` : `/rooms/${roomId}/terminal-bundle`;
+    return firstValueFrom(this.http.get(`${BASE}${EVENT}${path}`, { responseType: "arraybuffer" }));
   }
 
   quizEditor(roomId: number) {

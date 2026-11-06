@@ -25,7 +25,7 @@ export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
 export type ClueOverride = "ACCEPT" | "REJECT" | "AUTOMATIC";
 /** A room's team activity (admin setting); a room without one keeps the plain answer form. */
-export type RoomActivity = "AI_QUIZ";
+export type RoomActivity = "AI_QUIZ" | "LINUX_TERMINAL";
 
 /** Room codes in position order (0..3) and group codes in index order (0..3). */
 export const ROOM_CODES: readonly RoomCode[] = [
@@ -564,9 +564,35 @@ export interface AiRoomResults {
 
 // ---- In-browser terminal ----
 
-/** What a terminal starts with; paths are relative to the home directory (e.g. logs/lock.log). */
+/**
+ * What a terminal needs to know about its room's server package before downloading it: the digest (also the
+ * download's ETag), the size on the wire and the lines to append to /etc/passwd and /etc/group.
+ */
+export interface TerminalBundleInfo {
+  sha256: string;
+  archiveBytes: number;
+  etcPasswd: string;
+  etcGroup: string;
+}
+
+/** The manager's summary of a room's server package (never the archive itself). */
+export interface TerminalBundleView {
+  sha256: string;
+  fileCount: number;
+  unpackedBytes: number;
+  archiveBytes: number;
+  owners: string[];
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+/**
+ * What a terminal starts with. A room with a server package sends `bundle` and no text files; other rooms send
+ * text files with paths relative to the home directory (e.g. logs/lock.log) and `bundle: null`.
+ */
 export interface TerminalStartFiles {
   files: { path: string; content: string }[];
+  bundle: TerminalBundleInfo | null;
 }
 
 export interface TerminalFileEntry {
@@ -588,6 +614,9 @@ export interface TerminalFileList {
   maxFiles: number;
   maxFileBytes: number;
   maxTotalBytes: number;
+  /** The room's server package; null when it has none. */
+  bundle: TerminalBundleView | null;
+  maxBundleUploadBytes: number;
 }
 
 export interface TerminalFileContent {
@@ -600,6 +629,85 @@ export interface TerminalFileContent {
 export interface TerminalFileRequest {
   path: string;
   content: string;
+}
+
+/** The six values of a Linux room form (Save and Final submit carry all of them; blanks are fine). */
+export interface TerminalFormRequest {
+  path: string;
+  username: string;
+  fileSize: string;
+  pattern: string;
+  encryptedMessage: string;
+  finalClue: string;
+}
+
+/** All a team learns about its form: nothing saved yet, Saved, or Submitted. Never an outcome, score or key. */
+export type TerminalFormStatus = "EMPTY" | "SAVED" | "SUBMITTED";
+
+export interface TerminalFormView extends TerminalFormRequest {
+  roomId: number;
+  status: TerminalFormStatus;
+  savedAt: string | null;
+  submittedAt: string | null;
+}
+
+// ---- Linux room organizer dashboard (rules §18.8) ----
+
+export type TerminalScoreItem = "PATH" | "USERNAME" | "FILE_SIZE" | "PATTERN" | "MESSAGE_CLUE";
+export type TerminalDashboardStatus = "NOT_STARTED" | "SAVED" | "SUBMITTED";
+
+export interface TerminalItemScore {
+  item: TerminalScoreItem;
+  label: string;
+  /** What the keys say, without any override. */
+  auto: boolean;
+  /** null = automatic, true = awarded by an organizer, false = denied by an organizer. */
+  override: boolean | null;
+  awarded: boolean;
+  points: number;
+}
+
+export interface TerminalDashboardTeam {
+  teamId: number;
+  teamName: string;
+  group: GroupCode;
+  disqualified: boolean;
+  status: TerminalDashboardStatus;
+  path: string;
+  username: string;
+  fileSize: string;
+  pattern: string;
+  encryptedMessage: string;
+  finalClue: string;
+  messageCorrect: boolean;
+  clueCorrect: boolean;
+  items: TerminalItemScore[];
+  total: number;
+  savedAt: string | null;
+  submittedAt: string | null;
+  cause: "SUBMIT" | "TIME_UP" | null;
+}
+
+/** The answer keys: the first four hold one value per line. */
+export interface TerminalAnswerKeys {
+  path: string;
+  username: string;
+  fileSize: string;
+  pattern: string;
+  encryptedMessage: string;
+}
+
+/** GET /rooms/{id}/terminal-dashboard: for the room's manager and the ADMIN only (it carries the keys). */
+export interface TerminalDashboard {
+  roomId: number;
+  roomName: string;
+  keysEditable: boolean;
+  keys: TerminalAnswerKeys;
+  emptyKeys: string[];
+  pointsPerItem: number;
+  maxPoints: number;
+  teams: TerminalDashboardTeam[];
+  generatedAt: string;
 }
 
 export interface TerminalSettingView {

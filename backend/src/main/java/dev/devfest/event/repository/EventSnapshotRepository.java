@@ -116,7 +116,8 @@ public class EventSnapshotRepository {
         for (String table : List.of(
           "team_final", "accusation", "recovery_attempt", "collected_clue", "room_submission",
           "room_judgement_history", "room_judgement", "penalty", "team_room_exception", "quiz_mcq_answer",
-          "quiz_repair_answer", "quiz_team_progress", "quiz_evaluation"
+          "quiz_repair_answer", "quiz_team_progress", "quiz_evaluation", "terminal_form", "terminal_form_request",
+          "terminal_form_override"
         )) {
           tables.put(table, "SELECT * FROM " + table + " WHERE team_id = ?");
         }
@@ -130,7 +131,8 @@ public class EventSnapshotRepository {
           "team_final", "accusation", "recovery_attempt", "collected_clue", "room_submission",
           "submission_clue_verdict", "submission_clue_verdict_history", "room_judgement_history",
           "room_judgement", "penalty", "team_room_exception", "room_arrival", "round_time_adjustment",
-          "quiz_mcq_answer", "quiz_repair_answer", "quiz_team_progress", "quiz_evaluation"
+          "quiz_mcq_answer", "quiz_repair_answer", "quiz_team_progress", "quiz_evaluation", "terminal_form",
+          "terminal_form_request", "terminal_form_override"
         )) {
           tables.put(table, "SELECT * FROM " + table);
         }

@@ -1,0 +1,188 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the Linux room dashboard…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (dashboard(); as view) {
+<div class="event-stack dashboard room-tone--LINUX">
+  <header class="dashboard__header">
+    <a class="dashboard__back" [routerLink]="['/event/room', view.roomId]">← {{ view.roomName }} board</a>
+    <h1>Linux room dashboard</h1>
+    <div class="event-inline">
+      <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
+      <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
+      <ui-button variant="secondary" size="sm" (click)="testing.set(!testing())">{{
+        testing() ? "Close test terminal" : "Test terminal"
+      }}</ui-button>
+    </div>
+  </header>
+  @if (loader.refreshError(); as text) {
+  <ui-alert variant="warning">{{ text }}</ui-alert>
+  }
+  @if (actionError(); as text) {
+  <ui-alert variant="error" [dismissible]="true" (dismissed)="actionError.set(null)">{{ text }}</ui-alert>
+  }
+
+  <ui-card>
+    <h2 ui-card-header>Answer keys</h2>
+    <p class="event-muted dashboard__intro">
+      Each parameter accepts several values, one per line. PATH ignores one trailing slash, PATTERN ignores surrounding
+      quotes, FILE_SIZE ignores case, USERNAME is case-sensitive, and the encrypted message ignores extra spaces. The
+      final clue is checked against the room's clue key. A parameter without a key cannot be awarded automatically.
+    </p>
+    @if (view.emptyKeys.length) {
+    <ui-alert variant="warning" data-empty-keys>
+      No answer key yet for {{ view.emptyKeys.join(", ") }}. Those items can only be awarded by hand.
+    </ui-alert>
+    }
+    @if (!view.keysEditable) {
+    <ui-alert variant="info">Event content is read-only after the final opens. Overrides still work.</ui-alert>
+    }
+    @if (keysDraft(); as draft) {
+    <form class="dashboard__keys" (ngSubmit)="saveKeys()" aria-label="Answer keys">
+      <ui-textarea
+        label="PATH"
+        name="keyPath"
+        [rows]="3"
+        [disabled]="!view.keysEditable"
+        [ngModel]="draft.path"
+        (ngModelChange)="setKey('path', $event)"
+      />
+      <ui-textarea
+        label="USERNAME"
+        name="keyUsername"
+        [rows]="3"
+        [disabled]="!view.keysEditable"
+        [ngModel]="draft.username"
+        (ngModelChange)="setKey('username', $event)"
+      />
+      <ui-textarea
+        label="FILE_SIZE"
+        name="keyFileSize"
+        [rows]="3"
+        [disabled]="!view.keysEditable"
+        [ngModel]="draft.fileSize"
+        (ngModelChange)="setKey('fileSize', $event)"
+      />
+      <ui-textarea
+        label="PATTERN"
+        name="keyPattern"
+        [rows]="3"
+        [disabled]="!view.keysEditable"
+        [ngModel]="draft.pattern"
+        (ngModelChange)="setKey('pattern', $event)"
+      />
+      <ui-input
+        label="Encrypted message"
+        name="keyMessage"
+        [disabled]="!view.keysEditable"
+        [ngModel]="draft.encryptedMessage"
+        (ngModelChange)="setKey('encryptedMessage', $event)"
+      />
+      <div class="event-inline dashboard__keys-actions">
+        <ui-button type="submit" [disabled]="!view.keysEditable || !keysDirty()" [loading]="keysBusy()">Save answer keys</ui-button>
+        @if (keysDirty()) {
+        <span class="event-muted">Unsaved changes</span>
+        }
+        @if (keysNotice(); as text) {
+        <span class="event-muted" aria-live="polite">{{ text }}</span>
+        }
+      </div>
+    </form>
+    }
+  </ui-card>
+
+  <ui-card>
+    <h2 ui-card-header>Teams · score out of {{ view.maxPoints }}</h2>
+    @if (!view.teams.length) {
+    <p class="event-muted">There are no active teams.</p>
+    } @else {
+    <p class="event-muted dashboard__intro">
+      {{ view.pointsPerItem }} points per item; the last item needs both the message and the clue. Choose Award or Deny
+      to override an item; Automatic follows the keys. Overriding never grants or removes the room's clue.
+    </p>
+    <div class="dashboard__scroll" tabindex="0" role="region" aria-label="Team scores">
+      <table class="dashboard__table">
+        <thead>
+          <tr>
+            <th scope="col">Team</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="dashboard__num">Total / {{ view.maxPoints }}</th>
+            <th scope="col">Submitted</th>
+            <th scope="col">PATH</th>
+            <th scope="col">USERNAME</th>
+            <th scope="col">FILE_SIZE</th>
+            <th scope="col">PATTERN</th>
+            <th scope="col">Message + clue</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (team of view.teams; track team.teamId) {
+          <tr [attr.data-team]="team.teamName">
+            <th scope="row">
+              {{ team.teamName }} <span class="event-muted">· {{ team.group }}</span>
+              @if (team.disqualified) {
+              <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+              }
+            </th>
+            <td [attr.data-status]="team.status">
+              <ui-status-chip [variant]="statusVariants[team.status]">{{ statusLabels[team.status] }}</ui-status-chip>
+            </td>
+            <td class="event-num dashboard__num dashboard__total" data-total>{{ team.total }}</td>
+            <td class="event-num">{{ formatTime(team.submittedAt) }}</td>
+            @for (item of team.items; track item.item) {
+            <td class="dashboard__item" [attr.data-item]="item.item">
+              @for (value of valuesOf(team, item.item); track $index) {
+              <div class="dashboard__value">
+                <span class="dashboard__text" [title]="value.text">{{ value.text || "—" }}</span>
+                @if (value.ok !== null) {
+                <span class="dashboard__mark" [class.dashboard__mark--ok]="value.ok" [attr.aria-label]="value.ok ? 'Correct' : 'Wrong'">{{ value.ok ? "✓" : "✗" }}</span>
+                }
+              </div>
+              }
+              <div class="dashboard__verdict">
+                <span
+                  class="dashboard__mark dashboard__mark--item"
+                  [class.dashboard__mark--ok]="item.awarded"
+                  [attr.aria-label]="item.awarded ? 'Points awarded' : 'No points'"
+                  data-awarded
+                  >{{ item.awarded ? "✓" : "✗" }}</span
+                >
+                <select
+                  class="dashboard__select"
+                  [attr.aria-label]="'Override ' + item.label + ' for ' + team.teamName"
+                  [disabled]="busyOverride() !== null"
+                  [value]="decisionOf(item)"
+                  (change)="decide(team, item, $any($event.target).value)"
+                >
+                  <option value="auto" [selected]="decisionOf(item) === 'auto'">Automatic</option>
+                  <option value="award" [selected]="decisionOf(item) === 'award'">Award</option>
+                  <option value="deny" [selected]="decisionOf(item) === 'deny'">Deny</option>
+                </select>
+                @if (item.override !== null) {
+                <ui-status-chip variant="accent">Overridden</ui-status-chip>
+                }
+              </div>
+            </td>
+            }
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+  </ui-card>
+
+  @if (testing()) {
+  <ui-card>
+    <h2 ui-card-header>Test terminal</h2>
+    @defer (on immediate) {
+    <event-linux-terminal [loadFiles]="loadTestFiles" [loadBundle]="loadTestBundle" />
+    } @loading (minimum 300ms) {
+    <p class="event-muted">Loading the terminal…</p>
+    }
+  </ui-card>
+  }
+</div>
+}

@@ -13,6 +13,14 @@ admin sends all 16 teams to the AI room (room exceptions for groups B-D) and sta
 45 questions, finishes its MCQs and submits its 3 repairs; the last repair evaluates it against the pass score (a pass
 collects the room's clue), while the manager polls the results every 5 s. Every team must be evaluated exactly once
 with the outcome its own total predicts. Results are written to docs/event-load-quiz.json.
+
+Mode "linux": the Linux room in one compressed round. The manager uploads a package of just under 20 MB unpacked and
+sets the answer keys; the admin sends all 16 teams to the room. Every team starts its terminal (files info, the 20 MB
+package download, then a restart whose If-None-Match must answer 304), saves its six-field form five times and
+submits it once; the last two teams only save, so the round's end submits them. The manager keeps the organizer
+dashboard open (a GET every 5 s). Every team must end with exactly one submission, the dashboard total its own
+answers predict and its clue iff its final clue was right; the backend heap is sampled during the downloads. The
+bundle download is measured on its own and excluded from the 300 ms p95 limit. Results go to docs/event-load-linux.json.
 """
 import argparse
 import datetime as dt
@@ -48,7 +56,7 @@ def parse_args():
     parser.add_argument("--scale", type=int, choices=(1, 3), default=1, help="team clients per team account")
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
-    parser.add_argument("--mode", choices=("mixed", "sse", "quiz"), default="mixed")
+    parser.add_argument("--mode", choices=("mixed", "sse", "quiz", "linux"), default="mixed")
     parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
     parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
     parser.add_argument("--gap-ms", type=int, default=500, help="sse: pause between admin actions")
@@ -813,6 +821,300 @@ def quiz_run(args, api, config):
     print(f"Quiz load check passed; report in {output}")
 
 
+# ---- Linux room mode ----------------------------------------------------------------------------------------
+
+LINUX_UNPACKED_BYTES = 20 * 1024 * 1024 - 1024
+LINUX_KEYS = {"path": "/srv/rami/uploads", "username": "tech9", "fileSize": "1337c", "pattern": "*.bak",
+              "encryptedMessage": "KHOOR ZRUOG"}
+LINUX_SAVES = 5
+DASHBOARD_POLL_SECONDS = 5
+# The last teams only save: the round's end submits them (rules 18.7).
+LINUX_SAVE_ONLY = 2
+
+
+def heavy_package():
+    """A ZIP holding one incompressible file of just under 20 MB unpacked, plus a manifest (the heaviest package)."""
+    import io
+    import os
+    import zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("devfest-manifest.csv", "path,owner,group,mode\n/srv/heavy/payload.bin,rami,rami,0644\n")
+        archive.writestr("srv/heavy/payload.bin", os.urandom(LINUX_UNPACKED_BYTES))
+    return buffer.getvalue()
+
+
+def upload_package(api, path, token, data):
+    boundary = "----devfest" + uuid.uuid4().hex
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"heavy.zip\"\r\n"
+            "Content-Type: application/zip\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
+    request = urllib.request.Request(api.base + path, data=body, method="PUT", headers={
+        "Authorization": "Bearer " + token, "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        raise SystemExit(f"Setup failed: upload -> {error.code} {error.read()[:300]}")
+
+
+def raw_get(api, path, token, headers=None):
+    """GET that reads the whole body without parsing it: (status, bytes read, elapsed ms, ETag)."""
+    request = urllib.request.Request(api.base + path, headers={"Authorization": "Bearer " + token, **(headers or {})})
+    started = time.perf_counter()
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            size = 0
+            while chunk := response.read(1 << 20):
+                size += len(chunk)
+            return response.status, size, (time.perf_counter() - started) * 1000, response.headers.get("ETag")
+    except urllib.error.HTTPError as error:
+        etag = error.headers.get("ETag")
+        error.read()
+        return error.code, 0, (time.perf_counter() - started) * 1000, etag
+    except (urllib.error.URLError, TimeoutError, ConnectionError):
+        return 0, 0, (time.perf_counter() - started) * 1000, None
+
+
+class LinuxLedger:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.expected = {}
+        self.etags = set()
+        self.conditional_hits = 0
+        self.retries = self.retry_mismatches = 0
+        self.downloads = []
+
+    def replay(self, first, second):
+        with self.lock:
+            self.retries += 1
+            if first != second:
+                self.retry_mismatches += 1
+
+
+class LinuxTeamClient(Client):
+    """One team's page and terminal: starts the terminal (files info, the 20 MB package, then a conditional restart
+    request that must answer 304), saves its form five times, submits it once (the last teams only save, so the
+    round's end submits them) and reads its form after every write like the page does."""
+
+    def __init__(self, run, token, team, room_id, gap, submits):
+        super().__init__(run, token, "/event/team/board")
+        self.team, self.room_id, self.gap, self.submits = team, room_id, gap, submits
+        self.form_path = f"/event/team/rooms/{room_id}/terminal-form"
+        self.bundle_path = f"/event/team/rooms/{room_id}/terminal-bundle"
+        self.rng = random.Random(team)
+        self.answers = self.draw()
+        self.steps = [("files", None), ("download", None), ("restart", None)]
+        self.steps += [("save", self.partial(i)) for i in range(LINUX_SAVES - 1)] + [("save", self.answers)]
+        if submits:
+            self.steps.append(("submit", self.answers))
+        run.linux.expected[team] = (self.expected, self.clue_ok)
+
+    def draw(self):
+        right = {"path": "/srv/rami/uploads/", "username": "tech9", "fileSize": "1337C", "pattern": "\"*.bak\"",
+                 "encryptedMessage": "KHOOR  ZRUOG", "finalClue": "west tower"}
+        wrong = {"path": "/tmp", "username": "nobody", "fileSize": "1c", "pattern": "*.x",
+                 "encryptedMessage": "NOPE", "finalClue": "WRONG"}
+        chances = {"path": .7, "username": .7, "fileSize": .7, "pattern": .7, "encryptedMessage": .8, "finalClue": .7}
+        picked = {k: (right if self.rng.random() < chances[k] else wrong)[k] for k in chances}
+        points = sum(3 for k in ("path", "username", "fileSize", "pattern") if picked[k] == right[k])
+        message_ok, clue_ok = picked["encryptedMessage"] == right["encryptedMessage"], picked["finalClue"] == right["finalClue"]
+        self.expected = points + (3 if message_ok and clue_ok else 0)
+        self.clue_ok = clue_ok
+        return picked
+
+    def first_action(self):
+        return self.run_state.started + random.uniform(0, 3)
+
+    def next_time(self):
+        return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4)
+
+    def partial(self, step_index):
+        """A growing form: the first saves hold only some of the fields (blanks are allowed)."""
+        keys = list(self.answers)
+        keep = keys[: 1 + step_index * 2]
+        return {k: (self.answers[k] if k in keep else "") for k in keys}
+
+    def act(self):
+        if not self.steps:
+            return math.inf
+        step, values = self.steps.pop(0)
+        if step == "files":
+            self.request("GET", f"/event/team/rooms/{self.room_id}/terminal-files")
+        elif step == "download":
+            self.download({})
+        elif step == "restart":
+            self.download({"If-None-Match": next(iter(self.run_state.linux.etags), '"none"')}, conditional=True)
+        else:
+            self.write(step, values)
+        return self.next_time() if self.steps else math.inf
+
+    def download(self, headers, conditional=False):
+        status, size, elapsed, etag = raw_get(self.run_state.api, self.bundle_path, self.token, headers)
+        label = "GET conditional" if conditional else "GET download"
+        self.run_state.metrics.record(label, self.bundle_path, status if status != 304 else 200, elapsed)
+        ledger = self.run_state.linux
+        with ledger.lock:
+            if conditional and status == 304:
+                ledger.conditional_hits += 1
+            elif conditional:
+                self.run_state.metrics.error(f"team {self.team}: restart answered {status}, not 304")
+            elif status == 200 and size > LINUX_UNPACKED_BYTES * 0.9:
+                ledger.etags.add(etag)
+                ledger.downloads.append({"team": self.team, "bytes": size, "ms": round(elapsed, 1)})
+            elif not conditional:
+                self.run_state.metrics.error(f"team {self.team}: bundle download {status}, {size} bytes")
+
+    def write(self, action, values):
+        key = str(uuid.uuid4())
+        status, data = self.request("POST", f"{self.form_path}/{action}", values, key)
+        if status == 200 and random.random() < RETRY_SHARE:
+            again_status, again = self.request("POST", f"{self.form_path}/{action}", values, key)
+            if again_status == 200:
+                self.run_state.linux.replay(data, again)
+        self.request("GET", self.form_path)
+
+
+class DashboardClient(Client):
+    """The Linux manager with the organizer dashboard open: a fresh GET every 5 s."""
+
+    def __init__(self, run, token, room_id):
+        super().__init__(run, token, f"/event/rooms/{room_id}/board")
+        self.dashboard_path = f"/event/rooms/{room_id}/terminal-dashboard"
+
+    def first_action(self):
+        return self.run_state.started + 1
+
+    def act(self):
+        self.request("GET", self.dashboard_path)
+        return time.monotonic() + DASHBOARD_POLL_SECONDS
+
+
+class HeapSampler(threading.Thread):
+    """Samples the backend JVM's heap while the teams download the package."""
+
+    def __init__(self, seconds):
+        super().__init__(daemon=True)
+        self.seconds, self.samples = seconds, []
+
+    def run(self):
+        end = time.monotonic() + self.seconds
+        while time.monotonic() < end:
+            self.samples.append(java_memory())
+            time.sleep(1)
+
+
+def linux_run(args, api, config):
+    admin, managers, teams = sign_in_everyone(api, config)
+    set_clue_keys(api, managers)
+    linux_index = list(config["managers"]).index("LINUX")
+    manager = managers[linux_index]
+    room = api.setup("GET", "/event/home", manager)["roomId"]
+    api.setup("PUT", "/event/admin/rooms/{}/activity".format(
+        next(r["id"] for r in api.setup("GET", "/event/admin/board", admin)["rooms"] if r["code"] == "AI")),
+        admin, {"activity": None})
+    api.setup("PUT", f"/event/admin/rooms/{room}/activity", admin, {"activity": "LINUX_TERMINAL"})
+    print("Uploading a 20 MB-unpacked package...", flush=True)
+    upload_package(api, f"/event/rooms/{room}/terminal-bundle", manager, heavy_package())
+    api.setup("PUT", f"/event/rooms/{room}/terminal-dashboard/keys", manager, LINUX_KEYS)
+    api.setup("POST", "/event/admin/round", admin, {"round": 1})
+    organization = api.setup("GET", "/event/admin/organization", admin)
+    team_ids = {team["accountEmail"]: team["id"] for team in organization["teams"]}
+    for email in config["members"]:
+        team = next(t for t in organization["teams"] if t["accountEmail"] == email)
+        if team["groupCode"] != "C":
+            api.setup("PUT", "/event/admin/overrides/room-exception", admin,
+                      {"teamId": team_ids[email], "roomId": room, "reason": "Load check: every team in the Linux room"})
+    api.setup("POST", f"/event/admin/rooms/{room}/open", admin)
+    api.setup("POST", "/event/admin/round/timer/start", admin)
+
+    run = LoadRun(api)
+    run.linux = LinuxLedger()
+    gap = args.seconds * 0.55 / (LINUX_SAVES + 1)
+    clients = [Client(run, admin, "/event/admin/board"), DashboardClient(run, manager, room)]
+    clients += [LinuxTeamClient(run, token, number, room, gap, number <= len(teams) - LINUX_SAVE_ONLY)
+                for number, token in enumerate(teams, 1)]
+    before = java_memory()
+    sampler = HeapSampler(min(30, args.seconds))
+    print(f"Running {len(teams)} teams in the Linux room for up to {args.seconds} s...", flush=True)
+    run.begin(args.seconds)
+    sampler.start()
+    for client in clients:
+        client.start()
+    for client in clients:
+        client.join()
+    sampler.join()
+    elapsed = time.monotonic() - run.started
+    after = java_memory()
+
+    # The round's end submits the teams that only saved; then the dashboard and the manager board must agree.
+    api.setup("POST", "/event/admin/round/timer/end", admin)
+    dashboard_status, dashboard, dashboard_ms = api.call("GET", f"/event/rooms/{room}/terminal-dashboard", manager)
+    run.metrics.record("GET", f"/event/rooms/{room}/terminal-dashboard", dashboard_status, dashboard_ms)
+    csv_status, _, csv_ms, _ = raw_get(api, f"/event/rooms/{room}/terminal-dashboard.csv", manager)
+    run.metrics.record("GET", f"/event/rooms/{room}/terminal-dashboard.csv", csv_status, csv_ms)
+    board = api.setup("GET", f"/event/rooms/{room}/board", manager)
+    counts = {row["teamName"]: row["submissionCount"] for row in board["teams"]}
+    names = {t["id"]: t["name"] for t in organization["teams"]}
+    by_name = {row["teamName"]: row for row in dashboard["teams"]}
+    cross_check, submitted = [], 0
+    for number, email in enumerate(config["members"], 1):
+        name = names[team_ids[email]]
+        expected, clue_ok = run.linux.expected.get(number, (None, None))
+        row = by_name.get(name, {})
+        clue_status, board_data, _ = api.call("GET", "/event/team/board", teams[number - 1])
+        collected = board_data.get("cluesCollected") if clue_status == 200 else None
+        ok = (counts.get(name) == 1 and row.get("status") == "SUBMITTED" and row.get("total") == expected
+              and collected == (1 if clue_ok else 0))
+        submitted += row.get("status") == "SUBMITTED"
+        if not ok:
+            run.metrics.error(f"team {number}: submissions {counts.get(name)}, status {row.get('status')}, total "
+                              f"{row.get('total')} (expected {expected}), clues {collected} (expected {int(bool(clue_ok))})")
+        cross_check.append({"team": number, "submissions": counts.get(name), "status": row.get("status"),
+                            "total": row.get("total"), "expectedTotal": expected, "cluesCollected": collected,
+                            "cause": row.get("cause"), "ok": ok})
+    if run.linux.conditional_hits != len(teams):
+        run.metrics.error(f"{run.linux.conditional_hits} of {len(teams)} restarts answered 304")
+    if len(run.linux.etags) != 1:
+        run.metrics.error(f"teams saw {len(run.linux.etags)} different package digests")
+
+    endpoints = endpoint_summary(run.metrics.latencies)
+    rest = sorted(ms for endpoint, data in run.metrics.latencies.items() if not endpoint.startswith("GET download")
+                  for ms in data["ms"])
+    worst_rest_p95 = max(row["p95Ms"] for name, row in endpoints.items() if not name.startswith("GET download"))
+    heap = [m.get("heapUsedMb") for m in sampler.samples if m.get("heapUsedMb") is not None]
+    working = [m.get("workingSetMb") for m in sampler.samples if m.get("workingSetMb") is not None]
+    report = {
+        "testedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic Linux room traffic; no WAN latency.",
+        "baseUrl": args.base_url, "mode": "linux", "seconds": args.seconds, "elapsedSeconds": round(elapsed, 1),
+        "teams": len(teams), "packageUnpackedBytes": LINUX_UNPACKED_BYTES,
+        "endpoints": endpoints,
+        "totals": {"requests": sum(e["requests"] for e in endpoints.values()), "errors": len(run.metrics.errors),
+                   "p95ExcludingBundleDownloadMs": round(percentile(rest, .95), 1),
+                   "worstEndpointP95ExcludingBundleDownloadMs": worst_rest_p95,
+                   "submittedForms": submitted, "retries": run.linux.retries,
+                   "retryMismatches": run.linux.retry_mismatches, "conditionalRestarts304": run.linux.conditional_hits},
+        "bundleDownloads": {"count": len(run.linux.downloads), "downloads": run.linux.downloads,
+                            "maxMs": max((d["ms"] for d in run.linux.downloads), default=None)},
+        "serverHeap": {"before": before, "after": after, "samplesDuringDownloads": len(sampler.samples),
+                       "maxHeapUsedMb": max(heap, default=None), "maxWorkingSetMb": max(working, default=None),
+                       "samples": sampler.samples},
+        "formsCrossCheck": cross_check,
+        "errorSamples": run.metrics.errors[:50],
+    }
+    output = ROOT / "docs/event-load-linux.json"
+    output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print_summary(report)
+    print(json.dumps({"bundleDownloads": {k: v for k, v in report["bundleDownloads"].items() if k != "downloads"},
+                      "serverHeap": {k: v for k, v in report["serverHeap"].items() if k != "samples"}}))
+    totals = report["totals"]
+    if (totals["errors"] or totals["retryMismatches"] or totals["submittedForms"] != len(teams)
+            or totals["p95ExcludingBundleDownloadMs"] >= 300 or worst_rest_p95 >= 300):
+        raise SystemExit(f"Linux load check failed; see {output}")
+    print(f"Linux load check passed; report in {output}")
+
+
+
 def main():
     args = parse_args()
     api = Api(args.base_url)
@@ -822,6 +1124,9 @@ def main():
         return
     if args.mode == "quiz":
         quiz_run(args, api, config)
+        return
+    if args.mode == "linux":
+        linux_run(args, api, config)
         return
     # Setup goes through Api.setup, which is never recorded in the measurements.
     admin, managers, teams = sign_in_everyone(api, config)

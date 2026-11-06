@@ -52,6 +52,19 @@ public class EventAccessPolicy {
     return room;
   }
 
+  /**
+   * A room's organizer page that must stay invisible to everyone else (it carries answer keys): the ADMIN, or the
+   * MANAGER assigned to the room. Any other account (a member, another room's manager) and an unknown room all get
+   * the same 404 with {@code notFound}, so the page's existence is not revealed.
+   */
+  public EventRoomRecord requireOrganizerOf(Principal principal, long roomId, String notFound) {
+    EventRoomRecord room = rooms.find(roomId).orElseThrow(() -> fail(404, notFound));
+    boolean admin = ADMIN.equals(principal.role());
+    boolean manager = MANAGER.equals(principal.role()) && Long.valueOf(principal.id()).equals(room.managerId());
+    if (!admin && !manager) throw fail(404, notFound);
+    return room;
+  }
+
   /** Results are for ADMIN and MEMBER; manager accounts never see the ranking. */
   public void requireResultsViewer(Principal principal) {
     if (!ADMIN.equals(principal.role()) && !MEMBER.equals(principal.role())) throw fail(403, "Access denied.");

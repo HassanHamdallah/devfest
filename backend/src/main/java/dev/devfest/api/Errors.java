@@ -79,6 +79,27 @@ public class Errors {
     );
   }
 
+  /** An uploaded terminal package broke rules: every problem is listed so the organizer fixes them in one go. */
+  @ExceptionHandler(dev.devfest.event.domain.TerminalPackageRejectedException.class)
+  ProblemDetail packageRejected(dev.devfest.event.domain.TerminalPackageRejectedException e) {
+    var p = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    p.setProperty("problems", e.problems());
+    return p;
+  }
+
+  @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+  ProblemDetail uploadTooLarge(Exception e) {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, "The upload is larger than 25 MB.");
+  }
+
+  @ExceptionHandler({
+    org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+    org.springframework.web.multipart.MultipartException.class,
+  })
+  ProblemDetail missingUpload(Exception e) {
+    return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Choose a ZIP file to upload.");
+  }
+
   @ExceptionHandler(MissingRequestHeaderException.class)
   ProblemDetail missingHeader(MissingRequestHeaderException e) {
     return ProblemDetail.forStatusAndDetail(

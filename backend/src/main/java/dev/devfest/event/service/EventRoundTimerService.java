@@ -33,6 +33,7 @@ public class EventRoundTimerService {
   private final RoundAdjustmentRepository adjustments;
   private final QuizContentRepository quizContent;
   private final AiRoomEvaluationService quizEvaluation;
+  private final TerminalFormService terminalForms;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -42,6 +43,7 @@ public class EventRoundTimerService {
     RoundAdjustmentRepository adjustments,
     QuizContentRepository quizContent,
     AiRoomEvaluationService quizEvaluation,
+    TerminalFormService terminalForms,
     AuditLog audit,
     EventClock clock
   ) {
@@ -50,6 +52,7 @@ public class EventRoundTimerService {
     this.adjustments = adjustments;
     this.quizContent = quizContent;
     this.quizEvaluation = quizEvaluation;
+    this.terminalForms = terminalForms;
     this.audit = audit;
     this.clock = clock;
   }
@@ -132,8 +135,12 @@ public class EventRoundTimerService {
     } catch (RoundTimer.IllegalTransition e) {
       throw fail(409, e.getMessage());
     }
-    // Ending a round that already ran out by itself changes no timer field, but still records the AI room results.
-    int evaluated = next.effectivePhase(now) == RoundPhase.TIME_UP ? quizEvaluation.evaluateRoundEnd(principal.id(), state, now) : 0;
+    // Ending a round that already ran out by itself changes no timer field, but still records the AI room results
+    // and submits the saved Linux room forms.
+    boolean timeUp = next.effectivePhase(now) == RoundPhase.TIME_UP;
+    int evaluated = timeUp
+      ? quizEvaluation.evaluateRoundEnd(principal.id(), state, now) + terminalForms.submitRoundEnd(principal.id(), state, now)
+      : 0;
     if (next.equals(current)) {
       if (evaluated == 0) return EventViews.eventState(state, now);
       states.bumpRevision();

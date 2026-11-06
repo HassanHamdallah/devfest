@@ -47,7 +47,7 @@ function Reset-EventTestData {
   # CASCADE also empties event_room (manager_id -> app_user), event_content (correct_suspect_id -> suspect), the
   # room terminal files and AI quiz content (-> event_room), the teams' quiz answers (-> event_team) and the round
   # history in room_arrival and round_time_adjustment (-> app_user). event_room and event_content are re-created
-  # below as V5 inserts them, with V10's to V12's defaults (terminal on for LINUX, AI quiz on for AI, pass score 60).
+  # below as V5 inserts them, with V10's to V14's defaults (terminal on for LINUX, AI quiz on for AI, pass score 60); the Linux terminal activity (V13 turns it on for a fresh database) is left off here, so the plain-answer-form specs keep working: the Linux form specs switch it on through the API.
   # The teams' AI quiz evaluations go with event_team and room_submission.
   # event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(

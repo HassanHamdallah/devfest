@@ -232,7 +232,7 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
 
 - Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, AI quiz
   questions and repairs, encrypted message, suspects, correct suspect). A room manager can edit only their own room's
-  clue key, recovery challenge, terminal files (rule 18) and AI quiz (rule 19). A quiz question or repair is also
+  clue key, recovery challenge, terminal files and server package (rule 18) and AI quiz (rule 19). A quiz question or repair is also
   locked as soon as a team has answered it.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
@@ -350,7 +350,12 @@ the terminal only helps produce the technical output.
 1. **Which rooms (setting).** Each room has a **Terminal enabled** setting that only the admin changes, on the
    Content page, at any time (it is recorded in the audit log). On a fresh setup it is on for the Linux room only.
    Nothing in the system is tied to the Linux room itself: any room with the setting on gets the terminal. The admin
-   board warns "Room <name> has the terminal enabled but no terminal files." until the room has at least one file.
+   board warns "Room <name> has the terminal enabled but no terminal files." until the room has at least one file
+   or a server package (item 6). The Linux terminal is also a room **activity** (`LINUX_TERMINAL`), set by the admin
+   on the Content page next to the AI quiz (rule 19); a room has one activity, and a fresh setup turns it on for the
+   Linux room. A room with the activity shows the team form of item 7 instead of the answer form (technical output +
+   clue answer); a plain submission to it is refused ("This room records its result from its activity; there is no
+   answer form."). A room without an activity keeps the answer form of rule 4, with or without a terminal.
 2. **Terminal files (content).** The room's manager (or the admin) keeps a list of text files on the room board under
    **Terminal files**:
    - **Path**: relative to the team's home directory, e.g. `logs/lock.log` (the team finds it at `~/logs/lock.log`).
@@ -380,10 +385,94 @@ the terminal only helps produce the technical output.
 5. **Time's up.** When the round's timer shows Time's up (or the next round starts), the terminal shows "Time is up"
    and accepts no more input. If the admin adds time, **Restart terminal** works again. Changed files reach a team the
    next time its terminal starts.
+6. **Server package.** Instead of text files, the room's manager (or the admin) may upload **one ZIP** on the room
+   board under **Server package**. Its files are installed from the root of the team's Linux (`srv/rami/logs/a.log`
+   becomes `/srv/rami/logs/a.log`) with the owners, groups and modes of an optional `devfest-manifest.csv`
+   (`path,owner,group,mode`; defaults `root:root`, `0644` for files, `0755` for folders; the manifest itself is not
+   installed). Format, limits and an example: [LINUX-ROOM.md](LINUX-ROOM.md).
+   - **Validation.** Every problem is reported at once and nothing is stored while there is one: upload at most 25 MB,
+     at most 5000 entries, at most 20 MB unpacked (counted from the bytes really inflated, never from the sizes the
+     ZIP claims); no `..`, absolute or backslash path and no NUL; nothing under `bin`, `sbin`, `lib`, `usr/bin`,
+     `usr/sbin`, `dev`, `proc`, `sys`, `mnt` and not `etc/passwd` or `etc/group`; valid owner and group names; valid
+     modes; no manifest row that matches nothing.
+   - **Storage.** The server builds one gzip-compressed ustar archive (numeric ids; owners other than `root` get user
+     ids from 2000 and groups group ids from 2000, in name order) and keeps it in a table of its own with its SHA-256,
+     file count, unpacked size, owners, uploader and time. The archive is never part of a board or list response.
+     Uploading, replacing and removing are audited with the hash and counts only, need the room's terminal to be
+     enabled and follow the content edit lock (rule 13: read-only once the final opens).
+   - **Delivery.** A team's terminal downloads the archive from `GET /team/rooms/{id}/terminal-bundle` under exactly
+     the gates of item 3 (every other case answers 404 "Terminal files not found."); the room's manager and the admin
+     may always download it (**Test terminal**). The response carries `ETag: "<sha256>"` and `Cache-Control: private,
+     no-cache`; `If-None-Match` is checked after the gates and answers `304` without loading the archive.
+   - **In the terminal.** Before the shell is handed over, and out of the team's sight, the page places the archive on
+     the 9p share and runs `gzip -dc /mnt/<bundle> | tar -xf - -C /` (this BusyBox `tar` has no `-z`), appends the
+     owners to `/etc/passwd` and `/etc/group`, removes the setup files and changes to `~`. A failure shows a clear
+     error ("The room's server could not be set up in this terminal. …") instead of a half-built shell. The banner is
+     "Rami's server is mounted. There is no internet in this terminal."
+   - While a package exists, teams get the package and **not** the text files; a room without a package keeps the
+     text-file behaviour of item 2 to 5 unchanged.
+7. **Team form (rooms with the `LINUX_TERMINAL` activity).** On the same page as the terminal the team sees six
+   fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN**, **Encrypted message** and **Final clue** (each at most
+   500 bytes, blanks allowed).
+   - **Save** stores the current values, as often as the team likes (each request carries an Idempotency-Key: a retry
+     of the same request is answered again, a different request with the same key is refused with 409, and a stale
+     retry never overwrites a newer save). **Final submit** asks first ("This cannot be undone"), carries the current
+     values and locks the form for good. The state is always the server's: a refresh or a terminal restart shows the
+     same values and the same status.
+   - **When it is accepted.** Only from the team assigned to the room this round (every other team, round or room: 404
+     "Form not found."), while the round's timer is running and the room is open, the team is not disqualified and the
+     form is not submitted. Otherwise the same refusals as a room submission: "The timer has not started yet.", "The
+     round is paused.", "Time is up for this round.", "This room is closed.", "Your team has been disqualified. Contact
+     the organizer.", and "Your team has already submitted its final answer.". The team's own form stays readable
+     (locked) after Time's up.
+   - **What the team sees.** Only its own values and the status **Not saved yet / Saved / Submitted**: never whether
+     an answer is right, a score or a key. The room has no receipt for the team, and its evidence card says
+     "Submitted"; the room's clue shows in the evidence like any collected clue.
+   - **The final answer.** On Final submit, or at Time's up for a team that has something saved and did not submit
+     (done inside the round's end — End round, removing the time left, or the next round — in the same transaction,
+     with no scheduler; a disqualified team is skipped), the server records the answer through the ordinary
+     room-submission path, exactly once even if the two race: **technical output** = a server-made summary of the six
+     values, **clue answer** = the Final clue. The room is then finished for the team, boards and evidence keep working,
+     the manager judges the technical output as for any room, and the Final clue gets the automatic clue check of
+     rule 5 against the room's clue key: a correct one collects the room's clue as a ROOM clue (and a later key change
+     re-checks it like any answer), a blank or wrong one collects nothing. Save never bumps the event revision; Final
+     submit and the round's end do, broadcast after commit.
+   - **Reset and snapshots.** The forms and their request keys are team progress: resets delete them (after the
+     snapshot, which includes them).
+8. **Organizer dashboard and scoring (rooms with the `LINUX_TERMINAL` activity).** A separate page,
+   `/event/room/{id}/dashboard`, linked from the room board, for the room's manager and the admin only: a member, another
+   room's manager, an unknown room and a room without the activity all get the same 404 ("Dashboard not found."),
+   because the page carries the answer keys.
+   - **Answer keys**, set on that page: PATH, USERNAME, FILE_SIZE, PATTERN and Encrypted message. The first four accept
+     several values, one per line (at most 20 values of 500 bytes each); the message has one. **An empty key means the
+     item cannot be awarded automatically** and the admin board warns ("Room <name> has no answer key for …"), without
+     blocking anything. Keys are content: read-only once the final opens (rule 13). They never reach a team; saving
+     them is audited without their text.
+   - **Comparison.** Every value is trimmed. PATH also ignores one trailing slash; PATTERN also ignores one pair of
+     surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive. The encrypted message is trimmed and every
+     run of whitespace becomes one space (case-sensitive). The Final clue uses the room's ordinary clue key and the
+     normalizer of rule 5.4. A blank answer never matches.
+   - **Points.** 3 for each correct PATH, USERNAME, FILE_SIZE and PATTERN, and 3 when **both** the encrypted message and the
+     Final clue are correct: five items, **15 points** at most. Scores are **computed on every read** from the stored
+     forms, the current keys and the overrides; no total is stored, so a changed key or clue key changes the table at
+     once. The 15 points stay inside this room: the event's ranking and the final do not use them.
+   - **The table** shows every active team (all groups, in every round) with its status (**Not started / Saved /
+     Submitted**), its values with a tick or cross per item, the total out of 15 and the submit time, sorted by total, and
+     refreshes every 5 seconds while open. A form that is only saved is scored too (it is submitted at Time's up).
+   - **Overrides.** On each of the five items the organizer chooses **Automatic**, **Award** or **Deny**; an overridden
+     item is marked "Overridden", and going back to Automatic clears it. Every change is audited (room, team, item and
+     decision, never an answer). Overrides work at any time, also after the final opens. Overriding the fifth item changes
+     its points only: it **never grants or revokes the room's clue**, which stays with the Final clue's check and the
+     manager's ordinary clue verdict (rule 5.6).
+   - **Export and Test terminal.** **Export CSV** gives the table (team names and values go through the formula-safe
+     cell helper). **Test terminal** starts the terminal with the room's current package.
+   - Reset and snapshots: overrides are team progress (deleted by resets, saved in the snapshot first); answer keys are
+     content and stay.
 
 ## 19. AI room activity (quiz, code repairs, pass score)
 
-A room can run an **activity** instead of the answer form. The only activity today is the **AI quiz**: 45 auto-scored
+A room can run an **activity**: the **AI quiz** replaces the answer form (the Linux terminal activity, rule 18.1,
+does not). The AI quiz is 45 auto-scored
 multiple-choice questions and 3 code repairs scored with partial credit. A team whose total reaches the room's **pass
 score** gets the room's clue; the system records the result itself, so the team never types a clue answer there.
 

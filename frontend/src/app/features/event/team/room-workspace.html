@@ -9,7 +9,11 @@
 } @else if (showTerminal()) {
 <div class="room-workspace" [class.room-workspace--split]="wide()">
   <div class="room-workspace__answer">
-    <event-room-submission-panel #panel [board]="board()" (changed)="changed.emit()" />
+    @if (formRoomId(); as formRoom) {
+    <event-terminal-form [roomId]="formRoom" [revision]="board().revision" [running]="running()" />
+    } @else {
+    <event-room-submission-panel [board]="board()" (changed)="changed.emit()" />
+    }
     @if (!wide() && !opened() && !session()) {
     <ui-card>
       <h2 ui-card-header>Linux terminal</h2>
@@ -24,9 +28,10 @@
     @defer (on immediate) {
     <event-linux-terminal
       [loadFiles]="loadFiles"
+      [loadBundle]="loadBundle"
       [ended]="ended()"
-      [offerOutput]="true"
-      (useAsOutput)="panel.useTechnicalOutput($event)"
+      [offerOutput]="formRoomId() === null"
+      (useAsOutput)="useOutput($event)"
     />
     } @loading (minimum 300ms) {
     <p class="room-workspace__note">Loading the terminal…</p>
@@ -40,8 +45,8 @@
     <div class="room-workspace__start">
       <h2>Linux terminal</h2>
       <p>
-        A small Linux system runs inside your browser with this room's files in
-        <code>~/logs</code>. Nothing is installed and there is no internet in it.
+        A small Linux system runs inside your browser with this room's files. Nothing is installed and there is no
+        internet in it.
       </p>
       @if (preparing()) {
       <p class="room-workspace__note">Preparing the terminal in the background…</p>
@@ -52,6 +57,8 @@
   </ui-card>
   }
 </div>
+} @else if (formRoomId(); as formRoom) {
+<event-terminal-form [roomId]="formRoom" [revision]="board().revision" [running]="running()" />
 } @else {
 <event-room-submission-panel [board]="board()" (changed)="changed.emit()" />
 }

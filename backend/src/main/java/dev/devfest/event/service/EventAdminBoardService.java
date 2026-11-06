@@ -27,6 +27,7 @@ import dev.devfest.event.repository.RankedTeamRecord;
 import dev.devfest.event.repository.RoomArrivalRecord;
 import dev.devfest.event.repository.OverrideAuditRepository;
 import dev.devfest.event.repository.QuizContentRepository;
+import dev.devfest.event.repository.TerminalAnswerKeyRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
 import dev.devfest.event.repository.TeamFlagsRecord;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
@@ -57,6 +58,7 @@ public class EventAdminBoardService {
   private final TeamRoomExceptionRepository exceptions;
   private final OverrideAuditRepository overrideAudit;
   private final QuizContentRepository quizContent;
+  private final TerminalAnswerKeyRepository answerKeys;
   private final EventClock clock;
 
   public EventAdminBoardService(
@@ -69,6 +71,7 @@ public class EventAdminBoardService {
     TeamRoomExceptionRepository exceptions,
     OverrideAuditRepository overrideAudit,
     QuizContentRepository quizContent,
+    TerminalAnswerKeyRepository answerKeys,
     EventClock clock
   ) {
     this.access = access;
@@ -80,12 +83,13 @@ public class EventAdminBoardService {
     this.exceptions = exceptions;
     this.overrideAudit = overrideAudit;
     this.quizContent = quizContent;
+    this.answerKeys = answerKeys;
     this.clock = clock;
   }
 
   /**
-   * 11 SQL statements: event state, room stats, active teams, ranking, content status, AI quiz content stats, group
-   * sizes, team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
+   * 12 SQL statements: event state, room stats, active teams, ranking, content status, AI quiz content stats, Linux
+   * terminal answer keys, group sizes, team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
    */
   public AdminBoard board(Principal principal) {
     access.requireAdmin(principal);
@@ -101,6 +105,19 @@ public class EventAdminBoardService {
     List<AiRoomStartCheck.Blocker> blockers = AiRoomStartCheck.blockers(quizRooms);
     blockers.forEach(blocker -> alerts.add(new AdminAlert(blocker.code(), blocker.message(), quizEditor(blocker.roomId()), true)));
     alerts.addAll(quizAlerts(quizRooms));
+    // A form room whose answer keys are empty cannot score those items automatically (non-blocking).
+    answerKeys.forFormRooms().forEach((roomId, keys) -> {
+      if (keys.emptyKeys().isEmpty()) return;
+      rooms.stream().filter(room -> room.id() == roomId).findFirst().ifPresent(room ->
+        alerts.add(
+          new AdminAlert(
+            "TERMINAL_KEYS_MISSING",
+            "Room " + room.name() + " has no answer key for " + String.join(", ", keys.emptyKeys()) + ": those items cannot be scored automatically.",
+            ROOM_BOARD_PAGE + roomId + "/dashboard"
+          )
+        )
+      );
+    });
     boolean running = Rotation.isRunningRound(state.currentRound());
     Map<Long, RoomArrivalRecord> arrived = running
       ? arrivals.findForRound(state.currentRound()).stream().collect(toMap(RoomArrivalRecord::roomId, a -> a))
