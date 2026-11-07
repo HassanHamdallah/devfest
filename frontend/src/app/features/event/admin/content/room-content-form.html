@@ -83,7 +83,25 @@
     <p class="room-content__hint">
       The room's terminal comes with a server package and a team form instead
       of the answer form. A room has one activity: choosing this one replaces
-      the AI quiz.
+      any other.
+    </p>
+  </div>
+  <div class="room-content__terminal">
+    <label class="room-content__toggle">
+      <input
+        type="checkbox"
+        name="contestResults"
+        [checked]="room().activity === 'CONTEST_RESULTS'"
+        [disabled]="activityState.busy()"
+        (change)="setContestResults($event)"
+      />
+      <span>Contest results activity</span>
+    </label>
+    <p class="room-content__hint">
+      The room's contest runs on Codeforces. Teams see the contest link instead
+      of the answer form; the room's manager types the results and releases the
+      clue on the room board. A room has one activity: choosing this one
+      replaces any other.
     </p>
   </div>
 </ui-card>

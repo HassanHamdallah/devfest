@@ -1,0 +1,215 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the Problem Solving results…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (results(); as view) {
+<div class="event-stack contest room-tone--PROBLEM_SOLVING">
+  <header class="contest__header">
+    <a class="contest__back" [routerLink]="['/event/room', view.roomId]">← {{ view.roomName }} board</a>
+    <h1>Problem Solving results</h1>
+    <div class="event-inline">
+      <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
+      <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
+    </div>
+  </header>
+  @if (loader.refreshError(); as text) {
+  <ui-alert variant="warning">{{ text }}</ui-alert>
+  }
+  @if (actionError(); as text) {
+  <ui-alert variant="error" [dismissible]="true" (dismissed)="actionError.set(null)">{{ text }}</ui-alert>
+  }
+  @if (notice(); as text) {
+  <ui-alert variant="success" [dismissible]="true" (dismissed)="notice.set(null)">{{ text }}</ui-alert>
+  }
+
+  <ui-card>
+    <h2 ui-card-header>Contest link</h2>
+    <p class="event-muted contest__intro">
+      The contest runs on Codeforces. Teams assigned to this room in the current round see this link while their timer
+      runs or is paused. Use an https address.
+    </p>
+    @if (!view.contestUrl) {
+    <ui-alert variant="warning" data-link-missing>No contest link yet: teams cannot open the contest.</ui-alert>
+    }
+    @if (!view.clueKeySet) {
+    <ui-alert variant="warning" data-clue-key-missing>
+      This room has no clue key, so clues cannot be released. Set it on the
+      <a [routerLink]="['/event/room', view.roomId]">room board</a>.
+    </ui-alert>
+    }
+    @if (!view.linkEditable) {
+    <ui-alert variant="info">Event content is read-only after the final opens.</ui-alert>
+    }
+    <form class="contest__link" (ngSubmit)="saveLink()" aria-label="Contest link">
+      <ui-input
+        label="Contest link"
+        type="url"
+        name="contestUrl"
+        placeholder="https://codeforces.com/contest/…"
+        [disabled]="!view.linkEditable"
+        [ngModel]="linkDraft() ?? ''"
+        (ngModelChange)="linkDraft.set($event)"
+      />
+      <div class="event-inline">
+        <ui-button type="submit" [disabled]="!view.linkEditable || !linkDirty() || !(linkDraft() ?? '').trim()" [loading]="linkBusy()"
+          >Save link</ui-button
+        >
+        <ui-button
+          variant="secondary"
+          [disabled]="!view.linkEditable || !view.contestUrl || linkBusy()"
+          (click)="clearLink()"
+          >Remove link</ui-button
+        >
+        @if (linkDirty()) {
+        <span class="event-muted">Unsaved changes</span>
+        }
+        @if (linkNotice(); as text) {
+        <span class="event-muted" aria-live="polite">{{ text }}</span>
+        }
+      </div>
+    </form>
+  </ui-card>
+
+  <ui-card>
+    <h2 ui-card-header>How teams are scored</h2>
+    <p class="event-muted contest__intro">
+      Problem points
+      @for (item of view.problems; track item.problem; let last = $last) {
+      <strong>{{ item.problem }}={{ item.points }}</strong>{{ last ? "" : ", " }}
+      }
+      (up to {{ view.maxProblemPoints }}). Inside a round, more problems solved ranks first, then the lower penalty;
+      equal results share a place. Bonus by place: 1st +3, 2nd +2, 3rd +1; none for a team with nothing solved. Total out
+      of {{ view.maxTotal }}. A team needs at least {{ view.eligibleSolved }} solved problems to receive the clue. Nothing
+      here is shown to teams.
+    </p>
+  </ui-card>
+
+  @if (!view.rounds.length) {
+  <ui-card>
+    <p class="event-muted">There are no active teams.</p>
+  </ui-card>
+  }
+  @for (round of view.rounds; track round.round) {
+  <ui-card [attr.data-round]="round.round">
+    <div ui-card-header class="contest__round-head">
+      <h2>Round {{ round.round }} · Group {{ round.group }}</h2>
+      <span class="contest__counts event-muted event-num">
+        {{ round.savedCount }}/{{ round.teamCount }} saved · {{ round.eligibleCount }} eligible · {{ round.releasedCount }} released
+      </span>
+      <ui-button
+        size="sm"
+        [disabled]="round.releasableCount === 0 || !view.clueKeySet || busy() !== null"
+        [loading]="busy() === 'round:' + round.round"
+        (click)="revealRound(round)"
+        >Reveal to all eligible ({{ round.releasableCount }})</ui-button
+      >
+    </div>
+    <div class="contest__scroll" tabindex="0" role="region" [attr.aria-label]="'Round ' + round.round + ' teams'">
+      <table class="contest__table">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Team</th>
+            @for (problem of problems; track problem) {
+            <th scope="col" class="contest__problem">{{ problem }}</th>
+            }
+            <th scope="col">Penalty (min)</th>
+            <th scope="col"></th>
+            <th scope="col" class="contest__num">Solved</th>
+            <th scope="col" class="contest__num">Points</th>
+            <th scope="col" class="contest__num">Bonus</th>
+            <th scope="col" class="contest__num">Total / {{ view.maxTotal }}</th>
+            <th scope="col">Eligible</th>
+            <th scope="col">Clue</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of round.teams; track row.teamId) {
+          <tr [attr.data-team]="row.teamName" [class.contest__row--dirty]="dirty(row)">
+            <td class="event-num" data-place>{{ row.place ?? "—" }}</td>
+            <th scope="row">{{ row.teamName }}</th>
+            @for (problem of problems; track problem) {
+            <td class="contest__problem">
+              <input
+                type="checkbox"
+                class="contest__check"
+                [attr.data-problem]="problem"
+                [attr.aria-label]="row.teamName + ' solved ' + problem"
+                [checked]="solvedIn(row, problem)"
+                [disabled]="busy() !== null"
+                (change)="toggle(row, problem, $any($event.target).checked)"
+              />
+            </td>
+            }
+            <td>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="1"
+                inputmode="numeric"
+                class="contest__penalty"
+                [class.contest__penalty--invalid]="!penaltyValid(row)"
+                [attr.aria-label]="row.teamName + ' penalty in minutes'"
+                [attr.aria-invalid]="!penaltyValid(row)"
+                [value]="penaltyOf(row)"
+                [disabled]="busy() !== null"
+                (input)="setPenalty(row, $any($event.target).value)"
+              />
+            </td>
+            <td class="contest__actions">
+              <ui-button
+                size="sm"
+                [disabled]="(!dirty(row) && row.saved) || !penaltyValid(row) || busy() !== null"
+                [loading]="busy() === 'save:' + row.teamId"
+                (click)="save(row)"
+                >{{ row.saved ? "Save" : "Save results" }}</ui-button
+              >
+              @if (dirty(row) && row.saved) {
+              <ui-button variant="ghost" size="sm" [disabled]="busy() !== null" (click)="discard(row)">Undo</ui-button>
+              }
+            </td>
+            <td class="event-num contest__num" data-solved>{{ row.saved ? row.solvedCount : "—" }}</td>
+            <td class="event-num contest__num" data-points>{{ row.saved ? row.problemPoints : "—" }}</td>
+            <td class="event-num contest__num" data-bonus>{{ row.saved ? "+" + row.bonus : "—" }}</td>
+            <td class="event-num contest__num contest__total" data-total>{{ row.saved ? row.total : "—" }}</td>
+            <td [attr.data-eligible]="row.eligible">
+              @if (!row.saved) {
+              <span class="event-muted">—</span>
+              } @else if (row.eligible) {
+              <ui-status-chip variant="success">Eligible</ui-status-chip>
+              } @else {
+              <ui-status-chip variant="neutral">Not yet</ui-status-chip>
+              }
+            </td>
+            <td [attr.data-released]="row.released" class="contest__clue">
+              @if (row.released) {
+              <ui-status-chip variant="accent">Released {{ formatTime(row.releasedAt) }}</ui-status-chip>
+              @if (row.releasedNotEligible) {
+              <ui-status-chip variant="warning" data-warning
+                >Released, but no longer eligible</ui-status-chip
+              >
+              }
+              } @else {
+              <ui-button
+                variant="secondary"
+                size="sm"
+                [disabled]="!canReveal(row) || busy() !== null"
+                [loading]="busy() === 'reveal:' + row.teamId"
+                [attr.title]="revealHint(row)"
+                (click)="reveal(row)"
+                >Reveal clue</ui-button
+              >
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </ui-card>
+  }
+</div>
+}

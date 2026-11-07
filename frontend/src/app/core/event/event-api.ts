@@ -10,6 +10,9 @@ import {
   AdminContent,
   AdminContentRequest,
   AiRoomActivity,
+  ContestResultRequest,
+  ContestResults,
+  ContestTeamView,
   AiRoomResults,
   ClueOverrideRequest,
   ClueVerdictView,
@@ -134,6 +137,36 @@ export class EventApi {
   /** Irreversible: locks the form and records the final answer. */
   submitTerminalForm(roomId: number, body: TerminalFormRequest, key: string) {
     return this.postIdempotent<TerminalFormView>(`${EVENT}/team/rooms/${roomId}/terminal-form/submit`, body, key);
+  }
+  /** 404 unless the room runs the contest and is the team's room this round (rules §20.3). */
+  teamContest(roomId: number) {
+    return this.get<ContestTeamView>(`/team/rooms/${roomId}/contest`);
+  }
+  contestResults(roomId: number) {
+    return this.get<ContestResults>(`/rooms/${roomId}/contest-results`);
+  }
+  saveContestLink(roomId: number, url: string) {
+    return this.send<ContestResults>("PUT", `/rooms/${roomId}/contest-results/link`, { url });
+  }
+  clearContestLink(roomId: number) {
+    return this.send<ContestResults>("DELETE", `/rooms/${roomId}/contest-results/link`);
+  }
+  saveContestResult(roomId: number, teamId: number, body: ContestResultRequest) {
+    return this.send<ContestResults>("PUT", `/rooms/${roomId}/contest-results/teams/${teamId}`, body);
+  }
+  /** 409 when the team is not eligible or the room has no clue key; repeating it changes nothing. */
+  revealContestClue(roomId: number, teamId: number) {
+    return this.send<ContestResults>("POST", `/rooms/${roomId}/contest-results/teams/${teamId}/reveal`);
+  }
+  revealContestRound(roomId: number, round: number) {
+    return this.send<ContestResults>("POST", `/rooms/${roomId}/contest-results/rounds/${round}/reveal`);
+  }
+  /** Downloads GET /rooms/{id}/contest-results.csv as problem-solving-results.csv. */
+  async downloadContestResultsCsv(roomId: number): Promise<void> {
+    const csv = await firstValueFrom(
+      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/contest-results.csv`, { responseType: "text" }),
+    );
+    saveFile(csv, "text/csv", "problem-solving-results.csv");
   }
   /** 404 unless the room has the AI quiz and is the team's room this round (rules §19). */
   teamActivity(roomId: number) {

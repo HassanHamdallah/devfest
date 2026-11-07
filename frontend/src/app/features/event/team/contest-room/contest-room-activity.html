@@ -1,0 +1,46 @@
+<ui-card>
+  <div ui-card-header class="contest__head">
+    <span class="contest__dot" aria-hidden="true"></span>
+    <h2>Problem Solving contest</h2>
+    @if (contest(); as view) {
+    @if (view.released && clue()) {
+    <ui-status-chip variant="success">Clue unlocked</ui-status-chip>
+    } @else if (phase() === "PAUSED") {
+    <ui-status-chip variant="warning">Paused</ui-status-chip>
+    }
+    }
+  </div>
+
+  @if (loader.initialError(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  <ui-button variant="secondary" size="sm" (click)="reload()">Try again</ui-button>
+  } @else if (loader.loading()) {
+  <p class="event-muted">Loading the contest…</p>
+  }
+
+  @if (contest(); as view) {
+  @if (loader.refreshError(); as text) {
+  <ui-alert variant="warning">{{ text }}</ui-alert>
+  }
+
+  @if (view.released && clue(); as value) {
+  <section class="contest__result" data-contest-result="unlocked" aria-labelledby="contest-result-heading">
+    <h3 id="contest-result-heading">Clue unlocked</h3>
+    <p>This room's clue is now in your evidence. Keep it for the final.</p>
+    <event-masked-clue [value]="value" />
+  </section>
+  } @else if (view.contestUrl; as url) {
+  <div class="contest__run" data-contest-running>
+    <p>Your contest is running on Codeforces. Solve as many problems as you can.</p>
+    <a class="contest__open" [href]="url" target="_blank" rel="noopener noreferrer" data-contest-link>Open the contest</a>
+    <p class="contest__review" data-contest-review role="status">Your results are being reviewed by the room organizer.</p>
+  </div>
+  } @else if (phase() === "RUNNING" || phase() === "PAUSED") {
+  <p class="contest__notice" data-contest-no-link>The contest link is not ready yet. Ask the organizer.</p>
+  } @else if (phase() === "ASSIGNED") {
+  <p class="contest__notice" data-contest-waiting>The contest link appears here when the timer starts.</p>
+  } @else {
+  <p class="contest__review" data-contest-review role="status">Your results are being reviewed by the room organizer.</p>
+  }
+  }
+</ui-card>

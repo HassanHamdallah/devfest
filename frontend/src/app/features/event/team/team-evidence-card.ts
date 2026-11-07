@@ -7,7 +7,8 @@ import { EventMaskedClue } from "./masked-clue";
 /**
  * A finished room on the team home: the team's latest technical output and clue answer with its result, and the
  * room's official clue behind the eye toggle when the team collected it. A room with an activity (AI quiz) shows
- * only its outcome: "Clue unlocked" with the clue, or that the required score was not reached.
+ * only its outcome: "Clue unlocked" with the clue, or that the required score was not reached; the Problem Solving
+ * contest shows only whether its clue was unlocked.
  */
 @Component({
   selector: "event-team-evidence-card",
@@ -71,6 +72,15 @@ import { EventMaskedClue } from "./masked-clue";
             <ui-status-chip variant="success">Submitted</ui-status-chip>
           } @else {
             <span class="event-muted">Not submitted</span>
+          }
+        </dd>
+      } @else if (evidence().activity === "CONTEST_RESULTS") {
+        <dt>Problem Solving contest</dt>
+        <dd data-contest-outcome>
+          @if (evidence().clueValue) {
+            <ui-status-chip variant="success">Clue unlocked</ui-status-chip>
+          } @else {
+            <span class="event-muted">No clue unlocked for this room</span>
           }
         </dd>
       } @else if (evidence().activity) {

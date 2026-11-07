@@ -25,7 +25,7 @@ export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
 export type ClueOverride = "ACCEPT" | "REJECT" | "AUTOMATIC";
 /** A room's team activity (admin setting); a room without one keeps the plain answer form. */
-export type RoomActivity = "AI_QUIZ" | "LINUX_TERMINAL";
+export type RoomActivity = "AI_QUIZ" | "LINUX_TERMINAL" | "CONTEST_RESULTS";
 
 /** Room codes in position order (0..3) and group codes in index order (0..3). */
 export const ROOM_CODES: readonly RoomCode[] = [
@@ -708,6 +708,71 @@ export interface TerminalDashboard {
   maxPoints: number;
   teams: TerminalDashboardTeam[];
   generatedAt: string;
+}
+
+// ---- Problem Solving room: the contest (rules §20) ----
+
+export type ContestProblem = "A" | "B" | "C" | "D" | "E";
+export const CONTEST_PROBLEMS: readonly ContestProblem[] = ["A", "B", "C", "D", "E"];
+
+/** GET /team/rooms/{id}/contest: all a team learns. No count, point, penalty, place or eligibility is ever sent. */
+export interface ContestTeamView {
+  roomId: number;
+  /** The contest link while the team's timer runs or is paused; null otherwise. */
+  contestUrl: string | null;
+  released: boolean;
+}
+
+export interface ContestTeamRow {
+  teamId: number;
+  teamName: string;
+  group: GroupCode;
+  round: number;
+  saved: boolean;
+  solved: ContestProblem[];
+  penaltyMinutes: number;
+  solvedCount: number;
+  problemPoints: number;
+  bonus: number;
+  total: number;
+  place: number | null;
+  eligible: boolean;
+  released: boolean;
+  releasedAt: string | null;
+  /** The clue was released and the results were edited below the line since; the clue stays. */
+  releasedNotEligible: boolean;
+  savedAt: string | null;
+}
+
+export interface ContestRound {
+  round: number;
+  group: GroupCode;
+  teamCount: number;
+  savedCount: number;
+  eligibleCount: number;
+  releasedCount: number;
+  releasableCount: number;
+  teams: ContestTeamRow[];
+}
+
+/** GET /rooms/{id}/contest-results: for the room's manager and the ADMIN only. */
+export interface ContestResults {
+  roomId: number;
+  roomName: string;
+  contestUrl: string | null;
+  linkEditable: boolean;
+  clueKeySet: boolean;
+  maxProblemPoints: number;
+  maxTotal: number;
+  eligibleSolved: number;
+  problems: { problem: ContestProblem; points: number }[];
+  rounds: ContestRound[];
+  generatedAt: string;
+}
+
+export interface ContestResultRequest {
+  problems: ContestProblem[];
+  penaltyMinutes: number;
 }
 
 export interface TerminalSettingView {

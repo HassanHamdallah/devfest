@@ -27,6 +27,36 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-07: Problem Solving room, website part (Codeforces contest results and clue release)
+
+- The contest runs on Codeforces (the site never calls it). A room with the new `CONTEST_RESULTS` activity (admin switch,
+  third choice next to AI quiz and Linux terminal; V18 turns it on for the Problem solving room on a fresh setup) shows
+  teams no answer form. The room's manager or the admin sets one **https** contest link (audited with the host only,
+  content lock, moves the revision); only the team assigned to the room this round sees it, while its timer is
+  RUNNING or PAUSED, with "Your results are being reviewed by the room organizer."; after the release "Clue unlocked" and
+  the clue in the existing masked clue card. No member response carries a count, point, penalty, place or eligibility
+  (raw-JSON tests in every round and timer state), and the clue is in none before its release.
+- Organizer page `/event/room/{id}/contest` (manager or admin; everyone else 404): teams grouped by round, ticks for
+  problems A–E and a whole-minute penalty per team, saved per team (audited, no revision bump), and the computed solved,
+  points (A=2, B=3, C=3, D=2, E=2), bonus (1st 3, 2nd 2, 3rd 1; none for 0 solved), total / 15, place, eligible (>= 3
+  solved) and released; sorted by place, refreshing every 5 s, CSV through the formula-safe helper. Pure
+  `ContestScoring` (tie places 1, 1, 3, 4 give bonuses 3, 3, 1, 0); totals are never stored. `ContestScoreService.roomScore`
+  is the read-only hook for a later global ranking; the event ranking is unchanged.
+- Release (single team or a whole round): 409 when not eligible or without a clue key; idempotent; one transaction
+  under the event_state, teams, room lock order; recorded through the ordinary room-submission path as CORRECT with a
+  server-made summary, adds the ROOM clue, finishes the room for the team, one revision bump, broadcast after commit,
+  audited. The manager's Accept / Reject still grants or revokes it; key changes never re-check it; editing results
+  later changes no clue and marks "Released, but no longer eligible". Admin board warnings for a missing link or clue key.
+  V18: `contest_room_link`, `contest_result`, `contest_release` (append-only); resets and snapshots include the last two.
+- Tested: `test-backend.ps1` -> `Tests run: 425, Failures: 0, Errors: 0, Skipped: 0` (was 376: ContestScoringTest 16,
+  ContestUrlTest 4, EventContestTest 29); organizer page 4 SQL statements with 2 and with 14 teams, team view 6 with 2 and
+  with 14; initial bundle 356.45 kB -> 357.60 kB raw (+0.32%), 97.96 -> 98.11 kB transfer, the page is the lazy
+  `contest-results-page` chunk (18.84 kB). Playwright on a fresh rehearsal: `npx playwright test -c playwright.event.config.ts`
+  -> `18 passed (6.6m)`, exit 0, including `event-contest.spec.ts` (earlier attempts on this low-memory machine lost the
+  rehearsal's UI dev server mid-run without an error and were discarded). Screenshots:
+  `docs/ui-after/contest-team-1440/390`, `contest-team-unlocked-1440/390`, `contest-organizer-1440/390`.
+  Rules §20, README guide "Event: Problem Solving room contest".
+
 ### Change set 2026-11-07: Linux room form without the encrypted message
 
 - The target file holds one encrypted clue, so the Linux team form has **five** fields (PATH, USERNAME, FILE_SIZE,

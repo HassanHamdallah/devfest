@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.toMap;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.QuizContentRules;
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomAssignment;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.Rotation;
@@ -218,6 +219,17 @@ public class EventAdminBoardService {
       if (room.terminalEnabled() && room.terminalFiles() == 0) {
         String message = "Room " + room.name() + " has the terminal enabled but no terminal files.";
         alerts.add(new AdminAlert("TERMINAL_WITHOUT_FILES", message, ROOM_BOARD_PAGE + room.id()));
+      }
+      if (room.activity() == RoomActivity.CONTEST_RESULTS) {
+        String page = ROOM_BOARD_PAGE + room.id() + "/contest";
+        if (!room.hasContestLink()) {
+          String message = "Room " + room.name() + " runs the contest but has no contest link, so teams cannot open it.";
+          alerts.add(new AdminAlert("CONTEST_LINK_MISSING", message, page));
+        }
+        if (!room.hasClueKey()) {
+          String message = "Room " + room.name() + " runs the contest but has no clue key, so its clue cannot be revealed.";
+          alerts.add(new AdminAlert("CONTEST_CLUE_KEY_MISSING", message, ROOM_BOARD_PAGE + room.id()));
+        }
       }
     }
     alerts.addAll(EventViews.groupWarnings(plannedTeams, groups));
