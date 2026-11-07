@@ -1,5 +1,6 @@
 package dev.devfest.event.repository;
 
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 
 /**
@@ -20,5 +21,7 @@ public record AdminRoomStatsRecord(
   int terminalFiles,
   int passed,
   int failed,
-  int pending
+  int pending,
+  RoomActivity activity,
+  boolean hasContestLink
 ) {}

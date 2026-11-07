@@ -29,7 +29,8 @@ public class EventBoardRepository {
            ls.effective_correct AS last_effective_correct, ls.technical_output AS last_technical_output,
            ls.clue_answer AS last_clue_answer,
            (EXISTS(SELECT 1 FROM quiz_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id)
-             OR EXISTS(SELECT 1 FROM terminal_form f WHERE f.team_id = t.id AND f.room_id = r.id AND f.submitted_at IS NOT NULL)) AS result_recorded
+             OR EXISTS(SELECT 1 FROM terminal_form f WHERE f.team_id = t.id AND f.room_id = r.id AND f.submitted_at IS NOT NULL)
+             OR EXISTS(SELECT 1 FROM contest_release c2 WHERE c2.team_id = t.id AND c2.room_id = r.id)) AS result_recorded
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
@@ -80,7 +81,8 @@ public class EventBoardRepository {
              + (SELECT count(*) FROM room_terminal_bundle b WHERE b.room_id = r.id) AS terminal_files,
            count(t.id) FILTER (WHERE j.status = 'PASS') AS passed,
            count(t.id) FILTER (WHERE j.status = 'FAIL') AS failed,
-           count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending
+           count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending,
+           r.activity, EXISTS(SELECT 1 FROM contest_room_link l WHERE l.room_id = r.id) AS has_contest_link
     FROM event_room r
     LEFT JOIN app_user u ON u.id = r.manager_id
     LEFT JOIN event_team t ON t.active
@@ -268,7 +270,9 @@ public class EventBoardRepository {
       rs.getInt("terminal_files"),
       rs.getInt("passed"),
       rs.getInt("failed"),
-      rs.getInt("pending")
+      rs.getInt("pending"),
+      RoomActivity.fromStored(rs.getString("activity")),
+      rs.getBoolean("has_contest_link")
     );
   }
 }

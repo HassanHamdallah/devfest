@@ -74,6 +74,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/room/:roomId/contest",
+    canActivate: [managerGuard],
+    loadComponent: () =>
+      import("./app/features/event/manager/contest/contest-results.page").then(
+        (m) => m.EventContestResultsPage,
+      ),
+  },
+  {
     path: "event/room/:roomId/dashboard",
     canActivate: [managerGuard],
     loadComponent: () =>

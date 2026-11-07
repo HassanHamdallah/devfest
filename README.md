@@ -170,6 +170,28 @@ questions and one repair:
 ```
 
 
+### Event: Problem Solving room contest (room manager, before and during the event)
+
+Rooms with the **Contest results activity** (admin, **Content** page; on by default for the Problem solving room only)
+have no answer form: the contest runs on Codeforces and this site holds the link, your typed results and the clue
+release (rules §20).
+
+- **Before the event.** On your room board set the **clue key** as usual, then open **Contest results** and enter the
+  **contest link** (https only) under **Contest link** → **Save link**. The admin board warns while the link or the clue
+  key is missing. The assigned team sees the link only while its round's timer runs or is paused.
+- **During the contest.** Open **Contest results** (it refreshes every 5 s). Teams are grouped by round. For each team
+  tick the problems it solved (A to E) and type its penalty in whole minutes from the Codeforces standings, then press
+  **Save** on that row. The page works out solved, points (A=2, B=3, C=3, D=2, E=2), place (more solved first, then lower
+  penalty; ties share a place), the bonus (1st +3, 2nd +2, 3rd +1; none for 0 solved), the total out of 15 and whether
+  the team is **eligible** (at least 3 solved). Teams never see any of it.
+- **Release the clue.** **Reveal clue** on an eligible team's row, or **Reveal to all eligible (n)** for the round.
+  It is refused for a team that is not eligible or when the room has no clue key, and repeating it changes nothing.
+  The team's page then says "Clue unlocked" with the clue behind the eye toggle. The release shows on your room board
+  like a submission, so **Accept / Reject** under it still grants or removes the clue (the admin's way to handle an
+  exception). Editing results after a release never changes a clue; a released team that no longer qualifies is
+  marked "Released, but no longer eligible".
+- **Export CSV** downloads the table. Nothing here changes the event's final ranking.
+
 ### Event: teams, sign-ins and devices
 
 - **Planned teams.** On **Teams & accounts**, enter the number of teams taking part (1–64) and press **Save**. A group may then hold at most ceil(N / 4) active teams; the page and the control screen warn when the team count or group balance is off (rules 14 in `docs/EVENT-RULES.md`).

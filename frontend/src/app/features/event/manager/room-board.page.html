@@ -103,6 +103,19 @@
     </div>
   </ui-card>
   }
+  @if (view.room.activity === "CONTEST_RESULTS") {
+  <ui-card>
+    <h2 ui-card-header>Problem Solving contest</h2>
+    <p class="event-muted board__quiz-intro">
+      The contest runs on Codeforces; teams have no answer form here. Set the contest link, type each team's solved
+      problems and penalty from the Codeforces standings, and release the clue to the teams that qualify (at least 3
+      solved). Scores are worked out on the results page and are never shown to teams.
+    </p>
+    <div class="event-inline">
+      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'contest']">Contest results</a>
+    </div>
+  </ui-card>
+  }
   @if (view.room.activity === "AI_QUIZ") {
   <ui-card>
     <h2 ui-card-header>AI quiz</h2>

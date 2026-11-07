@@ -92,7 +92,7 @@ public class EventSubmissionService {
     requireAcceptingSubmissions(write, room, clock.now(), exception);
     if (room.activity() != null) throw fail(409, ACTIVITY_ROOM);
     boolean correct = ClueCheck.isCorrect(request.clueAnswer(), room.clueKey());
-    RoomSubmissionRecord submission = store(write, room, idempotencyKey, request.technicalOutput(), request.clueAnswer(), correct);
+    RoomSubmissionRecord submission = store(write, room, write.state().currentRound(), idempotencyKey, request.technicalOutput(), request.clueAnswer(), correct);
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_ROOM_SUBMISSION", "submission:" + submission.id());
     return EventViews.receipt(submission);
@@ -112,7 +112,24 @@ public class EventSubmissionService {
     String resultText,
     boolean correct
   ) {
-    return store(write, room, idempotencyKey, technicalOutput, resultText, correct);
+    return store(write, room, write.state().currentRound(), idempotencyKey, technicalOutput, resultText, correct);
+  }
+
+  /**
+   * Like {@link #recordActivityResult} for a result the organizer releases outside the team's own round (the contest
+   * room, rules §20.6): {@code round} is the round in which the team's group visits the room, always 1..4, whatever
+   * the event's current round.
+   */
+  RoomSubmissionRecord recordActivityResultForRound(
+    TeamWrite write,
+    EventRoomRecord room,
+    int round,
+    UUID idempotencyKey,
+    String technicalOutput,
+    String resultText,
+    boolean correct
+  ) {
+    return store(write, room, round, idempotencyKey, technicalOutput, resultText, correct);
   }
 
   /**
@@ -127,7 +144,7 @@ public class EventSubmissionService {
     // A submission keeps at least one byte of clue answer; a blank one is stored as this note (and never matches).
     String stored = clueAnswer.isBlank() ? NO_CLUE_ENTERED : clueAnswer;
     // A random key: the form's own request key belongs to terminal_form_request, not to room_submission.
-    return store(write, room, UUID.randomUUID(), technicalOutput, stored, correct);
+    return store(write, room, write.state().currentRound(), UUID.randomUUID(), technicalOutput, stored, correct);
   }
 
   public List<Receipt> recent(Principal principal) {
@@ -177,6 +194,7 @@ public class EventSubmissionService {
   private RoomSubmissionRecord store(
     TeamWrite write,
     EventRoomRecord room,
+    int round,
     UUID idempotencyKey,
     String technicalOutput,
     String clueAnswer,
@@ -188,7 +206,7 @@ public class EventSubmissionService {
       write.team().id(),
       room.id(),
       room.code(),
-      write.state().currentRound(),
+      round,
       technicalOutput,
       clueAnswer,
       clueCorrect,

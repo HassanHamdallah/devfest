@@ -19,6 +19,7 @@ import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { EventLinuxTerminal } from "../terminal/linux-terminal";
 import { EventAiRoomActivity } from "./ai-room/ai-room-activity";
+import { EventContestRoomActivity } from "./contest-room/contest-room-activity";
 import { EventRoomSubmissionPanel } from "./room-submission-panel";
 import { EventTerminalForm } from "./terminal-form";
 
@@ -35,11 +36,12 @@ interface TerminalSession {
  * The answer form of the team's current room, and for a room with the terminal enabled the in-browser Linux
  * terminal next to it (laptops) or on request below it (phones). The terminal code is loaded only on "Start".
  * A room with the AI quiz shows only the activity (its own lazy chunk, loaded only for that room): it has no answer
- * form, because the server records the team's result itself.
+ * form, because the server records the team's result itself. The Problem Solving contest room shows its own panel
+ * (the contest link and the released clue) the same way.
  */
 @Component({
   selector: "event-team-room-workspace",
-  imports: [EventAiRoomActivity, EventLinuxTerminal, EventRoomSubmissionPanel, EventTerminalForm, UiButton, UiCard],
+  imports: [EventAiRoomActivity, EventContestRoomActivity, EventLinuxTerminal, EventRoomSubmissionPanel, EventTerminalForm, UiButton, UiCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./room-workspace.css",
   templateUrl: "./room-workspace.html",
