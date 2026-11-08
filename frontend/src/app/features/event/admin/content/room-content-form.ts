@@ -126,13 +126,13 @@ export class RoomContentForm {
     const enabled = box.checked;
     const saved = await this.activityState.run(
       () => this.eventApi.setRoomActivity(this.room().roomId, enabled ? "AI_QUIZ" : null),
-      enabled ? "AI quiz enabled." : "AI quiz disabled.",
+      enabled ? "AI mission enabled." : "AI mission disabled.",
     );
     if (!saved) box.checked = !enabled;
     this.changed.emit();
   }
 
-  /** Same endpoint as the AI quiz switch; a room has one activity, so this replaces any other. */
+  /** Same endpoint as the AI mission switch; a room has one activity, so this replaces any other. */
   protected async setLinuxTerminal(event: Event): Promise<void> {
     const box = event.target as HTMLInputElement;
     const enabled = box.checked;

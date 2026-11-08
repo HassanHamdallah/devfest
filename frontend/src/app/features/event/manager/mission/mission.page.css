@@ -1,0 +1,178 @@
+.mission h1,
+.mission h2 {
+  margin: 0;
+}
+
+.mission__header {
+  display: grid;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 6px solid var(--room-color);
+}
+
+.mission__back {
+  color: var(--color-primary-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mission__notice {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}
+
+.mission__text {
+  margin: 0 0 var(--space-3);
+  max-inline-size: 75ch;
+  overflow-wrap: anywhere;
+}
+
+.mission__blocked {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-warning-subtle);
+  border-radius: var(--radius-md);
+}
+
+.mission__retry {
+  margin: var(--space-3) 0 0;
+}
+
+.mission__problems {
+  margin: var(--space-2) 0 0;
+  padding-inline-start: var(--space-5);
+  overflow-wrap: anywhere;
+}
+
+/* The wide tables scroll inside their card; the page itself never scrolls sideways. */
+.mission__scroll {
+  max-inline-size: 100%;
+  margin-block-end: var(--space-3);
+  overflow-x: auto;
+}
+
+.mission__scroll:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+}
+
+.mission__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.mission__stages {
+  max-inline-size: 560px;
+}
+
+.mission__table th,
+.mission__table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+  white-space: nowrap;
+  border-block-end: 1px solid var(--color-border);
+}
+
+.mission__table thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mission__table tfoot th,
+.mission__table tfoot td {
+  font-weight: var(--font-weight-bold);
+  border-block-end: 0;
+}
+
+.mission__num {
+  text-align: end !important;
+}
+
+.mission__total {
+  font-weight: var(--font-weight-bold);
+}
+
+.mission__file {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-5);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.mission__file input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+}
+
+.mission__file:has(input:focus-visible) {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.mission__file--off {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.mission__pass {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mission__pass label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.mission__pass input {
+  inline-size: 7rem;
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-outline-thin);
+  border-radius: var(--radius-md);
+}
+
+.mission__button {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-5);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-primary);
+  text-decoration: none;
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.mission__button:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.mission__results-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.mission__results-head h2 {
+  margin-inline-end: auto;
+}
+
+.mission__kind {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

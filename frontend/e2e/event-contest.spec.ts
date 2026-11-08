@@ -200,6 +200,9 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
         await result.getByRole("button", { name: "Show clue", exact: true }).click();
         await expect(result.locator("[data-clue-value]")).toHaveText(PRACTICE_KEYS.PROBLEM_SOLVING);
         await expect(role.page.locator('[data-evidence="PROBLEM_SOLVING"] [data-contest-outcome]')).toContainText("Clue unlocked");
+        // A room without an answer form records the result itself: nothing was "Submitted", the room is complete.
+        await expect(role.page.locator('[data-room="PROBLEM_SOLVING"]')).toContainText("Room complete");
+        await expect(role.page.locator('[data-room="PROBLEM_SOLVING"]')).not.toContainText("Submitted");
         const text = (await role.page.locator("event-contest-room-activity").innerText()).toLowerCase();
         for (const word of ["points", "score", "total", "penalty", "place", "eligible", "bonus"]) expect(text).not.toContain(word);
       }

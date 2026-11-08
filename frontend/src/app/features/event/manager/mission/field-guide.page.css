@@ -1,0 +1,137 @@
+:host {
+  display: block;
+}
+
+.guide-actions {
+  margin-block-end: var(--space-4);
+}
+
+.guide {
+  max-inline-size: 1100px;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: var(--border-card);
+  border-radius: var(--radius-card);
+}
+
+.guide__head h1 {
+  margin: 0;
+  letter-spacing: 0.06em;
+  border-block-end: 4px solid var(--room-color, var(--color-primary));
+  padding-block-end: var(--space-2);
+}
+
+.guide__head p {
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.guide__grid {
+  columns: 3 280px;
+  column-gap: var(--space-5);
+}
+
+.guide section {
+  break-inside: avoid;
+  margin-block-end: var(--space-4);
+}
+
+.guide h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-base);
+  color: var(--color-primary-text);
+}
+
+.guide p,
+.guide li {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.guide ol {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.guide__tip {
+  font-style: italic;
+}
+
+.guide__figure {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 240px;
+  margin-block-end: var(--space-1);
+}
+
+.guide__figure line,
+.guide__figure rect {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+}
+
+.guide__figure text {
+  font-size: 9px;
+  fill: var(--color-text);
+}
+
+.guide__dot {
+  fill: var(--color-error);
+}
+
+.guide__matrix {
+  margin-block-end: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.guide__matrix th,
+.guide__matrix td {
+  padding: 2px var(--space-3);
+  text-align: center;
+  border: 1px solid var(--color-border-strong, var(--color-border));
+}
+
+.guide__foot p {
+  margin: 0;
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* One A4 page: the application chrome is hidden by the global print styles. */
+@media print {
+  .guide-actions {
+    display: none;
+  }
+
+  .guide {
+    max-inline-size: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    color: #000;
+    background: #fff;
+  }
+
+  .guide__grid {
+    columns: 3;
+    column-gap: 8mm;
+  }
+
+  .guide p,
+  .guide li {
+    font-size: 8.6pt;
+    line-height: 1.3;
+  }
+
+  .guide h2 {
+    font-size: 10pt;
+    color: #000;
+  }
+
+  .guide__head h1 {
+    font-size: 16pt;
+  }
+}

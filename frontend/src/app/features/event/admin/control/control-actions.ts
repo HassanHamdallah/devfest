@@ -11,7 +11,7 @@ export type ControlAction =
   /** `secondsLeft`: time left in the current round, when it is running or paused (asks before moving on). */
   | { kind: "setRound"; round: number; secondsLeft?: number | null }
   /**
-   * `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key; `blockers`: AI quiz
+   * `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key; `blockers`: AI mission
    * rooms that cannot run, so the request says "anyway".
    */
   | { kind: "startTimer"; waiting: string[]; warnings: string[]; blockers: string[] }
@@ -84,7 +84,7 @@ export function confirmationFor(
 }
 
 /**
- * Rooms that are not ready, closed or without a key only ask for a confirmation. An AI quiz room that cannot run
+ * Rooms that are not ready, closed or without a key only ask for a confirmation. An AI mission room that cannot run
  * (blocking alert) needs an explicit "Start anyway", which the server also requires.
  */
 function startConfirmation(
@@ -95,7 +95,7 @@ function startConfirmation(
   const parts = waiting.length ? [`Waiting: ${waiting.join(", ")}.`] : [];
   if (blockers.length) {
     return {
-      title: "The AI quiz is not ready. Start anyway?",
+      title: "The AI mission is not ready. Start anyway?",
       message: [...blockers, ...parts, ...warnings].join(" "),
       variant: "danger",
       confirmLabel: "Start anyway",

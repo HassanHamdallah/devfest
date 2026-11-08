@@ -8,11 +8,14 @@ Mode "sse": opens --streams live revision streams (GET /event/stream with single
 seeded accounts), performs --actions admin timer actions and measures, per action and stream, the time from the
 action's HTTP response to the matching "revision" event. Results are written to docs/event-load-sse-<N>.json.
 
-Mode "quiz": the AI room activity in one compressed round. The AI manager imports 45 questions and 3 repairs, the
-admin sends all 16 teams to the AI room (room exceptions for groups B-D) and starts round 1; every team answers all
-45 questions, finishes its MCQs and submits its 3 repairs; the last repair evaluates it against the pass score (a pass
-collects the room's clue), while the manager polls the results every 5 s. Every team must be evaluated exactly once
-with the outcome its own total predicts. Results are written to docs/event-load-quiz.json.
+Mode "sentinel": the AI mission room (SENTINEL) in one compressed round. The AI manager imports the shipped mission
+file, the admin sends all 16 teams to the AI room (room exceptions for groups B-D) and starts round 1; every team runs
+its experiments (stage 3 spends its whole budget and then probes a fifth run, which must be refused), submits its ten
+stages in a random order, some with a full-marks answer and some with a worthless one, retries a share of its writes
+with the same Idempotency-Key and probes locked stages. Teams 15 and 16 never submit their last stage: the round's end
+evaluates them. The manager keeps the results page open (a GET every 5 s). Every team must be evaluated exactly once
+with the outcome its own total predicts, no member response may carry points, scores or answers, and no endpoint may
+reach a p95 of 300 ms. Results are written to docs/event-load-sentinel.json.
 
 Mode "linux": the Linux room in one compressed round. The manager uploads a package of just under 20 MB unpacked and
 sets the answer keys; the admin sends all 16 teams to the room. Every team starts its terminal (files info, the 20 MB
@@ -57,7 +60,7 @@ def parse_args():
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
     parser.add_argument("--ui-url", default="http://localhost:4202", help="linux: where the site's static files are served")
-    parser.add_argument("--mode", choices=("mixed", "sse", "quiz", "linux"), default="mixed")
+    parser.add_argument("--mode", choices=("mixed", "sse", "sentinel", "linux"), default="mixed")
     parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
     parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
     parser.add_argument("--gap-ms", type=int, default=500, help="sse: pause between admin actions")
@@ -563,50 +566,66 @@ def sse_run(args, api, config):
     print(f"SSE load check passed; report in {output}")
 
 
-# ---- Quiz mode (AI room activity) ---------------------------------------------------------------------------
+# ---- Sentinel mode (AI mission room) ---------------------------------------------------------------------
 
-QUIZ_SECTIONS = (("EASY", 20, 1), ("MEDIUM", 15, 2), ("ADVANCED", 6, 3), ("LANDMARK", 3, 3), ("RECENT", 1, 3))
-QUIZ_REPAIRS = (
-    ("Fix the training loop", 7, ["for batch in loader:", "    optimizer.zero_grad()", "    loss = model(batch)",
-                                  "    loss.backward()"]),
-    ("Fix the data split", 7, ["rows = load_rows()", "random.shuffle(rows)", "cut = int(len(rows) * 0.8)",
-                               "train = rows[:cut]", "test = rows[cut:]"]),
-    ("Fix the precision metric", 6, ["tp = 0", "for y, p in pairs:", "    if y == p == 1:", "        tp += 1",
-                                     "precision = tp / max(1, predicted)", "print(precision)"]),
-)
+MISSION_FILE = ROOT / "docs/ai-room/sentinel-content.json"
 RESULTS_POLL_SECONDS = 5
-# Random answers land around this total, so some teams pass and some do not.
-QUIZ_PASS_SCORE = 30
-DUPLICATE_PROBE_SHARE = 0.05
+DUPLICATE_PROBE_SHARE = 0.1
+SENTINEL_PASS_SCORE = 60
+# A member response never carries one of these keys, at any depth.
+SENTINEL_FORBIDDEN_KEYS = {"points", "maxPoints", "pointsEarned", "award", "awards", "score", "scores", "total",
+                           "passScore", "passed", "correct", "correctOption", "answer", "expected", "role"}
+# Per stage: a full-marks answer and an answer worth 0 (10 points per stage; the file's own scoring tables).
+STAGE_ANSWERS = {
+    1: ({"config": "iqr-1.5"}, {"config": "z-3"}),
+    2: ({"choices": {"entry-gate": "USE", "entry-time": "USE", "vehicle-type": "USE", "previous-visits": "USE",
+                     "plate-number": "DROP", "exit-camera-time": "DROP"}},
+        {"choices": {"entry-gate": "DROP", "entry-time": "DROP", "vehicle-type": "DROP", "previous-visits": "DROP",
+                     "plate-number": "USE", "exit-camera-time": "USE"}}),
+    3: ({"config": "tree-5"}, {"config": "knn-1"}),
+    4: ({"k1": "Car", "k5": "Van", "reliable": 5}, {"k1": "Van", "k5": "Car", "reliable": 1}),
+    5: ({"tp": 6, "fp": 2, "fn": 4, "tn": 8, "precision": 0.75, "recall": 0.6, "metric": "Recall"},
+        {"tp": 0, "fp": 0, "fn": 0, "tn": 0, "precision": 0, "recall": 0, "metric": "Accuracy"}),
+    6: ({"size": 6, "x": 7.5, "y": 6.5}, {"size": 1, "x": 0, "y": 0}),
+    7: ({"order": ["lib", "lab", "dor", "adm", "gar", "g3"], "path": ["lib", "lab", "adm", "gar", "g3"],
+         "cost": 15}, {"order": ["lib"], "path": ["lib"], "cost": 0}),
+    8: ({"threat": 0.00012, "normal": 0.0010125, "label": "Normal"}, {"threat": 1, "normal": 1, "label": "Threat"}),
+    9: ({"conclusion": "insider-involved"}, {"conclusion": "cover-up"}),
+    10: ({"config": "large-1"}, {"config": "small-1"}),
+}
+# Experiments before submitting: stage 3 spends its whole budget of 4 (then probes a fifth), stages 1 and 10 run two.
+STAGE_RUNS = {1: ["iqr-1.5", "iqr-3"], 3: ["knn-1", "knn-5", "tree-2", "tree-5"], 10: ["small-1", "large-1"]}
+# Teams that never submit stage 10: the round's end evaluates them.
+SENTINEL_UNFINISHED_TEAMS = (15, 16)
 
 
-def quiz_document():
-    """45 questions (20/15/6/3/1, 80 points) and 3 repairs (20 points), the planned 100."""
-    questions = []
-    for section, count, points in QUIZ_SECTIONS:
-        for number in range(1, count + 1):
-            tag = f"{section.lower()}-{number}"
-            questions.append({"section": section, "prompt": f"Load question {tag}?",
-                              "options": [f"A {tag}", f"B {tag}", f"C {tag}", f"D {tag}"],
-                              "correctOption": number % 4, "points": points, "explanation": ""})
-    repairs = [{"title": title, "instructions": "Order the lines.", "points": points, "snippets": snippets}
-               for title, points, snippets in QUIZ_REPAIRS]
-    return {"format": 1, "mcqMinutes": 14, "passScore": QUIZ_PASS_SCORE, "questions": questions, "repairs": repairs}
+def forbidden_keys(node, found=None):
+    found = set() if found is None else found
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in SENTINEL_FORBIDDEN_KEYS:
+                found.add(key)
+            forbidden_keys(value, found)
+    elif isinstance(node, list):
+        for item in node:
+            forbidden_keys(item, found)
+    return found
 
 
-class QuizLedger:
-    """Expected scores per team (from the organizer's answer key) and proof that retries replay receipts."""
+class SentinelLedger:
+    """Expected points per team, and proof that retries replay and that budgets and locks are refused."""
 
     def __init__(self):
         self.lock = threading.Lock()
         self.expected = {}
+        self.saved = {}
         self.retries = self.retry_mismatches = 0
-        self.duplicate_probes = self.duplicates_refused = 0
-        self.outcomes = {}
+        self.probes = self.probes_refused = 0
 
-    def add(self, team, points):
+    def saved_stage(self, team, points):
         with self.lock:
-            self.expected[team] = round(self.expected.get(team, 0) + points, 2)
+            self.expected[team] = self.expected.get(team, 0) + points
+            self.saved[team] = self.saved.get(team, 0) + 1
 
     def replay(self, first, second):
         with self.lock:
@@ -616,22 +635,32 @@ class QuizLedger:
 
     def probe(self, refused):
         with self.lock:
-            self.duplicate_probes += 1
+            self.probes += 1
             if refused:
-                self.duplicates_refused += 1
+                self.probes_refused += 1
 
 
-class QuizTeamClient(Client):
-    """One team's browser: answers every question, finishes the MCQs and submits each repair; the last one records
-    its result, which it then reads. After each save it fetches the activity again, like the page does; it also
-    follows the revision like every screen."""
+class SentinelTeamClient(Client):
+    """One team's browser: experiments and submissions in a random stage order, each followed by a fetch of the
+    activity (like the page); 20% of writes are retried with the same key, some extra writes must be refused."""
 
-    def __init__(self, run, token, team, room_id, key, gap):
+    def __init__(self, run, token, team, room_id, gap):
         super().__init__(run, token, "/event/team/board")
-        self.team, self.room_id, self.answer_key, self.gap = team, room_id, key, gap
+        self.team, self.room_id, self.gap = team, room_id, gap
         self.activity_path = f"/event/team/rooms/{room_id}/activity"
-        self.step = "answer"
-        self.queue = None
+        stages = list(range(1, 10 if team in SENTINEL_UNFINISHED_TEAMS else 11))
+        goods = (team - 1) % 11
+        good = set(random.sample(stages, min(goods, len(stages))))
+        self.good = good
+        random.shuffle(stages)
+        self.plan = []
+        for stage in stages:
+            for config in STAGE_RUNS.get(stage, []):
+                self.plan.append(("run", stage, config))
+            if stage == 3:
+                self.plan.append(("budget-probe", stage, "knn-15"))
+            self.plan.append(("submit", stage, None))
+        self.final_stage = stages[-1]
 
     def first_action(self):
         return self.run_state.started + random.uniform(1, 5)
@@ -639,85 +668,47 @@ class QuizTeamClient(Client):
     def next_time(self):
         return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4)
 
-    def load_activity(self):
-        status, data = self.request("GET", self.activity_path)
-        return data if status == 200 else None
-
-    def post(self, path, body, key):
+    def post(self, path, body, key, retry=True):
         status, data = self.request("POST", path, body, key)
-        if status == 200 and random.random() < RETRY_SHARE:
+        if retry and status == 200 and random.random() < RETRY_SHARE:
             again_status, again = self.request("POST", path, body, key)
             if again_status == 200:
-                self.run_state.quiz.replay(data, again)
+                self.run_state.sentinel.replay(data, again)
         return status, data
 
     def act(self):
-        activity = self.load_activity()
-        if activity is None:
-            return self.next_time()
-        if self.step == "answer":
-            return self.answer(activity)
-        if self.step == "repair":
-            return self.repair(activity)
-        if self.step == "result":
-            self.result(activity)
-        return math.inf
-
-    def answer(self, activity):
-        open_questions = [q for q in activity["questions"] if q["selectedOptionId"] is None]
-        if activity["stage"] != "MCQ" or not open_questions:
-            self.request("POST", f"/event/team/rooms/{self.room_id}/activity/finish-mcq")
-            self.step = "repair"
-            return self.next_time()
-        question = open_questions[0]
-        option = random.choice(question["options"])
-        correct_text, points = self.answer_key["questions"][question["prompt"]]
-        status, _ = self.post(f"{self.activity_path}/answers", {"questionId": question["id"], "optionId": option["id"]},
-                              str(uuid.uuid4()))
-        if status == 200 and option["text"] == correct_text:
-            self.run_state.quiz.add(self.team, points)
-        if status == 200 and random.random() < DUPLICATE_PROBE_SHARE:
-            other = {"questionId": question["id"], "optionId": question["options"][0]["id"]}
-            probe_status, _ = self.request("POST", f"{self.activity_path}/answers", other, str(uuid.uuid4()),
-                                           conflict_expected=True)
-            self.run_state.quiz.probe(probe_status == 409)
-        return self.next_time()
-
-    def repair(self, activity):
-        pending = [r for r in activity["repairs"] if not r["submitted"]]
-        if not pending:
-            self.step = "result"
-            return self.next_time()
-        repair = pending[0]
-        order = [s["id"] for s in repair["snippets"]]
-        random.shuffle(order)
-        code = {s["id"]: s["code"] for s in repair["snippets"]}
-        correct, points = self.answer_key["repairs"][repair["title"]]
-        status, _ = self.post(f"{self.activity_path}/repairs/{repair['id']}", {"snippetIds": order}, str(uuid.uuid4()))
+        status, activity = self.request("GET", self.activity_path)
         if status == 200:
-            in_place = sum(1 for i, snippet in enumerate(order) if code[snippet] == correct[i])
-            self.run_state.quiz.add(self.team, round(points * in_place / len(order) + 1e-9, 2))
-        return self.next_time()
+            leaked = forbidden_keys(activity)
+            if leaked:
+                self.run_state.metrics.error(f"team {self.team}: the activity carries {sorted(leaked)}")
+        if not self.plan:
+            return math.inf
+        kind, stage, config = self.plan.pop(0)
+        base = f"{self.activity_path}/stages/{stage}"
+        if kind == "run":
+            self.post(f"{base}/runs", {"config": config}, str(uuid.uuid4()))
+        elif kind == "budget-probe":
+            status, _ = self.request("POST", f"{base}/runs", {"config": config}, str(uuid.uuid4()), conflict_expected=True)
+            self.run_state.sentinel.probe(status == 409)
+        else:
+            answer = STAGE_ANSWERS[stage][0 if stage in self.good else 1]
+            status, _ = self.post(f"{base}/submit", answer, str(uuid.uuid4()))
+            if status == 200:
+                self.run_state.sentinel.saved_stage(self.team, 10 if stage in self.good else 0)
+                if random.random() < DUPLICATE_PROBE_SHARE:
+                    other = STAGE_ANSWERS[stage][1 if stage in self.good else 0]
+                    status, _ = self.request("POST", f"{base}/submit", other, str(uuid.uuid4()), conflict_expected=True)
+                    self.run_state.sentinel.probe(status == 409)
+        return self.next_time() if self.plan else math.inf
 
-    def result(self, activity):
-        """The team sees only whether its clue was unlocked (and the clue), never a score."""
-        result = activity.get("result")
-        if not result:
-            self.run_state.metrics.error(f"team {self.team}: no result after its last repair")
-            return
-        leaked = [word for word in ("total", "points", "passScore", "score") if word in json.dumps(activity)]
-        if leaked:
-            self.run_state.metrics.error(f"team {self.team}: the activity names {leaked}")
-        with self.run_state.quiz.lock:
-            self.run_state.quiz.outcomes[self.team] = (result["clueUnlocked"], result.get("clue"))
 
-
-class ResultsClient(Client):
-    """The AI manager with the results page open: a fresh GET every 5 s (answers do not change the revision)."""
+class MissionResultsClient(Client):
+    """The AI manager with the SENTINEL page open: a fresh results GET every 5 s."""
 
     def __init__(self, run, token, room_id):
         super().__init__(run, token, f"/event/rooms/{room_id}/board")
-        self.results_path = f"/event/rooms/{room_id}/quiz/results"
+        self.results_path = f"/event/rooms/{room_id}/mission/results"
 
     def first_action(self):
         return self.run_state.started + RESULTS_POLL_SECONDS
@@ -727,18 +718,13 @@ class ResultsClient(Client):
         return time.monotonic() + RESULTS_POLL_SECONDS
 
 
-def quiz_run(args, api, config):
+def sentinel_run(args, api, config):
     admin, managers, teams = sign_in_everyone(api, config)
     set_clue_keys(api, managers)
     ai_manager = managers[list(config["managers"]).index("AI")]
     ai_room = api.setup("GET", "/event/home", ai_manager)["roomId"]
-    document = quiz_document()
     api.setup("PUT", f"/event/admin/rooms/{ai_room}/activity", admin, {"activity": "AI_QUIZ"})
-    api.setup("POST", f"/event/rooms/{ai_room}/quiz/import", ai_manager, document)
-    answer_key = {
-        "questions": {q["prompt"]: (q["options"][q["correctOption"]], q["points"]) for q in document["questions"]},
-        "repairs": {r["title"]: (r["snippets"], r["points"]) for r in document["repairs"]},
-    }
+    api.setup("POST", f"/event/rooms/{ai_room}/mission/import", ai_manager, json.loads(MISSION_FILE.read_text(encoding="utf-8")))
     api.setup("POST", "/event/admin/round", admin, {"round": 1})
     organization = api.setup("GET", "/event/admin/organization", admin)
     team_ids = {team["accountEmail"]: team["id"] for team in organization["teams"]}
@@ -751,11 +737,11 @@ def quiz_run(args, api, config):
     api.setup("POST", "/event/admin/round/timer/start", admin)
 
     run = LoadRun(api)
-    run.quiz = QuizLedger()
-    # 50 writes per team spread over about 80% of the run (each followed by a GET of the activity).
-    gap = args.seconds * 0.8 / 52
-    clients = [Client(run, admin, "/event/admin/board"), ResultsClient(run, ai_manager, ai_room)]
-    clients += [QuizTeamClient(run, token, team, ai_room, answer_key, gap) for team, token in enumerate(teams, 1)]
+    run.sentinel = SentinelLedger()
+    # About 20 writes per team (each followed by a GET of the activity) spread over about 80% of the run.
+    gap = args.seconds * 0.8 / 24
+    clients = [Client(run, admin, "/event/admin/board"), MissionResultsClient(run, ai_manager, ai_room)]
+    clients += [SentinelTeamClient(run, token, team, ai_room, gap) for team, token in enumerate(teams, 1)]
     print(f"Running {len(teams)} teams in the AI room for up to {args.seconds} s (a write every ~{gap:.1f} s)...",
           flush=True)
     run.begin(args.seconds)
@@ -765,61 +751,62 @@ def quiz_run(args, api, config):
         client.join()
     elapsed = time.monotonic() - run.started
 
-    results = api.setup("GET", f"/event/rooms/{ai_room}/quiz/results", ai_manager)
-    by_name = {row["teamName"]: row for row in results["teams"]}
+    # The round's end evaluates the teams that did not submit their last stage (no scheduler).
+    api.setup("POST", "/event/admin/round/timer/end", admin)
+    results = api.setup("GET", f"/event/rooms/{ai_room}/mission/results", ai_manager)
     names = {t["id"]: t["name"] for t in organization["teams"]}
+    by_name = {row["teamName"]: row for row in results["teams"]}
+    sentinel = run.sentinel
     cross_check = []
+    evaluated = passed = 0
     for team, email in enumerate(config["members"], 1):
         row = by_name.get(names[team_ids[email]], {})
-        expected = run.quiz.expected.get(team, 0)
-        ok = row.get("answered") == 45 and row.get("repairsSubmitted") == 3 and abs(row.get("total", -1) - expected) < 0.005
-        if not ok:
-            run.metrics.error(f"team {team}: results {row.get('answered')}+{row.get('repairsSubmitted')} "
-                              f"total {row.get('total')} expected 45+3 total {expected}")
-        cross_check.append({"team": team, "answered": row.get("answered"), "repairs": row.get("repairsSubmitted"),
-                            "total": row.get("total"), "expectedTotal": expected, "ok": ok})
-    quiz = run.quiz
-    evaluated = passed = 0
-    for check in cross_check:
-        team = check["team"]
-        row = by_name.get(names[team_ids[config["members"][team - 1]]], {})
-        should_pass = check["expectedTotal"] >= QUIZ_PASS_SCORE - 1e-9
-        unlocked, clue = quiz.outcomes.get(team, (None, None))
+        expected = sentinel.expected.get(team, 0)
+        should_pass = expected >= SENTINEL_PASS_SCORE - 1e-9
+        view = api.setup("GET", f"/event/team/rooms/{ai_room}/activity", teams[team - 1])
+        result = view.get("result") or {}
         status = row.get("status")
         evaluated += status in ("PASSED", "NOT_PASSED")
         passed += status == "PASSED"
-        good = (status == ("PASSED" if should_pass else "NOT_PASSED") and unlocked == should_pass
-                and row.get("clueGranted") == should_pass and (clue == PRACTICE_KEYS["AI"]) == should_pass)
-        check.update({"status": status, "teamSawClue": unlocked, "clueGranted": row.get("clueGranted"), "outcomeOk": good})
-        if not good:
-            run.metrics.error(f"team {team}: status {status}, saw clue {unlocked}, granted {row.get('clueGranted')}, "
-                              f"expected pass {should_pass}")
+        leaked = forbidden_keys(view)
+        ok = (row.get("stagesSaved") == sentinel.saved.get(team, 0) and abs(row.get("total", -1) - expected) < 0.005
+              and status == ("PASSED" if should_pass else "NOT_PASSED") and row.get("clueGranted") == should_pass
+              and row.get("evaluatedAt") is not None and result.get("clueUnlocked") == should_pass
+              and (result.get("clue") == PRACTICE_KEYS["AI"]) == should_pass and not leaked)
+        if not ok:
+            run.metrics.error(f"team {team}: results {row.get('stagesSaved')} saved, total {row.get('total')}, "
+                              f"status {status}, clue granted {row.get('clueGranted')}, saw clue "
+                              f"{result.get('clueUnlocked')}; expected {sentinel.saved.get(team, 0)} saved, total "
+                              f"{expected}, pass {should_pass}; leaked {sorted(leaked)}")
+        cross_check.append({"team": team, "stagesSaved": row.get("stagesSaved"), "total": row.get("total"),
+                            "expectedTotal": expected, "status": status, "clueGranted": row.get("clueGranted"),
+                            "teamSawClue": result.get("clueUnlocked"), "ok": ok})
     if evaluated != len(teams):
         run.metrics.error(f"{evaluated} of {len(teams)} teams were evaluated")
     endpoints = endpoint_summary(run.metrics.latencies)
     worst_p95 = max(row["p95Ms"] for row in endpoints.values())
     report = {
         "testedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic AI room traffic; no WAN latency.",
-        "baseUrl": args.base_url, "mode": "quiz", "seconds": args.seconds, "elapsedSeconds": round(elapsed, 1),
-        "teams": len(teams), "questions": 45, "repairs": 3,
+        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic AI mission traffic; no WAN latency.",
+        "baseUrl": args.base_url, "mode": "sentinel", "seconds": args.seconds, "elapsedSeconds": round(elapsed, 1),
+        "teams": len(teams), "stages": 10,
         "endpoints": endpoints,
         "totals": {"requests": sum(e["requests"] for e in endpoints.values()), "errors": len(run.metrics.errors),
-                   "worstP95Ms": worst_p95, "retries": quiz.retries, "retryMismatches": quiz.retry_mismatches,
-                   "duplicateProbes": quiz.duplicate_probes, "duplicatesRefused": quiz.duplicates_refused,
-                   "passScore": QUIZ_PASS_SCORE, "evaluations": evaluated, "passed": passed,
+                   "worstP95Ms": worst_p95, "retries": sentinel.retries, "retryMismatches": sentinel.retry_mismatches,
+                   "refusalProbes": sentinel.probes, "refusalsAnswered409": sentinel.probes_refused,
+                   "passScore": SENTINEL_PASS_SCORE, "evaluations": evaluated, "passed": passed,
                    "notPassed": evaluated - passed},
         "resultsCrossCheck": cross_check,
         "errorSamples": run.metrics.errors[:50],
     }
-    output = ROOT / "docs/event-load-quiz.json"
+    output = ROOT / "docs/event-load-sentinel.json"
     output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print_summary(report)
     totals = report["totals"]
-    if (totals["errors"] or totals["retryMismatches"] or totals["duplicatesRefused"] != totals["duplicateProbes"]
-            or worst_p95 >= 300):
-        raise SystemExit(f"Quiz load check failed; see {output}")
-    print(f"Quiz load check passed; report in {output}")
+    if (totals["errors"] or totals["retryMismatches"] or totals["refusalsAnswered409"] != totals["refusalProbes"]
+            or worst_p95 >= 300 or evaluated != len(teams)):
+        raise SystemExit(f"SENTINEL load check failed; see {output}")
+    print(f"SENTINEL load check passed; report in {output}")
 
 
 # ---- Linux room mode ----------------------------------------------------------------------------------------
@@ -1149,8 +1136,8 @@ def main():
     if args.mode == "sse":
         sse_run(args, api, config)
         return
-    if args.mode == "quiz":
-        quiz_run(args, api, config)
+    if args.mode == "sentinel":
+        sentinel_run(args, api, config)
         return
     if args.mode == "linux":
         linux_run(args, api, config)

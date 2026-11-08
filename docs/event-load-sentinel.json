@@ -1,0 +1,252 @@
+{
+  "testedAt": "2026-11-08T03:02:16.053053+00:00",
+  "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic AI mission traffic; no WAN latency.",
+  "baseUrl": "http://127.0.0.1:8082/api/v1",
+  "mode": "sentinel",
+  "seconds": 120,
+  "elapsedSeconds": 120.0,
+  "teams": 16,
+  "stages": 10,
+  "endpoints": {
+    "GET /event/admin/board": {
+      "requests": 3,
+      "errors": 0,
+      "p50Ms": 23.0,
+      "p95Ms": 57.8,
+      "p99Ms": 57.8,
+      "maxMs": 57.8
+    },
+    "GET /event/revision": {
+      "requests": 216,
+      "errors": 0,
+      "p50Ms": 2.4,
+      "p95Ms": 21.4,
+      "p99Ms": 26.5,
+      "maxMs": 27.3
+    },
+    "GET /event/rooms/{id}/board": {
+      "requests": 3,
+      "errors": 0,
+      "p50Ms": 8.0,
+      "p95Ms": 26.8,
+      "p99Ms": 26.8,
+      "maxMs": 26.8
+    },
+    "GET /event/rooms/{id}/mission/results": {
+      "requests": 23,
+      "errors": 0,
+      "p50Ms": 4.7,
+      "p95Ms": 25.1,
+      "p99Ms": 28.4,
+      "maxMs": 28.4
+    },
+    "GET /event/team/board": {
+      "requests": 49,
+      "errors": 0,
+      "p50Ms": 3.9,
+      "p95Ms": 27.3,
+      "p99Ms": 28.6,
+      "maxMs": 28.6
+    },
+    "GET /event/team/rooms/{id}/activity": {
+      "requests": 298,
+      "errors": 0,
+      "p50Ms": 4.1,
+      "p95Ms": 25.0,
+      "p99Ms": 28.0,
+      "maxMs": 30.3
+    },
+    "POST /event/team/rooms/{id}/activity/stages/{id}/runs": {
+      "requests": 156,
+      "errors": 0,
+      "p50Ms": 5.3,
+      "p95Ms": 29.1,
+      "p99Ms": 30.0,
+      "maxMs": 30.1
+    },
+    "POST /event/team/rooms/{id}/activity/stages/{id}/submit": {
+      "requests": 206,
+      "errors": 0,
+      "p50Ms": 5.6,
+      "p95Ms": 28.9,
+      "p99Ms": 31.1,
+      "maxMs": 33.0
+    }
+  },
+  "totals": {
+    "requests": 954,
+    "errors": 0,
+    "worstP95Ms": 57.8,
+    "retries": 50,
+    "retryMismatches": 0,
+    "refusalProbes": 30,
+    "refusalsAnswered409": 30,
+    "passScore": 60,
+    "evaluations": 16,
+    "passed": 5,
+    "notPassed": 11
+  },
+  "resultsCrossCheck": [
+    {
+      "team": 1,
+      "stagesSaved": 10,
+      "total": 0.0,
+      "expectedTotal": 0,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 2,
+      "stagesSaved": 10,
+      "total": 10.0,
+      "expectedTotal": 10,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 3,
+      "stagesSaved": 10,
+      "total": 20.0,
+      "expectedTotal": 20,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 4,
+      "stagesSaved": 10,
+      "total": 30.0,
+      "expectedTotal": 30,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 5,
+      "stagesSaved": 10,
+      "total": 40.0,
+      "expectedTotal": 40,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 6,
+      "stagesSaved": 10,
+      "total": 50.0,
+      "expectedTotal": 50,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 7,
+      "stagesSaved": 10,
+      "total": 60.0,
+      "expectedTotal": 60,
+      "status": "PASSED",
+      "clueGranted": true,
+      "teamSawClue": true,
+      "ok": true
+    },
+    {
+      "team": 8,
+      "stagesSaved": 10,
+      "total": 70.0,
+      "expectedTotal": 70,
+      "status": "PASSED",
+      "clueGranted": true,
+      "teamSawClue": true,
+      "ok": true
+    },
+    {
+      "team": 9,
+      "stagesSaved": 10,
+      "total": 80.0,
+      "expectedTotal": 80,
+      "status": "PASSED",
+      "clueGranted": true,
+      "teamSawClue": true,
+      "ok": true
+    },
+    {
+      "team": 10,
+      "stagesSaved": 10,
+      "total": 90.0,
+      "expectedTotal": 90,
+      "status": "PASSED",
+      "clueGranted": true,
+      "teamSawClue": true,
+      "ok": true
+    },
+    {
+      "team": 11,
+      "stagesSaved": 10,
+      "total": 100.0,
+      "expectedTotal": 100,
+      "status": "PASSED",
+      "clueGranted": true,
+      "teamSawClue": true,
+      "ok": true
+    },
+    {
+      "team": 12,
+      "stagesSaved": 10,
+      "total": 0.0,
+      "expectedTotal": 0,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 13,
+      "stagesSaved": 10,
+      "total": 10.0,
+      "expectedTotal": 10,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 14,
+      "stagesSaved": 10,
+      "total": 20.0,
+      "expectedTotal": 20,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 15,
+      "stagesSaved": 9,
+      "total": 30.0,
+      "expectedTotal": 30,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    },
+    {
+      "team": 16,
+      "stagesSaved": 9,
+      "total": 40.0,
+      "expectedTotal": 40,
+      "status": "NOT_PASSED",
+      "clueGranted": false,
+      "teamSawClue": false,
+      "ok": true
+    }
+  ],
+  "errorSamples": []
+}

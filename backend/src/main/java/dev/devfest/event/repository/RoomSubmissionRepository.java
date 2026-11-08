@@ -28,7 +28,7 @@ public class RoomSubmissionRepository {
     LEFT JOIN submission_clue_verdict v ON v.submission_id = s.id
     """;
   private static final String NOT_ACTIVITY_RESULT =
-    " AND NOT EXISTS (SELECT 1 FROM quiz_evaluation e WHERE e.submission_id = s.id)" +
+    " AND NOT EXISTS (SELECT 1 FROM sentinel_evaluation e WHERE e.submission_id = s.id)" +
     " AND NOT EXISTS (SELECT 1 FROM terminal_form f WHERE f.submission_id = s.id)" +
     " AND NOT EXISTS (SELECT 1 FROM contest_release c WHERE c.submission_id = s.id)";
 

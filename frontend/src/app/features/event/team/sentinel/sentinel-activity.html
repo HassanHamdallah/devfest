@@ -1,0 +1,167 @@
+<ui-card>
+  <div ui-card-header class="activity__head">
+    <span class="activity__dot" aria-hidden="true"></span>
+    <h2>SENTINEL</h2>
+    @if (activity(); as view) {
+    @if (view.result) {
+    <ui-status-chip variant="accent">Finished</ui-status-chip>
+    } @else {
+    @if (paused()) {
+    <ui-status-chip variant="warning">Paused</ui-status-chip>
+    }
+    <ui-countdown class="activity__timer event-num" [clock]="board().clock" />
+    }
+    }
+  </div>
+
+  @if (loader.initialError(); as text) {
+  <ui-alert variant="error">{{ text }}</ui-alert>
+  <ui-button variant="secondary" size="sm" (click)="reload()">Try again</ui-button>
+  } @else if (loader.loading()) {
+  <p class="event-muted">Loading the mission…</p>
+  }
+
+  @if (activity(); as view) {
+  @if (loader.refreshError(); as text) {
+  <ui-alert variant="warning">{{ text }}</ui-alert>
+  }
+
+  @if (view.result; as result) {
+  @if (result.clueUnlocked && result.clue) {
+  <section class="activity__end activity__end--restored" data-sentinel-result="unlocked" aria-labelledby="sentinel-end-heading">
+    <h3 id="sentinel-end-heading">Clue unlocked</h3>
+    <p class="activity__message">{{ result.message }}</p>
+    <event-masked-clue [value]="result.clue" />
+    <p class="event-muted">This room's clue is now in your evidence. Keep it for the final.</p>
+  </section>
+  } @else {
+  <section class="activity__end" data-sentinel-result="not-reached" role="status" aria-labelledby="sentinel-end-heading">
+    <h3 id="sentinel-end-heading">No clue unlocked</h3>
+    <p class="activity__message">{{ result.message }}</p>
+  </section>
+  }
+  } @else if (!view.ready) {
+  <p class="activity__notice" data-sentinel-not-ready>The mission is not ready yet. Wait for the organizer.</p>
+  } @else if (view.phase === "TIME_UP") {
+  <p class="activity__notice" data-sentinel-pending>Time is up. Your result is recorded when the organizer ends the round.</p>
+  } @else {
+  @if (paused()) {
+  <p class="activity__notice">The round is paused. Input is frozen until the timer resumes.</p>
+  } @else if (!board().scheduledRoom?.open) {
+  <p class="activity__notice">The room is closed right now. Wait for the organizer to open it.</p>
+  }
+
+  @if (showStart() || view.missions.length === 0) {
+  <section class="start" data-sentinel-start aria-labelledby="sentinel-start-heading">
+    <h3 id="sentinel-start-heading">SENTINEL is offline</h3>
+    <p class="start__story">{{ view.intro }}</p>
+    <ul class="systems">
+      @for (system of systems; track system.id) {
+      <li class="system">
+        <strong>{{ system.title }}</strong>
+        <span>{{ system.about }}</span>
+      </li>
+      }
+    </ul>
+    <p class="event-muted">
+      Ten stages in three systems, in any order. Run experiments as often as the stage allows, then submit each stage
+      once: it locks and shows only "Saved". You will never see a score.
+    </p>
+    @if (view.missions.length === 0) {
+    <p class="activity__notice" data-sentinel-waiting>The repairs open when the timer starts.</p>
+    } @else {
+    <ui-button size="lg" data-begin (click)="begin()">Start repairs</ui-button>
+    }
+  </section>
+  } @else {
+  <div class="mission">
+    <nav class="systems systems--nav" id="sentinel-nav" aria-label="Missions and stages" #stageNav>
+      @for (mission of view.missions; track mission.id; let m = $index) {
+      <section class="system-panel" [attr.data-mission]="mission.id">
+        <h3>
+          {{ mission.title }}
+          <span class="system-panel__count event-num">{{ savedIn(m) }} / {{ mission.stages.length }}</span>
+        </h3>
+        <ul>
+          @for (stage of mission.stages; track stage.number) {
+          <li>
+            <button
+              type="button"
+              class="stage-link"
+              [attr.data-stage-link]="stage.number"
+              [attr.aria-current]="current()?.number === stage.number ? 'step' : null"
+              [class.stage-link--current]="current()?.number === stage.number"
+              [class.stage-link--saved]="stage.saved"
+              (click)="pick(stage.number)"
+            >
+              <span class="stage-link__no event-num">{{ stage.number }}</span>
+              <span class="stage-link__title">{{ stage.title }}</span>
+              @if (stage.saved) {
+              <span class="stage-link__state" data-saved-mark><span aria-hidden="true">✓</span> Saved</span>
+              }
+            </button>
+          </li>
+          }
+        </ul>
+      </section>
+      }
+    </nav>
+
+    @for (stage of stages(); track stage.number) {
+    <section class="stage-card" [hidden]="current()?.number !== stage.number" [attr.data-stage]="stage.number" [attr.aria-labelledby]="'stage-heading-' + stage.number">
+      <header class="stage-card__head">
+        <p class="stage-card__mission">{{ missionOf(stage) }} · Stage {{ stage.number }}</p>
+        <button type="button" class="to-nav" (click)="toNav()">↑ All stages</button>
+        <h3 [id]="'stage-heading-' + stage.number">{{ stage.title }}</h3>
+      </header>
+      @if (stage.saved) {
+      <div class="saved" data-stage-saved role="status">
+        <p class="saved__mark"><span aria-hidden="true">✓</span> Saved</p>
+        <p class="event-muted">This stage is locked.</p>
+        @if (nextOpen(); as next) {
+        <ui-button variant="secondary" (click)="pick(next.number)">Go to stage {{ next.number }}: {{ next.title }}</ui-button>
+        } @else {
+        <p class="event-muted">Every stage is saved. Your result is being recorded.</p>
+        }
+      </div>
+      } @else {
+      @switch (stage.type) {
+      @case ("OUTLIER_HUNT") {
+      <sentinel-stage-outlier [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("FEATURE_CHECK") {
+      <sentinel-stage-features [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("TUNE_DEPLOY") {
+      <sentinel-stage-tune [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("NEAREST_VEHICLE") {
+      <sentinel-stage-nearest [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("CAMERA_ACCURACY") {
+      <sentinel-stage-camera [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("GROUP_FRAMES") {
+      <sentinel-stage-groups [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("ROUTE_PLANNER") {
+      <sentinel-stage-route [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("THREAT_FILTER") {
+      <sentinel-stage-threat [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("RULE_ENGINE") {
+      <sentinel-stage-rules [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("RAG_FIX") {
+      <sentinel-stage-rag [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      }
+      }
+    </section>
+    }
+  </div>
+  }
+  }
+  }
+</ui-card>

@@ -2,9 +2,9 @@ package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
 import dev.devfest.event.dto.AiRoomActivityView;
-import dev.devfest.event.dto.QuizAnswerRequest;
-import dev.devfest.event.dto.QuizRepairOrderRequest;
-import dev.devfest.event.dto.QuizSavedReceipt;
+import dev.devfest.event.dto.MissionRunRequest;
+import dev.devfest.event.dto.MissionRunResult;
+import dev.devfest.event.dto.MissionSavedReceipt;
 import dev.devfest.event.service.AiRoomActivityService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -16,8 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
 
-/** The AI room activity for its team (MEMBER); the team always comes from the signed-in account. */
+/** The AI mission room for its team (MEMBER); the team always comes from the signed-in account. */
 @RestController
 @RequestMapping("/api/v1/event/team/rooms/{roomId}/activity")
 public class AiRoomTeamController {
@@ -35,29 +36,25 @@ public class AiRoomTeamController {
     return activity.view(principal, roomId);
   }
 
-  @PostMapping("/answers")
-  QuizSavedReceipt answer(
+  @PostMapping("/stages/{stage}/runs")
+  MissionRunResult run(
     @PathVariable long roomId,
+    @PathVariable int stage,
     @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
-    @Valid @RequestBody QuizAnswerRequest request,
+    @Valid @RequestBody MissionRunRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return activity.answer(principal, roomId, idempotencyKey, request);
+    return activity.run(principal, roomId, stage, idempotencyKey, request);
   }
 
-  @PostMapping("/repairs/{repairId}")
-  QuizSavedReceipt submitRepair(
+  @PostMapping("/stages/{stage}/submit")
+  MissionSavedReceipt submit(
     @PathVariable long roomId,
-    @PathVariable long repairId,
+    @PathVariable int stage,
     @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
-    @Valid @RequestBody QuizRepairOrderRequest request,
+    @RequestBody JsonNode answer,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return activity.submitRepair(principal, roomId, repairId, idempotencyKey, request);
-  }
-
-  @PostMapping("/finish-mcq")
-  AiRoomActivityView finishMcq(@PathVariable long roomId, @AuthenticationPrincipal AuthService.Principal principal) {
-    return activity.finishMcq(principal, roomId);
+    return activity.submit(principal, roomId, stage, idempotencyKey, answer);
   }
 }

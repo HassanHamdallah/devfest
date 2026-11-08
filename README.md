@@ -103,72 +103,66 @@ downloads the terminal (about 8 MB) in the background, so it starts in a few sec
 work, but the 80-column terminal scrolls sideways there. Refreshing the page or leaving it ends the terminal session
 (the browser asks first); files in it are not saved.
 
-### Event: AI room quiz (room manager, before the event)
+### Event: AI mission room, SENTINEL (room manager, before the event)
 
-Rooms with the **AI quiz activity** (admin, **Content** page; on by default for the AI room only) give teams 45
-multiple-choice questions and 3 code repairs instead of the answer form. Each team is evaluated once, when it submits
-its last repair or when the round ends: a total at or above the room's **pass score** records a correct result and
-gives the team your clue key as the room's clue; otherwise it gets nothing. Teams never see a score (rules §19).
+Rooms with the **AI mission activity** (admin, **Content** page; on by default for the AI room only) give teams the
+SENTINEL mission instead of the answer form: ten stages in three missions (PREDICT, SEE, NOOR), 100 points in all, on
+the room's round timer (set the round to 40 minutes). Each stage is submitted once and then locks. Each team is
+evaluated once, when it submits its last stage or when the round ends: a total at or above the room's **pass score**
+records a correct result and gives the team your clue key as the room's clue; otherwise it gets nothing. Teams never
+see a point, a total or the pass score (rules §19).
 
-- On your room board, open **AI quiz → Questions and repairs**. Add questions and repairs one by one, or prepare
-  them in one JSON file and use **Import a JSON file** (you see how many items it holds and confirm; it replaces the
-  room's current questions and repairs). **Export JSON** downloads the same format, e.g. as a backup.
-- The **Plan** table shows questions and points per section; a warning lists what differs from 20 Easy, 15 Medium,
-  6 Advanced, 3 Landmark, 1 Recent, 3 repairs and 100 points (warnings never block). Set **Multiple-choice minutes**
-  (default 14): after that much running time, or when a team presses **Finish MCQs**, its repairs open. Set the
-  **Pass score** (0–100 points, default 60) and press **Save settings**; it locks when the first team is evaluated.
-- The room needs a **clue key** and at least one question: otherwise the admin board shows a blocking alert and the
-  admin can start the round's timer only with **Start anyway**.
-- Once any team has answered, a question or repair it answered can no longer be changed and an import is refused;
-  everything is read-only after the final opens.
-- During the round open **AI room results**: the pass score, scores per team and section, each repair, the total,
-  each team's status (In progress / Passed / Not passed), whether its clue is granted, and how many teams got each
-  question right. It refreshes every 5 seconds; **Export CSV** saves it. Teams only ever see "Response saved", then
-  "Clue unlocked" with the clue, or "You did not reach the required score for this room's clue."
+- On your room board open **SENTINEL page** (`/event/room/{roomId}/mission`). The whole mission is **one JSON file**.
+  `docs/ai-room/sentinel-content.json` is the complete, ready-to-use one (it holds no clue: the clue is your room's
+  clue key). **Import a JSON file** asks first ("Import sentinel-content.json (10 stages)"), then replaces the room's
+  mission; **Export JSON** downloads the same format, e.g. as a backup. The page lists the ten stages and the total
+  (100 / 100).
+- A bad file is refused **whole**: the page shows "The file has N problems." and **every problem listed at once under
+  it**, one line each with its stage and field (for example `Stage 2 · maxPoints: must be a number.`), and a **Try
+  again** button that opens the file chooser. Nothing is saved when there is any. The stages must
+  add up to exactly 100 points and the fixture's traps are checked (see below).
+- Set the **Pass score** (0–100 points, default 60) on the SENTINEL page or in the file; it locks when the first team is
+  evaluated.
+- **Print Field Guide** opens one A4 page for the room (Z-score and IQR, leakage, overfitting, KNN, confusion metrics,
+  K-Means, A* with f = g + h, Naive Bayes, forward chaining, RAG). It holds no answers; press **Print** or save it as a PDF.
+- The room needs a **clue key** and the mission: otherwise the admin board shows a blocking alert and the admin can
+  start the round's timer only with **Start anyway**.
+- Once any team has run or saved anything, an import is refused; everything is read-only after the final opens.
+- During the round the **Live results** table on the same page shows the pass score, the points of each stage per team,
+  the total out of 100, each team's status (In progress / Passed / Not passed), whether its clue is granted, and when
+  it last saved and finished. It refreshes every 5 seconds; **Export CSV** saves it. Teams only ever see their stage data, "Saved", then the "restored" ending with the clue, or
+  the "unstable" ending.
 - Each result also appears on your room board as the team's submission, so you can still **Accept** or **Reject** it
   like any clue verdict. If the timer runs out by itself, unfinished teams are evaluated when the admin presses
   **End round** or moves to the next round.
 
-**JSON format.** `format` is 1; `mcqMinutes` and `passScore` (0–100) are optional (the room keeps its values when
-they are missing; a different `passScore` is refused once a team was evaluated). A question has `section` (`EASY`, `MEDIUM`, `ADVANCED`,
-`LANDMARK` or `RECENT`), `prompt`, 2–6 `options`, `correctOption` (the 0-based index of the correct option), `points`
-(1–10) and an optional `explanation` (organizers only). A repair has `title`, `instructions`, `points` (default 10)
-and 4–6 `snippets` **in their correct order** (teams get them shuffled; indentation is kept). Example with two
-questions and one repair:
+**JSON format (version 1).** Top level: `format` (1), `passScore` (0–100, optional: the room keeps its value when it is
+missing; a different value is refused once a team was evaluated), `story` (`start`, `passed`, `failed`; the two endings
+must not contain a number) and `missions`: exactly three, with the ids `predict`, `see`, `noor` and 3, 3 and 4 stages.
+Every mission has `id`, `title`, `intro` and `stages`; every stage has `number` (1 to 10, in order), `type`, `title`,
+`fieldNote`, `brief` and `maxPoints` (the ten add up to 100), plus the data of its type. Unknown fields are refused.
 
-```json
-{
-  "format": 1,
-  "mcqMinutes": 14,
-  "passScore": 60,
-  "questions": [
-    {
-      "section": "EASY",
-      "prompt": "Which of these is a supervised learning task?",
-      "options": ["Clustering", "Classification", "Dimensionality reduction"],
-      "correctOption": 1,
-      "points": 1,
-      "explanation": "Classification learns from labelled examples."
-    },
-    {
-      "section": "MEDIUM",
-      "prompt": "What does a pooling layer reduce?",
-      "options": ["The learning rate", "The spatial size of feature maps", "The number of classes", "The batch size"],
-      "correctOption": 1,
-      "points": 2
-    }
-  ],
-  "repairs": [
-    {
-      "title": "Fix the training loop",
-      "instructions": "Put the lines in the order that makes the code work.",
-      "points": 10,
-      "snippets": ["for batch in loader:", "    optimizer.zero_grad()", "    loss = model(batch)", "    loss.backward()"]
-    }
-  ]
-}
-```
+| `type` (stage) | Data | Scoring |
+|---|---|---|
+| `OUTLIER_HUNT` (1) | `readings` (`id`, `label`, `x`, `y`), `configs` (`id`, `method` IQR or Z, `threshold`, `award`) | the `award` of the configuration submitted; the readings a run flags are derived (below) |
+| `FEATURE_CHECK` (2) | `target`, `features` (`id`, `label`, `role` USE or DROP) | `maxPoints` × correct ÷ features |
+| `TUNE_DEPLOY` (3) | `maxRuns`, `configs` (`id`, `label`, `train`, `validation`, `award`) | the `award` of the setting deployed |
+| `NEAREST_VEHICLE` (4) | `classes`, `vehicles` (`id`, `label`, `kind`, `length`, `height`), `unknown` (`length`, `height`), `awards` (`k1`, `k5`, `reliable`) | derived by KNN |
+| `CAMERA_ACCURACY` (5) | `positive`, `metrics`, `rows` (`actual`, `predicted`), `awards` (`tp`, `fp`, `fn`, `tn`, `precision`, `recall`, `metric`) | derived confusion counts |
+| `GROUP_FRAMES` (6) | `dots` (`id`, `x`, `y`), `centroids` (`id`, `label`, `x`, `y`; exactly 2), `asked`, `awards` (`size`, `centre`) | derived by K-Means |
+| `ROUTE_PLANNER` (7) | `places` (`id`, `name`, `x`, `y`, `h`), `roads` (`from`, `to`, `cost`), `start`, `goal`, `tieBreak`, `awards` (`order`, `route`) | derived by A* |
+| `THREAT_FILTER` (8) | `message`, `priors` (`threat`, `normal`), `table` (`word`, `threat`, `normal`), `awards` (`threat`, `normal`, `label`) | derived by Naive Bayes |
+| `RULE_ENGINE` (9) | `facts` (`id`, `text`), `known`, `rules` (`id`, `ifAll`, `then`), `conclusions`, `awards` (`conclusion`) | derived by forward chaining |
+| `RAG_FIX` (10) | `question`, `chunkSizes`, `topKs`, `maxRuns`, `configs` (`id`, `chunkSize`, `topK`, `chunks`, `reply`, `award`) | the `award` of the setting locked |
 
+Derived answers are never written in the file, and neither is the list of readings a detector flags: the server derives it
+from the readings, each axis on its own (flagged if outside on x or on y). IQR uses Tukey's hinges (Q1 and Q3 are the
+medians of the lower and upper half of the sorted values; with an odd count the median is in both halves) and fences
+Q1 − k·IQR and Q3 + k·IQR; Z uses the population standard deviation (÷ n). The import refuses readings that leave an axis
+without spread or put a reading exactly on a fence or threshold. For each stage the `awards` add up to `maxPoints`, and for the stages
+with per-configuration awards one configuration earns the full `maxPoints`. The import checks that the nearest vehicle
+is an outlier (k=1 and k=5 disagree), that greedy search costs more than A* and the estimates never exceed the real
+cost, that the K-Means answer is a clean value, and that exactly one offered conclusion follows from the rules.
 
 ### Event: Problem Solving room contest (room manager, before and during the event)
 
@@ -259,10 +253,7 @@ This creates or starts **only** `.local/postgres` at `127.0.0.1:55432`, with `de
 
 First use generates random development credentials in ignored files:
 
-- `backend/.env`: DB credentials, JWT secret, AI quiz shuffle secret (`DEVFEST_QUIZ_SHUFFLE_SECRET`, at least 32
-  characters; `start-local-database.ps1` adds a random one once), administrator email/password, seed flag and provider
-  URL. Without the shuffle secret a development backend (`DEVFEST_DEVELOPMENT=true`) uses a fixed fallback and logs a
-  warning; any other backend refuses to start.
+- `backend/.env`: DB credentials, JWT secret, administrator email/password, seed flag and provider URL.
 - `.local/database.json`: local cluster and test-role credentials.
 
 Open `backend/.env` locally to obtain the administrator credentials. Do not commit or share it. The admin is created only when no administrator exists; changing bootstrap variables later does not reset its password. `DEVFEST_SEED=true` loads both examples only when there are no problems. Disable that flag after setup. A new contest starts tomorrow by default: set actual times in **Contest Settings**.

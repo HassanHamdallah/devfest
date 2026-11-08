@@ -125,7 +125,7 @@ test("overrides: swap, room exception, manual clue, disqualify, snapshot, team r
   const adminApi = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
   try {
     await setPracticeKeys(accounts, ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
-    // The AI room uses its plain answer form here: an empty AI quiz would block the timer.
+    // The AI room uses its plain answer form here: an empty AI mission would block the timer.
     await new EventAdminShortcuts(adminApi).setRoomActivity("AI", null);
     await new EventAdminShortcuts(adminApi).startRound(1);
     await signIn(admin.page, accounts.adminEmail, accounts.adminPassword);

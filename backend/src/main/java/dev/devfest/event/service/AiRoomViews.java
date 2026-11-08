@@ -1,143 +1,167 @@
 package dev.devfest.event.service;
 
-import dev.devfest.event.domain.QuizSection;
-import dev.devfest.event.domain.QuizShuffle;
-import dev.devfest.event.domain.QuizShuffle.Kind;
-import dev.devfest.event.domain.QuizWindow;
-import dev.devfest.event.domain.QuizWindow.Stage;
+import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
+import dev.devfest.event.domain.sentinel.NaiveBayes;
+import dev.devfest.event.domain.sentinel.SentinelContent;
+import dev.devfest.event.domain.sentinel.SentinelContent.*;
+import dev.devfest.event.domain.sentinel.SentinelContentRules;
+import dev.devfest.event.domain.sentinel.SentinelRuns;
 import dev.devfest.event.dto.AiRoomActivityView;
-import dev.devfest.event.dto.AiRoomActivityView.Option;
-import dev.devfest.event.dto.AiRoomActivityView.Question;
-import dev.devfest.event.dto.AiRoomActivityView.Repair;
 import dev.devfest.event.dto.AiRoomActivityView.Result;
-import dev.devfest.event.dto.AiRoomActivityView.Section;
-import dev.devfest.event.dto.AiRoomActivityView.Snippet;
 import dev.devfest.event.repository.EventRoomRecord;
-import dev.devfest.event.repository.QuizEvaluationRecord;
-import dev.devfest.event.repository.QuizMcqAnswerRecord;
-import dev.devfest.event.repository.QuizQuestionRecord;
-import dev.devfest.event.repository.QuizRepairAnswerRecord;
-import dev.devfest.event.repository.QuizRepairRecord;
-import dev.devfest.event.repository.QuizTeamProgressRecord;
+import dev.devfest.event.repository.SentinelEvaluationRecord;
+import dev.devfest.event.repository.SentinelWorkRepository;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * The team's view of the AI room. The only place that turns organizer records into what a team may see: no
- * correct flags, correct positions, explanations, points, totals or the pass score ever reach
- * {@link AiRoomActivityView}.
+ * The team's view of the AI room. The only place that turns the organizer's content and the team's records into
+ * what a team may see: every field below is listed by hand, so no points, award, flagged list, accuracy, correct
+ * flag or derived answer can reach {@link AiRoomActivityView}.
  */
 final class AiRoomViews {
 
   /** Everything the view is built from, read by the activity service. */
   record MemberData(
-    long teamId,
     EventRoomRecord room,
     RoundTimer timer,
     Instant now,
-    List<QuizQuestionRecord> questions,
-    List<QuizRepairRecord> repairs,
-    List<QuizMcqAnswerRecord> mcqAnswers,
-    List<QuizRepairAnswerRecord> repairAnswers,
-    Optional<QuizTeamProgressRecord> progress,
-    Optional<QuizEvaluationRecord> evaluation
+    Optional<SentinelContent> content,
+    List<SentinelWorkRepository.Run> runs,
+    List<SentinelWorkRepository.Submission> submissions,
+    Optional<SentinelEvaluationRecord> evaluation
   ) {}
 
   private AiRoomViews() {}
 
-  static AiRoomActivityView member(MemberData data, byte[] secret) {
-    boolean finished = data.progress().map(QuizTeamProgressRecord::mcqFinished).orElse(false);
-    int mcqSeconds = data.room().quizMcqMinutes() * 60;
-    Stage stage = QuizWindow.stage(data.timer(), data.now(), mcqSeconds, finished);
-    Map<Long, QuizMcqAnswerRecord> answered = data.mcqAnswers().stream().collect(Collectors.toMap(QuizMcqAnswerRecord::questionId, Function.identity()));
-    Map<Long, QuizRepairAnswerRecord> submitted = data.repairAnswers().stream().collect(Collectors.toMap(QuizRepairAnswerRecord::repairId, Function.identity()));
-    Result result = data.evaluation().map(evaluation -> result(evaluation, data.room())).orElse(null);
-    boolean open = result == null;
+  static AiRoomActivityView member(MemberData data, ObjectMapper json) {
+    RoundPhase phase = data.timer().effectivePhase(data.now());
+    boolean playing = data.evaluation().isEmpty() && (phase == RoundPhase.RUNNING || phase == RoundPhase.PAUSED);
+    SentinelContent content = data.content().orElse(null);
+    Set<Integer> saved = data.submissions().stream().map(SentinelWorkRepository.Submission::stage).collect(Collectors.toSet());
     return new AiRoomActivityView(
       data.room().id(),
       data.room().name(),
-      stage,
-      data.timer().effectivePhase(data.now()),
+      phase,
       data.now(),
-      data.room().quizMcqMinutes(),
-      stage == Stage.MCQ ? QuizWindow.mcqRemainingSeconds(data.timer(), data.now(), mcqSeconds) : 0,
-      finished,
-      data.questions().size(),
-      answered.size(),
-      data.repairs().size(),
-      submitted.size(),
-      sections(data.questions()),
-      open && stage == Stage.MCQ ? questions(data, answered, secret) : List.of(),
-      open && (stage == Stage.REPAIRS || stage == Stage.TIME_UP) ? repairs(data, stage, submitted, secret) : List.of(),
-      result
+      content != null,
+      content == null ? "" : content.story().start(),
+      SentinelContent.STAGE_COUNT,
+      saved.size(),
+      content != null && playing ? missions(content, data.runs(), saved, json) : List.of(),
+      data.evaluation().map(evaluation -> result(evaluation, data.room(), content)).orElse(null)
     );
   }
 
-  /** The clue follows the team's collected clue (an override or a manual grant changes it), never its score. */
-  private static Result result(QuizEvaluationRecord evaluation, EventRoomRecord room) {
-    return evaluation.clueCollected() ? new Result(true, room.clueKey()) : new Result(false, null);
-  }
-
-  private static List<Section> sections(List<QuizQuestionRecord> questions) {
-    Map<QuizSection, Long> counts = questions.stream().collect(Collectors.groupingBy(QuizQuestionRecord::section, Collectors.counting()));
-    List<Section> sections = new ArrayList<>();
-    for (QuizSection section : QuizSection.values()) {
-      sections.add(new Section(section, section.label(), section.paceSeconds(), counts.getOrDefault(section, 0L).intValue()));
+  /** The clue follows the team's collected clue (an override changes it), never its score. */
+  private static Result result(SentinelEvaluationRecord evaluation, EventRoomRecord room, SentinelContent content) {
+    if (evaluation.clueCollected()) {
+      return new Result(true, room.clueKey(), content == null ? "" : content.story().passed());
     }
-    return sections;
+    return new Result(false, null, content == null ? "" : content.story().failed());
   }
 
-  /** Section order is kept; inside a section, and among a question's options, the order is the team's own. */
-  private static List<Question> questions(MemberData data, Map<Long, QuizMcqAnswerRecord> answered, byte[] secret) {
-    List<Question> ordered = new ArrayList<>();
-    for (QuizSection section : QuizSection.values()) {
-      List<QuizQuestionRecord> inSection = data.questions().stream().filter(q -> q.section() == section).toList();
-      long seed = QuizShuffle.seed(secret, Kind.SECTION, data.teamId(), section.ordinal());
-      for (QuizQuestionRecord question : QuizShuffle.shuffle(inSection, seed)) {
-        List<Option> options = QuizShuffle.shuffle(question.options(), QuizShuffle.seed(secret, Kind.OPTIONS, data.teamId(), question.id()))
-          .stream()
-          .map(option -> new Option(option.id(), option.text()))
-          .toList();
-        QuizMcqAnswerRecord answer = answered.get(question.id());
-        ordered.add(
-          new Question(question.id(), ordered.size() + 1, section, question.prompt(), options, answer == null ? null : answer.optionId())
-        );
+  private static List<AiRoomActivityView.Mission> missions(SentinelContent content, List<SentinelWorkRepository.Run> runs, Set<Integer> saved, ObjectMapper json) {
+    List<AiRoomActivityView.Mission> missions = new ArrayList<>();
+    for (Mission mission : content.missions()) {
+      List<AiRoomActivityView.Stage> stages = new ArrayList<>();
+      for (Stage stage : mission.stages()) stages.add(stage(stage, runs, saved.contains(stage.number()), json));
+      missions.add(new AiRoomActivityView.Mission(mission.id(), mission.title(), mission.intro(), stages));
+    }
+    return missions;
+  }
+
+  private static AiRoomActivityView.Stage stage(Stage stage, List<SentinelWorkRepository.Run> runs, boolean saved, ObjectMapper json) {
+    Head head = stage.head();
+    String type = SentinelContentRules.kind(stage);
+    if (saved) return new AiRoomActivityView.Stage(head.number(), type, head.title(), null, null, true, null, List.of(), null);
+    List<AiRoomActivityView.Run> own = runs
+      .stream()
+      .filter(run -> run.stage() == head.number())
+      .map(run -> new AiRoomActivityView.Run(run.config(), tree(json, run.resultJson())))
+      .toList();
+    Integer runsLeft = SentinelRuns.hasRuns(stage) && SentinelRuns.budget(stage) != SentinelRuns.UNLIMITED ? SentinelRuns.budget(stage) - own.size() : null;
+    return new AiRoomActivityView.Stage(head.number(), type, head.title(), head.fieldNote(), head.brief(), false, data(stage), own, runsLeft);
+  }
+
+  static JsonNode tree(ObjectMapper json, String text) {
+    return json.readTree(text);
+  }
+
+  /** What each stage draws. Hand-written for every kind: nothing is copied wholesale from the content. */
+  static Map<String, Object> data(Stage stage) {
+    Map<String, Object> data = new LinkedHashMap<>();
+    switch (stage) {
+      case OutlierHunt s -> {
+        data.put("readings", s.readings());
+        data.put("configs", s.configs().stream().map(c -> mapOf("id", c.id(), "method", c.method(), "threshold", c.threshold())).toList());
+      }
+      case FeatureCheck s -> {
+        data.put("target", s.target());
+        data.put("features", s.features().stream().map(f -> mapOf("id", f.id(), "label", f.label())).toList());
+      }
+      case TuneDeploy s -> {
+        data.put("runsAllowed", s.maxRuns());
+        data.put("configs", s.configs().stream().map(c -> mapOf("id", c.id(), "label", c.label())).toList());
+      }
+      case NearestVehicle s -> {
+        data.put("classes", s.classes());
+        data.put("vehicles", s.vehicles());
+        data.put("unknown", s.unknown());
+        data.put("ks", List.of(1, 5));
+      }
+      case CameraAccuracy s -> {
+        data.put("positive", s.positive());
+        data.put("metrics", s.metrics());
+        data.put("rows", s.rows());
+      }
+      case GroupFrames s -> {
+        data.put("dots", s.dots());
+        data.put("centroids", s.centroids());
+        data.put("asked", s.asked());
+      }
+      case RoutePlanner s -> {
+        data.put("places", s.places());
+        data.put("roads", s.roads());
+        data.put("start", s.start());
+        data.put("goal", s.goal());
+        data.put("tieBreak", s.tieBreak());
+      }
+      case ThreatFilter s -> {
+        data.put("message", s.message());
+        data.put("priors", mapOf("threat", s.priorThreat(), "normal", s.priorNormal()));
+        data.put("table", s.table());
+        data.put("classes", List.of(NaiveBayes.THREAT, NaiveBayes.NORMAL));
+      }
+      case RuleEngine s -> {
+        data.put("facts", s.facts());
+        data.put("known", s.known());
+        data.put("rules", s.rules());
+        data.put("conclusions", s.conclusions());
+      }
+      case RagFix s -> {
+        data.put("question", s.question());
+        data.put("chunkSizes", s.chunkSizes());
+        data.put("topKs", s.topKs());
+        data.put("runsAllowed", s.maxRuns());
+        data.put("configs", s.configs().stream().map(c -> mapOf("id", c.id(), "chunkSize", c.chunkSize(), "topK", c.topK())).toList());
       }
     }
-    return ordered;
+    return data;
   }
 
-  /** While the repairs are open: instructions and snippets (shuffled, or as submitted); at Time's up titles only. */
-  private static List<Repair> repairs(MemberData data, Stage stage, Map<Long, QuizRepairAnswerRecord> submitted, byte[] secret) {
-    List<Repair> repairs = new ArrayList<>();
-    for (QuizRepairRecord repair : data.repairs()) {
-      QuizRepairAnswerRecord answer = submitted.get(repair.id());
-      boolean open = stage == Stage.REPAIRS;
-      repairs.add(
-        new Repair(
-          repair.id(),
-          repairs.size() + 1,
-          repair.title(),
-          open ? repair.instructions() : null,
-          open ? snippets(data.teamId(), repair, answer, secret) : List.of(),
-          answer != null
-        )
-      );
-    }
-    return repairs;
-  }
-
-  private static List<Snippet> snippets(long teamId, QuizRepairRecord repair, QuizRepairAnswerRecord answer, byte[] secret) {
-    Map<Long, String> code = repair.snippets().stream().collect(Collectors.toMap(QuizRepairRecord.Snippet::id, QuizRepairRecord.Snippet::code));
-    List<Long> order = answer != null
-      ? answer.snippetOrder()
-      : QuizShuffle.shuffleAwayFrom(repair.correctOrder(), QuizShuffle.seed(secret, Kind.SNIPPETS, teamId, repair.id()));
-    return order.stream().map(id -> new Snippet(id, code.get(id))).toList();
+  private static Map<String, Object> mapOf(Object... pairs) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    for (int i = 0; i < pairs.length; i += 2) map.put((String) pairs[i], pairs[i + 1]);
+    return map;
   }
 }

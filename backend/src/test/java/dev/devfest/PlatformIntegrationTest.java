@@ -27,7 +27,6 @@ import tools.jackson.databind.ObjectMapper;
     "app.seed=false",
     "app.bootstrap-email=",
     "app.jwt-secret=devfest-test-only-secret-with-48-characters-123456",
-    "app.quiz-shuffle-secret=devfest-test-only-quiz-shuffle-secret-48-characters",
     "spring.config.import=",
   }
 )

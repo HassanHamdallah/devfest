@@ -33,7 +33,7 @@ public class EventControlService {
   private final EventRoomRepository rooms;
   private final EventBoardRepository boards;
   private final RoomArrivalRepository arrivals;
-  private final AiRoomEvaluationService quizEvaluation;
+  private final AiRoomEvaluationService missionEvaluation;
   private final TerminalFormService terminalForms;
   private final AuditLog audit;
   private final EventClock clock;
@@ -44,7 +44,7 @@ public class EventControlService {
     EventRoomRepository rooms,
     EventBoardRepository boards,
     RoomArrivalRepository arrivals,
-    AiRoomEvaluationService quizEvaluation,
+    AiRoomEvaluationService missionEvaluation,
     TerminalFormService terminalForms,
     AuditLog audit,
     EventClock clock
@@ -54,7 +54,7 @@ public class EventControlService {
     this.rooms = rooms;
     this.boards = boards;
     this.arrivals = arrivals;
-    this.quizEvaluation = quizEvaluation;
+    this.missionEvaluation = missionEvaluation;
     this.terminalForms = terminalForms;
     this.audit = audit;
     this.clock = clock;
@@ -88,7 +88,7 @@ public class EventControlService {
     if (state.currentRound() == round) return EventViews.eventState(state, now);
     boolean timerStarted = state.timer().map(timer -> timer.phase() != RoundPhase.ASSIGNED).orElse(false);
     if (timerStarted) {
-      quizEvaluation.evaluateRoundEnd(principal.id(), state, now);
+      missionEvaluation.evaluateRoundEnd(principal.id(), state, now);
       terminalForms.submitRoundEnd(principal.id(), state, now);
     }
     boolean running = Rotation.isRunningRound(round);
