@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * The admin control screen. {@code startWarnings}: closed rooms and rooms without a clue key (not blocking).
- * {@code startBlockers}: AI quiz rooms that cannot run (no clue key, no questions); the timer starts only with
+ * {@code startBlockers}: AI mission rooms that cannot run (no clue key, no mission content); the timer starts only with
  * "Start anyway" while any is listed.
  */
 public record AdminBoard(

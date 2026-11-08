@@ -725,3 +725,35 @@ tbody tr:last-child > * {
     scroll-behavior: auto !important;
   }
 }
+
+/* Printing (the SENTINEL Field Guide): only the page itself reaches the printer, never the application chrome. */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  .shell-brand-bar,
+  .shell-sidebar,
+  .shell-header,
+  app-toast-host {
+    display: none !important;
+  }
+
+  .shell {
+    display: block !important;
+    min-block-size: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+
+  .shell-column,
+  .event-main {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+}

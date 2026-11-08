@@ -19,7 +19,7 @@ $config=Get-Content -Raw -LiteralPath (Join-Path $local 'database.json') | Conve
 $adminEmail='rehearsal-admin@event.test'
 $managerEmails=[ordered]@{AI='manager.ai@event.test';PROBLEM_SOLVING='manager.ps@event.test';LINUX='manager.linux@event.test';HARDWARE='manager.hw@event.test'}
 $memberEmails=@(1..16 | ForEach-Object { 'team{0:D2}@event.test' -f $_ })
-$childEnvironment=@('DEVFEST_DB_URL','DEVFEST_DB_USER','DEVFEST_DB_PASSWORD','DEVFEST_JWT_SECRET','DEVFEST_QUIZ_SHUFFLE_SECRET','DEVFEST_ADMIN_EMAIL','DEVFEST_ADMIN_PASSWORD','DEVFEST_EVENT_SEED_PASSWORD','DEVFEST_DEVELOPMENT','DEVFEST_SEED','DEVFEST_WORKER_ENABLED','JUDGE0_URL','PORT')
+$childEnvironment=@('DEVFEST_DB_URL','DEVFEST_DB_USER','DEVFEST_DB_PASSWORD','DEVFEST_JWT_SECRET','DEVFEST_ADMIN_EMAIL','DEVFEST_ADMIN_PASSWORD','DEVFEST_EVENT_SEED_PASSWORD','DEVFEST_DEVELOPMENT','DEVFEST_SEED','DEVFEST_WORKER_ENABLED','JUDGE0_URL','PORT')
 
 function Assert-RehearsalPortsFree {
  foreach($port in @(8082,4202)) {
@@ -45,10 +45,10 @@ function Reset-EventTestData {
   $schemaReady=Invoke-TestDatabaseQuery "SELECT to_regclass('public.event_state') IS NOT NULL AND to_regclass('public.team_final') IS NOT NULL"
   if($schemaReady -ne 't') { throw 'The event tables (V5) are missing in devfest_test. Run infrastructure/test-backend.ps1 once to migrate it, then start the rehearsal again.' }
   # CASCADE also empties event_room (manager_id -> app_user), event_content (correct_suspect_id -> suspect), the
-  # room terminal files and AI quiz content (-> event_room), the teams' quiz answers (-> event_team) and the round
+  # room terminal files and the AI mission content (-> event_room), the teams' mission runs and stages (-> event_team) and the round
   # history in room_arrival and round_time_adjustment (-> app_user). event_room and event_content are re-created
-  # below as V5 inserts them, with V10's to V14's defaults (terminal on for LINUX, AI quiz on for AI, pass score 60); the Linux terminal activity (V13 turns it on for a fresh database) is left off here, so the plain-answer-form specs keep working: the Linux form specs switch it on through the API.
-  # The teams' AI quiz evaluations go with event_team and room_submission.
+  # below as V5 inserts them, with V10's to V19's defaults (terminal on for LINUX, AI mission on for AI, pass score 60); the Linux terminal activity (V13 turns it on for a fresh database) is left off here, so the plain-answer-form specs keep working: the Linux form specs switch it on through the API.
+  # The teams' AI mission evaluations go with event_team and room_submission.
   # event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(
    'SET client_min_messages=warning;',
@@ -67,7 +67,6 @@ function Start-RehearsalBackend([string]$AdminPassword,[string]$SeedPassword) {
  $env:DEVFEST_DB_USER='devfest_test'
  $env:DEVFEST_DB_PASSWORD=$config.testPassword
  $env:DEVFEST_JWT_SECRET=New-RandomSecret 48
- $env:DEVFEST_QUIZ_SHUFFLE_SECRET=New-RandomSecret 48
  $env:DEVFEST_ADMIN_EMAIL=$adminEmail
  $env:DEVFEST_ADMIN_PASSWORD=$AdminPassword
  $env:DEVFEST_EVENT_SEED_PASSWORD=$SeedPassword
@@ -86,7 +85,7 @@ function Start-RehearsalBackend([string]$AdminPassword,[string]$SeedPassword) {
 function Start-RehearsalFrontend {
  $proxy=Join-Path $local 'event-proxy.json'
  '{"/api":{"target":"http://127.0.0.1:8082","secure":false,"changeOrigin":true}}' | Set-Content -LiteralPath $proxy
- Start-Process -FilePath node -ArgumentList 'node_modules/@angular/cli/bin/ng.js','serve','--port','4202','--proxy-config','../.local/event-proxy.json' -WorkingDirectory (Join-Path $root 'frontend') -WindowStyle Hidden -RedirectStandardOutput (Join-Path $local 'event-frontend.log') -RedirectStandardError (Join-Path $local 'event-frontend-error.log') -PassThru
+ Start-Process -FilePath node -ArgumentList 'node_modules/@angular/cli/bin/ng.js','serve','--port','4202','--no-prebundle','--proxy-config','../.local/event-proxy.json' -WorkingDirectory (Join-Path $root 'frontend') -WindowStyle Hidden -RedirectStandardOutput (Join-Path $local 'event-frontend.log') -RedirectStandardError (Join-Path $local 'event-frontend-error.log') -PassThru
 }
 
 function Test-Endpoint([string]$Uri,[switch]$Health) {
@@ -96,14 +95,23 @@ function Test-Endpoint([string]$Uri,[switch]$Health) {
  } catch { return $false }
 }
 
+# The seed runs after the web server started, so "health UP" can come before the seeded accounts exist: the last
+# seeded account (the highest team number, created after every room manager) must be able to sign in too.
+function Test-SeedReady([string]$SeedPassword) {
+ try {
+  $null=Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8082/api/v1/auth/login' -ContentType 'application/json' -TimeoutSec 5 -Body (@{email=$memberEmails[-1];password=$SeedPassword} | ConvertTo-Json)
+  return $true
+ } catch { return $false }
+}
+
 # $Frontend may be $null when only the backend was restarted.
-function Wait-RehearsalReady($Backend,$Frontend) {
+function Wait-RehearsalReady($Backend,$Frontend,[string]$SeedPassword) {
  $deadline=[DateTime]::UtcNow.AddSeconds($ReadyTimeoutSeconds)
  $backendUp=$false; $frontendUp=($null -eq $Frontend)
  while([DateTime]::UtcNow -lt $deadline -and -not ($backendUp -and $frontendUp)) {
   if($Backend.HasExited) { throw 'The rehearsal backend exited during startup. See .local/event-backend.log and .local/event-backend-error.log.' }
   if($Frontend -and $Frontend.HasExited) { throw 'The rehearsal frontend exited during startup. See .local/event-frontend.log and .local/event-frontend-error.log.' }
-  if(-not $backendUp) { $backendUp=Test-Endpoint 'http://127.0.0.1:8082/api/v1/health' -Health }
+  if(-not $backendUp) { $backendUp=(Test-Endpoint 'http://127.0.0.1:8082/api/v1/health' -Health) -and (Test-SeedReady $SeedPassword) }
   if(-not $frontendUp) { $frontendUp=Test-Endpoint 'http://localhost:4202/' }
   if(-not ($backendUp -and $frontendUp)) { Start-Sleep -Seconds 2 }
  }
@@ -146,7 +154,7 @@ if($ResetBackend) {
  $backend=Start-RehearsalBackend $record.adminPassword $record.seedPassword
  $record.backend=$backend.Id
  $record | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $recordPath
- Wait-RehearsalReady $backend $null
+ Wait-RehearsalReady $backend $null $record.seedPassword
  if($PracticeKeys) { Set-PracticeClueKeys $record.seedPassword }
  Write-Output 'Rehearsal backend restarted on reset devfest_test data.'
  return
@@ -164,6 +172,6 @@ $frontend=Start-RehearsalFrontend
 } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $recordPath
 Write-Output 'Isolated event rehearsal starting: UI http://localhost:4202, API http://127.0.0.1:8082, disposable devfest_test data. Credentials are in the ignored .local/event-rehearsal.json. Do not run backend tests while rehearsing.'
 if($NoWait) { return }
-Wait-RehearsalReady $backend $frontend
+Wait-RehearsalReady $backend $frontend $seedPassword
 Write-Output 'Rehearsal ready: backend health is UP and the frontend responds on 4202.'
 if($PracticeKeys) { Set-PracticeClueKeys $seedPassword }

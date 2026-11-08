@@ -9,7 +9,7 @@ import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
-import dev.devfest.event.repository.QuizContentRepository;
+import dev.devfest.event.repository.SentinelContentRepository;
 import dev.devfest.event.repository.RoundAdjustmentRepository;
 import java.time.Instant;
 import java.util.List;
@@ -31,8 +31,8 @@ public class EventRoundTimerService {
   private final EventAccessPolicy access;
   private final EventStateRepository states;
   private final RoundAdjustmentRepository adjustments;
-  private final QuizContentRepository quizContent;
-  private final AiRoomEvaluationService quizEvaluation;
+  private final SentinelContentRepository missionContent;
+  private final AiRoomEvaluationService missionEvaluation;
   private final TerminalFormService terminalForms;
   private final AuditLog audit;
   private final EventClock clock;
@@ -41,8 +41,8 @@ public class EventRoundTimerService {
     EventAccessPolicy access,
     EventStateRepository states,
     RoundAdjustmentRepository adjustments,
-    QuizContentRepository quizContent,
-    AiRoomEvaluationService quizEvaluation,
+    SentinelContentRepository missionContent,
+    AiRoomEvaluationService missionEvaluation,
     TerminalFormService terminalForms,
     AuditLog audit,
     EventClock clock
@@ -50,15 +50,15 @@ public class EventRoundTimerService {
     this.access = access;
     this.states = states;
     this.adjustments = adjustments;
-    this.quizContent = quizContent;
-    this.quizEvaluation = quizEvaluation;
+    this.missionContent = missionContent;
+    this.missionEvaluation = missionEvaluation;
     this.terminalForms = terminalForms;
     this.audit = audit;
     this.clock = clock;
   }
 
   /**
-   * Refused (409) while an AI quiz room cannot run (no clue key, no questions) unless {@code anyway}: the admin
+   * Refused (409) while an AI mission room cannot run (no clue key, no mission content) unless {@code anyway}: the admin
    * pressed "Start anyway" after seeing the blocking alerts.
    */
   @Transactional
@@ -67,9 +67,9 @@ public class EventRoundTimerService {
     EventStateRecord state = states.lockForUpdate();
     Instant now = clock.now();
     boolean starts = requireTimer(state).effectivePhase(now) == RoundPhase.ASSIGNED;
-    List<String> blockers = starts ? AiRoomStartCheck.blockers(quizContent.stats()).stream().map(AiRoomStartCheck.Blocker::message).toList() : List.of();
+    List<String> blockers = starts ? AiRoomStartCheck.blockers(missionContent.stats()).stream().map(AiRoomStartCheck.Blocker::message).toList() : List.of();
     if (!blockers.isEmpty() && !anyway) {
-      throw fail(409, "The AI quiz is not ready: " + String.join(" ", blockers) + " Press Start anyway to start regardless.");
+      throw fail(409, "The AI mission is not ready: " + String.join(" ", blockers) + " Press Start anyway to start regardless.");
     }
     return apply(principal, state, now, RoundTimer::start, "EVENT_TIMER_STARTED", blockers.isEmpty() ? "" : " anyway");
   }
@@ -139,7 +139,7 @@ public class EventRoundTimerService {
     // and submits the saved Linux room forms.
     boolean timeUp = next.effectivePhase(now) == RoundPhase.TIME_UP;
     int evaluated = timeUp
-      ? quizEvaluation.evaluateRoundEnd(principal.id(), state, now) + terminalForms.submitRoundEnd(principal.id(), state, now)
+      ? missionEvaluation.evaluateRoundEnd(principal.id(), state, now) + terminalForms.submitRoundEnd(principal.id(), state, now)
       : 0;
     if (next.equals(current)) {
       if (evaluated == 0) return EventViews.eventState(state, now);

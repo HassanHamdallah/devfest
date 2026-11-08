@@ -27,10 +27,48 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 | EXPLAIN of board and ranking queries | Every filter/join has a usable index; all statements ≤ 0.5 ms | [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md) |
 | Load check 300 s at 1× (21 clients) and 3× (53 clients) | 0 errors, 0 duplicate receipts, all retries identical; worst p95 28.6 ms, max 30.8 ms | `docs/event-load-1x.json`, `docs/event-load-3x.json` |
 
+### Change set 2026-11-08: AI Mission Room, SENTINEL (parts A, B and C)
+
+- The AI room's quiz is replaced by **SENTINEL**: ten stages in three missions (PREDICT, SEE, NOOR), 100 points, on the
+  round timer, each stage submitted once and then locked. Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §19, design
+  [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md) "AI mission room activity", manager guide and file format in
+  the README, and the shipped, complete content file [docs/ai-room/sentinel-content.json](docs/ai-room/sentinel-content.json)
+  (no clue inside).
+- **Backend (A)**: migration V19 (drops the quiz tables, renames `quiz_evaluation` to `sentinel_evaluation`, adds
+  `sentinel_content`, `sentinel_run`, `sentinel_submission`); pure solvers (KNN, confusion metrics, K-Means, A*, Naive
+  Bayes, forward chaining) and scorers; a versioned content file imported with every problem listed and nothing saved on
+  any problem; team endpoints (state, run, submit); budgets enforced under the team lock; one evaluation per team (last
+  stage or the round's end); `SentinelScoreService.roomScore` (read-only, maximum 100). Kept: per-room activity
+  (`AI_QUIZ` value), pass score (default 60, locked by the first evaluation), room-submission path, manager verdict,
+  reset and snapshots. The event's ranking is unchanged.
+- **Team page (B)**: lazy `sentinel-activity` chunk: start screen, three mission panels with stage status, the timer, one
+  SVG screen per stage (no library), Field notes, both endings; "Room complete" instead of "Submitted" for rooms
+  without an answer form (AI mission, contest results).
+- **Organizer page (C)**: `/event/room/:roomId/mission` (lazy `mission-page`): import with confirmation and the problems
+  list, export, pass score, **Print Field Guide** (`/event/room/:roomId/mission/guide`, one A4 page), live results (per-stage
+  points, total / 100, status, last saved, finished; refreshes every 5 s; 6 SQL statements whatever the number of teams),
+  CSV; the manual verdict stays on the room board. `load-tests/event_load.py --mode sentinel` replaces the quiz mode.
+- **Harness fix**: the rehearsal script now also waits for the seeded accounts (the seed runs after the web server starts,
+  so "health UP" could come before the accounts existed and the first API sign-in of a spec answered 401).
+- **Outlier Hunt fix**: the readings a run flags are no longer written in the file; the server derives them per axis
+  (IQR with Tukey's hinges, Z-score with the population standard deviation; flagged if outside on x or y), Ping 12 moved
+  to (5.6, 4.7), the method is stated in the Field note and the Field Guide, and a test pins the flags (IQR 1.5: pings 12,
+  13, 14; IQR 3: 13, 14; Z 2: 13, 14; Z 3: none). Another test checks each stage's texts and numbers against its own data.
+- **SENTINEL fixes**: a refused import shows the server's headline ("The file has N problems.") with every problem under
+  it as "Stage N · field: …" and a **Try again** button; Nearest Vehicle draws the unknown vehicle last as a hollow 12 px
+  diamond (2.5 px dark outline, white halo); Threat Filter bars are exactly proportional on one shared scale with no
+  minimum; Group the Frames labels sit inside the centroid's group, so they follow it (checked by a Playwright test);
+  Route Planner has new costs and estimates (A* expands Library, Lab, Dorm, Admin, Garage, Gate 3 for cost 15 with no f
+  tie on the frontier; greedy by h pays 47 via Cafeteria and Gym) and a test that no frontier tie exists; Rule Engine asks
+  "This conclusion is not in what you know. Submit anyway?" before locking an unproven conclusion.
+- The rehearsal's `ng serve` now runs with `--no-prebundle`: its Vite dependency re-optimization step was killing the dev
+  server mid-run.
+- Verification of this change set: see the report of the change (numbers are not repeated here so they cannot go stale).
+
 ### Change set 2026-11-07: Problem Solving room, website part (Codeforces contest results and clue release)
 
 - The contest runs on Codeforces (the site never calls it). A room with the new `CONTEST_RESULTS` activity (admin switch,
-  third choice next to AI quiz and Linux terminal; V18 turns it on for the Problem solving room on a fresh setup) shows
+  third choice next to the AI mission and Linux terminal; V18 turns it on for the Problem solving room on a fresh setup) shows
   teams no answer form. The room's manager or the admin sets one **https** contest link (audited with the host only,
   content lock, moves the revision); only the team assigned to the room this round sees it, while its timer is
   RUNNING or PAUSED, with "Your results are being reviewed by the room organizer."; after the release "Clue unlocked" and
@@ -123,40 +161,6 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
   [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md) "Server package".
 - Tested: see the numbers recorded in the report of this change; screenshots in `docs/ui-after/`
   (`terminal-package-1440/390`, `terminal-package-errors-1440/390`).
-
-### Change set 2026-11-02: AI room activity (quiz, code repairs, pass score)
-
-- Rooms with the **AI quiz activity** (admin setting on the Content page; V11 turns it on for the AI room only) show
-  teams only the activity — no answer form: 45 auto-scored multiple-choice questions and 3 code-snippet ordering
-  repairs (partial credit). MCQs are open for the room's MCQ minutes of running time (default 14) or until "Finish
-  MCQs"; repairs until Time's up. Answers lock on save (Idempotency-Key; "Already answered."); teams only see
-  "Response saved". The room manager authors the content (or imports/exports one JSON file) under **AI quiz →
-  Questions and repairs**, sets the **pass score** (0–100, default 60; locked by the first evaluation) and follows
-  **AI room results** (status, clue granted, live every 5 s, CSV).
-- **Evaluation (V12)**: each team once, at its last repair or at the round's end (End round, removing the time left,
-  or the next round; no scheduler), race-safe under the event lock with one `quiz_evaluation` row per team and room.
-  A total ≥ the pass score is recorded through the existing room-submission path as CORRECT and collects the
-  manager's clue as a ROOM clue; otherwise INCORRECT. The room is then finished for the team, the revision is bumped
-  and broadcast after commit, and manager overrides still apply. Teams see "Clue unlocked" with the clue in the
-  masked clue display, or "You did not reach the required score for this room's clue." — never a score, the total or
-  the pass score.
-- The first version's team cipher (Vigenère key, fragments, ciphertext; never committed) is removed from code, UI,
-  tests and docs, and V12 drops its column. The shuffle secret now comes from `DEVFEST_QUIZ_SHUFFLE_SECRET` in
-  `backend/.env` (development fallback with a warning; any other backend refuses to start). An AI quiz room without a
-  clue key or questions is a blocking admin alert, and the timer starts only with **Start anyway**.
-- Rules [docs/EVENT-RULES.md](docs/EVENT-RULES.md) §19, design [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md)
-  "AI room activity", manager guide and JSON format in the README. Final ranking unchanged.
-- Tested: `test-backend.ps1` → `Tests run: 244, Failures: 0, Errors: 0, Skipped: 0` (EventAiRoomTest 24, incl. the
-  pass-score edge, both triggers racing, clue added once, override, lock, no leakage and 404s; AiRoomShuffleSecretTest
-  2; StartupSafetyTest +2; QuizScoringTest +1; EvidenceVisibilityTest +1); team activity endpoint 10 statements with 3
-  teams and no answers or 19 teams and 30 answers; backend package and frontend build succeed (initial bundle
-  355.12 kB raw / 97.69 kB transfer vs. 353.06 / 97.32 kB at HEAD: +0.58 % / +0.38 %); fresh rehearsal → Playwright
-  event suite 11 passed, then `--repeat-each=2` 22 passed (`e2e/event-ai-room.spec.ts`: one team passes and sees the
-  clue, one does not; empty quiz blocks the timer until Start anyway); quiz load check 16 teams in one round: 2 472
-  requests, 0 errors, worst p95 35.2 ms, 154 retries identical, 30/30 duplicate answers refused, 16 evaluations
-  (2 passed, 14 not, pass score 30) each matching its own total (`docs/event-load-quiz.json`); screenshots in
-  `docs/ui-after/` (`ai-room-mcq`, `ai-room-repair`, `ai-room-clue-unlocked` at 1440 and 390, `ai-room-not-reached-1440`,
-  `admin-ai-quiz-blocked-1440`, `manager-ai-quiz-editor-1440`, `manager-ai-results` 1440 and 390).
 
 ### Change set 2026-10-27: team evidence with masked clues
 

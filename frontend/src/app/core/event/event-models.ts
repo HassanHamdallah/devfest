@@ -123,7 +123,7 @@ export interface TeamBoard {
 export interface RoomEvidence {
   roomCode: RoomCode;
   roomName: string;
-  /** A room with an activity (AI quiz) never sends the output, answer or result: only whether the clue was unlocked. */
+  /** A room with an activity (AI mission) never sends the output, answer or result: only whether the clue was unlocked. */
   activity: RoomActivity | null;
   finished: boolean;
   technicalOutput: string | null;
@@ -384,137 +384,113 @@ export interface RoomContentView {
 
 // ---- AI room activity (rules §19) ----
 
-export type QuizSection = "EASY" | "MEDIUM" | "ADVANCED" | "LANDMARK" | "RECENT";
-export type QuizStage = "NOT_STARTED" | "MCQ" | "REPAIRS" | "TIME_UP";
+// ---- AI mission room: SENTINEL (rules §19), team side ----
 
-/** A saved answer or repair: never whether it was correct. */
-export interface QuizSavedReceipt {
-  itemId: number;
-  message: string;
-  savedAt: string;
-}
+export type SentinelStageType =
+  | "OUTLIER_HUNT"
+  | "FEATURE_CHECK"
+  | "TUNE_DEPLOY"
+  | "NEAREST_VEHICLE"
+  | "CAMERA_ACCURACY"
+  | "GROUP_FRAMES"
+  | "ROUTE_PLANNER"
+  | "THREAT_FILTER"
+  | "RULE_ENGINE"
+  | "RAG_FIX";
 
-export interface ActivitySection {
-  section: QuizSection;
-  label: string;
-  paceSeconds: number;
-  questions: number;
-}
-
-export interface ActivityQuestion {
-  id: number;
-  number: number;
-  section: QuizSection;
-  prompt: string;
-  options: { id: number; text: string }[];
-  /** The team's saved answer, or null. */
-  selectedOptionId: number | null;
-}
-
-export interface ActivityRepair {
-  id: number;
-  number: number;
-  title: string;
-  /** Null once the repairs are closed. */
-  instructions: string | null;
-  /** In the team's order, or as submitted; empty once the repairs are closed. */
-  snippets: { id: number; code: string }[];
-  submitted: boolean;
+/** One experiment the team ran, with the result the server returned for it (never the whole table). */
+export interface SentinelRun {
+  config: string;
+  result: Record<string, unknown>;
 }
 
 /**
- * The team's outcome once it was evaluated: the room's clue when it holds it, otherwise nothing (never a score or
- * the pass score).
+ * One stage. Once it is saved only `number`, `type`, `title` and `saved` are set. `data` is what the screen draws;
+ * it never holds points, correct flags or answers. `runsLeft` is null when the stage has no limit or no experiments.
  */
-export interface ActivityResult {
+export interface SentinelStage {
+  number: number;
+  type: SentinelStageType;
+  title: string;
+  fieldNote: string | null;
+  brief: string | null;
+  saved: boolean;
+  data: Record<string, unknown> | null;
+  runs: SentinelRun[];
+  runsLeft: number | null;
+}
+
+export interface SentinelMission {
+  id: string;
+  title: string;
+  intro: string;
+  stages: SentinelStage[];
+}
+
+/** The ending: the clue only when the team holds the room's clue. The message never contains a number. */
+export interface SentinelResult {
   clueUnlocked: boolean;
   clue: string | null;
+  message: string;
 }
 
 /** GET /team/rooms/{id}/activity: everything the team page shows, from the server only. */
 export interface AiRoomActivity {
   roomId: number;
   roomName: string;
-  stage: QuizStage;
   phase: RoundPhase;
   serverNow: string;
-  mcqMinutes: number;
-  /** MCQ time left at serverNow (counts down only while the round runs). */
-  mcqRemainingSeconds: number;
-  mcqFinished: boolean;
-  questionCount: number;
-  answeredCount: number;
-  repairCount: number;
-  submittedCount: number;
-  sections: ActivitySection[];
-  /** Only while the MCQ part is open. */
-  questions: ActivityQuestion[];
-  /** Once the repairs are open. */
-  repairs: ActivityRepair[];
-  /** Null until the team is evaluated (its last repair, or the round's end); then only this matters. */
-  result: ActivityResult | null;
+  /** False while the room has no mission content. */
+  ready: boolean;
+  intro: string;
+  stageCount: number;
+  savedCount: number;
+  /** Only while the round runs or is paused and the team has no result. */
+  missions: SentinelMission[];
+  result: SentinelResult | null;
 }
 
-/** One question as written in the editor and in an import file; `correctOption` is 0-based. */
-export interface QuizQuestionRequest {
-  section: QuizSection;
-  prompt: string;
-  options: string[];
-  correctOption: number;
-  points: number;
-  explanation: string;
+export interface SentinelSavedReceipt {
+  stage: number;
+  message: string;
+  savedAt: string;
 }
 
-/** One repair; `snippets` in their correct order. */
-export interface QuizRepairRequest {
-  title: string;
-  instructions: string;
-  points: number;
-  snippets: string[];
+export interface SentinelRunReceipt {
+  stage: number;
+  config: string;
+  result: Record<string, unknown>;
+  runsLeft: number | null;
 }
 
-/** The import/export file. */
-export interface QuizDocument {
-  format: number;
-  mcqMinutes: number | null;
-  passScore: number | null;
-  questions: QuizQuestionRequest[];
-  repairs: QuizRepairRequest[];
-}
+// ---- AI mission room: organizer side (rules §19) ----
 
-export interface QuizEditorQuestion extends QuizQuestionRequest {
-  id: number;
-  /** A team answered it: it can no longer change. */
-  locked: boolean;
-}
-
-export interface QuizEditorRepair extends QuizRepairRequest {
-  id: number;
+export interface MissionStageSummary {
   number: number;
-  locked: boolean;
+  type: SentinelStageType;
+  mission: string;
+  title: string;
+  maxPoints: number;
 }
 
-/** GET /rooms/{id}/quiz: the manager's view, with correct answers and explanations. */
-export interface QuizEditorView {
+/** GET /rooms/{id}/mission: what the room's imported mission holds and whether it can still change. */
+export interface MissionEditorView {
   roomId: number;
   roomName: string;
   activity: RoomActivity | null;
-  mcqMinutes: number;
-  /** The total (out of the quiz's points) a team needs for the room's clue. */
   passScore: number;
-  /** A team was evaluated: the pass score can no longer change. */
+  /** A team of the room was evaluated: the pass score can no longer change. */
   passScoreLocked: boolean;
+  /** The final has not opened (content is read-only afterwards). */
   editable: boolean;
-  /** A team answered something; an import can no longer replace the content. */
-  answered: boolean;
-  questions: QuizEditorQuestion[];
-  repairs: QuizEditorRepair[];
-  sections: { section: QuizSection; label: string; questions: number; planned: number; points: number }[];
-  mcqPoints: number;
-  repairPoints: number;
+  /** A team ran or saved something: the mission can no longer be replaced. */
+  workStarted: boolean;
+  hasContent: boolean;
+  stages: MissionStageSummary[];
   totalPoints: number;
-  warnings: string[];
 }
+
+export type AiRoomTeamStatus = "IN_PROGRESS" | "PASSED" | "NOT_PASSED";
 
 export interface AiRoomTeamResult {
   rank: number | null;
@@ -522,16 +498,11 @@ export interface AiRoomTeamResult {
   teamName: string;
   groupCode: GroupCode;
   disqualified: boolean;
-  mcqBySection: Record<QuizSection, number>;
-  mcqTotal: number;
-  /** One per repair column; null when not submitted. */
-  repairScores: (number | null)[];
-  repairTotal: number;
+  /** One per stage column; null when not saved. */
+  stagePoints: (number | null)[];
   total: number;
-  answered: number;
-  repairsSubmitted: number;
-  mcqFinishedAt: string | null;
-  lastAnswerAt: string | null;
+  stagesSaved: number;
+  lastSavedAt: string | null;
   /** The pass score the team was evaluated against (the room's current one while in progress). */
   passScore: number;
   status: AiRoomTeamStatus;
@@ -540,9 +511,7 @@ export interface AiRoomTeamResult {
   clueGranted: boolean;
 }
 
-export type AiRoomTeamStatus = "IN_PROGRESS" | "PASSED" | "NOT_PASSED";
-
-/** GET /rooms/{id}/quiz/results. */
+/** GET /rooms/{id}/mission/results. */
 export interface AiRoomResults {
   roomId: number;
   roomName: string;
@@ -550,24 +519,10 @@ export interface AiRoomResults {
   maxPoints: number;
   passScore: number;
   passScoreLocked: boolean;
-  repairs: { id: number; number: number; title: string; points: number }[];
+  stages: { number: number; title: string; maxPoints: number | null }[];
   teams: AiRoomTeamResult[];
-  questions: {
-    id: number;
-    section: QuizSection;
-    prompt: string;
-    answered: number;
-    correct: number;
-    percentCorrect: number;
-  }[];
 }
 
-// ---- In-browser terminal ----
-
-/**
- * What a terminal needs to know about its room's server package before downloading it: the digest (also the
- * download's ETag), the size on the wire and the lines to append to /etc/passwd and /etc/group.
- */
 export interface TerminalBundleInfo {
   sha256: string;
   archiveBytes: number;
@@ -859,7 +814,7 @@ export interface AdminBoard {
   alerts: AdminAlert[];
   /** Closed rooms and rooms without a clue key; shown before starting the timer, never blocking. */
   startWarnings: string[];
-  /** AI quiz rooms that cannot run (no clue key, no questions): the timer starts only with "Start anyway". */
+  /** AI mission rooms that cannot run (no clue key, no mission content): the timer starts only with "Start anyway". */
   startBlockers: string[];
   teamFlags: TeamFlagsView[];
   /** The last 20 admin overrides with their reasons. */

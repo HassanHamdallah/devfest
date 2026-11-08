@@ -1,5 +1,4 @@
 package dev.devfest.api;
-import dev.devfest.event.service.AiRoomShuffleSecret;
 import java.net.URI;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,8 +14,6 @@ public class StartupSafety {
     throw new IllegalStateException("DevFest refuses a database other than devfest or devfest_test");
    String judge=env.getProperty("app.judge-url","");
    boolean development=env.getProperty("app.development",Boolean.class,false);
-   if(!development&&!AiRoomShuffleSecret.isSet(env.getProperty("app.quiz-shuffle-secret","")))
-    throw new IllegalStateException(AiRoomShuffleSecret.MISSING);
    if(!judge.isBlank()&&!development){
     if("ce.judge0.com".equalsIgnoreCase(URI.create(judge).getHost()))
      throw new IllegalStateException("The shared public Judge0 endpoint is restricted to explicit development mode");

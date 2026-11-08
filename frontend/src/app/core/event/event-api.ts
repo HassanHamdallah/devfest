@@ -14,6 +14,7 @@ import {
   ContestResults,
   ContestTeamView,
   AiRoomResults,
+  MissionEditorView,
   ClueOverrideRequest,
   ClueVerdictView,
   CreateAccountRequest,
@@ -29,11 +30,8 @@ import {
   OverrideOutcome,
   PenaltyRequest,
   PenaltyView,
-  QuizDocument,
-  QuizEditorView,
-  QuizQuestionRequest,
-  QuizRepairRequest,
-  QuizSavedReceipt,
+  SentinelRunReceipt,
+  SentinelSavedReceipt,
   Receipt,
   RecoveryRequest,
   RecoveryResult,
@@ -168,27 +166,26 @@ export class EventApi {
     );
     saveFile(csv, "text/csv", "problem-solving-results.csv");
   }
-  /** 404 unless the room has the AI quiz and is the team's room this round (rules §19). */
+  /** 404 unless the room runs the AI mission and is the team's room this round (rules §19). */
   teamActivity(roomId: number) {
     return this.get<AiRoomActivity>(`/team/rooms/${roomId}/activity`);
   }
   /** The key is the answer's: a retry with the same key and body gets the same receipt. */
-  saveQuizAnswer(roomId: number, questionId: number, optionId: number, key: string) {
-    return this.postIdempotent<QuizSavedReceipt>(
-      `${EVENT}/team/rooms/${roomId}/activity/answers`,
-      { questionId, optionId },
+  /** One experiment of stages 1, 3 and 10; repeating a configuration is free. */
+  runSentinelStage(roomId: number, stage: number, config: string, key: string) {
+    return this.postIdempotent<SentinelRunReceipt>(
+      `${EVENT}/team/rooms/${roomId}/activity/stages/${stage}/runs`,
+      { config },
       key,
     );
   }
-  submitQuizRepair(roomId: number, repairId: number, snippetIds: number[], key: string) {
-    return this.postIdempotent<QuizSavedReceipt>(
-      `${EVENT}/team/rooms/${roomId}/activity/repairs/${repairId}`,
-      { snippetIds },
+  /** Locks the stage for good; the answer is judged on the server and the team only gets "Saved". */
+  submitSentinelStage(roomId: number, stage: number, answer: object, key: string) {
+    return this.postIdempotent<SentinelSavedReceipt>(
+      `${EVENT}/team/rooms/${roomId}/activity/stages/${stage}/submit`,
+      answer,
       key,
     );
-  }
-  finishQuizMcq(roomId: number) {
-    return this.send<AiRoomActivity>("POST", `/team/rooms/${roomId}/activity/finish-mcq`, {});
   }
   /** Resends a stored attempt with its original key and body (submission reliability contract). */
   resendPending<T>(pending: PendingRequest<unknown>) {
@@ -294,46 +291,34 @@ export class EventApi {
     return firstValueFrom(this.http.get(`${BASE}${EVENT}${path}`, { responseType: "arraybuffer" }));
   }
 
-  quizEditor(roomId: number) {
-    return this.get<QuizEditorView>(`/rooms/${roomId}/quiz`);
+  missionEditor(roomId: number) {
+    return this.get<MissionEditorView>(`/rooms/${roomId}/mission`);
   }
-  createQuizQuestion(roomId: number, body: QuizQuestionRequest) {
-    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/questions`, body);
+  /** The pass score is locked once a team of the room was evaluated (409). */
+  saveMissionSettings(roomId: number, passScore: number) {
+    return this.send<MissionEditorView>("PUT", `/rooms/${roomId}/mission/settings`, { passScore });
   }
-  updateQuizQuestion(roomId: number, questionId: number, body: QuizQuestionRequest) {
-    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/questions/${questionId}`, body);
+  /** The whole mission file, including its scoring tables (organizers only). */
+  exportMission(roomId: number) {
+    return this.get<object>(`/rooms/${roomId}/mission/export`);
   }
-  deleteQuizQuestion(roomId: number, questionId: number) {
-    return this.send<QuizEditorView>("DELETE", `/rooms/${roomId}/quiz/questions/${questionId}`);
+  /**
+   * Replaces the room's mission with the file's text, sent exactly as read. A refused file answers 400 with every
+   * problem in `problems`; 409 once a team ran or saved anything.
+   */
+  importMission(roomId: number, fileText: string) {
+    return this.api.request<MissionEditorView>("POST", `${EVENT}/rooms/${roomId}/mission/import`, fileText, {
+      "Content-Type": "application/json",
+    });
   }
-  createQuizRepair(roomId: number, body: QuizRepairRequest) {
-    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/repairs`, body);
-  }
-  updateQuizRepair(roomId: number, repairId: number, body: QuizRepairRequest) {
-    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/repairs/${repairId}`, body);
-  }
-  deleteQuizRepair(roomId: number, repairId: number) {
-    return this.send<QuizEditorView>("DELETE", `/rooms/${roomId}/quiz/repairs/${repairId}`);
-  }
-  /** `passScore` null keeps the room's pass score (it is locked once a team was evaluated). */
-  saveQuizSettings(roomId: number, mcqMinutes: number, passScore: number | null) {
-    return this.send<QuizEditorView>("PUT", `/rooms/${roomId}/quiz/settings`, { mcqMinutes, passScore });
-  }
-  exportQuiz(roomId: number) {
-    return this.get<QuizDocument>(`/rooms/${roomId}/quiz/export`);
-  }
-  /** Replaces every question and repair of the room (refused once a team answered). */
-  importQuiz(roomId: number, document: unknown) {
-    return this.send<QuizEditorView>("POST", `/rooms/${roomId}/quiz/import`, document);
-  }
-  quizResults(roomId: number) {
-    return this.get<AiRoomResults>(`/rooms/${roomId}/quiz/results`);
+  missionResults(roomId: number) {
+    return this.get<AiRoomResults>(`/rooms/${roomId}/mission/results`);
   }
 
-  /** Downloads GET /rooms/{id}/quiz/results.csv as ai-room-results.csv. */
-  async downloadQuizResultsCsv(roomId: number): Promise<void> {
+  /** Downloads GET /rooms/{id}/mission/results.csv as ai-room-results.csv. */
+  async downloadMissionResultsCsv(roomId: number): Promise<void> {
     const csv = await firstValueFrom(
-      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/quiz/results.csv`, { responseType: "text" }),
+      this.http.get(`${BASE}${EVENT}/rooms/${roomId}/mission/results.csv`, { responseType: "text" }),
     );
     saveFile(csv, "text/csv", "ai-room-results.csv");
   }

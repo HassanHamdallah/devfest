@@ -4,10 +4,10 @@ import {
   computed,
   input,
 } from "@angular/core";
-import { TeamRoomCard, TeamRoomStatus } from "../../../core/event/event-models";
+import { RoomActivity, TeamRoomCard, TeamRoomStatus } from "../../../core/event/event-models";
 import {
-  TEAM_ROOM_STATUS_LABELS,
   formatTime,
+  teamRoomStatusLabel,
 } from "../../../core/event/format";
 import {
   UiStatusChip,
@@ -79,12 +79,14 @@ const STATUS_VARIANTS: Record<TeamRoomStatus, UiStatusChipVariant> = {
 })
 export class EventTeamRoomCard {
   readonly room = input.required<TeamRoomCard>();
+  /** The room's activity (from the evidence): rooms without an answer form read "Room complete", not "Submitted". */
+  readonly activity = input<RoomActivity | null>(null);
 
   protected readonly statusVariant = computed(
     () => STATUS_VARIANTS[this.room().myStatus],
   );
   protected readonly statusLabel = computed(
-    () => TEAM_ROOM_STATUS_LABELS[this.room().myStatus],
+    () => teamRoomStatusLabel(this.room().myStatus, this.activity()),
   );
   protected readonly receiptLine = computed(() => {
     const receipt = this.room().lastReceipt;

@@ -1,0 +1,291 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.activity__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.activity__head h2 {
+  margin: 0;
+  margin-inline-end: auto;
+  letter-spacing: 0.08em;
+}
+
+.activity__dot {
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: var(--radius-full);
+  background: var(--room-color);
+}
+
+.activity__timer {
+  padding: var(--space-1) var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-full);
+}
+
+.activity__notice {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-warning-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* ---- The two endings ---- */
+
+.activity__end {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5) var(--space-6);
+  background: var(--color-surface-subtle);
+  border-inline-start: 6px solid var(--color-border-strong, var(--color-border));
+  border-radius: var(--radius-md);
+}
+
+.activity__end--restored {
+  background: var(--room-tint);
+  border-inline-start-color: var(--room-color);
+}
+
+.activity__end h3,
+.activity__end p {
+  margin: 0;
+}
+
+.activity__message {
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: var(--font-weight-semibold);
+  max-inline-size: 60ch;
+}
+
+/* ---- Start screen ---- */
+
+.start {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+.start h3,
+.start p {
+  margin: 0;
+}
+
+.start__story {
+  max-inline-size: 62ch;
+  font-size: var(--font-size-lg, 1.125rem);
+}
+
+.systems {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.system {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--room-tint);
+  border-block-start: 4px solid var(--room-color);
+  border-radius: var(--radius-md);
+}
+
+/* ---- Mission panels ---- */
+
+.mission {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.systems--nav {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+/* A laptop gets the stage list as a sticky column, so it stays in view while a stage fills the rest. */
+@media (min-width: 1100px) {
+  .mission {
+    grid-template-columns: 236px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .systems--nav {
+    position: sticky;
+    top: var(--space-4);
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .to-nav {
+    display: none;
+  }
+}
+
+.system-panel {
+  padding: var(--space-3);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.system-panel h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  letter-spacing: 0.08em;
+}
+
+.system-panel__count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  letter-spacing: 0;
+}
+
+.system-panel ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage-link {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  text-align: start;
+  background: var(--color-surface);
+  border: var(--border-card);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.stage-link:hover {
+  background: var(--room-tint);
+}
+
+.stage-link:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.stage-link--current {
+  background: var(--room-tint);
+  border: var(--border-outline);
+  font-weight: var(--font-weight-semibold);
+}
+
+.stage-link__no {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.stage-link__state {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+}
+
+.stage-link--saved .stage-link__title {
+  color: var(--color-text-muted);
+}
+
+/* ---- The stage on screen ---- */
+
+.stage-card {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding-block-start: var(--space-2);
+}
+
+.stage-card[hidden] {
+  display: none;
+}
+
+.stage-card {
+  scroll-margin-block-start: var(--space-4);
+}
+
+/* The phone layout has a sticky top bar. */
+@media (max-width: 1023px) {
+  .stage-card {
+    scroll-margin-block-start: 76px;
+  }
+}
+
+.to-nav {
+  justify-self: start;
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-text);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.to-nav:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.stage-card__head {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.stage-card__head p,
+.stage-card__head h3 {
+  margin: 0;
+}
+
+.stage-card__mission {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  color: var(--room-ink);
+}
+
+.saved {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5);
+  background: var(--color-success-subtle);
+  border-inline-start: 6px solid var(--color-success);
+  border-radius: var(--radius-md);
+}
+
+.saved p {
+  margin: 0;
+}
+
+.saved__mark {
+  font-size: var(--font-size-xl, 1.5rem);
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-success);
+}

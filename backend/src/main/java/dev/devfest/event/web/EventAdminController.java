@@ -47,7 +47,7 @@ public class EventAdminController {
     this.timer = timer;
   }
 
-  /** The body is optional; {@code {"anyway": true}} starts although AI quiz rooms are not ready. */
+  /** The body is optional; {@code {"anyway": true}} starts although AI mission rooms are not ready. */
   @PostMapping("/round/timer/start")
   EventStateView startTimer(
     @RequestBody(required = false) TimerStartRequest request,

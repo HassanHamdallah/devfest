@@ -8,7 +8,7 @@ import java.util.Optional;
  *
  * <p>A room is finished for a team once a round in which the team was assigned to it (admin room exception for
  * that round, else the rotation) is over: a later round is current, or it is that round and the timer shows
- * TIME_UP. A room whose activity recorded the team's result (the AI quiz evaluation) is finished for that team at
+ * TIME_UP. A room whose activity recorded the team's result (the AI mission evaluation) is finished for that team at
  * once. Every room is finished once rooms are finished (round 5) or the final has ever opened. The clue value is
  * visible only for a finished room whose clue the team has collected.
  */

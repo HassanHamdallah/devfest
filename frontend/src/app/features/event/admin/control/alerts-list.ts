@@ -5,7 +5,7 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
 
 /**
  * Setup problems reported by the board; each links to the page that fixes it. With no alerts it shrinks to
- * one line with a zero badge. A blocking alert (an AI quiz room that cannot run) is marked: the timer then
+ * one line with a zero badge. A blocking alert (an AI mission room that cannot run) is marked: the timer then
  * starts only with "Start anyway".
  */
 @Component({

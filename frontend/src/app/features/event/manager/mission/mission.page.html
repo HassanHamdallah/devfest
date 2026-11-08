@@ -1,0 +1,203 @@
+<ui-page-state
+  [loading]="loader.loading()"
+  loadingLabel="Loading the SENTINEL page…"
+  [error]="loader.initialError()"
+  (retry)="reload()"
+/>
+@if (view(); as room) {
+<div class="event-stack mission room-tone--AI">
+  <header class="mission__header">
+    <a class="mission__back" [routerLink]="['/event/room', room.roomId]">← {{ room.roomName }} board</a>
+    <h1>SENTINEL · {{ room.roomName }}</h1>
+    <div class="event-inline">
+      @if (room.hasContent) {
+      <ui-status-chip variant="success">Mission loaded</ui-status-chip>
+      } @else {
+      <ui-status-chip variant="warning">No mission yet</ui-status-chip>
+      }
+      @if (room.workStarted) {
+      <ui-status-chip variant="neutral">Locked: teams have started</ui-status-chip>
+      }
+    </div>
+  </header>
+
+  @if (notice(); as text) {
+  <p class="mission__notice" role="status" data-notice>{{ text }}</p>
+  }
+  @if (error(); as text) {
+  <ui-alert variant="error" [dismissible]="true" (dismissed)="error.set(null)">
+    <span data-import-headline>{{ text }}</span>
+    @if (problems().length) {
+    <ul class="mission__problems" data-problems>
+      @for (problem of problems(); track $index) {
+      <li>{{ problem }}</li>
+      }
+    </ul>
+    <p class="mission__retry">
+      <ui-button variant="secondary" size="sm" [disabled]="!canImport() || busy()" (click)="tryAgain()" data-try-again>Try again</ui-button>
+    </p>
+    }
+  </ui-alert>
+  }
+
+  <ui-card>
+    <h2 ui-card-header>Mission file</h2>
+    <p class="mission__text">
+      The whole mission is one JSON file: the story, three missions and ten stages worth 100 points. A bad file is
+      refused whole, with every problem listed. The ready-made file is <code>docs/ai-room/sentinel-content.json</code>.
+    </p>
+    @if (room.hasContent) {
+    <div class="mission__scroll" tabindex="0" role="region" aria-label="Stages of the mission">
+      <table class="mission__table mission__stages" data-stages>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Mission</th>
+            <th scope="col">Stage</th>
+            <th scope="col" class="mission__num">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (stage of room.stages; track stage.number) {
+          <tr>
+            <td class="event-num">{{ stage.number }}</td>
+            <td class="mission__kind">{{ stage.mission }}</td>
+            <td>{{ stage.title }}</td>
+            <td class="event-num mission__num">{{ stage.maxPoints }}</td>
+          </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="3">Total</th>
+            <td class="event-num mission__num" data-total-points>{{ room.totalPoints }} / 100</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    }
+    @if (importBlocked(); as text) {
+    <p class="mission__blocked" data-import-blocked>{{ text }}</p>
+    }
+    <div class="event-inline">
+      <label class="mission__file" [class.mission__file--off]="!canImport() || busy()">
+        <input #importFile type="file" accept="application/json,.json" [disabled]="!canImport() || busy()" (change)="chooseFile($event)" data-import-file />
+        Import a JSON file
+      </label>
+      <ui-button variant="secondary" [disabled]="!room.hasContent || busy()" (click)="exportFile()">Export JSON</ui-button>
+    </div>
+  </ui-card>
+
+  <ui-card>
+    <h2 ui-card-header>Pass score</h2>
+    <p class="mission__text">
+      A team whose total (out of 100) reaches the pass score gets the room's clue when it is evaluated: at its last
+      stage, or when the round ends. Teams never see the score or the pass score.
+    </p>
+    <form class="mission__pass" novalidate (submit)="$event.preventDefault(); savePassScore()">
+      <label for="mission-pass">Pass score (0–100)</label>
+      <input
+        id="mission-pass"
+        type="number"
+        min="0"
+        max="100"
+        step="1"
+        inputmode="numeric"
+        [value]="passScore()"
+        [disabled]="room.passScoreLocked || busy()"
+        (input)="passScore.set($any($event.target).value)"
+      />
+      <ui-button type="submit" [disabled]="room.passScoreLocked || busy()">Save pass score</ui-button>
+    </form>
+    @if (room.passScoreLocked) {
+    <p class="mission__blocked" data-pass-locked>A team in this room has already been evaluated; the pass score can no longer change.</p>
+    }
+  </ui-card>
+
+  <ui-card>
+    <h2 ui-card-header>Field Guide</h2>
+    <p class="mission__text">
+      One printed page for the room: Z-score and IQR, leakage, overfitting, KNN, confusion metrics, K-Means, A*, Naive
+      Bayes, forward chaining and RAG. It holds no answers and no scores.
+    </p>
+    <a class="mission__button" [routerLink]="['/event/room', room.roomId, 'mission', 'guide']" data-guide-link>Print Field Guide</a>
+  </ui-card>
+
+  <ui-card>
+    <div ui-card-header class="mission__results-head">
+      <h2>Live results</h2>
+      <span class="event-muted" aria-live="polite" data-updated>Updated {{ updated() }} · refreshes every 5 s</span>
+      <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
+    </div>
+    @if (resultsLoader.refreshError(); as text) {
+    <ui-alert variant="warning">{{ text }}</ui-alert>
+    }
+    @if (results(); as table) {
+    <p class="mission__text">
+      Pass score <strong class="event-num" data-pass-score>{{ table.passScore }}</strong> / {{ table.maxPoints }}. Review
+      or override a verdict on the
+      <a [routerLink]="['/event/room', room.roomId]" data-verdicts-link>room board</a>: each team's result is its submission there.
+    </p>
+    @if (!table.teams.length) {
+    <p class="event-muted" data-no-teams>No team has run or saved anything yet.</p>
+    } @else {
+    <div class="mission__scroll" tabindex="0" role="region" aria-label="Team results">
+      <table class="mission__table" data-results>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Team</th>
+            @for (stage of table.stages; track stage.number) {
+            <th scope="col" class="mission__num" [title]="stage.title || 'Stage ' + stage.number">S{{ stage.number }}</th>
+            }
+            <th scope="col" class="mission__num">Total / {{ table.maxPoints }}</th>
+            <th scope="col">Status</th>
+            <th scope="col">Clue</th>
+            <th scope="col" class="mission__num">Saved</th>
+            <th scope="col">Last saved</th>
+            <th scope="col">Finished</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (team of table.teams; track team.teamId) {
+          <tr [attr.data-team]="team.teamName">
+            <td class="event-num">{{ team.rank ?? "—" }}</td>
+            <th scope="row">
+              {{ team.teamName }} <span class="event-muted">· {{ team.groupCode }}</span>
+              @if (team.disqualified) {
+              <ui-status-chip variant="danger">Disqualified</ui-status-chip>
+              }
+            </th>
+            @for (points of team.stagePoints; track $index) {
+            <td class="event-num mission__num">{{ score(points) }}</td>
+            }
+            <td class="event-num mission__num mission__total" data-total>{{ score(team.total) }}</td>
+            <td [attr.data-status]="team.status">
+              <ui-status-chip [variant]="statusVariants[team.status]">{{ statusLabels[team.status] }}</ui-status-chip>
+            </td>
+            <td [attr.data-clue-granted]="team.clueGranted">{{ team.clueGranted ? "Granted" : "—" }}</td>
+            <td class="event-num mission__num">{{ team.stagesSaved }} / {{ table.stages.length }}</td>
+            <td class="event-num">{{ formatTime(team.lastSavedAt) }}</td>
+            <td class="event-num" data-finished>{{ formatTime(team.evaluatedAt) }}</td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    }
+    }
+  </ui-card>
+</div>
+}
+
+<ui-confirm-dialog
+  [open]="pending() !== null"
+  title="Replace the mission?"
+  [message]="
+    pending() ? 'Import ' + pending()!.name + (pending()!.stages === null ? '' : ' (' + pending()!.stages + ' stages)') + '. It replaces the room\'s whole mission.' : ''
+  "
+  confirmLabel="Replace"
+  [busy]="busy()"
+  (cancelled)="pending.set(null)"
+  (confirmed)="confirmImport()"
+/>

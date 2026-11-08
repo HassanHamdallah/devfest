@@ -56,29 +56,31 @@ python load-tests/event_load.py --mode sse --streams 150
 ```
 Setup as above (sign-ins, clue keys, round 1 with all rooms open and the timer running), then it takes `--streams` single-use tickets round-robin over the 21 seeded accounts (inside the 30 tickets per account per minute limit), opens that many `GET /event/stream` connections, and performs `--actions` (default 20) admin actions, alternating timer pause and resume `--gap-ms` (default 500) apart. For every action and stream it records when the first `revision` event with at least the action's revision arrived. Output `docs/event-load-sse-<N>.json`: deliveries vs. expected, missing deliveries, p50/p95/max/min of the time from the action's HTTP response to the event (negative = the event arrived before the client finished reading the response) and from the request start, admin action latency, errors, and the backend JVM's heap, live threads and working set (via `jcmd` and `tasklist`) before, with the streams open and after the actions. It exits non-zero on any error or missing delivery. Both SSE runs can follow each other on the same rehearsal.
 
-### Quiz mode (AI room activity)
+### Sentinel mode (AI mission room)
 
 ```
 ./infrastructure/start-event-rehearsal.ps1
-python load-tests/event_load.py --mode quiz --seconds 300
+python load-tests/event_load.py --mode sentinel --seconds 120
 ./infrastructure/stop-event-rehearsal.ps1
 ```
-Setup (not measured): sign-ins and clue keys as above; the admin switches the AI quiz on for the AI room, the AI
-manager imports 45 questions (20/15/6/3/1) and 3 repairs (100 points) with pass score 30, the admin sets round 1, sends the 12 teams of
-groups B–D to the AI room with room exceptions, opens the room and starts the timer — so all 16 teams play the quiz in
-one round. Each team client then answers every question (a random option, about 80 % of `--seconds` for all writes),
-presses Finish MCQs and submits its 3 repairs in a random order (the last one evaluates the team), then reads its
-result; after each write it fetches the activity again, like the page. About 20 % of saves are retried
-with the same Idempotency-Key and must return the identical receipt; about 5 % of answers are followed by a different
-answer with a new key, which must be refused with 409 ("Already answered."). Every client also polls the revision
-every 10 s; the AI manager fetches the results every 5 s, like the results page.
+Setup (not measured): sign-ins and clue keys as above; the admin switches the AI mission on for the AI room, the AI
+manager imports `docs/ai-room/sentinel-content.json` (pass score 60), the admin sets round 1, sends the 12 teams of
+groups B–D to the AI room with room exceptions, opens the room and starts the timer, so all 16 teams play in one round.
+Each team client runs its experiments (stage 3 spends its whole budget of 4 and then probes a fifth run, which must be
+refused with 409) and submits its ten stages in a random order (about 80 % of `--seconds` for all writes), each stage with
+a full-marks or a worthless answer, so team 1 earns 0 and team 7 exactly 60; after each write it fetches the activity
+again, like the page. About 20 % of writes are retried with the same Idempotency-Key and must return the identical
+body; about 10 % of submissions are followed by a different answer with a new key, which must be refused with 409
+("This stage is already saved."). Teams 15 and 16 never submit stage 10: the harness ends the round afterwards, which
+evaluates them. Every client also polls the revision every 10 s; the AI manager fetches the results every 5 s, like the
+SENTINEL page.
 
-Afterwards the AI room results must show, for every team, exactly 45 answers and 3 repairs and a total equal to the
-score the harness computed from the organizer's answer key; all 16 teams must be evaluated exactly once, each with
-the outcome its own total predicts (status Passed / Not passed, clue granted, and the team seeing the clue only on a
-pass), and the activity JSON must never name a total, points or the pass score. Output
-`docs/event-load-quiz.json` (per-endpoint latencies, totals, results cross-check). The script exits non-zero on any
-unexpected error, retry mismatch, accepted duplicate answer, wrong total, wrong or missing evaluation, or an endpoint p95 ≥ 300 ms.
+Afterwards the results must show, for every team, the stages it saved and a total equal to the points the harness
+expects from the mission file's scoring; all 16 teams must be evaluated exactly once, each with the outcome its own
+total predicts (Passed / Not passed, clue granted, and the team seeing the clue only on a pass), and no member response
+may carry a key that names points, a score, the pass score or an answer. Output `docs/event-load-sentinel.json`
+(per-endpoint latencies, totals, results cross-check). The script exits non-zero on any unexpected error, retry
+mismatch, accepted duplicate or fifth run, wrong total, wrong or missing evaluation, or an endpoint p95 ≥ 300 ms.
 
 ### Linux mode (terminal package, team form and organizer dashboard)
 
@@ -87,7 +89,7 @@ unexpected error, retry mismatch, accepted duplicate answer, wrong total, wrong 
 python load-tests/event_load.py --mode linux --seconds 90
 ./infrastructure/stop-event-rehearsal.ps1
 ```
-Setup (not measured): sign-ins and clue keys as above; the admin switches the AI quiz off and the Linux terminal
+Setup (not measured): sign-ins and clue keys as above; the admin switches the AI mission off and the Linux terminal
 activity on, the Linux manager uploads a package of just under 20 MB unpacked (one incompressible file) and saves the
 answer keys, the admin sends the 12 teams of groups A, B and D to the Linux room with room exceptions, opens it and
 starts round 1 — so all 16 teams use the room in one round. Each team client starts its terminal (the files

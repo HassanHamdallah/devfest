@@ -2,22 +2,21 @@ package dev.devfest.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mockingDetails;
 
 import dev.devfest.event.domain.GroupCode;
-import dev.devfest.event.domain.QuizScoring;
 import dev.devfest.event.domain.RoomCode;
+import dev.devfest.event.domain.sentinel.SentinelFixture;
+import dev.devfest.event.service.SentinelScoreService;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -34,35 +33,29 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
- * The AI room activity (rules §19) through the real API. Alpha, Alfa and Ace (group A) are in the AI room in
- * round 1; Bravo (group B) is in the Problem solving room. The quiz's MCQ part lasts 2 running minutes; rounds
- * last 5 minutes (well inside the access token lifetime). The quiz is worth 52 points; the pass score is 60 unless
- * a test sets it.
+ * The AI mission room (rules §19) through the real API. Alpha and Alfa (group A) are in the AI room in round 1;
+ * Bravo (group B) is in the Problem solving room until round 4. Rounds last 5 minutes (well inside the access
+ * token lifetime). The room runs the shipped docs/ai-room/sentinel-content.json (100 points); the pass score is 60
+ * unless a test sets it.
  */
 @Import(ManualClock.Config.class)
 class EventAiRoomTest extends EventIntegrationTest {
 
-  private static final String EXPLANATION = "SECRET-EXPLANATION";
   private static final String AI_KEY = CLUE_KEYS.get(RoomCode.AI);
   private static final String EVALUATED = "Your team's result for this room is already recorded.";
-  /** Six questions (one or two per section, 22 points) and three repairs of 4, 5 and 6 snippets (30 points). */
-  private static final String QUIZ = """
-    {"format":1,"mcqMinutes":2,
-     "questions":[
-      {"section":"EASY","prompt":"Which is a supervised learning task?","options":["Classification","Clustering","Dimensionality reduction"],"correctOption":0,"points":2,"explanation":"SECRET-EXPLANATION 1"},
-      {"section":"EASY","prompt":"What does GPU stand for?","options":["General Processing Unit","Graphics Processing Unit"],"correctOption":1,"points":2,"explanation":"SECRET-EXPLANATION 2"},
-      {"section":"MEDIUM","prompt":"Which layer reduces spatial size?","options":["Dense","Pooling","Embedding","Dropout"],"correctOption":1,"points":3,"explanation":""},
-      {"section":"ADVANCED","prompt":"What does attention compute?","options":["Weighted sums of values","Sorted keys","Random masks"],"correctOption":0,"points":4},
-      {"section":"LANDMARK","prompt":"Which year did AlexNet win ImageNet?","options":["2009","2012","2015","2018"],"correctOption":1,"points":5},
-      {"section":"RECENT","prompt":"Which technique grounds answers in documents?","options":["Retrieval-augmented generation","Bagging"],"correctOption":0,"points":6}
-     ],
-     "repairs":[
-      {"title":"Fix the training loop","instructions":"Order the lines.","points":10,"snippets":["for batch in data:","  optimizer.zero_grad()","  loss = model(batch)","  loss.backward()"]},
-      {"title":"Fix the split","instructions":"Order the lines.","points":10,"snippets":["import random","rows = load()","random.shuffle(rows)","cut = int(len(rows) * 0.8)","train, test = rows[:cut], rows[cut:]"]},
-      {"title":"Fix the metric","instructions":"Order the lines.","snippets":["tp = 0","for y, p in pairs:","  if y == p == 1:","    tp += 1","precision = tp / max(1, predicted)","print(precision)"]}
-     ]}""";
+  private static final String SAVED = "This stage is already saved.";
+  private static final String NO_ACTIVITY = "Activity not found.";
+  private static final String FAILED_TEXT = "SENTINEL UNSTABLE. Some systems could not be restored. Your team did not reach the required score.";
+  private static final String PASSED_TEXT = "SENTINEL RESTORED. All systems are back online. Recovered record:";
+  private static final List<String> PERFECT = SentinelFixture.PERFECT;
+  /** No member response may carry any of these keys, in any state. */
+  private static final Set<String> FORBIDDEN_KEYS = Set.of(
+    "points", "maxPoints", "pointsEarned", "award", "awards", "score", "scores", "total", "passScore", "passed",
+    "correct", "correctOption", "answer", "expected", "role", "explanation", "derived", "maximum", "flaggedAll"
+  );
 
   @Autowired
   private ManualClock clock;
@@ -70,13 +63,15 @@ class EventAiRoomTest extends EventIntegrationTest {
   @Autowired
   private ObjectMapper json;
 
+  @Autowired
+  private SentinelScoreService scoreService;
+
   @MockitoSpyBean
   private JdbcTemplate spiedJdbc;
 
   private long ai;
   private TestTeam alpha;
   private TestTeam alfa;
-  private TestTeam bravo;
 
   @BeforeEach
   void prepare() {
@@ -85,398 +80,497 @@ class EventAiRoomTest extends EventIntegrationTest {
     ai = rooms.get(RoomCode.AI);
     alpha = team("Alpha", GroupCode.A);
     alfa = team("Alfa", GroupCode.A);
-    bravo = team("Bravo", GroupCode.B);
     expectOk(put("/admin/settings", admin, "{\"roundMinutes\":5}"));
     expectOk(setActivity(ai, "\"AI_QUIZ\"", admin));
-    expectOk(post("/rooms/" + ai + "/quiz/import", managers.get(RoomCode.AI), QUIZ));
+    expectOk(importMission(SentinelFixture.shipped()));
   }
 
   // ---- what teams see -----------------------------------------------------------------------------
 
   @Test
-  void memberResponsesNeverContainCorrectAnswersScoresOrThePassScore() {
-    setPassScore(37);
-    startRound1();
-    Response view = expectOk(activity(alpha));
-    assertEquals("MCQ", view.json("$.stage"));
-    assertEquals(6, (int) view.json("$.questions.length()"));
-    assertEquals(List.of(), view.json("$.repairs"), "repairs are not shown during the MCQ part");
-    assertNull(view.json("$.result"));
-    assertNoSecrets(view.body());
+  void memberResponsesNeverContainPointsScoresOrAnswersInAnyState() {
+    assignRound(1);
+    openRoom(RoomCode.AI);
+    Response waiting = expectOk(view(alpha));
+    assertEquals("ASSIGNED", waiting.json("$.phase"));
+    assertEquals(true, waiting.json("$.ready"));
+    assertEquals(List.of(), waiting.json("$.missions"), "nothing of the mission is sent before the timer starts");
+    assertTrue(((String) waiting.json("$.intro")).startsWith("SENTINEL OFFLINE."));
+    assertNull(waiting.json("$.result"));
+    assertNoSecrets(waiting.body());
 
-    Response saved = expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-    assertEquals("Response saved", saved.json("$.message"));
+    startTimer();
+    Response playing = expectOk(view(alpha));
+    assertEquals("RUNNING", playing.json("$.phase"));
+    assertEquals(List.of("PREDICT", "SEE", "NOOR"), playing.json("$.missions[*].title"));
+    assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), playing.json("$.missions[*].stages[*].number"));
+    assertNoSecrets(playing.body());
+    for (String table : List.of("flagged", "train", "validation", "reply", "chunks", "role")) {
+      assertFalse(playing.body().contains("\"" + table + "\""), "the whole experiment table must not be sent: " + table);
+    }
+
+    Response run = expectOk(run(alpha, key(), 1, "iqr-3"));
+    assertNoSecrets(run.body());
+    assertEquals(List.of("g13", "g14"), run.json("$.result.flagged"));
+    Response afterRun = expectOk(view(alpha));
+    assertEquals(List.of("iqr-3"), afterRun.json("$.missions[0].stages[0].runs[*].config"));
+    assertEquals(1, countOccurrences(afterRun.body(), "\"flagged\""), "one run, one result");
+    assertNoSecrets(afterRun.body());
+
+    Response saved = expectOk(submitStage(alpha, key(), 1, PERFECT.get(0)));
+    assertEquals("Saved", saved.json("$.message"));
     assertNoSecrets(saved.body());
-    finishMcq(alpha);
+    Response afterSave = expectOk(view(alpha));
+    assertEquals(true, afterSave.json("$.missions[0].stages[0].saved"));
+    assertNull(afterSave.json("$.missions[0].stages[0].data"), "a saved stage shows only that it is saved");
+    assertNull(afterSave.json("$.missions[0].stages[0].brief"));
+    assertEquals(List.of(), afterSave.json("$.missions[0].stages[0].runs"));
+    assertEquals(1, (int) afterSave.json("$.savedCount"));
+    assertNoSecrets(afterSave.body());
 
-    Response repairs = expectOk(activity(alpha));
-    assertEquals("REPAIRS", repairs.json("$.stage"));
-    assertEquals(List.of(), repairs.json("$.questions"), "questions are hidden once the MCQ part is over");
-    for (int r = 0; r < 3; r++) {
-      List<Integer> shown = repairs.json("$.repairs[" + r + "].snippets[*].id");
-      assertNotEquals(correctOrder(repairId(r)), longs(shown), "never the correct order");
-    }
-    assertNoSecrets(repairs.body());
-    for (int r = 0; r < 3; r++) {
-      Response receipt = expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
-      assertNoSecrets(receipt.body());
-    }
-    // 2 + 30 = 32 points < 37: evaluated, not passed.
-    Response done = expectOk(activity(alpha));
-    assertEquals(false, done.json("$.result.clueUnlocked"));
-    assertNull(done.json("$.result.clue"));
-    assertEquals(List.of(), done.json("$.repairs"), "after the evaluation only the outcome is shown");
-    assertNoSecrets(done.body());
-    assertFalse(done.body().contains(AI_KEY), "no clue without a pass");
+    expectOk(post("/admin/round/timer/pause", admin, null));
+    Response paused = expectOk(view(alpha));
+    assertEquals("PAUSED", paused.json("$.phase"));
+    assertEquals(3, (int) paused.json("$.missions.length()"), "paused: the screen stays, input is frozen");
+    assertNoSecrets(paused.body());
+    expectOk(post("/admin/round/timer/resume", admin, null));
+
+    // Alfa saves all ten stages: evaluated at once and passed.
+    saveStages(alfa, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    Response passed = expectOk(view(alfa));
+    assertEquals(true, passed.json("$.result.clueUnlocked"));
+    assertEquals(AI_KEY, passed.json("$.result.clue"));
+    assertEquals(PASSED_TEXT, passed.json("$.result.message"));
+    assertEquals(List.of(), passed.json("$.missions"));
+    assertNoSecrets(passed.body());
+
+    // Alpha ran out of time with 10 points: evaluated at the round's end, not passed.
+    clock.advance(Duration.ofMinutes(5).plusSeconds(1));
+    Response timeUp = expectOk(view(alpha));
+    assertEquals("TIME_UP", timeUp.json("$.phase"));
+    assertEquals(List.of(), timeUp.json("$.missions"));
+    assertNull(timeUp.json("$.result"), "the result waits for the round's end");
+    expectOk(post("/admin/round/timer/end", admin, null));
+    Response failed = expectOk(view(alpha));
+    assertEquals(false, failed.json("$.result.clueUnlocked"));
+    assertNull(failed.json("$.result.clue"));
+    assertEquals(FAILED_TEXT, failed.json("$.result.message"));
+    assertFalse(failed.body().contains(AI_KEY), "no clue without a pass");
+    assertFalse(((String) failed.json("$.result.message")).chars().anyMatch(Character::isDigit), "never a number");
+    assertNoSecrets(failed.body());
 
     String board = expectOk(get("/team/board", alpha.token())).body();
     String receipts = expectOk(get("/team/submissions", alpha.token())).body();
     for (String body : List.of(board, receipts)) {
-      for (String secret : List.of(EXPLANATION, "pointsEarned", "passScore", "total", "32.00", "AI quiz result", "MCQ 1/6", "correctOption")) {
+      for (String secret : List.of("pointsEarned", "passScore", "total", "10.00", "AI mission result", "stages 1/10")) {
         assertFalse(body.contains(secret), secret + " in " + body);
       }
     }
     assertEquals("[]", receipts, "the evaluation is not one of the team's receipts");
-    String evaluation = db.queryForObject("SELECT submission_id::text FROM quiz_evaluation WHERE team_id = ?", String.class, alpha.id());
+    String evaluation = db.queryForObject("SELECT submission_id::text FROM sentinel_evaluation WHERE team_id = ?", String.class, alpha.id());
     expectError(get("/team/submissions/" + evaluation, alpha.token()), 404, "Submission not found.");
     assertEquals(List.of(true), JsonPathList.read(board, "$.evidence[?(@.roomCode == 'AI')].finished"), "the room is finished at once");
     assertEquals(List.of(), JsonPathList.read(board, "$.evidence[?(@.roomCode == 'AI' && @.clueCorrect != null)]"));
-    assertNull(JsonPathList.read(board, "$.rooms[0].lastReceipt"), "no receipt for the AI room");
+  }
 
-    expectOk(post("/admin/round/timer/end", admin, null));
-    Response timeUp = expectOk(activity(alpha));
-    assertEquals("TIME_UP", timeUp.json("$.stage"));
-    assertNoSecrets(timeUp.body());
+  // ---- experiments --------------------------------------------------------------------------------
+
+  @Test
+  void repeatsAreFreeAndTheStageBudgetsAreEnforcedPerTeam() {
+    startRound1();
+    Response first = expectOk(run(alpha, key(), 3, "knn-1"));
+    assertEquals(100, intAt(first, "$.result.train"));
+    assertEquals(71, intAt(first, "$.result.validation"));
+    assertEquals(3, (int) first.json("$.runsLeft"));
+    Response repeat = expectOk(run(alpha, key(), 3, "knn-1"));
+    assertEquals(3, (int) repeat.json("$.runsLeft"), "a repeat costs nothing");
+    assertEquals(intAt(first, "$.result.validation"), intAt(repeat, "$.result.validation"));
+    assertEquals(2, (int) expectOk(run(alpha, key(), 3, "knn-5")).json("$.runsLeft"));
+    assertEquals(1, (int) expectOk(run(alpha, key(), 3, "tree-2")).json("$.runsLeft"));
+    assertEquals(0, (int) expectOk(run(alpha, key(), 3, "tree-5")).json("$.runsLeft"));
+    expectError(run(alpha, key(), 3, "knn-15"), 409, "You have used all the experiments of this stage.");
+    expectError(run(alpha, key(), 3, "tree-20"), 409, "You have used all the experiments of this stage.");
+    assertEquals(0, (int) expectOk(run(alpha, key(), 3, "knn-5")).json("$.runsLeft"), "an old run is still free when the budget is spent");
+    assertEquals(4, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id() + " AND stage = 3"));
+    Response view = expectOk(view(alpha));
+    assertEquals(List.of("knn-1", "knn-5", "tree-2", "tree-5"), view.json("$.missions[0].stages[2].runs[*].config"), "runs come back in the order they were run");
+    assertEquals(0, (int) view.json("$.missions[0].stages[2].runsLeft"));
+    assertEquals(89, intAt(view, "$.missions[0].stages[2].runs[3].result.validation"));
+
+    for (String config : List.of("iqr-1.5", "iqr-3", "z-2", "z-3")) expectOk(run(alpha, key(), 1, config));
+    assertNull(expectOk(run(alpha, key(), 1, "iqr-3")).json("$.runsLeft"), "Outlier Hunt has no limit");
+    assertEquals(List.of(), expectOk(run(alpha, key(), 1, "z-3")).json("$.result.flagged"));
+
+    for (String config : List.of("small-1", "small-3", "large-1")) expectOk(run(alpha, key(), 10, config));
+    expectError(run(alpha, key(), 10, "large-3"), 409, "You have used all the experiments of this stage.");
+    Response rag = expectOk(run(alpha, key(), 10, "large-1"));
+    assertEquals(1, (int) rag.json("$.result.chunks.length()"));
+    assertTrue(((String) rag.json("$.result.reply")).contains("Library"));
+
+    assertEquals(3, (int) expectOk(run(alfa, key(), 3, "knn-1")).json("$.runsLeft"), "budgets are per team");
+    expectError(run(alpha, key(), 2, "anything"), 400, "This stage has no experiments.");
+    expectError(run(alpha, key(), 3, "nope"), 400, "Choose one of the stage's configurations.");
+    expectError(run(alpha, key(), 11, "knn-1"), 404, "Stage not found.");
+    expectError(run(alpha, key(), 0, "knn-1"), 404, "Stage not found.");
+    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/3/runs", key(), "{}").status());
+    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/3/runs", key(), "{\"config\":\"knn-1\",\"extra\":1}").status());
+
+    expectOk(submitStage(alpha, key(), 3, PERFECT.get(2)));
+    expectError(run(alpha, key(), 3, "knn-1"), 409, SAVED);
   }
 
   @Test
-  void questionsAreShuffledWithinSectionsAndOptionsPerTeamButStableOnReload() {
+  void aRetryOfARunReplaysAndAnotherBodyWithTheSameKeyIsRefused() {
     startRound1();
-    Response first = expectOk(activity(alpha));
-    assertEquals(first.body().replaceAll("\"serverNow\":\"[^\"]+\"", ""), expectOk(activity(alpha)).body().replaceAll("\"serverNow\":\"[^\"]+\"", ""));
-    List<String> sections = first.json("$.questions[*].section");
-    assertEquals(List.of("EASY", "EASY", "MEDIUM", "ADVANCED", "LANDMARK", "RECENT"), sections, "section order is kept");
-    List<Integer> numbers = first.json("$.questions[*].number");
-    assertEquals(List.of(1, 2, 3, 4, 5, 6), numbers);
-
-    // Option orders differ between teams for at least one question (16 options in all).
-    Set<String> orders = new HashSet<>();
-    for (TestTeam team : List.of(alpha, alfa, team("Ace", GroupCode.A))) {
-      orders.add(expectOk(activity(team)).json("$.questions[*].options[*].id").toString());
-    }
-    assertTrue(orders.size() > 1, "teams get their own option orders: " + orders);
+    UUID key = key();
+    Response first = expectOk(run(alpha, key, 3, "knn-5"));
+    assertEquals(first.body(), expectOk(run(alpha, key, 3, "knn-5")).body());
+    expectError(run(alpha, key, 3, "tree-5"), 409, "This Idempotency-Key was already used for a different request.");
+    assertEquals(1, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id()));
+    assertEquals(400, call(org.springframework.http.HttpMethod.POST, "/team/rooms/" + ai + "/activity/stages/3/runs", alpha.token(), "{\"config\":\"knn-1\"}", null).status(), "the Idempotency-Key header is required");
   }
 
-  // ---- answers lock -------------------------------------------------------------------------------
+  // ---- stage submissions --------------------------------------------------------------------------
 
   @Test
-  void anAnswerIsSavedOnceRetriesReplayAndChangesAreRefused() {
+  void aStageIsSavedOnceRetriesReplayAndChangesAreRefused() {
     startRound1();
-    long question = questionId(2);
-    long right = correctOption(question);
-    long wrong = wrongOption(question);
-    UUID key = UUID.randomUUID();
+    UUID key = key();
     long revision = revision();
-
-    Response first = expectOk(answer(alpha, key, question, wrong));
-    Response retry = expectOk(answer(alpha, key, question, wrong));
+    Response first = expectOk(submitStage(alpha, key, 4, "{\"k1\":\"Van\",\"k5\":\"Van\",\"reliable\":1}"));
+    Response retry = expectOk(submitStage(alpha, key, 4, "{\"k1\":\"Van\",\"k5\":\"Van\",\"reliable\":1}"));
     assertEquals(first.body(), retry.body(), "the same key and body give the same receipt");
-    expectError(answer(alpha, key, question, right), 409, "This Idempotency-Key was already used for a different request.");
-    expectError(answer(alpha, UUID.randomUUID(), question, right), 409, "Already answered.");
-    expectError(answer(alpha, UUID.randomUUID(), question, wrong), 409, "Already answered.");
-    assertEquals(1, count("SELECT count(*) FROM quiz_mcq_answer WHERE team_id = " + alpha.id()));
-    assertEquals(revision, revision(), "answers do not bump the global revision");
+    expectError(submitStage(alpha, key, 4, PERFECT.get(3)), 409, "This Idempotency-Key was already used for a different request.");
+    expectError(submitStage(alpha, key(), 4, PERFECT.get(3)), 409, SAVED);
+    expectError(submitStage(alpha, key(), 4, "{\"k1\":\"Van\",\"k5\":\"Van\",\"reliable\":1}"), 409, SAVED);
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id()));
+    assertEquals(new BigDecimal("4.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ?", BigDecimal.class, alpha.id()), "the first answer is the one that counts (k=5 right, k=1 and the trust wrong)");
+    assertEquals(revision, revision(), "saving a stage does not bump the global revision");
 
-    Response view = expectOk(activity(alpha));
-    List<Object> selected = view.json("$.questions[?(@.id == " + question + ")].selectedOptionId");
-    assertEquals(wrong, ((Number) selected.getFirst()).longValue(), "the team sees its own saved choice");
-    assertEquals(1, (int) view.json("$.answeredCount"));
+    expectError(submitStage(alpha, key(), 5, "{\"config\":\"x\"}"), 400, "Unexpected field config.");
+    expectError(submitStage(alpha, key(), 5, "[]"), 400, "Send the stage's answer as a JSON object.");
+    expectError(submitStage(alpha, key(), 5, "{\"tp\":1}"), 400, "Enter fp as a whole number.");
+    expectError(submitStage(alpha, key(), 3, "{\"config\":\"nope\"}"), 400, "Choose one of the stage's configurations.");
+    expectError(submitStage(alpha, key(), 2, "{\"choices\":{\"entry-gate\":\"USE\"}}"), 400, "Decide every feature: use it or drop it.");
+    expectError(submitStage(alpha, key(), 11, PERFECT.get(0)), 404, "Stage not found.");
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id()), "a refused answer locks nothing");
+    expectOk(submitStage(alpha, key(), 5, PERFECT.get(4)));
+    assertEquals(400, call(org.springframework.http.HttpMethod.POST, "/team/rooms/" + ai + "/activity/stages/5/submit", alpha.token(), PERFECT.get(4), null).status());
 
-    expectError(answer(alpha, UUID.randomUUID(), question, optionOf(questionId(3))), 400, "Choose one of the question's options.");
-    expectError(answer(alpha, UUID.randomUUID(), 999_999, right), 404, "Question not found.");
+    Response view = expectOk(view(alpha));
+    assertEquals(2, (int) view.json("$.savedCount"));
+    assertEquals(List.of(true), view.json("$.missions[1].stages[?(@.number == 4)].saved"));
   }
 
+  // ---- concurrency --------------------------------------------------------------------------------
+
   @Test
-  void aRepairIsSubmittedOnceAndAWrongSetOfSnippetsIsRefused() {
+  void runBudgetsHoldWhenManyRequestsArriveTogether() throws Exception {
     startRound1();
-    finishMcq(alpha);
-    long repair = repairId(0);
-    List<Long> order = correctOrder(repair);
-    UUID key = UUID.randomUUID();
-    Response first = expectOk(submitRepair(alpha, key, repair, order));
-    assertEquals(first.body(), expectOk(submitRepair(alpha, key, repair, order)).body());
-    List<Long> reversed = new ArrayList<>(order);
-    Collections.reverse(reversed);
-    expectError(submitRepair(alpha, UUID.randomUUID(), repair, reversed), 409, "Already answered.");
+    List<String> configs = new ArrayList<>();
+    for (String config : List.of("knn-1", "knn-5", "knn-15", "tree-2", "tree-5", "tree-20")) {
+      configs.add(config);
+      configs.add(config);
+    }
+    List<Response> responses = parallel(configs.size(), index -> run(alpha, key(), 3, configs.get(index)));
+    Set<String> succeeded = new HashSet<>();
+    for (int i = 0; i < responses.size(); i++) {
+      Response response = responses.get(i);
+      if (response.status() == 200) succeeded.add(configs.get(i));
+      else expectError(response, 409, "You have used all the experiments of this stage.");
+    }
+    assertEquals(4, succeeded.size(), "exactly the budget of distinct configurations succeeded: " + succeeded);
+    assertEquals(4, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id() + " AND stage = 3"));
+    assertEquals(succeeded, new HashSet<>(db.queryForList("SELECT config FROM sentinel_run WHERE team_id = ?", String.class, alpha.id())));
 
-    long other = repairId(1);
-    expectError(submitRepair(alpha, UUID.randomUUID(), other, order), 400, "Submit every snippet of this repair exactly once.");
-    List<Long> twice = new ArrayList<>(correctOrder(other));
-    twice.set(1, twice.getFirst());
-    expectError(submitRepair(alpha, UUID.randomUUID(), other, twice), 400, "Submit every snippet of this repair exactly once.");
-    expectError(submitRepair(alpha, UUID.randomUUID(), 999_999, order), 404, "Repair not found.");
+    List<String> rag = List.of("small-1", "small-3", "large-1", "large-3", "small-1", "large-3");
+    List<Response> ragResponses = parallel(rag.size(), index -> run(alfa, key(), 10, rag.get(index)));
+    Set<String> ragSucceeded = new HashSet<>();
+    for (int i = 0; i < ragResponses.size(); i++) {
+      if (ragResponses.get(i).status() == 200) ragSucceeded.add(rag.get(i));
+      else expectError(ragResponses.get(i), 409, "You have used all the experiments of this stage.");
+    }
+    assertEquals(3, ragSucceeded.size(), "RAG Fix allows three different runs: " + ragSucceeded);
+    assertEquals(ragSucceeded, new HashSet<>(db.queryForList("SELECT config FROM sentinel_run WHERE team_id = ? AND stage = 10", String.class, alfa.id())));
   }
 
-  // ---- timing -------------------------------------------------------------------------------------
-
   @Test
-  void mcqsCloseAtTheCutoffOrAfterFinishMcqsAndRepairsOpenThen() {
+  void manySubmitsOfOneStageSaveItOnceWhetherTheKeyIsSharedOrNot() throws Exception {
     startRound1();
-    expectError(submitRepair(alpha, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))), 409, "The repairs open after the multiple-choice part.");
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-    assertEquals(120, (int) expectOk(activity(alpha)).json("$.mcqRemainingSeconds"));
+    UUID shared = key();
+    List<Response> sameKey = parallel(8, index -> submitStage(alpha, shared, 6, PERFECT.get(5)));
+    for (Response response : sameKey) expectOk(response);
+    assertEquals(1, sameKey.stream().map(Response::body).distinct().count(), "every retry got the same receipt");
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id()));
 
-    Response finished = expectOk(post("/team/rooms/" + ai + "/activity/finish-mcq", alfa.token(), null));
-    assertEquals("REPAIRS", finished.json("$.stage"));
-    assertEquals(true, finished.json("$.mcqFinished"));
-    expectError(answer(alfa, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, "The multiple-choice part is over.");
-    expectOk(post("/team/rooms/" + ai + "/activity/finish-mcq", alfa.token(), null));
-    assertEquals(1, count("SELECT count(*) FROM quiz_team_progress WHERE mcq_finished_at IS NOT NULL"), "finishing is irreversible and once");
-
-    clock.advance(Duration.ofSeconds(119));
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(1), correctOption(questionId(1))));
-    clock.advance(Duration.ofSeconds(1));
-    expectError(answer(alpha, UUID.randomUUID(), questionId(2), correctOption(questionId(2))), 409, "The multiple-choice part is over.");
-    Response view = expectOk(activity(alpha));
-    assertEquals("REPAIRS", view.json("$.stage"));
-    assertEquals(0, (int) view.json("$.mcqRemainingSeconds"));
-    expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))));
+    List<Response> otherKeys = parallel(8, index -> submitStage(alfa, key(), 6, PERFECT.get(5)));
+    assertEquals(1, otherKeys.stream().filter(response -> response.status() == 200).count());
+    otherKeys.stream().filter(response -> response.status() != 200).forEach(response -> expectError(response, 409, SAVED));
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alfa.id()));
   }
 
   @Test
-  void pausesDoNotCountAndNothingIsAcceptedWhilePaused() {
-    startRound1();
-    clock.advance(Duration.ofSeconds(60));
-    expectOk(post("/admin/round/timer/pause", admin, null));
-    expectError(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, "The round is paused.");
-    expectError(post("/team/rooms/" + ai + "/activity/finish-mcq", alpha.token(), null), 409, "The round is paused.");
-    clock.advance(Duration.ofSeconds(120));
-    Response paused = expectOk(activity(alpha));
-    assertEquals("MCQ", paused.json("$.stage"));
-    assertEquals(60, (int) paused.json("$.mcqRemainingSeconds"), "paused time does not count");
-    expectOk(post("/admin/round/timer/resume", admin, null));
-    clock.advance(Duration.ofSeconds(59));
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-  }
-
-  @Test
-  void nothingIsAcceptedBeforeTheTimerOutsideTheTeamsRoundOrAfterTimeUp() {
-    assignRound(1);
-    openRoom(RoomCode.AI);
-    Response waiting = expectOk(activity(alpha));
-    assertEquals("NOT_STARTED", waiting.json("$.stage"));
-    assertEquals(List.of(), waiting.json("$.questions"), "no question is visible before the timer starts");
-    expectError(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, "The timer has not started yet.");
-
-    startTimer();
-    closeRoom(RoomCode.AI);
-    expectError(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, "This room is closed.");
-    openRoom(RoomCode.AI);
-    expectError(activity(bravo), 404, "Activity not found.");
-    expectError(answer(bravo, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 404, "Activity not found.");
-    expectError(
-      submit(alpha, RoomCode.AI, UUID.randomUUID(), "output", AI_KEY),
-      409,
-      "This room records its result from its activity; there is no answer form."
-    );
-
-    expectOk(post("/admin/round/timer/end", admin, null));
-    expectError(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, "Time is up for this round.");
-    expectError(post("/team/rooms/" + ai + "/activity/finish-mcq", alpha.token(), null), 409, "Time is up for this round.");
-
-    setRound(2);
-    expectError(activity(alpha), 404, "Activity not found.");
-    expectError(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 404, "Activity not found.");
-    setRound(4);
-    assertEquals("MCQ", expectOk(activity(bravo)).json("$.stage"), "group B is in the AI room in round 4");
-    assertEquals(0, count("SELECT count(*) FROM quiz_mcq_answer"));
-  }
-
-  // ---- evaluation ---------------------------------------------------------------------------------
-
-  @Test
-  void aTotalEqualToThePassScorePassesAndUnlocksTheClueJustBelowDoesNot() {
-    setPassScore(47);
+  void theLastSubmitAndTheRoundEndRacingEvaluateEachTeamOnceWithOneClue() throws Exception {
     startRound1();
     TestTeam ace = team("Ace", GroupCode.A);
-    // Alfa: 22 MCQ points + 5 (repair 1: 2 of 4 in place) + 10 + 10 = 47.00.
-    answerAll(alfa, Set.of());
-    finishMcq(alfa);
-    List<List<Long>> alfaOrders = List.of(swapFirstTwo(correctOrder(repairId(0))), correctOrder(repairId(1)), correctOrder(repairId(2)));
-    long before = revision();
-    for (int r = 0; r < 2; r++) expectOk(submitRepair(alfa, UUID.randomUUID(), repairId(r), alfaOrders.get(r)));
-    assertEquals(0, count("SELECT count(*) FROM quiz_evaluation"), "no evaluation before the last repair");
-    assertEquals(before, revision());
-    expectOk(submitRepair(alfa, UUID.randomUUID(), repairId(2), alfaOrders.get(2)));
-    assertTrue(revision() > before, "the evaluation is announced to every screen");
-    // Ace: 20 MCQ points (question 1 wrong) + 10 + 10 + 6.67 (repair 3: 4 of 6 in place) = 46.67.
-    answerAll(ace, Set.of(0));
-    finishMcq(ace);
-    for (int r = 0; r < 2; r++) expectOk(submitRepair(ace, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
-    expectOk(submitRepair(ace, UUID.randomUUID(), repairId(2), swapFirstTwo(correctOrder(repairId(2)))));
-
-    assertEquals(new BigDecimal("47.00"), evaluationTotal(alfa));
-    assertEquals(new BigDecimal("46.67"), evaluationTotal(ace));
-    assertEquals(List.of("LAST_REPAIR"), db.queryForList("SELECT DISTINCT cause FROM quiz_evaluation", String.class));
-    assertEquals(47, count("SELECT pass_score FROM quiz_evaluation WHERE team_id = " + alfa.id()));
-
-    Response passed = expectOk(activity(alfa));
-    assertEquals(true, passed.json("$.result.clueUnlocked"));
-    assertEquals(AI_KEY, passed.json("$.result.clue"));
-    Response failed = expectOk(activity(ace));
-    assertEquals(false, failed.json("$.result.clueUnlocked"));
-    assertNull(failed.json("$.result.clue"));
-
-    // Recorded through the room-submission path: a CORRECT submission with its verdict and a ROOM clue.
-    assertEquals(true, db.queryForObject("SELECT clue_correct FROM room_submission WHERE team_id = ?", Boolean.class, alfa.id()));
-    assertEquals(false, db.queryForObject("SELECT clue_correct FROM room_submission WHERE team_id = ?", Boolean.class, ace.id()));
-    assertEquals("ROOM", db.queryForObject("SELECT source FROM collected_clue WHERE team_id = ? AND room_id = ?", String.class, alfa.id(), ai));
-    assertEquals(0, count("SELECT count(*) FROM collected_clue WHERE team_id = " + ace.id()));
-    assertEquals(
-      "AI quiz · MCQ 6/6 answered · repairs 3/3 submitted",
-      db.queryForObject("SELECT technical_output FROM room_submission WHERE team_id = ?", String.class, alfa.id())
-    );
-
-    Response board = expectOk(get("/team/board", alfa.token()));
-    assertEquals(List.of(AI_KEY), board.json("$.evidence[?(@.roomCode == 'AI')].clueValue"), "the clue card shows the clue while the round runs");
-    assertEquals(List.of(true), board.json("$.evidence[?(@.roomCode == 'AI')].resultRecorded"));
-    assertEquals(1, (int) board.json("$.cluesCollected"));
-    assertEquals(List.of(), expectOk(get("/team/board", ace.token())).json("$.evidence[?(@.roomCode == 'AI' && @.clueValue != null)]"));
-    expectError(answer(alfa, UUID.randomUUID(), questionId(0), correctOption(questionId(0))), 409, EVALUATED);
-  }
-
-  @Test
-  void theLastRepairAndTheRoundEndRacingEvaluateTheTeamOnce() throws Exception {
-    setPassScore(30);
-    startRound1();
-    finishMcq(alpha);
-    for (int r = 0; r < 2; r++) expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
-    long last = repairId(2);
-    List<Long> order = correctOrder(last);
+    List<TestTeam> racers = List.of(alpha, alfa, ace);
+    for (TestTeam racer : racers) saveStages(racer, 1, 2, 3, 4, 5, 6, 7, 8, 9);
     CountDownLatch go = new CountDownLatch(1);
-    ExecutorService pool = Executors.newFixedThreadPool(2);
+    ExecutorService pool = Executors.newFixedThreadPool(4);
     try {
-      Future<Response> repair = pool.submit(() -> {
-        go.await();
-        return submitRepair(alpha, UUID.randomUUID(), last, order);
-      });
+      List<Future<Response>> submits = new ArrayList<>();
+      for (TestTeam racer : racers) {
+        submits.add(pool.submit(() -> {
+          go.await();
+          return submitStage(racer, key(), 10, PERFECT.get(9));
+        }));
+      }
       Future<Response> end = pool.submit(() -> {
         go.await();
         return post("/admin/round/timer/end", admin, null);
       });
       go.countDown();
-      Response repaired = repair.get(30, TimeUnit.SECONDS);
-      expectOk(end.get(30, TimeUnit.SECONDS));
-
-      String cause = db.queryForObject("SELECT cause FROM quiz_evaluation WHERE team_id = ?", String.class, alpha.id());
-      if (repaired.status() == 200) {
-        assertEquals("LAST_REPAIR", cause, "the repair won: 30 points, passed");
-        assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alpha.id()));
-      } else {
-        expectError(repaired, 409, "Time is up for this round.");
-        assertEquals("TIME_UP", cause, "the round end won: 20 points, not passed");
-        assertEquals(0, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alpha.id()));
+      for (int i = 0; i < racers.size(); i++) {
+        Response submitted = submits.get(i).get(30, TimeUnit.SECONDS);
+        TestTeam racer = racers.get(i);
+        String cause = db.queryForObject("SELECT cause FROM sentinel_evaluation WHERE team_id = ?", String.class, racer.id());
+        BigDecimal total = db.queryForObject("SELECT total FROM sentinel_evaluation WHERE team_id = ?", BigDecimal.class, racer.id());
+        if (submitted.status() == 200) {
+          assertEquals("LAST_STAGE", cause, "the submit won: 100 points");
+          assertEquals(new BigDecimal("100.00"), total);
+        } else {
+          expectError(submitted, 409, "Time is up for this round.");
+          assertEquals("TIME_UP", cause, "the round end won: nine stages, 90 points");
+          assertEquals(new BigDecimal("90.00"), total);
+        }
       }
+      expectOk(end.get(30, TimeUnit.SECONDS));
     } finally {
       pool.shutdownNow();
     }
     expectOk(post("/admin/round/timer/end", admin, null));
     setRound(2);
-    assertEquals(1, count("SELECT count(*) FROM quiz_evaluation WHERE team_id = " + alpha.id()));
-    assertEquals(1, count("SELECT count(*) FROM room_submission WHERE team_id = " + alpha.id()));
-    assertEquals(1, count("SELECT count(*) FROM audit_event WHERE action = 'EVENT_QUIZ_EVALUATED' AND target LIKE '% team:" + alpha.id() + " %'"));
+    for (TestTeam racer : racers) {
+      assertEquals(1, count("SELECT count(*) FROM sentinel_evaluation WHERE team_id = " + racer.id()), racer.name());
+      assertEquals(1, count("SELECT count(*) FROM room_submission WHERE team_id = " + racer.id()), racer.name());
+      assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + racer.id()), "the clue is collected once for " + racer.name());
+      assertEquals(1, count("SELECT count(*) FROM audit_event WHERE action = 'EVENT_MISSION_EVALUATED' AND target LIKE '% team:" + racer.id() + " %'"));
+    }
+  }
+
+  // ---- timing and access --------------------------------------------------------------------------
+
+  @Test
+  void nothingIsAcceptedBeforeTheTimerWhilePausedAtTimeUpOrAfterTheResult() {
+    assignRound(1);
+    openRoom(RoomCode.AI);
+    String notStarted = "The timer has not started yet.";
+    expectError(run(alpha, key(), 3, "knn-1"), 409, notStarted);
+    expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, notStarted);
+
+    startTimer();
+    closeRoom(RoomCode.AI);
+    expectError(run(alpha, key(), 3, "knn-1"), 409, "This room is closed.");
+    expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, "This room is closed.");
+    openRoom(RoomCode.AI);
+    expectError(
+      submit(alpha, RoomCode.AI, key(), "output", AI_KEY),
+      409,
+      "This room records its result from its activity; there is no answer form."
+    );
+
+    expectOk(post("/admin/round/timer/pause", admin, null));
+    expectError(run(alpha, key(), 3, "knn-1"), 409, "The round is paused.");
+    expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, "The round is paused.");
+    expectOk(post("/admin/round/timer/resume", admin, null));
+    expectOk(submitStage(alpha, key(), 1, PERFECT.get(0)));
+
+    expectOk(post("/admin/teams/" + alfa.id() + "/disqualify", admin, "{\"reason\":\"Left the event early\"}"));
+    expectError(submitStage(alfa, key(), 1, PERFECT.get(0)), 409, "Your team has been disqualified. Contact the organizer.");
+
+    clock.advance(Duration.ofMinutes(5).plusSeconds(1));
+    expectError(run(alpha, key(), 3, "knn-1"), 409, "Time is up for this round.");
+    expectError(submitStage(alpha, key(), 2, PERFECT.get(1)), 409, "Time is up for this round.");
+    expectOk(post("/admin/round/timer/end", admin, null));
+    expectError(submitStage(alpha, key(), 2, PERFECT.get(1)), 409, "Time is up for this round.");
+
+    setRound(2);
+    expectError(view(alpha), 404, NO_ACTIVITY);
+    expectError(run(alpha, key(), 3, "knn-1"), 404, NO_ACTIVITY);
+    assertEquals(0, count("SELECT count(*) FROM sentinel_run"));
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission"));
   }
 
   @Test
-  void aTeamThatFinishedIsNotEvaluatedAgainAndItsClueIsAddedOnce() {
-    setPassScore(30);
+  void afterTheResultNothingIsAcceptedAndAnotherRoundOrTeamIsNotFound() {
     startRound1();
-    finishMcq(alpha);
-    for (int r = 0; r < 3; r++) expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
-    expectError(submitRepair(alpha, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))), 409, EVALUATED);
-    expectError(post("/team/rooms/" + ai + "/activity/finish-mcq", alpha.token(), null), 409, EVALUATED);
+    saveStages(alpha, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    expectError(run(alpha, key(), 3, "knn-1"), 409, EVALUATED);
+    expectError(submitStage(alpha, key(), 10, PERFECT.get(9)), 409, EVALUATED);
+
+    TestTeam bravo = team("Bravo", GroupCode.B);
+    expectError(view(bravo), 404, NO_ACTIVITY);
+    expectError(run(bravo, key(), 3, "knn-1"), 404, NO_ACTIVITY);
+    expectError(submitStage(bravo, key(), 1, PERFECT.get(0)), 404, NO_ACTIVITY);
+    long linux = rooms.get(RoomCode.LINUX);
+    expectError(get("/team/rooms/" + linux + "/activity", alpha.token()), 404, NO_ACTIVITY);
+    expectError(get("/team/rooms/999999/activity", alpha.token()), 404, NO_ACTIVITY);
+    expectError(teamPost(alpha, "/team/rooms/" + linux + "/activity/stages/3/runs", key(), "{\"config\":\"knn-1\"}"), 404, NO_ACTIVITY);
+    expectOk(post("/admin/round/timer/end", admin, null));
+    setRound(4);
+    openRoom(RoomCode.AI);
+    assertEquals("RUNNING", expectOk(view(bravo)).json("$.phase"), "group B is in the AI room in round 4");
+    expectOk(run(bravo, key(), 3, "knn-1"));
+  }
+
+  @Test
+  void otherTeamsRoomsAndManagersSeeNothing() {
+    startRound1();
+    assertEquals(401, call(org.springframework.http.HttpMethod.GET, "/team/rooms/" + ai + "/activity", null, null, null).status());
+    expectError(view(alpha, managers.get(RoomCode.AI)), 403, "A team account is required.");
+    expectError(view(alpha, admin), 403, "A team account is required.");
+    for (String path : List.of("/mission", "/mission/results", "/mission/export", "/mission/results.csv")) {
+      expectError(get("/rooms/" + ai + path, managers.get(RoomCode.LINUX)), 404, "Room not found.");
+      expectError(get("/rooms/" + ai + path, alpha.token()), 403, "Access denied.");
+      assertEquals(401, get("/rooms/" + ai + path, null).status());
+      expectOk(get("/rooms/" + ai + path, managers.get(RoomCode.AI)));
+      expectOk(get("/rooms/" + ai + path, admin));
+    }
+    expectError(importMission(SentinelFixture.shipped(), managers.get(RoomCode.LINUX)), 404, "Room not found.");
+    expectError(put("/rooms/" + ai + "/mission/settings", managers.get(RoomCode.LINUX), "{\"passScore\":10}"), 404, "Room not found.");
+    expectError(importMission(SentinelFixture.shipped(), alpha.token()), 403, "Access denied.");
+    expectError(put("/rooms/" + ai + "/mission/settings", alpha.token(), "{\"passScore\":10}"), 403, "Access denied.");
+    expectError(setActivity(ai, "null", managers.get(RoomCode.AI)), 403, "Access denied.");
+    expectError(get("/rooms/999999/mission", admin), 404, "Room not found.");
+    expectOk(setActivity(ai, "null", admin));
+    expectError(view(alpha), 404, NO_ACTIVITY);
+    expectError(importMission(SentinelFixture.shipped()), 409, "The AI mission is not enabled for this room.");
+  }
+
+  // ---- evaluation ---------------------------------------------------------------------------------
+
+  @Test
+  void aTotalEqualToThePassScorePassesAndJustBelowDoesNot() {
+    startRound1();
+    // Alpha: stages 1 to 6 are perfect: exactly 60 points.
+    saveStages(alpha, 1, 2, 3, 4, 5, 6);
+    // Alfa: one feature wrong in stage 2 (8.33) and the same five other stages: 58.33.
+    expectOk(submitStage(alfa, key(), 2, PERFECT.get(1).replace("\"plate-number\":\"DROP\"", "\"plate-number\":\"USE\"")));
+    saveStages(alfa, 1, 3, 4, 5, 6);
+    assertEquals(0, count("SELECT count(*) FROM sentinel_evaluation"), "no evaluation before the last stage or Time's up");
+    long before = revision();
+    expectOk(post("/admin/round/timer/end", admin, null));
+    assertTrue(revision() > before, "the evaluation is announced to every screen");
+
+    assertEquals(new BigDecimal("60.00"), evaluationTotal(alpha));
+    assertEquals(new BigDecimal("58.33"), evaluationTotal(alfa));
+    assertEquals(List.of("TIME_UP"), db.queryForList("SELECT DISTINCT cause FROM sentinel_evaluation", String.class));
+    assertEquals(60, count("SELECT pass_score FROM sentinel_evaluation WHERE team_id = " + alpha.id()));
+
+    Response passed = expectOk(view(alpha));
+    assertEquals(true, passed.json("$.result.clueUnlocked"));
+    assertEquals(AI_KEY, passed.json("$.result.clue"));
+    Response failed = expectOk(view(alfa));
+    assertEquals(false, failed.json("$.result.clueUnlocked"));
+    assertNull(failed.json("$.result.clue"));
+
+    // Recorded through the room-submission path: a CORRECT submission with its verdict and a ROOM clue.
+    assertEquals(true, db.queryForObject("SELECT clue_correct FROM room_submission WHERE team_id = ?", Boolean.class, alpha.id()));
+    assertEquals(false, db.queryForObject("SELECT clue_correct FROM room_submission WHERE team_id = ?", Boolean.class, alfa.id()));
+    assertEquals("ROOM", db.queryForObject("SELECT source FROM collected_clue WHERE team_id = ? AND room_id = ?", String.class, alpha.id(), ai));
+    assertEquals(0, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alfa.id()));
+    assertEquals("AI mission · stages 6/10 submitted", db.queryForObject("SELECT technical_output FROM room_submission WHERE team_id = ?", String.class, alpha.id()));
+    assertEquals("AI mission result", db.queryForObject("SELECT clue_answer FROM room_submission WHERE team_id = ?", String.class, alpha.id()));
+
+    Response board = expectOk(get("/team/board", alpha.token()));
+    assertEquals(List.of(AI_KEY), board.json("$.evidence[?(@.roomCode == 'AI')].clueValue"));
+    assertEquals(List.of(true), board.json("$.evidence[?(@.roomCode == 'AI')].resultRecorded"));
+    assertEquals(1, (int) board.json("$.cluesCollected"));
+    assertEquals(List.of(), expectOk(get("/team/board", alfa.token())).json("$.evidence[?(@.roomCode == 'AI' && @.clueValue != null)]"));
+  }
+
+  @Test
+  void theLastStageEvaluatesAtOnceAndTheRoundEndDoesNotEvaluateAgain() {
+    startRound1();
+    saveStages(alpha, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    assertEquals(0, count("SELECT count(*) FROM sentinel_evaluation"));
+    long before = revision();
+    saveStages(alpha, 10);
+    assertTrue(revision() > before);
+    assertEquals(new BigDecimal("100.00"), evaluationTotal(alpha));
+    assertEquals("LAST_STAGE", db.queryForObject("SELECT cause FROM sentinel_evaluation WHERE team_id = ?", String.class, alpha.id()));
     expectOk(post("/admin/round/timer/end", admin, null));
     setRound(2);
-    assertEquals(1, count("SELECT count(*) FROM quiz_evaluation WHERE team_id = " + alpha.id()));
+    assertEquals(1, count("SELECT count(*) FROM sentinel_evaluation WHERE team_id = " + alpha.id()));
     assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alpha.id()));
-    assertEquals("LAST_REPAIR", db.queryForObject("SELECT cause FROM quiz_evaluation WHERE team_id = ?", String.class, alpha.id()));
   }
 
   @Test
-  void theRoundEndEvaluatesEveryUnfinishedTeamOfTheRoomOnce() {
+  void theRoundEndEvaluatesEveryUnfinishedTeamOfTheRoomOnceWithUnsavedStagesAtZero() {
     startRound1();
+    TestTeam bravo = team("Bravo", GroupCode.B);
     TestTeam out = team("Delta", GroupCode.A);
     expectOk(post("/admin/teams/" + out.id() + "/disqualify", admin, "{\"reason\":\"Left the event early\"}"));
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-    finishMcq(alpha);
-    expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))));
-    assertEquals(0, count("SELECT count(*) FROM quiz_evaluation"));
+    saveStages(alpha, 1, 2);
+    assertEquals(0, count("SELECT count(*) FROM sentinel_evaluation"));
 
     long before = revision();
     expectOk(post("/admin/round/timer/end", admin, null));
     assertTrue(revision() > before);
     assertEquals(
-      List.of("Alfa TIME_UP false 0.00", "Alpha TIME_UP false 12.00"),
+      List.of("Alfa TIME_UP false 0.00", "Alpha TIME_UP false 20.00"),
       db.queryForList(
-        "SELECT t.name || ' ' || e.cause || ' ' || e.passed || ' ' || e.total FROM quiz_evaluation e JOIN event_team t ON t.id = e.team_id ORDER BY t.name",
+        "SELECT t.name || ' ' || e.cause || ' ' || e.passed || ' ' || e.total FROM sentinel_evaluation e JOIN event_team t ON t.id = e.team_id ORDER BY t.name",
         String.class
       ),
       "Bravo is in another room and Delta is disqualified"
     );
-    assertEquals("AI quiz result", db.queryForObject("SELECT clue_answer FROM room_submission WHERE team_id = ?", String.class, alpha.id()));
-    assertEquals(
-      "AI quiz · MCQ 1/6 answered · repairs 1/3 submitted",
-      db.queryForObject("SELECT technical_output FROM room_submission WHERE team_id = ?", String.class, alpha.id())
-    );
-    Response failed = expectOk(activity(alpha));
-    assertEquals(false, failed.json("$.result.clueUnlocked"));
-
+    assertEquals(0, count("SELECT count(*) FROM sentinel_evaluation WHERE team_id = " + bravo.id()));
+    assertEquals("AI mission · stages 2/10 submitted", db.queryForObject("SELECT technical_output FROM room_submission WHERE team_id = ?", String.class, alpha.id()));
     long after = revision();
     expectOk(post("/admin/round/timer/end", admin, null));
     assertEquals(after, revision(), "ending again changes nothing");
-    assertEquals(2, count("SELECT count(*) FROM quiz_evaluation"));
+    assertEquals(2, count("SELECT count(*) FROM sentinel_evaluation"));
   }
 
   @Test
   void theNextRoundEvaluatesATimerThatRanOutByItselfButNotAnUnstartedRound() {
     assignRound(1);
     setRound(2);
-    assertEquals(0, count("SELECT count(*) FROM quiz_evaluation"), "a round whose timer never started is not evaluated");
+    assertEquals(0, count("SELECT count(*) FROM sentinel_evaluation"), "a round whose timer never started is not evaluated");
 
+    TestTeam bravo = team("Bravo", GroupCode.B);
     assignRound(4);
     startTimer();
     openRoom(RoomCode.AI);
-    expectOk(answer(bravo, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
+    expectOk(submitStage(bravo, key(), 1, PERFECT.get(0)));
     clock.advance(Duration.ofMinutes(5).plusSeconds(1));
-    Response timeUp = expectOk(activity(bravo));
-    assertEquals("TIME_UP", timeUp.json("$.stage"));
-    assertNull(timeUp.json("$.result"), "no stored transition yet: the result waits for the round's end");
+    assertNull(expectOk(view(bravo)).json("$.result"), "no stored transition yet: the result waits for the round's end");
     expectOk(post("/admin/round", admin, "{\"round\":5}"));
-    assertEquals("TIME_UP", db.queryForObject("SELECT cause FROM quiz_evaluation WHERE team_id = ?", String.class, bravo.id()));
+    assertEquals("TIME_UP", db.queryForObject("SELECT cause FROM sentinel_evaluation WHERE team_id = ?", String.class, bravo.id()));
+    assertEquals(new BigDecimal("10.00"), evaluationTotal(bravo));
   }
 
   @Test
   void aManualVerdictOverrideStillDecidesTheClueAndKeyChangesKeepTheResult() {
-    setPassScore(30);
     startRound1();
-    finishMcq(alpha);
-    for (int r = 0; r < 3; r++) expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
+    saveStages(alpha, 1, 2, 3, 4, 5, 6);
     expectOk(post("/admin/round/timer/end", admin, null));
     String manager = managers.get(RoomCode.AI);
 
     expectOk(override(evaluationSubmission(alpha), "REJECT", manager));
     assertEquals(0, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alpha.id()));
-    assertEquals(false, expectOk(activity(alpha)).json("$.result.clueUnlocked"));
+    assertEquals(false, expectOk(view(alpha)).json("$.result.clueUnlocked"));
     expectOk(override(evaluationSubmission(alfa), "ACCEPT", admin));
-    Response granted = expectOk(activity(alfa));
+    Response granted = expectOk(view(alfa));
     assertEquals(true, granted.json("$.result.clueUnlocked"));
     assertEquals(AI_KEY, granted.json("$.result.clue"));
 
     expectOk(setClueKey(RoomCode.AI, "BLACK VAN"));
-    assertEquals("BLACK VAN", expectOk(activity(alfa)).json("$.result.clue"), "the clue follows the current key");
-    assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alfa.id()), "a key change never re-checks a quiz result");
+    assertEquals("BLACK VAN", expectOk(view(alfa)).json("$.result.clue"), "the clue follows the current key");
+    assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + alfa.id()), "a key change never re-checks a mission result");
 
-    Response results = expectOk(get("/rooms/" + ai + "/quiz/results", manager));
+    Response results = expectOk(get("/rooms/" + ai + "/mission/results", manager));
     assertEquals(List.of("PASSED"), results.json("$.teams[?(@.teamName == 'Alpha')].status"));
     assertEquals(List.of(false), results.json("$.teams[?(@.teamName == 'Alpha')].clueGranted"));
     assertEquals(List.of("NOT_PASSED"), results.json("$.teams[?(@.teamName == 'Alfa')].status"));
@@ -484,27 +578,101 @@ class EventAiRoomTest extends EventIntegrationTest {
   }
 
   @Test
-  void thePassScoreLocksWithTheFirstEvaluation() {
+  void thePassScoreIsEditableUntilTheFirstEvaluationAndThenLocked() {
     String manager = managers.get(RoomCode.AI);
     Response editor = setPassScore(55);
     assertEquals(55, (int) editor.json("$.passScore"));
     assertEquals(false, editor.json("$.passScoreLocked"));
-    assertEquals(400, put("/rooms/" + ai + "/quiz/settings", manager, "{\"mcqMinutes\":2,\"passScore\":101}").status());
-    assertEquals(55, (int) expectOk(get("/rooms/" + ai + "/quiz/export", manager)).json("$.passScore"));
+    assertEquals(400, put("/rooms/" + ai + "/mission/settings", manager, "{\"passScore\":101}").status());
+    assertEquals(400, put("/rooms/" + ai + "/mission/settings", manager, "{\"passScore\":-1}").status());
+    assertEquals(400, put("/rooms/" + ai + "/mission/settings", manager, "{}").status());
+    assertEquals(55, (int) expectOk(get("/rooms/" + ai + "/mission/export", manager)).json("$.passScore"));
 
     startRound1();
     expectOk(post("/admin/round/timer/end", admin, null));
+    assertEquals(new BigDecimal("0.00"), evaluationTotal(alpha), "nobody saved anything: every stage is worth 0");
+    assertEquals(false, db.queryForObject("SELECT passed FROM sentinel_evaluation WHERE team_id = ?", Boolean.class, alpha.id()), "0 < 55");
     String locked = "A team in this room has already been evaluated; the pass score can no longer change.";
-    expectError(put("/rooms/" + ai + "/quiz/settings", manager, "{\"mcqMinutes\":2,\"passScore\":50}"), 409, locked);
-    Response same = expectOk(put("/rooms/" + ai + "/quiz/settings", manager, "{\"mcqMinutes\":3,\"passScore\":55}"));
-    assertEquals(3, (int) same.json("$.mcqMinutes"), "the MCQ cutoff stays editable");
+    expectError(put("/rooms/" + ai + "/mission/settings", manager, "{\"passScore\":50}"), 409, locked);
+    Response same = expectOk(put("/rooms/" + ai + "/mission/settings", manager, "{\"passScore\":55}"));
     assertEquals(true, same.json("$.passScoreLocked"));
-    expectError(post("/rooms/" + ai + "/quiz/import", manager, QUIZ.replace("\"mcqMinutes\":2,", "\"mcqMinutes\":2,\"passScore\":40,")), 409, locked);
-    assertEquals(List.of(55), db.queryForList("SELECT DISTINCT pass_score FROM quiz_evaluation", Integer.class));
+    String other = SentinelFixture.shipped().replaceFirst("\"passScore\": 60", "\"passScore\": 40");
+    assertTrue(other.contains("\"passScore\": 40"));
+    expectError(importMission(other), 409, locked);
+    assertEquals(List.of(55), db.queryForList("SELECT DISTINCT pass_score FROM sentinel_evaluation", Integer.class));
+  }
+
+  // ---- content ------------------------------------------------------------------------------------
+
+  @Test
+  void importAndExportRoundTripAndBadFilesAreRefusedWholeWithEveryProblemListed() throws Exception {
+    String manager = managers.get(RoomCode.AI);
+    Response exported = expectOk(get("/rooms/" + ai + "/mission/export", manager));
+    JsonNode expected = json.readTree(SentinelFixture.shipped());
+    JsonNode actual = json.readTree(exported.body());
+    assertEquals(1, actual.get("format").asInt());
+    assertEquals(60, actual.get("passScore").asInt());
+    assertEquals(expected.get("story"), actual.get("story"));
+    assertEquals(expected.get("missions").size(), actual.get("missions").size());
+    for (int m = 0; m < 3; m++) {
+      assertEquals(expected.get("missions").get(m).get("intro"), actual.get("missions").get(m).get("intro"));
+      assertEquals(expected.get("missions").get(m).get("stages"), actual.get("missions").get(m).get("stages"), "mission " + m);
+    }
+    expectOk(importMission(exported.body()));
+    assertEquals(exported.body(), expectOk(get("/rooms/" + ai + "/mission/export", manager)).body(), "export → import → export is stable");
+
+    Response editor = expectOk(get("/rooms/" + ai + "/mission", manager));
+    assertEquals(true, editor.json("$.hasContent"));
+    assertEquals(10, (int) editor.json("$.stages.length()"));
+    assertEquals(100, ((Number) editor.json("$.totalPoints")).intValue());
+    assertEquals(List.of("predict", "predict", "predict", "see", "see", "see", "noor", "noor", "noor", "noor"), editor.json("$.stages[*].mission"));
+    assertEquals(false, editor.json("$.workStarted"));
+    assertEquals(true, editor.json("$.editable"));
+
+    // A bad file: nothing is saved, and every problem comes back at once.
+    ObjectNode bad = (ObjectNode) json.readTree(SentinelFixture.shipped());
+    ((ObjectNode) bad.get("missions").get(0).get("stages").get(0)).put("maxPoints", 11);
+    ((ObjectNode) bad.get("story")).put("failed", "You scored 59.");
+    ((ObjectNode) bad.get("missions").get(1).get("stages").get(0).get("vehicles").get(11)).put("kind", "Van");
+    Response rejected = importMission(json.writeValueAsString(bad));
+    assertEquals(400, rejected.status(), rejected.body());
+    List<String> problems = rejected.json("$.problems");
+    assertTrue(problems.contains("story.failed must not contain a number."), problems.toString());
+    assertTrue(problems.contains("The stages are worth 101 points in all; they must add up to 100."), problems.toString());
+    assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 4: The nearest vehicle must be an outlier")), problems.toString());
+    assertTrue(((String) rejected.json("$.detail")).startsWith("The file has "), rejected.body());
+    ((ObjectNode) bad.get("missions").get(0)).remove("title");
+    List<String> shape = importMission(json.writeValueAsString(bad)).json("$.problems");
+    assertEquals(List.of("Mission 1 · title: must be a non-empty text."), shape, "shape problems come first");
+    assertEquals(exported.body(), expectOk(get("/rooms/" + ai + "/mission/export", manager)).body(), "a refused import changes nothing");
+
+    assertEquals(List.of("The file is not valid JSON."), importMission("{{{").json("$.problems"));
+    assertEquals(List.of("The file must be a JSON object."), importMission("[]").json("$.problems"));
+    assertEquals(List.of("The file is larger than 400 KB."), importMission("x".repeat(400_001)).json("$.problems"));
+    assertTrue((int) importMission("{}").json("$.problems.length()") >= 3);
+
+    List<String> audits = db.queryForList("SELECT action || ' ' || target FROM audit_event WHERE action LIKE 'EVENT_MISSION%' OR action = 'EVENT_ROOM_ACTIVITY'", String.class);
+    assertTrue(audits.contains("EVENT_MISSION_IMPORTED room:" + ai + " stages:10"), audits.toString());
+    assertFalse(audits.toString().contains("Rami") || audits.toString().contains("SENTINEL"), "audits never carry the content: " + audits);
   }
 
   @Test
-  void anAiQuizRoomWithoutQuestionsOrClueKeyBlocksTheTimerUnlessStartedAnyway() {
+  void theMissionIsLockedOnceAnyTeamRanOrSavedAnythingAndAfterTheFinalOpens() {
+    startRound1();
+    expectOk(importMission(SentinelFixture.shipped()));
+    expectOk(run(alpha, key(), 1, "z-3"));
+    String locked = "Teams have already worked in this room; its mission can no longer be replaced.";
+    expectError(importMission(SentinelFixture.shipped()), 409, locked);
+    assertEquals(true, expectOk(get("/rooms/" + ai + "/mission", managers.get(RoomCode.AI))).json("$.workStarted"));
+    expectOk(get("/rooms/" + ai + "/mission/export", managers.get(RoomCode.AI)));
+    assertEquals(0, count("SELECT count(*) FROM sentinel_submission"));
+
+    openFinal();
+    expectError(importMission(SentinelFixture.shipped()), 409, "Event content is read-only after the final opens.");
+  }
+
+  @Test
+  void aRoomWithoutMissionContentOrClueKeyBlocksTheTimerUnlessStartedAnyway() {
     assertEquals(List.of(), expectOk(get("/admin/board", admin)).json("$.startBlockers"));
     long linux = rooms.get(RoomCode.LINUX);
     expectOk(setActivity(linux, "\"AI_QUIZ\"", admin));
@@ -514,19 +682,20 @@ class EventAiRoomTest extends EventIntegrationTest {
     List<String> blocking = board.json("$.alerts[?(@.blocking == true)].message");
     assertEquals(
       List.of(
-        "Room AI runs the AI quiz but has no clue key, so passing teams would get no clue.",
-        "Room Linux runs the AI quiz but has no questions."
+        "Room AI runs the AI mission but has no clue key, so passing teams would get no clue.",
+        "Room Linux runs the AI mission but has no mission content."
       ),
       blocking
     );
     assertEquals(blocking, board.json("$.startBlockers"));
-    assertEquals(List.of("/event/room/" + linux + "/quiz"), board.json("$.alerts[?(@.code == 'QUIZ_WITHOUT_QUESTIONS')].link"));
+    assertEquals(List.of("/event/room/" + linux + "/mission"), board.json("$.alerts[?(@.code == 'MISSION_WITHOUT_CONTENT')].link"));
+    assertEquals(List.of(), board.json("$.alerts[?(@.code == 'QUIZ_PLAN')]"), "there is no planning warning any more: the file must add up to 100");
 
     assignRound(1);
     expectError(
       post("/admin/round/timer/start", admin, null),
       409,
-      "The AI quiz is not ready: " + String.join(" ", blocking) + " Press Start anyway to start regardless."
+      "The AI mission is not ready: " + String.join(" ", blocking) + " Press Start anyway to start regardless."
     );
     assertEquals("ASSIGNED", expectOk(get("/admin/board", admin)).json("$.state.phase"));
     expectOk(post("/admin/round/timer/start", admin, "{\"anyway\":true}"));
@@ -534,148 +703,11 @@ class EventAiRoomTest extends EventIntegrationTest {
     assertEquals(1, count("SELECT count(*) FROM audit_event WHERE action = 'EVENT_TIMER_STARTED' AND target = 'round:1 anyway'"));
   }
 
-  // ---- access -------------------------------------------------------------------------------------
-
   @Test
-  void otherTeamsRoomsAndManagersSeeNothing() {
-    startRound1();
-    long linux = rooms.get(RoomCode.LINUX);
-    expectError(get("/team/rooms/" + linux + "/activity", alpha.token()), 404, "Activity not found.");
-    expectError(get("/team/rooms/999999/activity", alpha.token()), 404, "Activity not found.");
-    expectError(post("/team/rooms/" + linux + "/activity/finish-mcq", alpha.token(), null), 404, "Activity not found.");
-    expectError(submitRepair(bravo, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))), 404, "Activity not found.");
-    assertEquals(401, get("/team/rooms/" + ai + "/activity", null).status());
-    expectError(activity(alpha, managers.get(RoomCode.AI)), 403, "A team account is required.");
-
-    for (String path : List.of("/quiz", "/quiz/results", "/quiz/export", "/quiz/results.csv")) {
-      expectError(get("/rooms/" + ai + path, managers.get(RoomCode.LINUX)), 404, "Room not found.");
-      expectError(get("/rooms/" + ai + path, alpha.token()), 403, "Access denied.");
-      expectOk(get("/rooms/" + ai + path, managers.get(RoomCode.AI)));
-      expectOk(get("/rooms/" + ai + path, admin));
-    }
-    expectError(post("/rooms/" + ai + "/quiz/import", managers.get(RoomCode.LINUX), QUIZ), 404, "Room not found.");
-    expectError(put("/rooms/" + ai + "/quiz/settings", managers.get(RoomCode.LINUX), "{\"mcqMinutes\":2,\"passScore\":10}"), 404, "Room not found.");
-    expectError(setActivity(ai, "null", managers.get(RoomCode.AI)), 403, "Access denied.");
-  }
-
-  // ---- content ------------------------------------------------------------------------------------
-
-  @Test
-  void importAndExportRoundTripAndBadFilesAreRefusedWithTheItemNamed() throws Exception {
-    String manager = managers.get(RoomCode.AI);
-    Response exported = expectOk(get("/rooms/" + ai + "/quiz/export", manager));
-    JsonNode expected = json.readTree(QUIZ);
-    JsonNode actual = json.readTree(exported.body());
-    assertEquals(2, actual.get("mcqMinutes").asInt());
-    assertEquals(60, actual.get("passScore").asInt());
-    assertEquals(expected.get("questions").size(), actual.get("questions").size());
-    for (int i = 0; i < expected.get("questions").size(); i++) {
-      JsonNode q = expected.get("questions").get(i);
-      JsonNode e = actual.get("questions").get(i);
-      for (String field : List.of("section", "prompt", "options", "correctOption", "points")) assertEquals(q.get(field), e.get(field), field);
-    }
-    for (int i = 0; i < 3; i++) {
-      assertEquals(expected.get("repairs").get(i).get("snippets"), actual.get("repairs").get(i).get("snippets"));
-    }
-    assertEquals(10, actual.get("repairs").get(2).get("points").asInt(), "repair points default to 10");
-
-    expectOk(post("/rooms/" + ai + "/quiz/import", manager, exported.body().replace("\"passScore\":60", "\"passScore\":45")));
-    assertEquals(45, (int) expectOk(get("/rooms/" + ai + "/quiz", manager)).json("$.passScore"), "an import may set the pass score");
-    expectOk(post("/rooms/" + ai + "/quiz/import", manager, exported.body()));
-    assertEquals(exported.body(), expectOk(get("/rooms/" + ai + "/quiz/export", manager)).body(), "export → import → export is stable");
-
-    Response editor = expectOk(get("/rooms/" + ai + "/quiz", manager));
-    assertEquals(52, (int) editor.json("$.totalPoints"));
-    assertEquals(EXPLANATION + " 1", editor.json("$.questions[0].explanation"), "organizers see explanations");
-    assertTrue(((List<?>) editor.json("$.warnings")).contains("The total is 52 points (planned 100)."));
-
-    expectError(
-      post("/rooms/" + ai + "/quiz/import", manager, "{\"questions\":[{\"section\":\"EASY\",\"prompt\":\"Q\",\"options\":[\"a\"],\"correctOption\":0,\"points\":1}]}"),
-      400,
-      "Question 1: A question needs 2 to 6 options."
-    );
-    expectError(
-      post("/rooms/" + ai + "/quiz/import", manager, "{\"questions\":[{\"section\":\"HARD\",\"prompt\":\"Q\",\"options\":[\"a\",\"b\"],\"correctOption\":0,\"points\":1}]}"),
-      400,
-      "Question 1: Unknown section HARD (use EASY, MEDIUM, ADVANCED, LANDMARK or RECENT)."
-    );
-    expectError(
-      post("/rooms/" + ai + "/quiz/import", manager, "{\"repairs\":[{\"title\":\"R\",\"snippets\":[\"a\",\"b\",\"c\"]}]}"),
-      400,
-      "Repair 1: A repair needs 4 to 6 snippets."
-    );
-    expectError(post("/rooms/" + ai + "/quiz/import", manager, "{\"passScore\":101}"), 400, "passScore must be between 0 and 100.");
-    assertEquals(6, (int) expectOk(get("/rooms/" + ai + "/quiz", manager)).json("$.questions.length()"), "a refused import changes nothing");
-  }
-
-  @Test
-  void anAnsweredQuestionOrRepairIsLockedAndAnImportNoLongerReplacesContent() {
-    String manager = managers.get(RoomCode.AI);
-    String edit = "{\"section\":\"EASY\",\"prompt\":\"Changed\",\"options\":[\"x\",\"y\"],\"correctOption\":0,\"points\":1}";
-    startRound1();
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-
-    String locked = "A team has already answered this question; it can no longer be changed.";
-    expectError(put("/rooms/" + ai + "/quiz/questions/" + questionId(0), manager, edit), 409, locked);
-    expectError(delete("/rooms/" + ai + "/quiz/questions/" + questionId(0), manager), 409, locked);
-    long unanswered = questionId(1);
-    expectOk(put("/rooms/" + ai + "/quiz/questions/" + unanswered, manager, edit));
-    expectError(post("/rooms/" + ai + "/quiz/import", manager, QUIZ), 409, "Teams have already answered in this room; its content can no longer be replaced.");
-    assertEquals(true, expectOk(get("/rooms/" + ai + "/quiz", manager)).json("$.questions[0].locked"));
-
-    finishMcq(alpha);
-    expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(0), correctOrder(repairId(0))));
-    String repairEdit = "{\"title\":\"T\",\"snippets\":[\"1\",\"2\",\"3\",\"4\"]}";
-    expectError(put("/rooms/" + ai + "/quiz/repairs/" + repairId(0), manager, repairEdit), 409, "A team has already submitted this repair; it can no longer be changed.");
-    expectOk(put("/rooms/" + ai + "/quiz/repairs/" + repairId(1), manager, repairEdit));
-
-    openFinal();
-    expectError(post("/rooms/" + ai + "/quiz/questions", manager, edit), 409, "Event content is read-only after the final opens.");
-  }
-
-  @Test
-  void questionsAndRepairsAreValidatedAndEditsNeedTheActivity() {
-    String manager = managers.get(RoomCode.AI);
-    expectError(
-      post("/rooms/" + ai + "/quiz/questions", manager, "{\"section\":\"EASY\",\"prompt\":\"Q\",\"options\":[\"a\",\"a\"],\"correctOption\":0,\"points\":1}"),
-      400,
-      "Two options have the same text."
-    );
-    expectError(
-      post("/rooms/" + ai + "/quiz/questions", manager, "{\"section\":\"EASY\",\"prompt\":\"Q\",\"options\":[\"a\",\"b\"],\"correctOption\":2,\"points\":1}"),
-      400,
-      "Mark exactly one option as correct."
-    );
-    expectError(
-      post("/rooms/" + ai + "/quiz/questions", manager, "{\"section\":\"EASY\",\"prompt\":\"Q\",\"options\":[\"a\",\"b\"],\"correctOption\":0,\"points\":11}"),
-      400,
-      "Points must be between 1 and 10."
-    );
-    Response created = expectOk(
-      post("/rooms/" + ai + "/quiz/questions", manager, "{\"section\":\"RECENT\",\"prompt\":\" New \",\"options\":[\" a \",\"b\",\"c\",\"d\",\"e\",\"f\"],\"correctOption\":5,\"points\":10}")
-    );
-    assertEquals("New", created.json("$.questions[6].prompt"));
-    assertEquals(5, (int) created.json("$.questions[6].correctOption"));
-    assertEquals(2, (int) created.json("$.sections[4].questions"));
-
-    expectOk(setActivity(ai, "null", admin));
-    expectError(post("/rooms/" + ai + "/quiz/questions", manager, "{\"section\":\"EASY\",\"prompt\":\"Q\",\"options\":[\"a\",\"b\"],\"correctOption\":0,\"points\":1}"), 409, "The AI quiz is not enabled for this room.");
-    List<String> audits = db.queryForList("SELECT action || ' ' || target FROM audit_event WHERE action LIKE 'EVENT_QUIZ%' OR action = 'EVENT_ROOM_ACTIVITY'", String.class);
-    assertFalse(audits.toString().contains("New"), "audits never carry the question's text: " + audits);
-  }
-
-  @Test
-  void theAdminSwitchesTheActivityAndTheBoardWarnsAboutThePlan() {
+  void theAdminSwitchesTheActivityAndRepeatingItChangesNothing() {
     assignRound(1);
     assertEquals("AI_QUIZ", expectOk(get("/team/board", alpha.token())).json("$.scheduledRoom.activity"));
     assertEquals("AI_QUIZ", expectOk(get("/rooms/" + ai + "/board", managers.get(RoomCode.AI))).json("$.room.activity"));
-    assertEquals("AI_QUIZ", expectOk(get("/admin/content", admin)).json("$.rooms[0].activity"));
-    List<String> plan = expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'QUIZ_PLAN')].message");
-    assertTrue(plan.contains("Room AI quiz: Easy has 2 questions (planned 20)."), plan.toString());
-    assertTrue(plan.contains("Room AI quiz: The total is 52 points (planned 100)."), plan.toString());
-    List<Boolean> planBlocking = expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'QUIZ_PLAN')].blocking");
-    assertEquals(List.of(false), planBlocking.stream().distinct().toList(), "planning warnings never block");
-
     long before = revision();
     expectOk(setActivity(ai, "null", admin));
     assertTrue(revision() > before);
@@ -683,120 +715,136 @@ class EventAiRoomTest extends EventIntegrationTest {
     expectOk(setActivity(ai, "null", admin));
     assertEquals(unchanged, revision(), "repeating the same setting is a no-op");
     assertNull(expectOk(get("/team/board", alpha.token())).json("$.scheduledRoom.activity"));
-    expectError(activity(alpha), 404, "Activity not found.");
-    assertEquals(List.of(), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code =~ /QUIZ.*/)]"));
+    assertEquals(List.of(), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code =~ /MISSION.*/)]"));
   }
 
+  // ---- reset, results, score ----------------------------------------------------------------------
+
   @Test
-  void aTeamResetDeletesItsQuizAnswersAndEvaluationAndTheSnapshotKeepsThem() {
+  void resetsDeleteATeamsMissionWorkAfterASnapshotThatKeepsIt() {
     startRound1();
-    expectOk(answer(alpha, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-    expectOk(answer(alfa, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
+    expectOk(run(alpha, key(), 3, "knn-5"));
+    saveStages(alpha, 1, 2);
+    saveStages(alfa, 1);
     expectOk(post("/admin/round/timer/end", admin, null));
-    expectOk(post("/admin/reset/team/" + alpha.id(), admin, "{\"reason\":\"Quiz reset test\"}"));
-    assertEquals(0, count("SELECT count(*) FROM quiz_mcq_answer WHERE team_id = " + alpha.id()));
-    assertEquals(0, count("SELECT count(*) FROM quiz_team_progress WHERE team_id = " + alpha.id()));
-    assertEquals(0, count("SELECT count(*) FROM quiz_evaluation WHERE team_id = " + alpha.id()));
-    assertEquals(1, count("SELECT count(*) FROM quiz_mcq_answer WHERE team_id = " + alfa.id()));
-    assertEquals(1, count("SELECT count(*) FROM quiz_evaluation WHERE team_id = " + alfa.id()));
-    String data = db.queryForObject("SELECT data::text FROM event_snapshot ORDER BY id DESC LIMIT 1", String.class);
-    assertTrue(data.contains("\"quiz_mcq_answer\": [{"), data);
-    assertTrue(data.contains("\"quiz_evaluation\": [{"), data);
+    Response reset = expectOk(post("/admin/reset/team/" + alpha.id(), admin, "{\"reason\":\"Mission reset test\"}"));
+    long snapshot = ((Number) reset.json("$.snapshotId")).longValue();
+    for (String table : List.of("sentinel_run", "sentinel_submission", "sentinel_evaluation")) {
+      assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE team_id = " + alpha.id()), table);
+    }
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alfa.id()));
+    assertEquals(1, count("SELECT count(*) FROM sentinel_evaluation WHERE team_id = " + alfa.id()));
+    String data = db.queryForObject("SELECT data::text FROM event_snapshot WHERE id = ?", String.class, snapshot);
+    for (String table : List.of("sentinel_run", "sentinel_submission", "sentinel_evaluation")) {
+      assertTrue(data.contains("\"" + table + "\": [{"), table + " in " + data);
+    }
+    assertTrue(count("SELECT count(*) FROM sentinel_content") == 1, "the mission stays: it is content");
+
+    String body = "{\"confirmText\":\"RESET\",\"password\":\"%s\",\"reason\":\"Mission event reset\"}".formatted(PASSWORD);
+    Response all = expectOk(post("/admin/reset/event", admin, body));
+    String eventData = db.queryForObject("SELECT data::text FROM event_snapshot WHERE id = ?", String.class, ((Number) all.json("$.snapshotId")).longValue());
+    assertTrue(eventData.contains("\"sentinel_submission\": [{"), eventData);
+    for (String table : List.of("sentinel_run", "sentinel_submission", "sentinel_evaluation")) assertEquals(0, count("SELECT count(*) FROM " + table), table);
+    assertEquals(1, count("SELECT count(*) FROM sentinel_content"));
+    assertEquals(60, (int) expectOk(get("/rooms/" + ai + "/mission/export", managers.get(RoomCode.AI))).json("$.passScore"));
   }
 
-  // ---- results ------------------------------------------------------------------------------------
-
   @Test
-  void resultsMatchQuizScoringAndRankByTotalThenEarlierCompletion() {
-    setPassScore(23);
+  void resultsRankTeamsByTotalThenEarlierAndTheCsvNeutralizesFormulas() {
     startRound1();
-    // Alpha: questions 0..2 right, 3..5 wrong; repairs: correct, one swap, nothing in place.
-    List<BigDecimal> alphaScores = new ArrayList<>();
-    for (int q = 0; q < 6; q++) {
-      long question = questionId(q);
-      boolean right = q < 3;
-      expectOk(answer(alpha, UUID.randomUUID(), question, right ? correctOption(question) : wrongOption(question)));
-      alphaScores.add(QuizScoring.mcqPoints(points(question), right));
-    }
+    // Alpha: 10 + 10; Alfa reaches the same 20 five seconds later; Ace 6 (iqr-3) only; a run-only team appears with 0.
+    saveStages(alpha, 1, 2);
     clock.advance(Duration.ofSeconds(5));
-    finishMcq(alpha);
-    List<List<Long>> orders = List.of(correctOrder(repairId(0)), swapFirstTwo(correctOrder(repairId(1))), rotate(correctOrder(repairId(2))));
-    for (int r = 0; r < 3; r++) {
-      List<Long> order = orders.get(r);
-      expectOk(submitRepair(alpha, UUID.randomUUID(), repairId(r), order));
-      alphaScores.add(QuizScoring.repairPoints(10, QuizScoring.correctPositions(order, correctOrder(repairId(r))), order.size()));
-    }
-    BigDecimal alphaTotal = QuizScoring.total(alphaScores);
-    assertEquals(new BigDecimal("23.00"), alphaTotal, "7 MCQ points + 10 + 6 + 0");
-
-    // Alfa reaches the same total 5 seconds later (3 + 4 MCQ points, 10 + 6 + 0); Ace a higher one (15 + 10 + 10).
-    clock.advance(Duration.ofSeconds(5));
-    for (int q = 2; q < 4; q++) expectOk(answer(alfa, UUID.randomUUID(), questionId(q), correctOption(questionId(q))));
-    finishMcq(alfa);
-    for (int r = 0; r < 3; r++) expectOk(submitRepair(alfa, UUID.randomUUID(), repairId(r), orders.get(r)));
+    saveStages(alfa, 1, 2);
     TestTeam ace = team("Ace", GroupCode.A);
-    for (int q = 3; q < 6; q++) expectOk(answer(ace, UUID.randomUUID(), questionId(q), correctOption(questionId(q))));
-    finishMcq(ace);
-    for (int r = 0; r < 2; r++) expectOk(submitRepair(ace, UUID.randomUUID(), repairId(r), correctOrder(repairId(r))));
+    expectOk(submitStage(ace, key(), 1, "{\"config\":\"iqr-3\"}"));
+    TestTeam formula = team("=HYPERLINK(1)", GroupCode.A);
+    expectOk(run(formula, key(), 1, "z-2"));
 
-    Response results = expectOk(get("/rooms/" + ai + "/quiz/results", managers.get(RoomCode.AI)));
-    assertEquals(List.of("Ace", "Alpha", "Alfa"), results.json("$.teams[*].teamName"), "35 > 23 = 23, Alpha finished first");
-    assertEquals(List.of(1, 2, 3), results.json("$.teams[*].rank"));
-    assertEquals(35.0, ((Number) results.json("$.teams[0].total")).doubleValue());
-    assertEquals(alphaTotal.doubleValue(), ((Number) results.json("$.teams[1].total")).doubleValue());
-    assertEquals(alphaTotal.doubleValue(), ((Number) results.json("$.teams[2].total")).doubleValue());
-    assertEquals(4.0, ((Number) results.json("$.teams[1].mcqBySection.EASY")).doubleValue());
-    assertEquals(3.0, ((Number) results.json("$.teams[1].mcqBySection.MEDIUM")).doubleValue());
-    assertEquals(0.0, ((Number) results.json("$.teams[1].mcqBySection.RECENT")).doubleValue());
-    List<Number> alphaRepairs = results.json("$.teams[1].repairScores");
-    assertEquals(List.of(10.0, 6.0, 0.0), alphaRepairs.stream().map(Number::doubleValue).toList());
-    assertNull(((List<?>) results.json("$.teams[0].repairScores")).get(2), "Ace never submitted repair 3");
-    assertEquals(6, (int) results.json("$.teams[1].answered"));
-    assertEquals(52, (int) results.json("$.maxPoints"));
-    assertEquals(23, (int) results.json("$.passScore"));
-    assertEquals(true, results.json("$.passScoreLocked"));
-    assertEquals(List.of("IN_PROGRESS", "PASSED", "PASSED"), results.json("$.teams[*].status"), "23 = 23 passes; Ace has not finished");
-    assertEquals(List.of(false, true, true), results.json("$.teams[*].clueGranted"));
-    // Question 0: only Alpha answered it (right) → 1 of 3 teams; question 2: Alpha and Alfa → 2 of 3.
-    assertEquals(33, (int) results.json("$.questions[0].percentCorrect"));
-    assertEquals(67, (int) results.json("$.questions[2].percentCorrect"));
-    assertEquals(2, (int) results.json("$.questions[2].correct"));
+    Response results = expectOk(get("/rooms/" + ai + "/mission/results", managers.get(RoomCode.AI)));
+    assertEquals(List.of("Alpha", "Alfa", "Ace", "=HYPERLINK(1)"), results.json("$.teams[*].teamName"));
+    assertEquals(List.of(1, 2, 3, 4), results.json("$.teams[*].rank"));
+    assertEquals(20.0, ((Number) results.json("$.teams[0].total")).doubleValue());
+    assertEquals(6.0, ((Number) results.json("$.teams[2].total")).doubleValue());
+    assertEquals(0.0, ((Number) results.json("$.teams[3].total")).doubleValue());
+    assertEquals(10.0, ((Number) results.json("$.teams[0].stagePoints[0]")).doubleValue());
+    assertEquals(10.0, ((Number) results.json("$.teams[0].stagePoints[1]")).doubleValue());
+    assertNull(((List<?>) results.json("$.teams[0].stagePoints")).get(2), "an unsaved stage has no points");
+    assertEquals(100, (int) results.json("$.maxPoints"));
+    assertEquals(60, (int) results.json("$.passScore"));
+    assertEquals(false, results.json("$.passScoreLocked"));
+    assertEquals(10, (int) results.json("$.stages.length()"));
+    assertEquals("Outlier Hunt", results.json("$.stages[0].title"));
+    assertEquals(List.of("IN_PROGRESS", "IN_PROGRESS", "IN_PROGRESS", "IN_PROGRESS"), results.json("$.teams[*].status"));
 
-    String csv = expectOk(get("/rooms/" + ai + "/quiz/results.csv", managers.get(RoomCode.AI))).body();
+    expectOk(post("/admin/round/timer/end", admin, null));
+    String csv = expectOk(get("/rooms/" + ai + "/mission/results.csv", managers.get(RoomCode.AI))).body();
     String[] lines = csv.split("\r\n");
-    assertEquals(
-      "rank,team,group,easy,medium,advanced,landmark,recent,mcqTotal,repair1,repair2,repair3,repairTotal,total,passScore,status,clueGranted,answered,repairsSubmitted,mcqFinishedAt,lastAnswerAt,evaluatedAt",
-      lines[0]
-    );
-    assertTrue(lines[1].startsWith("1,\"Ace\",A,0.00,0.00,4.00,5.00,6.00,15.00,10.00,10.00,,20.00,35.00,23,IN_PROGRESS,no,3,2,"), lines[1]);
-    assertTrue(lines[2].startsWith("2,\"Alpha\",A,4.00,3.00,0.00,0.00,0.00,7.00,10.00,6.00,0.00,16.00,23.00,23,PASSED,yes,6,3,"), lines[2]);
-    assertTrue(lines[1].endsWith(","), "Ace has no evaluation time");
-    assertEquals(4, lines.length);
+    assertEquals("rank,team,group,stage1,stage2,stage3,stage4,stage5,stage6,stage7,stage8,stage9,stage10,total,passScore,status,clueGranted,stagesSaved,lastSavedAt,evaluatedAt", lines[0]);
+    assertTrue(lines[1].startsWith("1,\"Alpha\",A,10.00,10.00,,,,,,,,,20.00,60,NOT_PASSED,no,2,"), lines[1]);
+    assertTrue(lines[3].startsWith("3,\"Ace\",A,6.00,,,,,,,,,,6.00,60,NOT_PASSED,no,1,"), lines[3]);
+    assertTrue(csv.contains("\"'=HYPERLINK(1)\""), csv);
+    assertEquals(5, lines.length);
   }
 
   @Test
-  void theCsvNeutralizesFormulasInTeamNames() {
+  void theRoomScoreIsAReadOnlySumOutOf100() {
     startRound1();
-    TestTeam formula = team("=HYPERLINK(1)", GroupCode.A);
-    expectOk(answer(formula, UUID.randomUUID(), questionId(0), correctOption(questionId(0))));
-    String csv = expectOk(get("/rooms/" + ai + "/quiz/results.csv", admin)).body();
-    assertTrue(csv.contains("\"'=HYPERLINK(1)\""), csv);
+    saveStages(alpha, 1, 2);
+    expectOk(run(alfa, key(), 3, "knn-1"));
+    long revision = revision();
+    Optional<SentinelScoreService.RoomScore> score = scoreService.roomScore(alpha.id());
+    assertEquals(new BigDecimal("20.00"), score.orElseThrow().points());
+    assertEquals(100, score.orElseThrow().maximum());
+    assertEquals(0, scoreService.roomScore(alfa.id()).orElseThrow().points().signum(), "a run earns nothing");
+    saveStages(alpha, 3, 4, 5, 6, 7, 8, 9, 10);
+    assertEquals(new BigDecimal("100.00"), scoreService.roomScore(alpha.id()).orElseThrow().points());
+    assertTrue(revision() > revision, "only the evaluation moved the revision; the score service wrote nothing");
+    long afterEvaluation = revision();
+    scoreService.roomScore(alpha.id());
+    assertEquals(afterEvaluation, revision());
+    expectOk(setActivity(ai, "null", admin));
+    assertTrue(scoreService.roomScore(alpha.id()).isEmpty(), "no room runs the mission");
   }
 
   // ---- statements ---------------------------------------------------------------------------------
 
   @Test
-  void theTeamActivityUsesTenStatementsWhateverTheNumberOfTeamsAndAnswers() {
+  void theTeamViewUsesTheSameEightStatementsForTwoAndForFourteenTeams() {
     startRound1();
-    List<String> few = activityStatements();
-    for (TestTeam team : teams(4)) {
+    expectOk(run(alpha, key(), 3, "knn-5"));
+    saveStages(alpha, 1, 2);
+    expectOk(run(alfa, key(), 1, "iqr-3"));
+    List<String> few = viewStatements();
+    for (TestTeam team : teams(3)) {
       if (team.group() != GroupCode.A) continue;
-      for (int q = 0; q < 6; q++) expectOk(answer(team, UUID.randomUUID(), questionId(q), correctOption(questionId(q))));
+      expectOk(run(team, key(), 3, "knn-1"));
+      expectOk(run(team, key(), 3, "knn-5"));
+      saveStages(team, 1, 2, 3);
     }
-    for (int q = 0; q < 6; q++) expectOk(answer(alpha, UUID.randomUUID(), questionId(q), correctOption(questionId(q))));
-    List<String> many = activityStatements();
-    assertEquals(10, few.size(), few.toString());
+    saveStages(alfa, 4, 5, 6);
+    assertEquals(14, count("SELECT count(*) FROM event_team"));
+    List<String> many = viewStatements();
+    assertEquals(8, few.size(), few.toString());
     assertEquals(few, many);
+  }
+
+  @Test
+  void theResultsPageUsesTheSameStatementsForTwoAndForFourteenTeams() {
+    startRound1();
+    saveStages(alpha, 1, 2);
+    expectOk(run(alfa, key(), 1, "iqr-3"));
+    List<String> few = statementsOf(() -> get("/rooms/" + ai + "/mission/results", managers.get(RoomCode.AI)));
+    for (TestTeam team : teams(3)) {
+      if (team.group() != GroupCode.A) continue;
+      expectOk(run(team, key(), 3, "knn-1"));
+      saveStages(team, 1, 2, 3);
+    }
+    assertEquals(14, count("SELECT count(*) FROM event_team"));
+    List<String> many = statementsOf(() -> get("/rooms/" + ai + "/mission/results", managers.get(RoomCode.AI)));
+    assertEquals(few, many);
+    assertEquals(6, few.size(), few.toString());
+    assertEquals(5, (int) expectOk(get("/rooms/" + ai + "/mission/results", managers.get(RoomCode.AI))).json("$.teams.length()"));
   }
 
   // ---- helpers ------------------------------------------------------------------------------------
@@ -806,111 +854,107 @@ class EventAiRoomTest extends EventIntegrationTest {
     openRoom(RoomCode.AI);
   }
 
+  private static int intAt(Response response, String path) {
+    return ((Number) response.json(path)).intValue();
+  }
+
+  private static UUID key() {
+    return UUID.randomUUID();
+  }
+
+  private Response importMission(String body) {
+    return importMission(body, managers.get(RoomCode.AI));
+  }
+
+  private Response importMission(String body, String token) {
+    return post("/rooms/" + ai + "/mission/import", token, body);
+  }
+
   private Response setPassScore(int passScore) {
-    return expectOk(put("/rooms/" + ai + "/quiz/settings", managers.get(RoomCode.AI), "{\"mcqMinutes\":2,\"passScore\":" + passScore + "}"));
+    return expectOk(put("/rooms/" + ai + "/mission/settings", managers.get(RoomCode.AI), "{\"passScore\":" + passScore + "}"));
   }
 
   private Response setActivity(long roomId, String activity, String token) {
     return put("/admin/rooms/" + roomId + "/activity", token, "{\"activity\":" + activity + "}");
   }
 
-  private Response activity(TestTeam team) {
-    return activity(team, team.token());
+  private Response view(TestTeam team) {
+    return view(team, team.token());
   }
 
-  private Response activity(TestTeam team, String token) {
+  private Response view(TestTeam team, String token) {
     return get("/team/rooms/" + ai + "/activity", token);
   }
 
-  private Response answer(TestTeam team, UUID key, long questionId, long optionId) {
-    return teamPost(team, "/team/rooms/" + ai + "/activity/answers", key, "{\"questionId\":%d,\"optionId\":%d}".formatted(questionId, optionId));
+  private Response run(TestTeam team, UUID key, int stage, String config) {
+    return teamPost(team, "/team/rooms/" + ai + "/activity/stages/" + stage + "/runs", key, "{\"config\":\"" + config + "\"}");
   }
 
-  /** Answers every question, correctly except the listed ones (authoring order). */
-  private void answerAll(TestTeam team, Set<Integer> wrong) {
-    for (int q = 0; q < 6; q++) {
-      long question = questionId(q);
-      expectOk(answer(team, UUID.randomUUID(), question, wrong.contains(q) ? wrongOption(question) : correctOption(question)));
-    }
+  private Response submitStage(TestTeam team, UUID key, int stage, String answerJson) {
+    return teamPost(team, "/team/rooms/" + ai + "/activity/stages/" + stage + "/submit", key, answerJson);
   }
 
-  private Response submitRepair(TestTeam team, UUID key, long repairId, List<Long> snippetIds) {
-    return teamPost(team, "/team/rooms/" + ai + "/activity/repairs/" + repairId, key, "{\"snippetIds\":" + snippetIds + "}");
-  }
-
-  private void finishMcq(TestTeam team) {
-    expectOk(post("/team/rooms/" + ai + "/activity/finish-mcq", team.token(), null));
+  /** Saves a perfect answer to each listed stage. */
+  private void saveStages(TestTeam team, int... stages) {
+    for (int stage : stages) expectOk(submitStage(team, key(), stage, PERFECT.get(stage - 1)));
   }
 
   private Response override(String submissionId, String verdict, String token) {
-    String path = "/rooms/" + ai + "/submissions/" + submissionId + "/clue-override";
-    return put(path, token, "{\"override\":\"" + verdict + "\",\"version\":1}");
+    return put("/rooms/" + ai + "/submissions/" + submissionId + "/clue-override", token, "{\"override\":\"" + verdict + "\",\"version\":1}");
   }
 
   private String evaluationSubmission(TestTeam team) {
-    return db.queryForObject("SELECT submission_id::text FROM quiz_evaluation WHERE team_id = ?", String.class, team.id());
+    return db.queryForObject("SELECT submission_id::text FROM sentinel_evaluation WHERE team_id = ?", String.class, team.id());
   }
 
   private BigDecimal evaluationTotal(TestTeam team) {
-    return db.queryForObject("SELECT total FROM quiz_evaluation WHERE team_id = ?", BigDecimal.class, team.id());
-  }
-
-  /** The n-th question (authoring order). */
-  private long questionId(int n) {
-    return db.queryForObject("SELECT id FROM quiz_question WHERE room_id = ? ORDER BY position, id OFFSET ? LIMIT 1", Long.class, ai, n);
-  }
-
-  private long repairId(int n) {
-    return db.queryForObject("SELECT id FROM quiz_repair WHERE room_id = ? ORDER BY position, id OFFSET ? LIMIT 1", Long.class, ai, n);
-  }
-
-  private int points(long questionId) {
-    return db.queryForObject("SELECT points FROM quiz_question WHERE id = ?", Integer.class, questionId);
-  }
-
-  private long correctOption(long questionId) {
-    return db.queryForObject("SELECT id FROM quiz_option WHERE question_id = ? AND correct", Long.class, questionId);
-  }
-
-  private long wrongOption(long questionId) {
-    return db.queryForObject("SELECT id FROM quiz_option WHERE question_id = ? AND NOT correct ORDER BY position LIMIT 1", Long.class, questionId);
-  }
-
-  private long optionOf(long questionId) {
-    return db.queryForObject("SELECT id FROM quiz_option WHERE question_id = ? ORDER BY position LIMIT 1", Long.class, questionId);
-  }
-
-  private List<Long> correctOrder(long repairId) {
-    return db.queryForList("SELECT id FROM quiz_snippet WHERE repair_id = ? ORDER BY correct_position", Long.class, repairId);
+    return db.queryForObject("SELECT total FROM sentinel_evaluation WHERE team_id = ?", BigDecimal.class, team.id());
   }
 
   private int count(String sql) {
     return db.queryForObject(sql, Integer.class);
   }
 
-  private static List<Long> longs(List<Integer> ids) {
-    return ids.stream().map(Integer::longValue).toList();
+  private static int countOccurrences(String text, String part) {
+    return text.split(java.util.regex.Pattern.quote(part), -1).length - 1;
   }
 
-  private static List<Long> swapFirstTwo(List<Long> order) {
-    List<Long> swapped = new ArrayList<>(order);
-    Collections.swap(swapped, 0, 1);
-    return swapped;
-  }
-
-  private static List<Long> rotate(List<Long> order) {
-    List<Long> rotated = new ArrayList<>(order);
-    Collections.rotate(rotated, 1);
-    return rotated;
-  }
-
-  /** Member JSON never names a correct option, a score, the pass score or an explanation, and never their values. */
-  private static void assertNoSecrets(String body) {
-    String lower = body.toLowerCase(Locale.ROOT);
-    for (String word : List.of("correct", "explanation", "points", "score", "total", "position", "passed")) {
-      assertFalse(lower.contains(word), "member JSON contains '" + word + "': " + body);
+  /** Runs {@code count} calls at the same moment on separate threads and returns their responses in order. */
+  private List<Response> parallel(int count, java.util.function.IntFunction<Response> call) throws Exception {
+    CountDownLatch go = new CountDownLatch(1);
+    ExecutorService pool = Executors.newFixedThreadPool(count);
+    try {
+      List<Future<Response>> futures = new ArrayList<>();
+      for (int i = 0; i < count; i++) {
+        int index = i;
+        futures.add(pool.submit(() -> {
+          go.await();
+          return call.apply(index);
+        }));
+      }
+      go.countDown();
+      List<Response> responses = new ArrayList<>();
+      for (Future<Response> future : futures) responses.add(future.get(60, TimeUnit.SECONDS));
+      return responses;
+    } finally {
+      pool.shutdownNow();
     }
-    assertFalse(body.contains(EXPLANATION), body);
+  }
+
+  /** A member JSON body never carries a key that names points, scores, correctness or an answer, at any depth. */
+  private void assertNoSecrets(String body) {
+    walk(json.readTree(body), body);
+  }
+
+  private void walk(JsonNode node, String body) {
+    if (node.isObject()) {
+      for (var entry : node.properties()) {
+        assertFalse(FORBIDDEN_KEYS.contains(entry.getKey()), "member JSON has the key '" + entry.getKey() + "': " + body);
+        walk(entry.getValue(), body);
+      }
+    } else if (node.isArray()) {
+      node.forEach(child -> walk(child, body));
+    }
   }
 
   /** JsonPath on a raw body (the team board is checked as text and as JSON). */
@@ -921,13 +965,13 @@ class EventAiRoomTest extends EventIntegrationTest {
   }
 
   /**
-   * The SQL texts of one GET .../activity without the request's session check (auth_session), consecutive repeats
-   * collapsed (JdbcTemplate overloads call each other on the spy).
+   * The SQL texts of one request without the request's session check (auth_session), consecutive repeats collapsed
+   * (JdbcTemplate overloads call each other on the spy). The request is made once first to warm caches.
    */
-  private List<String> activityStatements() {
-    expectOk(activity(alpha));
+  private List<String> statementsOf(java.util.function.Supplier<Response> request) {
+    expectOk(request.get());
     clearInvocations(spiedJdbc);
-    expectOk(activity(alpha));
+    expectOk(request.get());
     List<String> statements = new ArrayList<>();
     for (Invocation invocation : mockingDetails(spiedJdbc).getInvocations()) {
       Object[] args = invocation.getArguments();
@@ -935,5 +979,9 @@ class EventAiRoomTest extends EventIntegrationTest {
       if (statements.isEmpty() || !statements.getLast().equals(sql)) statements.add(sql);
     }
     return statements;
+  }
+
+  private List<String> viewStatements() {
+    return statementsOf(() -> view(alpha));
   }
 }

@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 class TeamWriteGate {
 
   static final int TEAM_WRITES_PER_MINUTE = 20;
-  /** AI room answers: 45 questions and 3 repairs in one round need their own, larger bucket. */
+  /** AI mission runs and stage submissions need their own, larger bucket. */
   static final int ACTIVITY_WRITES_PER_MINUTE = 60;
 
   /** The locked team, the locked event state and the hash that identifies this exact request. */

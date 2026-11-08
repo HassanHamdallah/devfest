@@ -10,7 +10,7 @@ import java.util.UUID;
  * One room as seen by one team: public room fields plus that team's own progress and latest submission. Carries
  * no recovery data; {@code collectedClueKey} is the room's current key only when this team collected its clue
  * (null otherwise). The {@code last*} fields are null when the team never submitted there. {@code resultRecorded}:
- * the room's activity evaluated this team (AI quiz).
+ * the room's activity evaluated this team (AI mission).
  */
 public record TeamRoomProgressRecord(
   long roomId,

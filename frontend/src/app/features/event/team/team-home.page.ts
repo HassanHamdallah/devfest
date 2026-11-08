@@ -7,6 +7,8 @@ import {
 import { EventApi } from "../../../core/event/event-api";
 import {
   Receipt,
+  RoomActivity,
+  RoomCode,
   RoomEvidence,
   TeamBoard,
 } from "../../../core/event/event-models";
@@ -73,6 +75,11 @@ export class EventTeamHomePage {
   );
 
   /** The single missing clue of a team with 3 clues can still be won back by the recovery challenge. */
+  /** The room's activity from the board's evidence (the room cards carry none). */
+  protected activityOf(board: TeamBoard, code: RoomCode): RoomActivity | null {
+    return board.evidence.find((entry) => entry.roomCode === code)?.activity ?? null;
+  }
+
   protected isRecoverable(board: TeamBoard, evidence: RoomEvidence): boolean {
     return (
       !evidence.clueCollected &&

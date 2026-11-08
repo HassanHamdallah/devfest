@@ -20,7 +20,7 @@
     <h2 id="team-rooms-heading">Rooms</h2>
     <div class="event-grid">
       @for (room of view.rooms; track room.roomId) {
-      <event-team-room-card [room]="room" />
+      <event-team-room-card [room]="room" [activity]="activityOf(view, room.code)" />
       }
     </div>
   </section>

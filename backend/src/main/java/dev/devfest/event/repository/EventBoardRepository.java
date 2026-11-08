@@ -28,7 +28,7 @@ public class EventBoardRepository {
            ls.id AS last_id, ls.received_at AS last_received_at, ls.clue_correct AS last_clue_correct,
            ls.effective_correct AS last_effective_correct, ls.technical_output AS last_technical_output,
            ls.clue_answer AS last_clue_answer,
-           (EXISTS(SELECT 1 FROM quiz_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id)
+           (EXISTS(SELECT 1 FROM sentinel_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id)
              OR EXISTS(SELECT 1 FROM terminal_form f WHERE f.team_id = t.id AND f.room_id = r.id AND f.submitted_at IS NOT NULL)
              OR EXISTS(SELECT 1 FROM contest_release c2 WHERE c2.team_id = t.id AND c2.room_id = r.id)) AS result_recorded
     FROM event_room r

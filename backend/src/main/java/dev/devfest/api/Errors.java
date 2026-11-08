@@ -87,6 +87,14 @@ public class Errors {
     return p;
   }
 
+  /** An imported content file broke rules: every problem is listed so the organizer fixes them in one go. */
+  @ExceptionHandler(dev.devfest.event.domain.ContentRejectedException.class)
+  ProblemDetail contentRejected(dev.devfest.event.domain.ContentRejectedException e) {
+    var p = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    p.setProperty("problems", e.problems());
+    return p;
+  }
+
   @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
   ProblemDetail uploadTooLarge(Exception e) {
     return ProblemDetail.forStatusAndDetail(HttpStatus.CONTENT_TOO_LARGE, "The upload is larger than 25 MB.");

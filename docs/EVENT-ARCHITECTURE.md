@@ -453,45 +453,44 @@ or file I/O. Fail-fast settings: Hikari `connection-timeout=5000` ms and `spring
   coding workspace route.
 - `shared/ui/`: existing controls plus `ui-status-chip`, `ui-metric-tile`, `ui-countdown`, `ui-confirm-dialog`, `ui-page-state`.
 
-## AI room activity (V11–V12, rules §19)
+## AI mission room activity (V19, rules §19)
 
-**Data (V11)**: `event_room.activity` (`AI_QUIZ` or NULL; the migration sets it for `AI`, no code path tests the
-room code) and `event_room.quiz_mcq_minutes` (default 14). Content: `quiz_question` (section, position, prompt,
-points 1–10, explanation) → `quiz_option` (position, text, correct; partial unique index = at most one correct),
-`quiz_repair` (title, instructions, points) → `quiz_snippet` (correct_position, code). Options and snippets are
-inserted in a random order so their ids reveal nothing. Team state: `quiz_team_progress` (first action,
-mcq_finished_at), `quiz_mcq_answer` (PK team+question, UNIQUE team+Idempotency-Key, points_earned NUMERIC(6,2)) and
-`quiz_repair_answer` (PK team+repair, snippet_order BIGINT[], correct_positions, points_earned) — both append-only
-(the shared trigger; resets delete them and snapshot them first).
+**Data (V19)**: `event_room.activity` (`AI_QUIZ` or NULL; the migration that introduced it sets it for `AI`, no code
+path tests the room code) and `event_room.quiz_pass_score` (0–100, default 60). Content: `sentinel_content` (one
+validated JSON `document` per room, replaced as a whole by an import). Team state, all append-only (the shared
+trigger; resets delete them and snapshot them first): `sentinel_run` (PK team + stage + config, UNIQUE team +
+Idempotency-Key, the `result` JSON the team was shown, `seq` for the order), `sentinel_submission` (PK team + stage =
+the lock, UNIQUE team + Idempotency-Key, `answer` JSON, `points_earned` NUMERIC(5,2)) and `sentinel_evaluation` (PK
+team + room, UNIQUE `submission_id` → `room_submission`, total NUMERIC(6,2), pass_score, passed with
+`CHECK(passed = total >= pass_score)`, cause `LAST_STAGE`/`TIME_UP` (legacy `LAST_REPAIR`), evaluated_at). V19
+dropped the earlier quiz's tables and its `quiz_mcq_minutes` column, and renamed `quiz_evaluation` to
+`sentinel_evaluation`.
 
-**Data (V12)**: drops V11's `quiz_team_progress.cipher_key`; adds `event_room.quiz_pass_score` (0–100, default 60)
-and `quiz_evaluation` (PK team+room, UNIQUE submission_id → `room_submission`, total NUMERIC(6,2), pass_score,
-passed with `CHECK(passed = total >= pass_score)`, cause `LAST_REPAIR`/`TIME_UP`, evaluated_at; append-only).
+**Domain (pure, unit-tested; `event/domain/sentinel`)**: the solvers `Knn`, `Confusion`, `KMeans`, `AStar` (A* with
+the alphabetical tie-break, greedy search, Dijkstra for the admissibility check), `NaiveBayes`, `ForwardChaining`;
+`SentinelContent` (the mission as records), `SentinelContentRules` (every content rule and the fixture traps, built on
+the same solvers that score), `SentinelScoring` (points of a `StageAnswer`, tolerances), `Outliers` (Tukey hinges, IQR fences and Z-score per axis: the readings an Outlier Hunt run flags are derived, never stored), `SentinelRuns` (experiments and
+their budgets); `MissionEvaluationCause`, `EvidenceVisibility` (an evaluated activity room is finished for its team at
+once). **DTO layer**: `MissionDocument` reads the import file (every shape problem collected with its path, then the
+content rules) and `StageAnswers` reads a submitted answer; `ContentRejectedException` answers 400 with `problems` and the detail "The file has N problems."; each problem is labelled with its stage ("Stage 2 · maxPoints: …").
 
-**Domain (pure, unit-tested)**: `QuizScoring` (MCQ points, positions in place, partial credit HALF_UP to 2 decimals,
-`passes` = total ≥ pass score), `QuizShuffle` (HMAC-SHA256 seeds from a server secret + kind + team + item;
-section/option shuffles; `shuffleAwayFrom` never returns the correct snippet order), `QuizWindow` (NOT_STARTED / MCQ /
-REPAIRS / TIME_UP from `RoundTimer` running time), `QuizContentRules` (validation and the 20/15/6/3/1 + 3 + 100
-warnings), `EvidenceVisibility` (an evaluated activity room is finished for its team at once).
-
-**Services**: `AiRoomActivityService` (team view, answer, repair, finish; `TeamWriteGate.openActivity` = the usual
-locks with its own 60-per-minute bucket; answers do not bump the revision; writes are refused once the team is
-evaluated; the last repair calls the evaluation), `AiRoomViews` (the only mapping to the member DTO — no correct
-flags, positions, points, totals or pass score; once evaluated only `result` = clue unlocked + clue),
-`AiRoomEvaluationService` (evaluates one team, or at the round's end every assigned, active, not disqualified team
-not evaluated yet; records the result through `EventSubmissionService.recordActivityResult` — the same `store` as a
-team submission, with the verdict = passed and the ROOM clue on a pass — and inserts `quiz_evaluation`),
-`AiRoomShuffleSecret` (`DEVFEST_QUIZ_SHUFFLE_SECRET`; development fallback with a warning; `StartupSafety` refuses a
-non-development start without it), `AiRoomStartCheck` (blocking problems: no clue key, no questions),
-`AiRoomContentService` (editor, CRUD, import/export, MCQ minutes, pass score with its lock, admin activity switch;
-revision bump + audit naming ids only), `AiRoomResultsService` (results with status and clue granted, ranking, CSV via
-`csvCell`).
+**Services**: `AiRoomActivityService` (team view, run, submit; `TeamWriteGate.openActivity` = the usual locks with
+its own 60-per-minute bucket; runs and submissions do not bump the revision; writes are refused once the team is
+evaluated; the last stage calls the evaluation), `AiRoomViews` (the only mapping to the member DTO, every field
+listed by hand: no points, awards, flagged lists, accuracies, correct flags, derived answers or pass score; saved
+stages carry no data; once evaluated only `result`), `AiRoomEvaluationService` (evaluates one team, or at the round's
+end every assigned, active, not disqualified team not evaluated yet; records the result through
+`EventSubmissionService.recordActivityResult` — the same `store` as a team submission, with the verdict = passed and
+the ROOM clue on a pass — and inserts `sentinel_evaluation`), `AiRoomStartCheck` (blocking problems: no clue key,
+no mission content), `AiRoomContentService` (editor status, import/export, pass score with its lock, admin activity
+switch; revision bump + audit naming ids only), `AiRoomResultsService` (results with status and clue granted, ranking,
+CSV via `csvCell`), `SentinelScoreService` (the read-only room score, maximum 100).
 
 **Round end without a scheduler**: `EventRoundTimerService` evaluates when a transition leaves the timer at TIME_UP
 (End round, also as a no-op after the timer ran out; removing the remaining time), and `EventControlService.setRound`
 evaluates before leaving a round whose timer was started. Both hold the event_state lock like every team write, so the
-last repair and the round end serialize; `quiz_evaluation`'s primary key is the backstop. The evaluation's submission
-uses a random Idempotency-Key, so no team request can collide with it. A key change never re-checks it
+last stage and the round end serialize; `sentinel_evaluation`'s primary key is the backstop. The evaluation's
+submission uses a random Idempotency-Key, so no team request can collide with it. A key change never re-checks it
 (`ClueVerdictRepository.answersForRoom` skips evaluation submissions); manager overrides work as for any submission.
 Team receipts and the room card's receipt leave evaluations out; the team's evidence for an activity room carries no
 technical output, answer or result, only the clue when collected. `POST /admin/round/timer/start` takes an optional
@@ -499,15 +498,26 @@ technical output, answer or result, only the clue when collected. `POST /admin/r
 
 | Endpoint | Who | SQL statements |
 |---|---|---|
-| `GET /team/rooms/{id}/activity` | the team assigned this round (else 404) | 10 (team, state, room, exception, questions, repairs, MCQ answers, repair answers, progress, evaluation), constant |
-| `POST /team/rooms/{id}/activity/answers`, `…/repairs/{repairId}` (Idempotency-Key), `…/finish-mcq` | same | — |
-| `GET /rooms/{id}/quiz`, `POST/PUT/DELETE …/quiz/questions[/{qid}]`, `…/quiz/repairs[/{rid}]`, `PUT …/quiz/settings` (`mcqMinutes`, `passScore`), `GET …/quiz/export`, `POST …/quiz/import` | room manager (own room, else 404) or ADMIN | editor: 5 |
-| `GET /rooms/{id}/quiz/results`, `GET …/quiz/results.csv` | room manager or ADMIN | 8 |
+| `GET /team/rooms/{id}/activity` | the team assigned this round (else 404) | 8 (team, state, room, exception, content, runs, submissions, evaluation), constant |
+| `POST /team/rooms/{id}/activity/stages/{n}/runs`, `…/stages/{n}/submit` (Idempotency-Key) | same | — |
+| `GET /rooms/{id}/mission`, `PUT …/mission/settings` (`passScore`), `GET …/mission/export`, `POST …/mission/import` | room manager (own room, else 404) or ADMIN | status: 5 |
+| `GET /rooms/{id}/mission/results`, `GET …/mission/results.csv` | room manager or ADMIN | 6 |
 | `PUT /admin/rooms/{id}/activity` | ADMIN | — |
 
-The admin board adds one statement (quiz content stats per activity room, with the clue key flag) for the blocking
-`QUIZ_WITHOUT_CLUE_KEY` / `QUIZ_WITHOUT_QUESTIONS` alerts (`AdminAlert.blocking`, `AdminBoard.startBlockers`) and the
-`QUIZ_PLAN` warnings. **Browser**: `features/event/team/ai-room/` is loaded with `@defer` only for a room with the
-activity (lazy chunk `ai-room-activity`), and such a room shows no answer form; `features/event/manager/quiz/` holds
-the lazy editor and results routes `/event/room/:roomId/quiz` and `/event/room/:roomId/quiz/results` (polls every 5 s
-while visible).
+The admin board adds one statement (mission content stats per activity room, with the clue key flag) for the blocking
+`MISSION_WITHOUT_CLUE_KEY` / `MISSION_WITHOUT_CONTENT` alerts (`AdminAlert.blocking`, `AdminBoard.startBlockers`).
+
+**Browser (team)**: `features/event/team/sentinel/` is loaded with `@defer` only for a room with the activity (lazy chunk
+`sentinel-activity`). `EventSentinelActivity` keeps all ten stage components on the page (so moving between stages loses
+no work in progress) and fetches the activity again on every board revision and after every run or submit; one
+component per stage kind extends `SentinelStageBase` (idempotent run and submit with a key kept until success) and sits
+in `SentinelStageShell` (Field note, one Submit with a confirmation, sticky at the bottom). The stages' working state
+(`sentinel-logic.ts`: k nearest, Assign and Update, expanding a place, firing a rule) is pure functions; plots are plain
+SVG with `SentinelAxes`. No answer is ever computed in the browser for a team.
+
+**Browser (organizer)**: `features/event/manager/mission/` holds the lazy routes `/event/room/:roomId/mission` (import
+with confirmation and the server's `problems` list, export, pass score, the live results polled every 5 s while the tab is
+visible, CSV) and `/event/room/:roomId/mission/guide` (the Field Guide, static; the global print styles in `styles.css`
+hide the shell so only the guide is printed on one A4 page). The results endpoint reads six statements whatever the
+number of teams (room access, content, submissions, teams with runs, evaluations, active teams); `EventAiRoomTest`
+asserts the list is identical for 2 and 14 teams.

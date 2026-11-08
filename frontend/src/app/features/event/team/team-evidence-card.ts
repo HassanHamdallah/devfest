@@ -6,7 +6,7 @@ import { EventMaskedClue } from "./masked-clue";
 
 /**
  * A finished room on the team home: the team's latest technical output and clue answer with its result, and the
- * room's official clue behind the eye toggle when the team collected it. A room with an activity (AI quiz) shows
+ * room's official clue behind the eye toggle when the team collected it. A room with an activity (AI mission) shows
  * only its outcome: "Clue unlocked" with the clue, or that the required score was not reached; the Problem Solving
  * contest shows only whether its clue was unlocked.
  */
@@ -84,7 +84,7 @@ import { EventMaskedClue } from "./masked-clue";
           }
         </dd>
       } @else if (evidence().activity) {
-        <dt>AI quiz</dt>
+        <dt>AI mission</dt>
         <dd data-quiz-outcome>
           @if (evidence().clueValue) {
             <ui-status-chip variant="success">Clue unlocked</ui-status-chip>

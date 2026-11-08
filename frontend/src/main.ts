@@ -57,20 +57,20 @@ const eventRoutes: Routes = [
       ),
   },
   {
-    path: "event/room/:roomId/quiz",
+    path: "event/room/:roomId/mission",
     pathMatch: "full",
     canActivate: [managerGuard],
     loadComponent: () =>
-      import("./app/features/event/manager/quiz/quiz-editor.page").then(
-        (m) => m.EventQuizEditorPage,
+      import("./app/features/event/manager/mission/mission.page").then(
+        (m) => m.EventMissionPage,
       ),
   },
   {
-    path: "event/room/:roomId/quiz/results",
+    path: "event/room/:roomId/mission/guide",
     canActivate: [managerGuard],
     loadComponent: () =>
-      import("./app/features/event/manager/quiz/quiz-results.page").then(
-        (m) => m.EventQuizResultsPage,
+      import("./app/features/event/manager/mission/field-guide.page").then(
+        (m) => m.EventFieldGuidePage,
       ),
   },
   {

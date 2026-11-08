@@ -1,0 +1,341 @@
+/* Shared by every SENTINEL stage screen. Colours come from the design tokens, so dark mode and contrast follow. */
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.shell {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.shell__intro {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.shell__intro p {
+  margin: 0;
+}
+
+.shell__brief {
+  max-inline-size: 75ch;
+}
+
+.field-note {
+  padding: var(--space-2) var(--space-4);
+  font-style: italic;
+  color: var(--room-ink);
+  background: var(--room-tint);
+  border-inline-start: 4px solid var(--room-color);
+  border-radius: var(--radius-sm);
+}
+
+.shell__body {
+  min-width: 0;
+}
+
+/* Stays at the bottom of the screen while the stage is in view, so Submit is never far below a tall stage. */
+.shell__actions {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  background: var(--color-surface);
+  border-block-start: 1px solid var(--color-border);
+}
+
+/* Plot on the left, controls on the right; one column on a phone. */
+.stage {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .stage--split {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+    align-items: start;
+  }
+}
+
+.stage__side {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.plot {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  max-block-size: min(60vh, 440px);
+  background: var(--color-surface);
+  border: var(--border-card);
+  border-radius: var(--radius-md);
+}
+
+.plot-caption {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Marks: shape, not only colour, tells the kinds apart. */
+.pt {
+  fill: var(--color-primary);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+
+.pt--flag {
+  fill: var(--color-error);
+}
+
+.pt--b {
+  fill: var(--brand-green-ink, var(--color-success));
+}
+
+.pt--c {
+  fill: var(--brand-red-ink, var(--color-error));
+}
+
+.ring {
+  fill: color-mix(in srgb, var(--brand-yellow) 25%, transparent);
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.pt-label {
+  font-size: 11px;
+  fill: var(--color-text);
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+}
+
+/* Radio groups and fields. */
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  margin-block-end: var(--space-2);
+  padding: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.opts {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface);
+  border: var(--border-card);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.opt:has(input:checked) {
+  background: var(--room-tint);
+  border: var(--border-outline-thin);
+}
+
+.opt:has(input:focus-visible) {
+  box-shadow: 0 0 0 4px var(--color-focus-ring);
+}
+
+.opt input {
+  inline-size: 20px;
+  block-size: 20px;
+  accent-color: var(--color-primary);
+}
+
+.opt--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.field input {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input:not([type]) {
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-outline-thin);
+  border-radius: var(--radius-md);
+}
+
+.field input:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+
+.field__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.panel {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
+}
+
+.panel h3,
+.panel h4,
+.panel p {
+  margin: 0;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A small native button for in-stage actions. */
+.tool {
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-4);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-outline-thin);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  background: var(--room-tint);
+}
+
+.tool:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tool--primary {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.tool--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.tool--warn {
+  background: var(--color-warning-subtle);
+}
+
+.table-wrap {
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+th,
+td {
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+  border-block-end: 1px solid var(--color-border);
+}
+
+th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-warning-subtle);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.note--ok {
+  background: var(--color-success-subtle);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.legend svg {
+  vertical-align: middle;
+  margin-inline-end: var(--space-1);
+}

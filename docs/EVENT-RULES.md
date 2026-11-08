@@ -230,10 +230,10 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
 
 ## 13. Content editing lock
 
-- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, AI quiz
-  questions and repairs, encrypted message, suspects, correct suspect). A room manager can edit only their own room's
-  clue key, recovery challenge, terminal files and server package (rule 18) and AI quiz (rule 19). A quiz question or repair is also
-  locked as soon as a team has answered it.
+- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, AI mission
+  content, encrypted message, suspects, correct suspect). A room manager can edit only their own room's
+  clue key, recovery challenge, terminal files and server package (rule 18) and AI mission (rule 19). The AI mission is also
+  locked as soon as a team has run or saved anything.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
 
@@ -317,7 +317,7 @@ Teams need their clues in the final, so after a room is over a team can look bac
 1. **Room finished (for one team).** A room is finished for a team when the round in which the team was
    assigned to it is over: a later round is current, or it is that round and its timer shows Time's up. The
    assignment is the team's room for that round — the rotation, or an admin room exception if one existed for
-   that round. Every room is finished once rooms are finished (round 5) or the final has opened. An AI quiz room is
+   that round. Every room is finished once rooms are finished (round 5) or the final has opened. An AI mission room is
    also finished for a team as soon as it is evaluated (rule 19.6). Before that the team page works exactly as before
    (answer form, receipt, answer history).
 2. **Evidence card.** For each finished room the team home shows an **Evidence** card with the team's latest
@@ -352,7 +352,7 @@ the terminal only helps produce the technical output.
    Nothing in the system is tied to the Linux room itself: any room with the setting on gets the terminal. The admin
    board warns "Room <name> has the terminal enabled but no terminal files." until the room has at least one file
    or a server package (item 6). The Linux terminal is also a room **activity** (`LINUX_TERMINAL`), set by the admin
-   on the Content page next to the AI quiz (rule 19); a room has one activity, and a fresh setup turns it on for the
+   on the Content page next to the AI mission (rule 19); a room has one activity, and a fresh setup turns it on for the
    Linux room. A room with the activity shows the team form of item 7 instead of the answer form (technical output +
    clue answer); a plain submission to it is refused ("This room records its result from its activity; there is no
    answer form."). A room without an activity keeps the answer form of rule 4, with or without a terminal.
@@ -485,87 +485,131 @@ the terminal only helps produce the technical output.
    - Reset and snapshots: overrides are team progress (deleted by resets, saved in the snapshot first); answer keys are
      content and stay.
 
-## 19. AI room activity (quiz, code repairs, pass score)
+## 19. AI mission room: SENTINEL (stages, pass score, clue)
 
-A room can run an **activity**: the **AI quiz** replaces the answer form (the Linux terminal activity, rule 18.1,
-does not). The AI quiz is 45 auto-scored
-multiple-choice questions and 3 code repairs scored with partial credit. A team whose total reaches the room's **pass
-score** gets the room's clue; the system records the result itself, so the team never types a clue answer there.
+A room can run an **activity**: the **AI mission** replaces the answer form (the Linux terminal activity, rule 18.1,
+does not). Its story is *SENTINEL*, an AI that Rami, a journalist, was investigating the night he vanished and that
+someone sabotaged; the team repairs its three systems. The mission has **10 stages** in three missions, worth **100
+points** in all. A team whose total reaches the room's **pass score** gets the room's clue; the system records the
+result itself, so the team never types a clue answer there.
 
-1. **Which rooms (setting, D1).** Each room has an **AI quiz activity** setting that only the admin changes, on the
-   Content page, at any time (audited). On a fresh setup it is on for the AI room only; nothing in the system is tied
-   to the AI room itself. For such a room the team page shows only the activity: no technical output and no clue
-   answer field (a room submission sent to it anyway is refused: "This room records its result from its activity;
-   there is no answer form.").
-2. **Content (D2).** The room's manager (or the admin) writes the questions and repairs on the room board under
-   **AI quiz → Questions and repairs**, or imports them all at once from one JSON file (format in the README), and can
-   export them the same way.
-   - **Question**: section (Easy, Medium, Advanced, Landmark, Recent), question text, 2–6 options, exactly one
-     correct option, 1–10 points, and an optional explanation that only organizers see.
-   - **Repair**: title, instructions, points (default 10), and 4–6 code snippets in their correct order.
-   - **Plan**: the editor shows the questions and points per section and in total. It warns — never blocks — when the
-     total is not 100 points or the counts differ from 20 / 15 / 6 / 3 / 1 questions and 3 repairs.
-   - **Locks**: a question or repair that any team has answered can no longer be changed or deleted; an import
-     (which replaces everything) is refused once any team has answered anything in the room; like all content, the
-     quiz is read-only after the final opens. Audits name the room and item, never prompts, options or code.
-3. **Pass score (setting).** Each AI quiz room has a pass score from 0 to 100 points (default 60), set by the room's
-   manager or the admin in the quiz editor (or in the import file). It is **locked as soon as the first team of the
-   room is evaluated** ("A team in this room has already been evaluated; the pass score can no longer change."), so
-   every team is judged against the same number; the multiple-choice minutes stay editable.
-4. **Timing (D3).** The quiz uses the room's normal round timer; pauses are respected and "elapsed" means running
-   time only.
-   - The **multiple-choice part** is open while elapsed time < the room's MCQ minutes (default 14, set by the manager
-     in the editor), unless the team pressed **Finish MCQs** (asks first; cannot be undone).
-   - The **repairs** open when the team finished its MCQs or at the cutoff, and stay open until Time's up.
-   - Nothing is accepted before the timer starts, while it is paused, at Time's up, after the team's evaluation,
-     outside the team's assigned round, by another room's team, or while the room is closed. Added time extends the
-     round, not the MCQ part.
-   - Another team, or a room that does not run the quiz, gets "Activity not found." (404), as for an unknown room.
-5. **Answers lock (D4) and order (D7).** One answer per team per question and per repair. Saving uses an
-   Idempotency-Key: a retry with the same key and the same answer returns the same receipt; any other answer later is
-   refused ("Already answered."). An unanswered item scores 0. Questions keep their section order but are shuffled
-   within each section for each team; options and snippets are shuffled for each team (a stable order per team, never
-   the correct snippet order). The orders come from a server secret (`DEVFEST_QUIZ_SHUFFLE_SECRET` in
-   `backend/.env`); without it a development server uses a fixed fallback and logs a warning, and any other server
-   refuses to start. Scores use option and snippet ids, never positions on the screen.
-6. **Scores and evaluation (D5, D6).** A correct option earns the question's points, anything else 0. A repair earns
-   points × (snippets in their correct position ÷ snippets), rounded to 2 decimals. The room total is the MCQ points
-   plus the repair points (100 when the plan is followed). Each team is **evaluated exactly once** per room:
-   - when it submits its **last repair**, in the same request; or
+1. **Which rooms (setting, D1).** Each room has an **AI mission activity** setting that only the admin changes, on the
+   Content page, at any time (audited; it is stored as the activity `AI_QUIZ`). On a fresh setup it is on for the AI
+   room only; nothing in the system is tied to the AI room itself. For such a room the team page shows only the
+   activity: no technical output and no clue answer field (a room submission sent to it anyway is refused: "This room
+   records its result from its activity; there is no answer form.").
+2. **Content (D2).** The room's manager (or the admin) imports the whole mission from **one JSON file** (format in the
+   README; the shipped file is `docs/ai-room/sentinel-content.json`) and exports it the same way. The file holds the
+   story (the opening text and the "restored" and "unstable" endings), one intro per mission, and for every stage a
+   title, a **Field note**, the instructions, its worth in points and its data. The stages, their order and their
+   kinds are fixed:
+
+   | Mission | # | Stage | Worth | The team | Scored |
+   |---|---|---|---|---|---|
+   | PREDICT | 1 | Outlier Hunt | 10 | runs IQR or Z-score with a threshold, any number of times, then submits one | the points of that configuration |
+   | | 2 | Feature Check | 10 | marks each feature of the Exit gate prediction as use or drop | worth × correct ÷ features |
+   | | 3 | Tune & Deploy | 10 | runs up to 4 different model settings (train and validation accuracy), deploys any one | the points of the deployed setting |
+   | SEE | 4 | Nearest Vehicle | 10 | answers KNN at k=1 and k=5 and which k is more reliable | class at k=1, class at k=5, more reliable k |
+   | | 5 | Camera Accuracy | 10 | counts TP, FP, FN, TN, gives precision and recall (±0.01) and the metric that avoids missed vans | each part |
+   | | 6 | Group the Frames | 10 | steps K-Means (Assign, Update) and gives the van cluster's size and final centroid (±0.01) | size, centroid |
+   | NOOR | 7 | Route Planner | 10 | expands A* from Library to Gate 3, gives the order, the route and its cost | order, route with cost |
+   | | 8 | Threat Filter | 10 | computes the Threat and Normal values of a message (within 1%) and the class | threat value, normal value, class |
+   | | 9 | Rule Engine | 10 | fires rules by forward chaining and gives the final conclusion | the conclusion |
+   | | 10 | RAG Fix | 10 | asks NOOR with up to 3 different chunk size and top-k settings, locks one | the points of the locked setting |
+
+   Answers that can be computed are **derived by the server** from the stage's data (nearest neighbours, confusion
+   counts, K-Means, A* with its tie-break rule shown on screen, Naive Bayes, forward chaining), so an author cannot
+   mistype them; so are the readings an Outlier Hunt run flags (each axis on its own, flagged if outside on x or on y;
+   IQR with Tukey's hinges and fences Q1 − k·IQR and Q3 + k·IQR, Z-score with the population standard deviation; the
+   Field note and the Field Guide state this); only the choices that are judgments (configuration tables, which features to use) are written in the
+   file. A file is read whole: the page shows the server's headline ("The file has N problems.") and **every problem
+   under it at once**, one line each with its stage and field ("Stage 2 · maxPoints: must be a number."), with a
+   **Try again** button; nothing is saved when there is any, the stages must add up to exactly 100 points, each scoring table to its stage's worth, and the
+   fixture's traps must hold (the nearest vehicle is an outlier so k=1 is wrong; greedy search by estimate alone finds a costlier route than A* (Route Planner: A* expands Library, Lab, Dorm, Admin, Garage, Gate 3, cost 15, with no two frontier places ever sharing an f value; greedy pays 47 through the Cafeteria and Gym);
+   estimates never exceed the real cost; the K-Means answer is a clean value; exactly one offered conclusion follows
+   from the rules; the endings contain no number). The file holds no clue: the clue is the room's clue key.
+   **Locks**: an import (which replaces everything) is refused once any team has run or saved anything in the room;
+   like all content, the mission is read-only after the final opens. Audits name the room and the number of stages,
+   never the content.
+3. **Pass score (setting).** Each AI mission room has a pass score from 0 to 100 points (default 60), set by the
+   room's manager or the admin on the mission page (or in the import file). It is **locked as soon as the first team
+   of the room is evaluated** ("A team in this room has already been evaluated; the pass score can no longer
+   change."), so every team is judged against the same number.
+4. **Timing (D3).** The mission uses the room's normal round timer (the admin sets the round to 40 minutes for it);
+   there is one countdown and pauses are respected. All ten stages are open at once, in any order, from the moment
+   the timer starts. Nothing is accepted before the timer starts, while it is paused ("The round is paused."; the
+   screen stays, the inputs are frozen), at Time's up, after the team's evaluation, outside the team's assigned
+   round, by another room's team, by a disqualified team, or while the room is closed. Added time extends the round.
+   Another team, or a room that does not run the mission, gets "Activity not found." (404), as for an unknown room.
+   Refreshing or signing in again resumes from the server: the saved stages and every experiment already run come back.
+5. **Experiments, submitting and the lock (D4).** Stages 1, 3 and 10 have experiments: the team picks a
+   configuration and the server returns **that run's result only** (the flagged readings, the accuracies, the
+   retrieved chunks and NOOR's reply), never the table of all of them. Repeating a configuration is free; stage 3
+   allows 4 different configurations and stage 10 allows 3 ("You have used all the experiments of this stage."),
+   enforced by the server under the team lock. Stages 4 to 9 are worked in the browser from the data the server
+   sends. Each stage is **submitted once** after a confirmation and then **locks** and shows only "Saved". Saving
+   uses an Idempotency-Key: a retry with the same key and the same answer returns the same receipt; any other answer
+   later is refused ("This stage is already saved."). A malformed answer is refused (400) and locks nothing. An
+   unsubmitted stage scores 0.
+6. **Scores and evaluation (D5, D6).** The score of a stage is computed by the server when it is submitted and stored.
+   The room total is the sum of the stages (100 when every answer is right). Each team is **evaluated exactly once**
+   per room:
+   - when it submits its **last stage**, in the same request; or
    - at the **round's end** for every team assigned to the room that has not finished (not disqualified teams): when
      the admin presses **End round** (also after the timer ran out by itself), removes the time left, or moves to
      the **next round** after the timer was started. There is no scheduler: if the timer runs out by itself, the
-     unfinished teams see "Your result is recorded when the organizer ends the round." until one of these actions.
+     unfinished teams see no result until one of these actions.
 
-   A total **equal to or above** the pass score passes. The result goes through the ordinary room-submission path: a
-   submission with the server's progress line as its technical output ("AI quiz · MCQ 41/45 answered · repairs 3/3
-   submitted"), the fixed answer "AI quiz result" and a **CORRECT** (pass) or **INCORRECT** verdict; a CORRECT one
-   collects the room's clue as a ROOM clue. Both triggers run under the event lock and the evaluation table allows one
-   row per team and room, so a race between the last repair and the round's end records one result and the clue once.
-   The room then counts as **finished** for the team (its evidence shows at once), and every screen refreshes (the
-   revision is bumped and broadcast after the commit). The room's manager can still **override** that verdict like any
-   other (Accept / Reject); a later clue key change never re-checks it, and the clue shown follows the current key.
-7. **What the team sees (D8).** Only "Response saved" while it works, never whether an answer was correct, and never a
-   score, the total, points or the pass score — during or after the event. Once evaluated:
-   - **passed** (it holds the room's clue): "Clue unlocked" and the clue in the usual hidden clue display (eye toggle,
-     Copy; rule 17.4), on the activity and in the room's evidence;
-   - **not passed**: "You did not reach the required score for this room's clue."
+   A total **equal to or above** the pass score passes (60 passes at a pass score of 60). The result goes through the
+   ordinary room-submission path: a submission with the server's progress line as its technical output ("AI mission ·
+   stages 7/10 submitted", organizers only), the fixed answer "AI mission result" and a **CORRECT** (pass) or
+   **INCORRECT** verdict; a CORRECT one collects the room's clue as a ROOM clue. Both triggers run under the event
+   lock and the evaluation table allows one row per team and room, so a race between the last stage and the round's
+   end records one result and the clue once. The room then counts as **finished** for the team (its evidence shows at
+   once), and every screen refreshes (the revision is bumped and broadcast after the commit). The room's manager can
+   still **override** that verdict like any other (Accept / Reject); a later clue key change never re-checks it, and
+   the clue shown follows the current key.
+7. **What the team sees (D8).** Never a point, a total, the pass score, whether anything is right, the scoring tables
+   or a derived answer, in any state: the stage data, the result of each run it made, and "Saved" for a submitted
+   stage. Before the timer starts only the opening text is shown. Once evaluated:
+   - **passed** (it holds the room's clue): "SENTINEL RESTORED. All systems are back online. Recovered record:" and
+     the clue in the usual hidden clue display (eye toggle, Copy; rule 17.4), on the activity and in the room's
+     evidence;
+   - **not passed**: "SENTINEL UNSTABLE. Some systems could not be restored. Your team did not reach the required
+     score." (the endings come from the file and never carry a number).
 
-   The quiz result is not one of the team's receipts or answer history. A room with no questions shows "Questions
-   are not ready yet." instead of an empty quiz.
-8. **Not ready = blocking (admin).** A room that runs the AI quiz without a clue key, or without questions, is a
-   **blocking alert** on the admin board ("Blocks the timer"). While one exists, **Start timer** asks "The AI quiz is
-   not ready. Start anyway?" and the server refuses the start unless the admin confirms **Start anyway** (audited as
-   "round:N anyway"). Planning differences (rule 19.2) stay plain warnings.
-9. **Results (D9).** The room's manager and the admin see **AI room results**: the pass score (and whether it is
-   locked); per team the MCQ score per section, each repair's score, the total, its **status** (In progress / Passed /
-   Not passed), whether its **clue is granted** now (an override can differ from the status), the answers count, when
-   it finished its MCQs and its last answer; per question the share of teams that got it right. The page refreshes
-   every 5 seconds. Ranking inside the room: total (highest first), then the earlier last answer; disqualified teams
-   are listed last without a rank. **Export CSV** has the same columns plus the evaluation time (team names are made
-   formula-safe). The event's final ranking is unchanged and does not use these scores.
-10. **Resets.** Resetting a team or the event deletes its quiz answers, MCQ finish and evaluation with the rest of its
-    progress (they are in the snapshot); the questions, repairs and pass score stay.
+   The mission result is not one of the team's receipts or answer history. A room with no mission content shows
+   "The mission is not ready yet." instead of the stages.
+8. **Not ready = blocking (admin).** A room that runs the AI mission without a clue key, or without mission content,
+   is a **blocking alert** on the admin board ("Blocks the timer"). While one exists, **Start timer** asks "The AI
+   mission is not ready. Start anyway?" and the server refuses the start unless the admin confirms **Start anyway**
+   (audited as "round:N anyway").
+9. **The SENTINEL page and results (D9).** The room's manager and the admin open **SENTINEL** from the room board
+   (`/event/room/{id}/mission`; everyone else, members and other rooms' managers included, gets a 404 or 403). It holds
+   the mission file (import with a confirmation that names the file and its stage count, export, the ten stages with
+   their worth and the total of 100), the **pass score**, the **Print Field Guide** link and the **live results**.
+   - **Import errors** are shown as a list, one line per problem with its place in the file; nothing is changed.
+     Import and pass score show why they are locked (rule 19.2, 19.3).
+   - **Field Guide** (`/event/room/{id}/mission/guide`): one A4 page of the ideas behind the stages (Z-score, IQR
+     fences, leakage, overfitting, KNN, confusion metrics, K-Means, A* with f = g + h, Naive Bayes, forward chaining,
+     RAG). It is the same for every room, holds no data, answer or score, and prints without the application chrome.
+   - **Live results** refresh every 5 seconds while the page is open (the server answers with the same 6 SQL
+     statements whatever the number of teams): the pass score (and whether it is locked); per team the points of each
+     saved stage, the total out of 100, its **status** (In progress / Passed / Not passed), whether its **clue is
+     granted** now (an override can differ from the status), the number of saved stages, when it last saved and when it
+     was evaluated (**Finished**). Teams that ran or saved anything are listed. Ranking inside the room: total
+     (highest first), then the earlier last saved stage; disqualified teams are listed last without a rank.
+     **Export CSV** has the same columns (team names are made formula-safe).
+   - **Manual verdict.** Each team's result is its submission on the room board, where the manager's Accept / Reject /
+     Automatic (rule 5) works as for any room; the results then show the clue as granted or not while the status
+     keeps what the score said.
+
+   The event's final ranking is unchanged and does not use these scores.
+10. **Resets.** Resetting a team or the event deletes its experiments, stage submissions and evaluation with the rest
+    of its progress (they are in the snapshot); the mission and the pass score stay.
+11. **Room score.** One read-only service method (`SentinelScoreService.roomScore`) returns a team's room score (the
+    sum of its saved stages, maximum 100) for a later global ranking. **The event's ranking does not change and does
+    not use it.**
 
 
 ## 20. Problem Solving room (Codeforces contest, results, clue release)
@@ -576,7 +620,7 @@ no answer form in this room.
 
 1. **Which rooms (setting).** Each room has a **Contest results activity** setting that only the admin changes, on the
    Content page, at any time (audited; the same single "activity" choice as rules 18.1 and 19.1, so choosing it
-   replaces the AI quiz or the Linux terminal). On a fresh setup it is on for the Problem solving room only; nothing in
+   replaces the AI mission or the Linux terminal). On a fresh setup it is on for the Problem solving room only; nothing in
    the system is tied to that room's code. A room submission sent to such a room is refused: "This room records its
    result from its activity; there is no answer form."
 2. **Contest link (setting).** The room's manager or the admin sets one **https** address (http, `javascript:`, a

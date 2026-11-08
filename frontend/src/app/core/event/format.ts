@@ -1,4 +1,4 @@
-import { JudgeStatus, PenaltyKind, TeamRoomStatus } from "./event-models";
+import { JudgeStatus, PenaltyKind, RoomActivity, TeamRoomStatus } from "./event-models";
 
 const EMPTY = "—";
 
@@ -88,6 +88,15 @@ export const TEAM_ROOM_STATUS_LABELS: Record<TeamRoomStatus, string> = {
   PASSED: "Passed",
   FAILED: "Failed",
 };
+
+/**
+ * The team's status label for a room. A room without an answer form (the AI mission and the contest results room)
+ * records the team's result itself, so there is nothing the team "submitted": its status reads "Room complete".
+ */
+export function teamRoomStatusLabel(status: TeamRoomStatus, activity: RoomActivity | null): string {
+  const noForm = activity === "AI_QUIZ" || activity === "CONTEST_RESULTS";
+  return status === "SUBMITTED" && noForm ? "Room complete" : TEAM_ROOM_STATUS_LABELS[status];
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
