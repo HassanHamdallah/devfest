@@ -26,14 +26,14 @@ class EventJudgingTest extends EventIntegrationTest {
 
   @Test
   void staleVersionIsAConflictAndIdenticalRetryIsANoOp() {
-    Response first = expectOk(put(path, aiManager, judgement("PASS", 1, "good", 0)));
+    Response first = expectOk(put(path, aiManager, judgement("PASS", "good", 0)));
     assertEquals(1, (int) first.json("$.version"));
     long revisionAfterWrite = revision();
-    Response retry = expectOk(put(path, aiManager, judgement("PASS", 1, "good", 0)));
+    Response retry = expectOk(put(path, aiManager, judgement("PASS", "good", 0)));
     assertEquals(1, (int) retry.json("$.version"));
     assertEquals(revisionAfterWrite, revision());
     expectError(
-      put(path, aiManager, judgement("FAIL", 1, "good", 0)),
+      put(path, aiManager, judgement("FAIL", "good", 0)),
       409,
       "Someone else changed this judgement. Reload and try again."
     );
@@ -42,16 +42,16 @@ class EventJudgingTest extends EventIntegrationTest {
 
   @Test
   void everyRealChangeWritesExactlyOneHistoryRow() {
-    expectOk(put(path, aiManager, judgement("PASS", 0, "", 0)));
-    expectOk(put(path, aiManager, judgement("FAIL", 0, "", 1)));
-    expectOk(put(path, admin, judgement("FAIL", 2, "two hints", 2)));
+    expectOk(put(path, aiManager, judgement("PASS", "", 0)));
+    expectOk(put(path, aiManager, judgement("FAIL", "", 1)));
+    expectOk(put(path, admin, judgement("FAIL", "second look", 2)));
     assertEquals(3, historyCount());
     Map<String, Object> last = db.queryForMap(
-      "SELECT old_status, new_status, hints, reviewer_id, version FROM room_judgement_history ORDER BY version DESC LIMIT 1"
+      "SELECT old_status, new_status, note, reviewer_id, version FROM room_judgement_history ORDER BY version DESC LIMIT 1"
     );
     assertEquals("FAIL", last.get("old_status"));
     assertEquals("FAIL", last.get("new_status"));
-    assertEquals(2, last.get("hints"));
+    assertEquals("second look", last.get("note"));
     assertEquals(3L, last.get("version"));
     Map<String, Object> firstRow = db.queryForMap(
       "SELECT old_status, reviewer_id FROM room_judgement_history WHERE version = 1"
@@ -65,7 +65,7 @@ class EventJudgingTest extends EventIntegrationTest {
     setRound(1);
     openRoom(RoomCode.AI);
     expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "output", "WHITE VAN"));
-    expectOk(put(path, aiManager, judgement("PASS", 0, "", 0)));
+    expectOk(put(path, aiManager, judgement("PASS", "", 0)));
     closeRoom(RoomCode.AI);
     Response board = expectOk(get("/rooms/" + rooms.get(RoomCode.AI) + "/board", aiManager));
     assertEquals("PASS", board.json("$.teams[0].judgement.status"));
@@ -78,7 +78,7 @@ class EventJudgingTest extends EventIntegrationTest {
     setRound(1);
     openRoom(RoomCode.AI);
     expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "output", "WHITE VAN"));
-    expectOk(put(path, aiManager, judgement("FAIL", 0, "", 0)));
+    expectOk(put(path, aiManager, judgement("FAIL", "", 0)));
     Response board = expectOk(get("/team/board", alpha.token()));
     assertEquals("FAILED", board.json("$.rooms[0].myStatus"));
     assertEquals(1, (int) board.json("$.cluesCollected"));
@@ -88,7 +88,7 @@ class EventJudgingTest extends EventIntegrationTest {
     return db.queryForObject("SELECT count(*) FROM room_judgement_history", Integer.class);
   }
 
-  static String judgement(String status, int hints, String note, long version) {
-    return "{\"status\":\"%s\",\"hints\":%d,\"note\":%s,\"version\":%d}".formatted(status, hints, quote(note), version);
+  static String judgement(String status, String note, long version) {
+    return "{\"status\":\"%s\",\"note\":%s,\"version\":%d}".formatted(status, quote(note), version);
   }
 }

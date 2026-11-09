@@ -28,7 +28,8 @@ public class EventStateRepository {
   private static final String COLUMNS = """
     current_round, round_started_at, round_minutes, final_open, final_started_at,
     final_closed_at, results_published, revision, updated_at, planned_team_count, round_phase,
-    round_duration_seconds, round_elapsed_before_seconds, round_resumed_at, round_ended""";
+    round_duration_seconds, round_elapsed_before_seconds, round_resumed_at, round_ended, final_phase,
+    final_duration_seconds, final_elapsed_before_seconds, final_resumed_at, final_ended""";
 
   private final JdbcTemplate db;
   private final ApplicationEventPublisher events;
@@ -104,9 +105,16 @@ public class EventStateRepository {
     db.update("UPDATE event_state SET round_minutes = ? WHERE id = 1", roundMinutes);
   }
 
-  public void openFinal(Instant startedAt) {
+  /** Opens the final and starts its one timer (RUNNING from {@code startedAt}) for every team at once. */
+  public void openFinal(Instant startedAt, int durationSeconds) {
     db.update(
-      "UPDATE event_state SET final_open = TRUE, final_started_at = ?, final_closed_at = NULL WHERE id = 1",
+      """
+      UPDATE event_state
+      SET final_open = TRUE, final_started_at = ?, final_closed_at = NULL, final_phase = 'RUNNING',
+          final_duration_seconds = ?, final_elapsed_before_seconds = 0, final_resumed_at = ?, final_ended = FALSE
+      WHERE id = 1""",
+      timestamp(startedAt),
+      durationSeconds,
       timestamp(startedAt)
     );
   }
@@ -118,9 +126,31 @@ public class EventStateRepository {
     );
   }
 
+  /** Stores a final-timer transition (pause, resume, added time, end). */
+  public void saveFinalTimer(RoundTimer timer) {
+    db.update(
+      """
+      UPDATE event_state
+      SET final_phase = ?, final_duration_seconds = ?, final_elapsed_before_seconds = ?, final_resumed_at = ?,
+          final_ended = ?
+      WHERE id = 1""",
+      timer.phase().name(),
+      timer.durationSeconds(),
+      timer.elapsedBeforeSeconds(),
+      timestamp(timer.resumedAt()),
+      timer.ended()
+    );
+  }
+
   /** Final reset: the final may be opened again (final_started_at is what "ever opened" is derived from). */
   public void resetFinal() {
-    db.update("UPDATE event_state SET final_open = FALSE, final_started_at = NULL, final_closed_at = NULL WHERE id = 1");
+    db.update(
+      """
+      UPDATE event_state
+      SET final_open = FALSE, final_started_at = NULL, final_closed_at = NULL, final_phase = NULL,
+          final_duration_seconds = NULL, final_elapsed_before_seconds = 0, final_resumed_at = NULL, final_ended = FALSE
+      WHERE id = 1"""
+    );
   }
 
   /** Event reset: not started, no timer, final never opened, results unpublished. Round length and team count stay. */
@@ -130,7 +160,8 @@ public class EventStateRepository {
       UPDATE event_state
       SET current_round = 0, round_started_at = NULL, round_phase = NULL, round_duration_seconds = NULL,
           round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE, final_open = FALSE,
-          final_started_at = NULL, final_closed_at = NULL, results_published = FALSE
+          final_started_at = NULL, final_closed_at = NULL, results_published = FALSE, final_phase = NULL,
+          final_duration_seconds = NULL, final_elapsed_before_seconds = 0, final_resumed_at = NULL, final_ended = FALSE
       WHERE id = 1"""
     );
   }
@@ -159,7 +190,12 @@ public class EventStateRepository {
       nullableInt(rs, "round_duration_seconds"),
       rs.getInt("round_elapsed_before_seconds"),
       instant(rs, "round_resumed_at"),
-      rs.getBoolean("round_ended")
+      rs.getBoolean("round_ended"),
+      rs.getString("final_phase") == null ? null : RoundPhase.valueOf(rs.getString("final_phase")),
+      nullableInt(rs, "final_duration_seconds"),
+      rs.getInt("final_elapsed_before_seconds"),
+      instant(rs, "final_resumed_at"),
+      rs.getBoolean("final_ended")
     );
   }
 }

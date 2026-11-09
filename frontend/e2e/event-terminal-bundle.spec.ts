@@ -28,6 +28,8 @@ async function startTestTerminal(page: Page, roomId: number): Promise<number> {
   await card.getByRole("button", { name: "Test terminal", exact: true }).click();
   const started = Date.now();
   await expect(terminal(page)).toHaveAttribute("data-state", "ready", BOOT);
+  // xterm stops drawing while it is outside the viewport; the room page is long, so bring the terminal into view.
+  await terminal(page).scrollIntoViewIfNeeded();
   // The terminal's own stopwatch ("Ready in 4.6 s") runs from its start to the prompt and is not rounded by polling.
   const shown = (await terminal(page).locator(".linux-terminal__status").textContent()) ?? "";
   const own = Number(/Ready in ([\d.]+) s/.exec(shown)?.[1]);

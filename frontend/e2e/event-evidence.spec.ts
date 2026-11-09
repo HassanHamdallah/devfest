@@ -1,5 +1,6 @@
 import { test, expect, Locator, Page } from "@playwright/test";
 import path from "node:path";
+import { finalContentJson } from "./event-final-helper";
 import {
   EventAdminShortcuts,
   EventApiSession,
@@ -129,6 +130,7 @@ test("evidence: finished rooms show the answer and the masked clue; the final li
       }
       await control.setRound(5);
       await control.closeAllRooms();
+      await adminApi.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson()));
       await control.openFinal();
       await page.getByRole("link", { name: "Open final", exact: true }).click();
       const panel = page.locator("event-final-evidence");

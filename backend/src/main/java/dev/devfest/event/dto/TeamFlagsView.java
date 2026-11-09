@@ -8,6 +8,5 @@ public record TeamFlagsView(
   String teamName,
   boolean disqualified,
   RoomCode exceptionRoom,
-  int manualClues,
-  int timeAdjustmentMinutes
+  int manualClues
 ) {}

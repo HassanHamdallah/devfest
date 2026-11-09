@@ -6,27 +6,31 @@ import {
   output,
 } from "@angular/core";
 import { RoomTeamRow } from "../../../core/event/event-models";
-import { formatPenaltyMinutes, formatTime } from "../../../core/event/format";
+import { formatTime } from "../../../core/event/format";
 import { NavIcon } from "../../../core/shell/nav-icon";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { EventJudgementControls } from "./judgement-controls";
-import { EventPenaltyForm } from "./penalty-form";
-import { EventPenaltyItem } from "./penalty-item";
+import { EventDeductionItem } from "./deduction-item";
+import { EventManualScore } from "./manual-score";
+import { EventTeamDeductions } from "./team-deductions";
 import { EventTeamSubmission } from "./team-submission";
 
 const PREVIEW_CHARACTERS = 90;
 
 /**
- * One team on the manager board as a compact row: name, group, submitted time, clue result, a one-line
- * preview of the technical output, Pass/Fail, hints and penalties. Clicking the row (or "Details") expands
- * the full output, the clue verdict override, hints, penalties and history. The page owns which rows are open.
+ * One team on the manager board as a compact card: name, group, submitted time, clue result, a one-line preview of
+ * the technical output, Pass/Fail and "Hints: n of 2". A team that is in the room now carries its deduction actions
+ * ("Hint given (-2)", "Cheating (-7.5)") and list right on the card. Clicking the row (or "Details") expands the full
+ * output, the clue verdict override and, in a room without an automatic score, the score input. The page owns which
+ * rows are open.
  */
 @Component({
   selector: "event-room-team-row",
   imports: [
+    EventDeductionItem,
     EventJudgementControls,
-    EventPenaltyForm,
-    EventPenaltyItem,
+    EventManualScore,
+    EventTeamDeductions,
     EventTeamSubmission,
     NavIcon,
     UiStatusChip,
@@ -46,6 +50,8 @@ export class EventRoomTeamRow {
   readonly row = input.required<RoomTeamRow>();
   /** False once the final has opened: clue verdicts are then final. */
   readonly contentEditable = input.required<boolean>();
+  /** The room has no automatic score: its manager types one for each team. */
+  readonly manualScoring = input(false);
   readonly expanded = input(false);
   /** Any write in this row finished; the page reloads its board. */
   readonly changed = output<void>();
@@ -63,13 +69,6 @@ export class EventRoomTeamRow {
       ? `${firstLine.slice(0, PREVIEW_CHARACTERS)}…`
       : firstLine;
   });
-  protected readonly activePenalties = computed(
-    () => this.row().penalties.filter((penalty) => !penalty.voided).length,
-  );
-  protected readonly penaltyTotal = computed(
-    () => `${formatPenaltyMinutes(this.row().activePenaltyMinutes)} active`,
-  );
-
   /** A click on the summary's background toggles; clicks on its buttons and fields do their own thing. */
   protected toggleFromRow(event: MouseEvent): void {
     const target = event.target as HTMLElement;

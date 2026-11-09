@@ -1,5 +1,29 @@
 # Status — 2026-10-24
 
+## Change set 2026-11-09: the 100-point scoring and the crypto final
+
+- Four rooms of 15 plus a 40-point final; hints (−2, two per team across rooms) and cheating (−7.5, one active per team
+  and room) are point deductions in an append-only log with cancellation, replacing the minute penalties, adjusted time,
+  the per-room recovery challenges and the accusation final (migration V20; the old tables were dropped, audit entries
+  kept). A manager-typed 0–15 score covers a room without an automatic score.
+- The crypto final: unlock, mission, four layers, one-time verdicts and suspect, one Recovery Challenge for the 3-clue
+  teams, one 40-minute timer for everyone (admin pause, resume and added time), time points from active minutes, exactly-once
+  finalisation at time up. Content is `docs/final/crypto-content.json`, imported and validated by the admin.
+- UI: the team's final screens (a lazy chunk), the manager's deduction actions on each current team card, the admin's
+  Scores page (scoreboard, live final table, penalty log), content import and the final timer controls.
+- `infrastructure/test-backend.ps1`: `Tests run: 511, Failures: 0, Errors: 0, Skipped: 0`, BUILD SUCCESS (also after the cleanups below).
+- Cleanups: "Hints: n of 2" shows once on a current team's card; deduction rows no longer leave a tall gap under the title; the judgement's own
+  informational hint counter is gone from the API, the model and the tests (migration V21 drops `room_judgement.hints` and
+  `room_judgement_history.hints`; nothing read it).
+- `load-tests/event_load.py --mode final --seconds 90` (16 teams start the final together; hints, cheating, a cancelled hint and a refused third hint
+  recorded; two teams through the Recovery Challenge; two teams finalised by the admin's close): 1009 requests, 0 errors, worst p95 143.4 ms,
+  24 retries with the same key all equal, 45 of 45 repeats of one-time answers refused, 16 of 16 teams finalised exactly once, scores and ranking
+  as predicted. Report: `docs/event-load-final.json`.
+- Rehearsal dev server: the `ng serve` process was hard-killed (no exit event) when started from an agent shell; started from a scheduled task it
+  survives. Dev-only, see the 2026-11-09 notes in docs/EVENT-PERFORMANCE.md.
+- Browser: `event-final.spec.ts` (3) and `event-scores.spec.ts` (2) pass, as do the journey, live, evidence, clues,
+  overrides, teams and contest specs; screenshots `docs/final-*.png` at 1440 and 390 px.
+
 ## Event prototype (ADMIN / MANAGER / MEMBER)
 
 **Classification: foundation prototype, implemented and tested locally. Not deployed. No server backups exist yet. Practice content only.**
@@ -10,11 +34,13 @@ The generic investigation module (V2–V4, `dev.devfest.investigation`, its UI, 
 
 - 4 fixed rooms, groups A–D, computed rotation over 4 rounds, admin round control with a display-only countdown.
 - Team room submissions with server-side clue normalization, idempotent receipts (Idempotency-Key, request hash, append-only rows), client-side retry storage, and a rate limit of 20 per minute per team.
-- Manager room board: judging with optimistic versions and history, penalties with one-time voids, room content editing until the final opens.
-- Final: stages by collected clues, recovery for the single missing room, accusations, the one SQL ranking definition, publication.
+- Manager room board: judging with optimistic versions and history, hints (-2) and cheating (-7.5) as point deductions with cancellation, typed 0-15 scores for rooms without an automatic score, room clue-key editing until the final opens.
+- Final: the crypto final (unlock, four layers, one-time verdicts, suspect) with one Recovery Challenge for 3-clue teams and one 40-minute timer, the 100-point ranking (`EventRanking`, computed on every read), publication.
 - Admin control, teams & accounts, and content pages; CSV export; alerts for incomplete setup.
 - Live refresh by a pushed revision number (Server-Sent Events, polling fallback every 3 s); every board is one aggregated endpoint.
 - Development seed (development mode only) and an isolated rehearsal on `devfest_test`.
+
+> Entries dated before 2026-11-09 below are history. The minute penalties, adjusted time, per-room recovery challenges and accusations they mention were retired by migration V20 (see the 2026-11-09 change set above).
 
 ### Tested locally (2026-10-24)
 

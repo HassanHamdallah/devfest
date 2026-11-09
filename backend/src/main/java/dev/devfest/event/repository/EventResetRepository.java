@@ -22,8 +22,10 @@ public class EventResetRepository {
     "DELETE FROM sentinel_evaluation WHERE %s",
     "DELETE FROM sentinel_submission WHERE %s",
     "DELETE FROM sentinel_run WHERE %s",
+    "DELETE FROM final_verdict WHERE %s",
+    "DELETE FROM final_layer_attempt WHERE %s",
+    "DELETE FROM final_unlock_attempt WHERE %s",
     "DELETE FROM team_final WHERE %s",
-    "DELETE FROM accusation WHERE %s",
     "DELETE FROM recovery_attempt WHERE %s",
     "DELETE FROM collected_clue WHERE %s",
     "DELETE FROM submission_clue_verdict_history WHERE submission_id IN (SELECT id FROM room_submission WHERE %s)",
@@ -31,7 +33,8 @@ public class EventResetRepository {
     "DELETE FROM room_submission WHERE %s",
     "DELETE FROM room_judgement_history WHERE %s",
     "DELETE FROM room_judgement WHERE %s",
-    "DELETE FROM penalty WHERE %s",
+    "DELETE FROM score_deduction WHERE %s",
+    "DELETE FROM room_manual_score WHERE %s",
     "DELETE FROM team_room_exception WHERE %s"
   );
 
@@ -49,13 +52,15 @@ public class EventResetRepository {
     db.queryForObject("SELECT set_config('devfest.allow_reset', 'on', true)", String.class);
   }
 
-  /** All final-phase progress: finishes, accusations, recovery attempts, RECOVERY clues and automatic penalties. */
+  /** All final-phase progress: team finals, unlock and layer attempts, verdicts, recovery attempts, RECOVERY clues, added time. */
   public void deleteFinalProgress() {
+    db.update("DELETE FROM final_verdict");
+    db.update("DELETE FROM final_layer_attempt");
+    db.update("DELETE FROM final_unlock_attempt");
     db.update("DELETE FROM team_final");
-    db.update("DELETE FROM accusation");
     db.update("DELETE FROM recovery_attempt");
     db.update("DELETE FROM collected_clue WHERE source = 'RECOVERY'");
-    db.update("DELETE FROM penalty WHERE kind IN ('RECOVERY', 'WRONG_ACCUSATION')");
+    db.update("DELETE FROM final_time_adjustment");
   }
 
   /** Everything one team did; the team, its account and its group stay. */
@@ -68,5 +73,6 @@ public class EventResetRepository {
     for (String statement : TEAM_PROGRESS_DELETES) db.update(statement.formatted("TRUE"));
     db.update("DELETE FROM room_arrival");
     db.update("DELETE FROM round_time_adjustment");
+    db.update("DELETE FROM final_time_adjustment");
   }
 }

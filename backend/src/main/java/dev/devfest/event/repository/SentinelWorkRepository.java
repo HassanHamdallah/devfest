@@ -126,6 +126,19 @@ public class SentinelWorkRepository {
     );
   }
 
+  /** Every team's saved-stage total in the room (team id to 0..100); teams without a saved stage are absent. One statement. */
+  public java.util.Map<Long, BigDecimal> totalsByTeam(long roomId) {
+    java.util.Map<Long, BigDecimal> totals = new java.util.HashMap<>();
+    db.query(
+      "SELECT team_id, sum(points_earned) AS total FROM sentinel_submission WHERE room_id = ? GROUP BY team_id",
+      rs -> {
+        totals.put(rs.getLong("team_id"), rs.getBigDecimal("total"));
+      },
+      roomId
+    );
+    return totals;
+  }
+
   /** True when any team has run or submitted anything in the room: its content can no longer be replaced. */
   public boolean anyWork(long roomId) {
     return Boolean.TRUE.equals(

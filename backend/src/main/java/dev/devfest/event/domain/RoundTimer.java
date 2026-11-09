@@ -128,7 +128,7 @@ public record RoundTimer(
   }
 
   /** Time the round has actually run: at most its duration, frozen when it was ended. */
-  int usedSeconds(Instant now) {
+  public int usedSeconds(Instant now) {
     if (ended) return elapsedBeforeSeconds;
     return (int) Math.min(durationSeconds, elapsedBeforeSeconds + runningSeconds(now));
   }

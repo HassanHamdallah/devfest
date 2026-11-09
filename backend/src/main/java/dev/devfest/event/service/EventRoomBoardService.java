@@ -8,7 +8,7 @@ import dev.devfest.event.domain.RoomAssignment;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.JudgeStatus;
-import dev.devfest.event.domain.PenaltyRules;
+import dev.devfest.event.domain.DeductionKind;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.dto.RoomArrivalView;
 import dev.devfest.event.dto.RoomBoard;
@@ -21,19 +21,21 @@ import dev.devfest.event.repository.EventBoardRepository;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
-import dev.devfest.event.repository.PenaltyRecord;
-import dev.devfest.event.repository.PenaltyRepository;
+import dev.devfest.event.repository.DeductionRecord;
+import dev.devfest.event.repository.DeductionRepository;
+import dev.devfest.event.repository.ManualScoreRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import dev.devfest.event.repository.RoomTeamProgressRecord;
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
-/** The manager's room screen: every active team's latest work, judgement and penalties in one room. */
+/** The manager's room screen: every active team's latest work, judgement and deductions in one room. */
 @Service
 public class EventRoomBoardService {
 
@@ -42,7 +44,8 @@ public class EventRoomBoardService {
   private final EventAccessPolicy access;
   private final EventStateRepository states;
   private final EventBoardRepository boards;
-  private final PenaltyRepository penalties;
+  private final DeductionRepository deductions;
+  private final ManualScoreRepository manualScores;
   private final RoomArrivalRepository arrivals;
   private final TeamRoomExceptionRepository exceptions;
   private final EventClock clock;
@@ -51,7 +54,8 @@ public class EventRoomBoardService {
     EventAccessPolicy access,
     EventStateRepository states,
     EventBoardRepository boards,
-    PenaltyRepository penalties,
+    DeductionRepository deductions,
+    ManualScoreRepository manualScores,
     RoomArrivalRepository arrivals,
     TeamRoomExceptionRepository exceptions,
     EventClock clock
@@ -59,25 +63,29 @@ public class EventRoomBoardService {
     this.access = access;
     this.states = states;
     this.boards = boards;
-    this.penalties = penalties;
+    this.deductions = deductions;
+    this.manualScores = manualScores;
     this.arrivals = arrivals;
     this.exceptions = exceptions;
     this.clock = clock;
   }
 
   /**
-   * 6 SQL statements: room (access check), event state, all active teams' progress in the room, the room's
-   * penalties, and (rounds 1..4 only) the room's arrival and the round's room exceptions. A team with an
+   * 6 to 8 SQL statements whatever the number of teams: room (access check), event state, all active teams' progress in
+   * the room, the room's deductions, every team's active hint count, the typed scores (rooms without an automatic score
+   * only) and (rounds 1..4 only) the room's arrival and the round's room exceptions. A team with an
    * exception counts in the room it was sent to, not in its rotation room.
    */
   public RoomBoard board(Principal principal, long roomId) {
     EventRoomRecord room = access.requireManagerOf(principal, roomId);
     EventStateRecord state = states.state();
     List<RoomTeamProgressRecord> progress = boards.roomTeams(roomId);
-    Map<Long, List<PenaltyRecord>> penaltiesByTeam = penalties
+    Map<Long, List<DeductionRecord>> deductionsByTeam = deductions
       .findForRoom(roomId)
       .stream()
-      .collect(groupingBy(PenaltyRecord::teamId));
+      .collect(groupingBy(DeductionRecord::teamId));
+    Map<Long, Integer> hintsUsed = deductions.activeHintsByTeam();
+    Map<Long, BigDecimal> manual = room.activity() == null ? manualScores.forRoom(roomId) : Map.of();
     Optional<GroupCode> scheduledGroup = Rotation.groupIn(room.position(), state.currentRound());
     Map<Long, RoomCode> roundExceptions = Rotation.isRunningRound(state.currentRound())
       ? exceptions.findForRound(state.currentRound())
@@ -86,7 +94,15 @@ public class EventRoomBoardService {
     List<RoomTeamRow> rows = progress
       .stream()
       .map(team ->
-        row(room, state, team, penaltiesByTeam.getOrDefault(team.teamId(), List.of()), roundExceptions.get(team.teamId()))
+        row(
+          room,
+          state,
+          team,
+          deductionsByTeam.getOrDefault(team.teamId(), List.of()),
+          hintsUsed.getOrDefault(team.teamId(), 0),
+          manual.get(team.teamId()),
+          roundExceptions.get(team.teamId())
+        )
       )
       .sorted(SCHEDULED_FIRST)
       .toList();
@@ -114,13 +130,12 @@ public class EventRoomBoardService {
       room.position(),
       room.open(),
       room.clueKey(),
-      room.recoveryPrompt(),
-      room.recoveryAnswer(),
       room.version(),
       !state.finalEverOpened(),
       ClueCheck.hasKey(room.clueKey()),
       room.terminalEnabled(),
-      room.activity()
+      room.activity(),
+      room.activity() == null
     );
   }
 
@@ -128,7 +143,9 @@ public class EventRoomBoardService {
     EventRoomRecord room,
     EventStateRecord state,
     RoomTeamProgressRecord team,
-    List<PenaltyRecord> teamPenalties,
+    List<DeductionRecord> teamDeductions,
+    int hintsUsed,
+    BigDecimal manualScore,
     RoomCode exception
   ) {
     int scheduledRound = Rotation.roundFor(team.groupCode().index(), room.position());
@@ -143,9 +160,12 @@ public class EventRoomBoardService {
       submissionDetail(team.latestSubmission(), team.latestVerdict()),
       team.submissionCount(),
       EventViews.judgement(team.judgement()),
-      teamPenalties.stream().map(EventViews::penalty).toList(),
-      PenaltyRules.activeMinutes(teamPenalties),
-      PenaltyRules.hintPenaltyMismatch(team.judgement().hints(), teamPenalties)
+      teamDeductions.stream().map(EventViews::deduction).toList(),
+      (int) teamDeductions.stream().filter(d -> !d.cancelled() && d.kind() == DeductionKind.HINT).count(),
+      hintsUsed,
+      DeductionKind.MAX_HINTS_PER_TEAM,
+      teamDeductions.stream().anyMatch(d -> !d.cancelled() && d.kind() == DeductionKind.CHEATING),
+      manualScore
     );
   }
 

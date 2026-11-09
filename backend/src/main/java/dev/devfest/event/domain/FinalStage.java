@@ -1,11 +1,14 @@
 package dev.devfest.event.domain;
 
-/** Where a team stands in the final; see {@link FinalStageResolver}. */
+/**
+ * A team's status in the final: Not qualified (0-2 clues), Recovery (3 clues, until the Recovery Challenge is solved),
+ * In final (4 clues, until finalised) and Completed (suspect submitted, time up or final closed). LOCKED is the
+ * time before the admin opens the final; see {@link FinalStageResolver}.
+ */
 public enum FinalStage {
   LOCKED,
-  NOT_ENOUGH_CLUES,
+  NOT_QUALIFIED,
   RECOVERY,
-  MESSAGE,
-  FINISHED,
-  CLOSED
+  IN_FINAL,
+  COMPLETED
 }

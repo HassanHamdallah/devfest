@@ -1,8 +1,11 @@
 package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
-import dev.devfest.event.dto.AccusationRequest;
-import dev.devfest.event.dto.AccusationResult;
+import dev.devfest.event.dto.FinalActionResult;
+import dev.devfest.event.dto.LayerAnswerRequest;
+import dev.devfest.event.dto.SuspectChoiceRequest;
+import dev.devfest.event.dto.UnlockRequest;
+import dev.devfest.event.dto.VerdictRequest;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.RecoveryRequest;
 import dev.devfest.event.dto.RecoveryResult;
@@ -84,12 +87,44 @@ public class EventTeamController {
     return finals.recover(principal, idempotencyKey, request);
   }
 
-  @PostMapping("/final/accusations")
-  AccusationResult accuse(
+  @PostMapping("/final/unlock")
+  FinalActionResult unlock(
     @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
-    @Valid @RequestBody AccusationRequest request,
+    @Valid @RequestBody UnlockRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return finals.accuse(principal, idempotencyKey, request);
+    return finals.unlock(principal, idempotencyKey, request);
+  }
+
+  @PostMapping("/final/start")
+  FinalActionResult startCase(@AuthenticationPrincipal AuthService.Principal principal) {
+    return finals.startCase(principal);
+  }
+
+  @PostMapping("/final/layers/{layer}")
+  FinalActionResult answerLayer(
+    @PathVariable int layer,
+    @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
+    @Valid @RequestBody LayerAnswerRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return finals.answerLayer(principal, layer, idempotencyKey, request);
+  }
+
+  @PostMapping("/final/verdicts/{layer}")
+  FinalActionResult giveVerdict(
+    @PathVariable int layer,
+    @Valid @RequestBody VerdictRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return finals.giveVerdict(principal, layer, request);
+  }
+
+  @PostMapping("/final/suspect")
+  FinalActionResult submitSuspect(
+    @Valid @RequestBody SuspectChoiceRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return finals.submitSuspect(principal, request);
   }
 }

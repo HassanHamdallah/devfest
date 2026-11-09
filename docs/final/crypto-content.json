@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "fullUntilMinutes": 25,
+  "layers": [
+    { "layer": 1, "c": 26, "n": 91, "p": 7, "q": 13, "d": 29 },
+    { "layer": 2, "c": 52, "n": 77, "p": 7, "q": 11, "d": 43 },
+    { "layer": 3, "c": 17, "n": 55, "p": 5, "q": 11, "d": 27 },
+    { "layer": 4, "c": 8, "n": 33, "p": 3, "q": 11, "d": 3 }
+  ],
+  "signatures": {
+    "e": 7,
+    "n": 33,
+    "h": 17,
+    "reports": [
+      { "evidence": "E03", "s": 10 },
+      { "evidence": "E04", "s": 29 }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "E01",
+      "text": "At 11:32 PM, someone entered Rami's building using an authorized access card."
+    },
+    {
+      "id": "E02",
+      "text": "At 11:35 PM, security cameras were disabled using Access Card #204."
+    },
+    {
+      "id": "E03",
+      "text": "CONFIDENTIAL INVESTIGATION REPORT — Kareem Shehab is responsible for Rami's disappearance. Supporting claims: Card #204 was used and cameras were disabled.",
+      "claimedSigner": "Rami Al-Khatib"
+    },
+    {
+      "id": "E04",
+      "text": "10:55 PM — Access Card #204 was temporarily assigned to Leila Nasser. 11:32 PM — The card was used to enter Rami's building. 11:35 PM — The same card disabled the cameras. 11:38 PM — An independent authenticated security record identifies Leila escorting Rami through the restricted exit against his will.",
+      "claimedSigner": "Rami Al-Khatib"
+    }
+  ],
+  "suspects": [
+    "Kareem Shehab",
+    "Leila Nasser",
+    "Tariq Al-Khatib",
+    "Nadia Murad",
+    "Farid Mansour",
+    "Mazen Haddad"
+  ],
+  "correctSuspect": "Leila Nasser",
+  "recovery": {
+    "question": "PLACEHOLDER - replace this with the real Recovery Challenge question before the event.",
+    "acceptedAnswers": ["PLACEHOLDER-REPLACE-ME"]
+  }
+}

@@ -12,18 +12,6 @@
       [error]="error('clueKey')"
       formControlName="clueKey"
     />
-    <ui-textarea
-      [label]="labels.recoveryPrompt"
-      [rows]="3"
-      hint="Shown in the final to a team that missed this room's clue."
-      [error]="error('recoveryPrompt')"
-      formControlName="recoveryPrompt"
-    />
-    <ui-input
-      [label]="labels.recoveryAnswer"
-      [error]="error('recoveryAnswer')"
-      formControlName="recoveryAnswer"
-    />
     @if (!readOnly()) {
     <ui-button type="submit" [loading]="state.busy()">Save room</ui-button>
     }

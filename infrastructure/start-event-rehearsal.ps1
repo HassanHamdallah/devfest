@@ -44,7 +44,7 @@ function Reset-EventTestData {
   if((Invoke-TestDatabaseQuery 'SELECT current_database()') -ne 'devfest_test') { throw 'Test database identity check failed.' }
   $schemaReady=Invoke-TestDatabaseQuery "SELECT to_regclass('public.event_state') IS NOT NULL AND to_regclass('public.team_final') IS NOT NULL"
   if($schemaReady -ne 't') { throw 'The event tables (V5) are missing in devfest_test. Run infrastructure/test-backend.ps1 once to migrate it, then start the rehearsal again.' }
-  # CASCADE also empties event_room (manager_id -> app_user), event_content (correct_suspect_id -> suspect), the
+  # CASCADE also empties event_room (manager_id -> app_user), final_content (imported_by -> app_user), the
   # room terminal files and the AI mission content (-> event_room), the teams' mission runs and stages (-> event_team) and the round
   # history in room_arrival and round_time_adjustment (-> app_user). event_room and event_content are re-created
   # below as V5 inserts them, with V10's to V19's defaults (terminal on for LINUX, AI mission on for AI, pass score 60); the Linux terminal activity (V13 turns it on for a fresh database) is left off here, so the plain-answer-form specs keep working: the Linux form specs switch it on through the API.
@@ -52,10 +52,9 @@ function Reset-EventTestData {
   # event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(
    'SET client_min_messages=warning;',
-   'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, penalty, suspect, recovery_attempt, accusation, team_final RESTART IDENTITY CASCADE;',
+   'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score, recovery_attempt, team_final, final_unlock_attempt, final_layer_attempt, final_verdict, final_content, final_time_adjustment RESTART IDENTITY CASCADE;',
    "INSERT INTO event_room(code,name,position,terminal_enabled,activity) VALUES ('AI','AI',0,false,'AI_QUIZ'),('PROBLEM_SOLVING','Problem solving',1,false,NULL),('LINUX','Linux',2,true,NULL),('HARDWARE','Hardware',3,false,NULL) ON CONFLICT (code) DO NOTHING;",
-   "INSERT INTO event_content(id) VALUES (1) ON CONFLICT (id) DO UPDATE SET encrypted_message='', correct_suspect_id=NULL, updated_at=now();",
-   'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, round_phase=NULL, round_duration_seconds=NULL, round_elapsed_before_seconds=0, round_resumed_at=NULL, round_ended=false, final_open=false, final_started_at=NULL, final_closed_at=NULL, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
+   'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, round_phase=NULL, round_duration_seconds=NULL, round_elapsed_before_seconds=0, round_resumed_at=NULL, round_ended=false, final_open=false, final_started_at=NULL, final_closed_at=NULL, final_phase=NULL, final_duration_seconds=NULL, final_elapsed_before_seconds=0, final_resumed_at=NULL, final_ended=false, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
   ) -join ' '
   & $psql -h 127.0.0.1 -p 55432 -U devfest_test -d devfest_test -v ON_ERROR_STOP=1 -1 -q -c $reset
   if($LASTEXITCODE -ne 0) { throw 'Event fixture reset failed in devfest_test.' }
@@ -128,7 +127,7 @@ function Set-PracticeClueKeys([string]$SeedPassword) {
   $headers=@{Authorization="Bearer $($login.accessToken)"}
   $roomId=(Invoke-RestMethod -Uri "$api/event/home" -Headers $headers).roomId
   $room=(Invoke-RestMethod -Uri "$api/event/rooms/$roomId/board" -Headers $headers).room
-  $body=@{clueKey=$keys[$code];recoveryPrompt=$room.recoveryPrompt;recoveryAnswer=$room.recoveryAnswer;version=$room.version} | ConvertTo-Json
+  $body=@{clueKey=$keys[$code];version=$room.version} | ConvertTo-Json
   $null=Invoke-RestMethod -Method Put -Uri "$api/event/rooms/$roomId/content" -Headers $headers -ContentType 'application/json' -Body $body
  }
  Write-Output 'Practice clue keys set by the room managers through the API.'

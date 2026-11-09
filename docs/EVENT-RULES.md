@@ -18,7 +18,7 @@ There are exactly four rooms, always in this order:
 - Each room has at most one manager, and a manager can manage only one room.
 - Each room is either **open** or **closed**. Only the admin opens and closes rooms.
 - Each room holds one **clue key** (the answer teams must find), set by the room's manager at runtime
-  (rule 5), and one **recovery challenge** (a question plus its answer, used only in the final; see rule 9).
+  (rule 5). The final has one **Recovery Challenge** for everyone (rules 9 and 10).
 
 ## 2. Groups and rotation
 
@@ -115,7 +115,7 @@ A team may submit to a room only when **all** of these are true, checked in this
    the final opens, rule 13), every answer already submitted to that room is checked again against the new
    key, at once. The board says how many ("Saved. Re-checked 3 answers."). Each team then collects the room's
    clue if **any** of its answers there is now correct, and loses a clue that came from that room if none is.
-   A clue won through the recovery challenge is never removed. The result shown when the answer was submitted
+   A clue won through the Recovery Challenge is never removed. The result shown when the answer was submitted
    stays on record.
 6. **Manual override.** For each answer the manager can choose **Automatic** (follow the key, the default),
    **Accept** or **Reject**. An override wins over the key and stays in force through later key changes until
@@ -134,105 +134,150 @@ A team may submit to a room only when **all** of these are true, checked in this
 ## 6. Judging
 
 - For every team in their room, the manager records a status for the technical output: **Pending**,
-  **Passed** or **Failed**, a hint count (0–50) and an optional note (up to 1000 bytes).
+  **Passed** or **Failed** and an optional note (up to 1000 bytes).
 - Judging is separate from clue collection: Passed or Failed **never** blocks a team from the final.
 - If two people judge the same team at the same time, the second save is refused with
   "Someone else changed this judgement. Reload and try again." Saving exactly what is already stored is
   accepted silently. Every real change is recorded in a judgement history.
-- The hint count is informational. Minutes are added only by **penalty entries** (rule 8). The room board
-  warns the manager when the hint count and the number of active Hint penalties differ.
+- Hints are only the **Hint given (−2)** deductions of rule 8; the judgement has no counter of its own.
 
 ## 7. Collected clues
 
 - A team **collects** a room's clue when one of its answers for that room is correct (by the key or by the
   manager's Accept). A later wrong answer never removes it; only a key change or an override can (rule 5).
-- A clue can also be collected in the final through the recovery challenge (rule 9); such a clue is never
+- A clue can also be collected in the final through the Recovery Challenge (rule 9); such a clue is never
   removed.
 - Teams see "*n* of 4 clues collected" on their home screen.
 
-## 8. Penalties
+## 8. Scoring (100 points), hints and cheating
 
-| Kind | Minutes | Who adds it |
-|---|---|---|
-| Hint | 2 | Room manager or admin |
-| Minor violation | 2 | Room manager or admin |
-| Prohibited tool | 5 | Room manager or admin |
-| Cheating | 5 | Room manager or admin |
-| Answer sharing | 5 | Room manager or admin |
-| Recovery | 5 | Automatic, once per team at most (rule 9) |
-| Wrong accusation | 3 | Automatic, each wrong accusation (rule 10) |
+The event is worth **100 points**: four rooms of **15** each (60) plus the **final** (40). Scores are computed on every
+read from what the rooms and the final recorded; no total is stored. Every score is rounded to 2 decimals.
 
-- Penalties are **never deleted**. A mistaken penalty is **voided** once, with a reason; the void records who
-  and when. Voided penalties count nowhere.
-- Recovery and Wrong accusation penalties cannot be added by hand.
-- A manager can void only penalties in their own room. Wrong accusation penalties belong to no room and
-  can be voided only by the admin.
+1. **Room base score** (the room's own score on the 15-point scale):
 
-## 9. The final
+   | Room source | Base |
+   |---|---|
+   | AI mission (rule 19) | its total out of 100 × 0.15 (99 gives 14.85) |
+   | Linux terminal (rule 18.8) | its score out of 15 |
+   | Contest (rule 20) | its score out of 15 |
+   | Any other room (Hardware today) | the score the room's manager types in, 0 to 15 (at most 2 decimals; audited with its value) |
 
-- The admin opens the final **once**, for all teams at the same moment. Its start time is the server time
-  of that first opening. After it is closed it cannot be reopened.
-- The final can only be opened when the content is complete: the encrypted message, 6 suspects, the
-  correct suspect, and a clue key and recovery challenge for every room.
-- What each team sees depends on its collected clues:
+   A room is read by its **activity** (rule 1 of 18, 19, 20), not by its name. The typed score is a temporary input for a
+   room that has no automatic score; a room that has one refuses it ("This room's score comes from its activity; it cannot
+   be typed in."). Only the room's manager and the admin type it.
+2. **Room score = MAX(0, base − 2 × active hints in that room − 7.5 if an active cheating violation exists for that
+   room).** Hints and cheating are **point deductions only**; nothing is ever added to a team's time, and a deduction never
+   changes a clue or whether a team qualifies.
+3. **Where.** On the room board, the same team card the manager sees for the teams currently in the room, with two
+   actions and the room's deduction list:
+   - **Hint given (−2)**: one click, optional note. A team has **2 hints across all four rooms**; the third is refused
+     (409 "This team has already used its 2 hints."). The card shows "Hints: n of 2".
+   - **Cheating (−7.5)**: needs a confirmation and a **required reason**. One active violation per team and room; a repeat
+     is refused (409 "This team already has an active cheating violation in this room.").
+4. **Who.** Only the room's manager or the admin may record or cancel, for a team that is in that room now (its rotation
+   room, or the room an admin exception sent it to this round; anything else is a 404). The admin has both actions for
+   any team and room. Another room's manager gets 404 for the room.
+5. **Cancelling** needs a reason, keeps the row in the log and restores the hint or the points. A cancelled violation may
+   be recorded again.
+6. **The log is append-only**: kind, room, team, reason, who, when, and who cancelled it, when and why. The database refuses
+   deleting or editing a row; the only permitted change is one cancellation. The manager reads their room's rows, the
+   admin all of them (`GET /rooms/{id}/deductions`, `GET /admin/deductions`).
+7. **What a team sees**: only "Hints used: n of 2". Never a cheating record, a deduction, a reason or a score before the
+   results are published (rule 12), and then only the scores, not how they were made.
+8. **Retired.** The minute-based penalties (hint, minor violation, prohibited tool, cheating, answer sharing, recovery,
+   wrong accusation), the admin's time adjustment, adjusted time and the penalty tie-break no longer exist anywhere in the
+   rules, the screens or the ranking. No other deduction exists. Past audit entries are kept.
 
-| Situation | Team sees |
-|---|---|
-| Final not opened yet | "The final opens for all teams at the same time." |
-| 4 clues | The encrypted message, the suspects and the accusation form |
-| 3 clues | The **recovery challenge** of the one missing room (+5 minutes if solved) |
-| 0–2 clues | "Better luck next time" |
-| Case solved | "Case solved" with finish time, penalties and adjusted time |
-| Final closed | "The final is closed." |
+## 9. The final (qualification, recovery, timer)
 
-- Recovery: unlimited attempts, no penalty for a wrong answer, answers are normalized as in rule 5.
-  A correct answer collects the missing clue, adds the one-time **+5 minute Recovery penalty**, and shows the
-  encrypted message.
+- The admin opens the final **once**, for all teams at the same moment; it cannot be reopened (the admin's *Reset final*
+  override, rule 16.7, is the only way back). It opens only when the content is complete: the validated crypto content
+  file (rule 10) and a clue key for every room.
+- **One server-side 40-minute timer** starts at that moment for everyone. The admin's emergency **pause / resume** and
+  **added time** (1 second to 60 minutes, with an Idempotency-Key) apply to every team at once and are audited; the timer is
+  never per team and never reset. Once the time has run out it can no longer change.
+- **Status per team**, derived on the server from its collected clues:
 
-## 10. Accusation
+  | Clues | Status | What happens |
+  |---|---|---|
+  | 4 | **In final** | the unlock screen opens immediately |
+  | 3 | **Recovery** | the single unified Recovery Challenge starts at the same moment |
+  | 0–2 | **Not qualified** | "You did not qualify for the final", no recovery |
+  | — | **Completed** | the suspect was submitted, the time ran out or the final was closed |
 
-- With the encrypted message on screen, the team picks one of the listed suspects and submits the decrypted
-  message and its evidence.
-- A **wrong** suspect adds **+3 minutes** ("Incorrect accusation — +3 minutes. Try again.") and the team may try
-  again. The system never reveals the correct suspect.
-- The **correct** suspect finishes the team: its finish time is the server time the accusation arrived.
-  No further accusations are accepted.
+- **Recovery Challenge**: one question for every team (not one per room); unlimited attempts, no penalty and no room
+  points. A correct answer (normalized like clue answers, rule 5.4) collects the team's missing clue (source *Recovery*) and
+  moves it to the case **with the remaining time**. Teams with 0–2 clues cannot use it.
+- Every rule is enforced on the server: a disqualified team, a not-open final, a paused final and a team that did not
+  qualify are all refused.
+
+## 10. The crypto case
+
+State always comes from the server; a refresh resumes where the team was. Screens, in order:
+
+1. **Unlock**: four inputs labelled with the real room names (in room order). Each must match **that room's clue key**
+   (rule 5.4) **and** the team must hold that room's clue. A wrong try says only "These room outputs do not open the case."
+   (never which field); **5 wrong in a row = a 30-second wait**.
+2. **Mission**: "Rami left four encrypted evidence layers. Solve RSA on paper, examine the clues, and verify the signed
+   reports." Equipment: printed dossiers and four shuffled key cards; a plain calculator is allowed. **Start case**.
+3. **Layers 1–4**: each shows only the ciphertext C and the modulus n and takes one integer. A correct integer opens that
+   layer's evidence (E01…E04); layers open in order. A wrong one says only "That number does not open this layer." and never
+   the value; **5 wrong in a row on a layer = a 30-second wait** (per layer). Every evaluated attempt is stored; an answer
+   refused during a wait is not an attempt.
+4. **Verdicts** (E03 and E04): YES or NO, **one time only**, never revealing correctness; a wrong verdict never blocks
+   progress. The team sees S, e, n, H and the claimed signer.
+5. **Notebook**: the evidence revealed so far stays reviewable, with no hint about the culprit.
+6. **Suspects**: choose **one** of the six; confirmation; **one time only**; no free text.
+7. **Submitted**: "Your final answer is recorded. The result stays confidential until judging." with team, status and
+   time; never whether anything was right.
+
+**Content** is one validated JSON file imported by the admin (`PUT /admin/final/content`, shipped as
+`docs/final/crypto-content.json`) and read-only once the final opens. The server **derives** every plaintext
+M = C^d mod n and every verdict (S^e mod n = H) and validates n = p × q and that each next C equals the previous M; all
+problems are listed at once and nothing is saved when there is one. The file also holds the evidence texts, the six
+suspects, the correct suspect, the Recovery Challenge (question and accepted answers; the shipped file keeps an obvious
+placeholder, and the admin board warns while it is still there) and the "full points until" minutes (default 25). A member
+never receives M, d, p, q, a verdict, the correct suspect, a score or another team's data.
+
+**Final score (40)**: each correct layer 2.5 and each correct verdict 2.5 (crypto, at most 15); the correct suspect 10;
+**time points (at most 15)** from t = the **active** minutes from the final's start to the suspect submission (pauses are
+not counted), for everyone including recovery teams: t ≤ the full-until minutes → 15, otherwise MAX(0, 40 − t). Time points
+need all four layers solved and a submitted suspect, otherwise 0.
+
+**Time up**: input stops, unanswered parts score 0, and the team's final is finalised **exactly once**, inside the same
+transaction as whatever first notices it (a team's write finds no time left, or the admin closes the final); there is no
+scheduler, and the single event lock makes a submission racing the end resolve to one outcome.
 
 ## 11. Ranking
 
-Only active teams are ranked.
+Only active teams are ranked. **Total** (rooms + final) **DESC**, then **final score DESC**, then the **earlier final
+finish** (the suspect submission time; a team that never submitted finishes last); teams equal on all three **share a
+rank** (1, 1, 3). Teams that did not qualify rank by their room scores like everyone else. **Disqualified** teams stay
+outside the ranking: listed last, without a rank, outside the rank numbering. The admin sees every team's full
+breakdown (`GET /admin/scores`, `GET /admin/scoreboard`, the admin board, the export); teams see the published ranking only
+(rule 12).
 
-1. Finished teams come first, ordered by **adjusted time**, lowest first:
-   adjusted time = (finish time − final start time, in whole seconds) + 60 × (active penalty minutes).
-2. Equal adjusted time → fewer active penalty **entries** first.
-3. Still equal → earlier finish time first.
-4. Teams equal on all three share a rank (for example 1, 1, 3).
-5. Unfinished teams follow without a rank, ordered by collected clues (most first), then team name.
-
-Worked example (final opened at 10:00:00):
-
-| Team | Finished | Elapsed | Active penalties | Adjusted | Entries | Rank |
-|---|---|---|---|---|---|---|
-| Team 05 | 10:15:00 | 900 s | none | 900 s | 0 | 1 |
-| Team 02 | 10:10:00 | 600 s | Recovery 5 | 600 + 300 = 900 s | 1 | 2 |
-| Team 09 | 10:13:00 | 780 s | Hint 2, Minor violation 2 (a voided Hint is ignored) | 780 + 240 = 1020 s | 2 | 3 |
-| Team 01 | 10:12:30 | 750 s | Hint 2, Recovery 5, Wrong accusation 3 | 750 + 600 = 1350 s | 3 | 4 |
-| Team 14 | not finished | — | — | — | — | — (4 clues) |
-| Team 07 | not finished | — | — | — | — | — (3 clues) |
-
-Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer penalty entries.
+**Where it is on screen.** The room manager's team card (and the admin's team panel, for any team and room) carries
+"Hint given (−2)", "Cheating (−7.5)", "Hints: n of 2" and the room's deduction list with cancel; a room without an
+automatic score also has a 0 to 15 score input. The admin's **Scores** page (`/event/admin/scores`) has the overall
+scoreboard (four room lines with base and deductions, the final's parts, the total out of 100, the rank; CSV), the live
+final table (`GET /admin/final/board`: status, stage, attempts, verdicts, suspect, active time, finish time, score parts)
+and the full penalty log. The Content page imports the crypto content file; the Control page has the final timer's
+pause, resume and added time.
 
 ## 12. Publication
 
-- Results are private until the admin presses **Publish results**. Before that, teams see
-  "Results are not published yet." and room managers never see the ranking.
-- After publication, teams see a "View ranking" link. The admin can unpublish at any time.
+- Results are private until the admin presses **Publish results**. Before that, teams see "Results are not published yet."
+  and room managers never see the ranking.
+- After publication, teams see the ranking with the four room scores, the final score and the total of every team
+  (no deductions, cheating records or hints). The admin can unpublish at any time.
 
 ## 13. Content editing lock
 
-- Before the final opens, the admin can edit all content (clue keys, recovery challenges, terminal files, AI mission
-  content, encrypted message, suspects, correct suspect). A room manager can edit only their own room's
-  clue key, recovery challenge, terminal files and server package (rule 18) and AI mission (rule 19). The AI mission is also
+- Before the final opens, the admin can edit all content (clue keys, terminal files, AI mission content, the crypto
+  content file of rule 10). A room manager can edit only their own room's
+  clue key, terminal files and server package (rule 18) and AI mission (rule 19). The AI mission is also
   locked as soon as a team has run or saved anything.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
   so every team is judged against the same content.
@@ -259,7 +304,7 @@ Team 05 and Team 02 tie at 900 s; Team 05 ranks higher because it has fewer pena
    still allowed, but **moving a team to another group is refused** ("Groups are locked after round 1
    starts."), because it would break the rotation.
 7. **Deactivated teams** are signed out, cannot sign in, and are left out of the ranking and the rooms'
-   "teams now" lists. Their submissions, clues and penalties are kept.
+   "teams now" lists. Their submissions, clues and deductions are kept.
 
 ## 15. One device per team
 
@@ -291,22 +336,20 @@ once in a single transaction.
    the next round the rotation applies again. The admin is warned if room Y is closed, has no clue key, or the team
    already collected room Y's clue. Exceptions can be cleared.
 4. **Manual clue**: grant (marked *Manual* for admins only) or revoke the clue of room R for team T. Revoking never
-   removes a clue won in the recovery challenge unless the admin explicitly asks for it. Allowed before and during
+   removes a clue won in the Recovery Challenge unless the admin explicitly asks for it. Allowed before and during
    the final; the team sees its new final stage at the next refresh. Submissions and verdicts do not change.
-5. **Time adjustment**: −60 to +60 minutes (never 0) on a team's adjusted final time, shown as "Time adjustment".
-   It counts in adjusted time but not as a penalty in the "fewer penalties" tie-break, and can be voided.
-6. **Disqualify / reinstate**: a disqualified team stays signed in and keeps its records, but cannot submit
+5. **Disqualify / reinstate**: a disqualified team stays signed in and keeps its records, but cannot submit
    anything ("Your team has been disqualified. Contact the organizer.") and is listed last in the ranking, marked
    *Disqualified*, without a rank and outside the rank numbering. Reinstating restores normal play.
-7. **Reset final**: all final progress is deleted (recovery attempts, accusations, finish times, recovery clues,
-   automatic recovery and wrong-accusation penalties); the final closes and may be opened again, and content becomes
-   editable again. Room-phase data stays.
-8. **Reset one team**: all of the team's progress is deleted; the team, its account and its group stay, and its
+6. **Reset final**: all final progress is deleted (unlock and layer attempts, verdicts, suspect submissions, recovery
+   attempts and recovery clues, added time); the final closes, its timer is cleared, it may be opened again, and content
+   becomes editable again. Hints, cheating records and room scores are room-phase data and stay.
+7. **Reset one team**: all of the team's progress is deleted; the team, its account and its group stay, and its
    device is signed out ("An organizer signed your team out.").
-9. **Reset the whole event**: all progress of all teams is deleted, the event returns to *Not started* with all
+8. **Reset the whole event**: all progress of all teams is deleted, the event returns to *Not started* with all
    rooms closed and results unpublished; accounts, teams, groups, the planned team count, rooms, managers, clue keys
    and all content stay. Requires typing **RESET** and the admin's own password (a wrong password changes nothing).
-10. **Snapshots**: every reset first saves a snapshot of all rows it deletes and of the event state, in the same
+9. **Snapshots**: every reset first saves a snapshot of all rows it deletes and of the event state, in the same
     transaction — if the snapshot fails, nothing changes. The admin can take a snapshot at any time, list all
     snapshots and download each as a JSON file. Snapshots are never deleted; restoring one is not supported.
 
@@ -429,8 +472,7 @@ the terminal only helps produce the technical output.
 7. **Team form (rooms with the `LINUX_TERMINAL` activity).** On the same page as the terminal the team sees five
    fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN** and **Final clue** (each at most 500 bytes, blanks
    allowed). There is no separate encrypted message: the target file holds one encrypted clue, and the team enters its
-   decryption as the Final clue (V17 removed the former message field; the event final's own encrypted message is a
-   different thing and unchanged).
+   decryption as the Final clue (V17 removed the former message field; the crypto final of rule 10 is a different thing).
    - **Save** stores the current values, as often as the team likes (each request carries an Idempotency-Key: a retry
      of the same request is answered again, a different request with the same key is refused with 409, and a stale
      retry never overwrites a newer save). **Final submit** asks first ("This cannot be undone"), carries the current
@@ -471,7 +513,7 @@ the terminal only helps produce the technical output.
    - **Points.** 3 for each correct PATH, USERNAME, FILE_SIZE and PATTERN, and 3 when the **Clue** (the Final clue, by the
      same clue check that collects the room's clue) is correct: five items, **15 points** at most. Scores are **computed on every read** from the stored
      forms, the current keys and the overrides; no total is stored, so a changed key or clue key changes the table at
-     once. The 15 points stay inside this room: the event's ranking and the final do not use them.
+     once. The event score uses them as the Linux room's base (rule 8.1).
    - **The table** shows every active team (all groups, in every round) with its status (**Not started / Saved /
      Submitted**), its values with a tick or cross per item, the total out of 15 and the submit time, sorted by total, and
      refreshes every 5 seconds while open. A form that is only saved is scored too (it is submitted at Time's up).
@@ -604,12 +646,12 @@ result itself, so the team never types a clue answer there.
      Automatic (rule 5) works as for any room; the results then show the clue as granted or not while the status
      keeps what the score said.
 
-   The event's final ranking is unchanged and does not use these scores.
+   The event score uses the total (rule 8.1): the base is that total × 0.15.
 10. **Resets.** Resetting a team or the event deletes its experiments, stage submissions and evaluation with the rest
     of its progress (they are in the snapshot); the mission and the pass score stay.
-11. **Room score.** One read-only service method (`SentinelScoreService.roomScore`) returns a team's room score (the
-    sum of its saved stages, maximum 100) for a later global ranking. **The event's ranking does not change and does
-    not use it.**
+11. **Room score.** The read-only service methods (`SentinelScoreService.roomScore` for one team, `roomTotals` for a
+    room) return a team's total (the sum of its saved stages, maximum 100). The event score uses it: the AI room's base
+    is that total × 0.15 (rule 8).
 
 
 ## 20. Problem Solving room (Codeforces contest, results, clue release)
@@ -635,13 +677,13 @@ no answer form in this room.
    released it reads "Clue unlocked" and shows the room's clue in the usual masked clue card (the team's evidence for
    the room says the same). A team that is not assigned to the room this round gets a 404 for the contest. **No member
    response ever contains a solved count, points, penalty, place or eligibility, and the clue is in no member
-   response before its release.** A team that never gets a release simply has no clue from this room; the existing
-   recovery challenge (rule 9) applies.
+   response before its release.** A team that never gets a release simply has no clue from this room; the
+   Recovery Challenge (rule 9) applies.
 4. **Results (organizer page).** `/event/room/{id}/contest`, linked from the room board, for the room's manager and the
    admin; everyone else, members and other rooms' managers included, gets a 404. Teams are grouped by the **round** in
    which their group visits the room. For each active, not disqualified team the organizer ticks the problems A to E it
    solved and types one **penalty** in whole minutes (0 or more, at most 100000; 3.5 is refused), copied from the
-   Codeforces standings, and saves **per team** (audited, allowed at any time). Saving does **not** change the event
+   Codeforces standings (the contest's own tie-break; it never adds time to a team and is not a deduction of rule 8), and saves **per team** (audited, allowed at any time). Saving does **not** change the event
    revision. Inactive and disqualified teams are not listed and take no place.
 5. **Scoring (computed on every read, never stored).**
    - **Problem points:** A = 2, B = 3, C = 3, D = 2, E = 2 (at most 12).
@@ -652,9 +694,8 @@ no answer form in this room.
    - **Total** out of 15 (12 + 3). **Eligible** for the clue with at least **3 solved** problems.
    - The page shows solved, points, bonus, total, place, eligible and released per team, sorted by place (teams
      without a saved result last), refreshes every 5 seconds while open and has **Export CSV** (team names are made
-     formula-safe). One read-only service method (`ContestScoreService.roomScore`) returns a team's room score
-     (points, maximum 15) for a later global ranking. **The event's ranking does not change and does not use these
-     scores.**
+     formula-safe). The read-only service methods (`ContestScoreService.roomScore`, `roomTotals`) return a team's
+     room score (points, maximum 15), which the event score uses as the room's base (rule 8.1).
 6. **Clue release.** **Reveal clue** (one team) and **Reveal to all eligible** (one round) are done by the room's
    manager or the admin.
    - Refused with a 409 and a clear message when the team is not eligible ("This team solved 2 of the problems; at

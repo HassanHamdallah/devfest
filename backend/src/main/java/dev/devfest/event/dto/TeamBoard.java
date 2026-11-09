@@ -22,6 +22,8 @@ public record TeamBoard(
   boolean resultsPublished,
   long revision,
   boolean disqualified,
+  int hintsUsed,
+  int hintsAllowed,
   List<RoomEvidence> evidence
 ) {
   /**

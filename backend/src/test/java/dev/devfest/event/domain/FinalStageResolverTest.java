@@ -6,39 +6,36 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+/** The qualification matrix: 4 clues start, 3 clues recover, 0-2 clues do not qualify. */
 class FinalStageResolverTest {
-
-  @Test
-  void finishedWinsEvenAfterTheFinalCloses() {
-    assertEquals(FinalStage.FINISHED, resolve(true, true, true, 4));
-    assertEquals(FinalStage.FINISHED, resolve(true, false, true, 4));
-  }
 
   @Test
   void lockedUntilTheFinalFirstOpens() {
     for (int clues = 0; clues <= 4; clues++) {
-      assertEquals(FinalStage.LOCKED, resolve(false, false, false, clues));
+      assertEquals(FinalStage.LOCKED, resolve(false, clues, false));
     }
   }
 
   @Test
-  void closedAfterTheFinalClosesForUnfinishedTeams() {
-    for (int clues = 0; clues <= 4; clues++) {
-      assertEquals(FinalStage.CLOSED, resolve(true, false, false, clues));
-    }
+  void openFinalStatusDependsOnCollectedClues() {
+    assertEquals(FinalStage.IN_FINAL, resolve(true, 4, false));
+    assertEquals(FinalStage.RECOVERY, resolve(true, 3, false));
+    assertEquals(FinalStage.NOT_QUALIFIED, resolve(true, 2, false));
+    assertEquals(FinalStage.NOT_QUALIFIED, resolve(true, 1, false));
+    assertEquals(FinalStage.NOT_QUALIFIED, resolve(true, 0, false));
   }
 
   @Test
-  void openFinalStageDependsOnCollectedClues() {
-    assertEquals(FinalStage.MESSAGE, resolve(true, true, false, 4));
-    assertEquals(FinalStage.RECOVERY, resolve(true, true, false, 3));
-    assertEquals(FinalStage.NOT_ENOUGH_CLUES, resolve(true, true, false, 2));
-    assertEquals(FinalStage.NOT_ENOUGH_CLUES, resolve(true, true, false, 0));
+  void aFinalisedTeamIsCompletedOnlyIfItQualified() {
+    assertEquals(FinalStage.COMPLETED, resolve(true, 4, true));
+    assertEquals(FinalStage.COMPLETED, resolve(true, 3, true));
+    assertEquals(FinalStage.NOT_QUALIFIED, resolve(true, 2, true));
+    assertEquals(FinalStage.NOT_QUALIFIED, resolve(true, 0, true));
   }
 
   @Test
   void rejectsImpossibleClueCounts() {
-    assertThrows(IllegalArgumentException.class, () -> resolve(true, true, false, 5));
-    assertThrows(IllegalArgumentException.class, () -> resolve(true, true, false, -1));
+    assertThrows(IllegalArgumentException.class, () -> resolve(true, 5, false));
+    assertThrows(IllegalArgumentException.class, () -> resolve(true, -1, false));
   }
 }

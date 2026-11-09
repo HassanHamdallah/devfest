@@ -181,7 +181,7 @@ export class EventClueKeyCard {
     this.editing.set(true);
   }
 
-  /** Sends the room's current recovery challenge unchanged; only the key is edited here. */
+  /** Saves the clue key; the room's other settings are not part of this request. */
   protected async save(): Promise<void> {
     if (this.saving()) return;
     const room = this.room();
@@ -190,8 +190,6 @@ export class EventClueKeyCard {
     try {
       const saved = await this.eventApi.saveRoomContent(room.id, {
         clueKey: this.draft(),
-        recoveryPrompt: room.recoveryPrompt,
-        recoveryAnswer: room.recoveryAnswer,
         version: room.version,
       });
       this.notice.set(recheckNotice(saved.recheckedSubmissions));

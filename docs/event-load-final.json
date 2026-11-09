@@ -1,0 +1,493 @@
+{
+  "testedAt": "2026-11-09T01:22:43.061390+00:00",
+  "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic final traffic; no WAN latency.",
+  "baseUrl": "http://127.0.0.1:8082/api/v1",
+  "mode": "final",
+  "seconds": 90,
+  "elapsedSeconds": 90.0,
+  "teams": 16,
+  "endpoints": {
+    "GET /event/admin/board": {
+      "requests": 5,
+      "errors": 0,
+      "p50Ms": 11.1,
+      "p95Ms": 20.0,
+      "p99Ms": 20.0,
+      "maxMs": 20.0
+    },
+    "GET /event/admin/final/board": {
+      "requests": 24,
+      "errors": 0,
+      "p50Ms": 7.6,
+      "p95Ms": 31.8,
+      "p99Ms": 32.8,
+      "maxMs": 32.8
+    },
+    "GET /event/admin/scoreboard": {
+      "requests": 18,
+      "errors": 0,
+      "p50Ms": 5.6,
+      "p95Ms": 28.6,
+      "p99Ms": 28.6,
+      "maxMs": 28.6
+    },
+    "GET /event/revision": {
+      "requests": 162,
+      "errors": 0,
+      "p50Ms": 2.2,
+      "p95Ms": 22.4,
+      "p99Ms": 27.3,
+      "maxMs": 27.6
+    },
+    "GET /event/rooms/{id}/board": {
+      "requests": 64,
+      "errors": 0,
+      "p50Ms": 9.3,
+      "p95Ms": 30.9,
+      "p99Ms": 86.8,
+      "maxMs": 86.8
+    },
+    "GET /event/team/final": {
+      "requests": 377,
+      "errors": 0,
+      "p50Ms": 5.2,
+      "p95Ms": 26.1,
+      "p99Ms": 29.7,
+      "maxMs": 31.9
+    },
+    "POST /event/admin/final/close": {
+      "requests": 2,
+      "errors": 0,
+      "p50Ms": 12.6,
+      "p95Ms": 29.4,
+      "p99Ms": 29.4,
+      "maxMs": 29.4
+    },
+    "POST /event/deductions/{id}/cancel": {
+      "requests": 1,
+      "errors": 0,
+      "p50Ms": 22.0,
+      "p95Ms": 22.0,
+      "p99Ms": 22.0,
+      "maxMs": 22.0
+    },
+    "POST /event/rooms/{id}/cheating": {
+      "requests": 3,
+      "errors": 0,
+      "p50Ms": 14.3,
+      "p95Ms": 21.0,
+      "p99Ms": 21.0,
+      "maxMs": 21.0
+    },
+    "POST /event/rooms/{id}/hints": {
+      "requests": 13,
+      "errors": 0,
+      "p50Ms": 21.6,
+      "p95Ms": 143.4,
+      "p99Ms": 143.4,
+      "maxMs": 143.4
+    },
+    "POST /event/team/final/layers/{id}": {
+      "requests": 74,
+      "errors": 0,
+      "p50Ms": 6.1,
+      "p95Ms": 28.8,
+      "p99Ms": 30.9,
+      "maxMs": 30.9
+    },
+    "POST /event/team/final/recovery": {
+      "requests": 4,
+      "errors": 0,
+      "p50Ms": 7.0,
+      "p95Ms": 33.7,
+      "p99Ms": 33.7,
+      "maxMs": 33.7
+    },
+    "POST /event/team/final/start": {
+      "requests": 16,
+      "errors": 0,
+      "p50Ms": 5.5,
+      "p95Ms": 30.2,
+      "p99Ms": 30.2,
+      "maxMs": 30.2
+    },
+    "POST /event/team/final/suspect": {
+      "requests": 28,
+      "errors": 0,
+      "p50Ms": 5.3,
+      "p95Ms": 27.0,
+      "p99Ms": 27.7,
+      "maxMs": 27.7
+    },
+    "POST /event/team/final/unlock": {
+      "requests": 24,
+      "errors": 0,
+      "p50Ms": 11.2,
+      "p95Ms": 26.4,
+      "p99Ms": 28.5,
+      "maxMs": 28.5
+    },
+    "POST /event/team/final/verdicts/{id}": {
+      "requests": 60,
+      "errors": 0,
+      "p50Ms": 5.0,
+      "p95Ms": 25.6,
+      "p99Ms": 35.3,
+      "maxMs": 35.3
+    },
+    "POST /event/team/rooms/{id}/submissions": {
+      "requests": 70,
+      "errors": 0,
+      "p50Ms": 45.3,
+      "p95Ms": 139.6,
+      "p99Ms": 159.6,
+      "maxMs": 159.6
+    },
+    "PUT /event/rooms/{id}/manual-scores/{id}": {
+      "requests": 64,
+      "errors": 0,
+      "p50Ms": 10.4,
+      "p95Ms": 76.2,
+      "p99Ms": 150.1,
+      "maxMs": 150.1
+    }
+  },
+  "totals": {
+    "requests": 1009,
+    "errors": 0,
+    "worstP95Ms": 143.4,
+    "retries": 24,
+    "retryMismatches": 0,
+    "refusalProbes": 45,
+    "refusalsAnswered": 45,
+    "expectedConflicts": 46,
+    "finalisedTeams": 16,
+    "activeHints": 11,
+    "activeCheating": 3,
+    "deductionLogRows": 15
+  },
+  "finalCrossCheck": [
+    {
+      "team": 1,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 2,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 3,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 4,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 5,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 6,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 7,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 8,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 9,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 10,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 11,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 12,
+      "finalised": true,
+      "finishedBy": "CLOSED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 0.0,
+        "time": 0.0,
+        "total": 15.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 0,
+        "time": 0,
+        "total": 15.0
+      },
+      "ok": true
+    },
+    {
+      "team": 13,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 0.0,
+        "time": 15.0,
+        "total": 30.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 0,
+        "time": 15,
+        "total": 30.0
+      },
+      "ok": true
+    },
+    {
+      "team": 14,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 2.5,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 37.5
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 2.5,
+        "suspect": 10,
+        "time": 15,
+        "total": 37.5
+      },
+      "ok": true
+    },
+    {
+      "team": 15,
+      "finalised": true,
+      "finishedBy": "SUBMITTED",
+      "got": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10.0,
+        "time": 15.0,
+        "total": 40.0
+      },
+      "expected": {
+        "layers": 10.0,
+        "verdicts": 5.0,
+        "suspect": 10,
+        "time": 15,
+        "total": 40.0
+      },
+      "ok": true
+    },
+    {
+      "team": 16,
+      "finalised": true,
+      "finishedBy": "CLOSED",
+      "got": {
+        "layers": 5.0,
+        "verdicts": 0.0,
+        "suspect": 0.0,
+        "time": 0.0,
+        "total": 5.0
+      },
+      "expected": {
+        "layers": 5.0,
+        "verdicts": 0.0,
+        "suspect": 0,
+        "time": 0,
+        "total": 5.0
+      },
+      "ok": true
+    }
+  ],
+  "diagnostics": [],
+  "errorSamples": []
+}

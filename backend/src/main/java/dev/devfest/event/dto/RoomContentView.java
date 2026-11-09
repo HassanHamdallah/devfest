@@ -13,8 +13,6 @@ public record RoomContentView(
   RoomCode code,
   String name,
   String clueKey,
-  String recoveryPrompt,
-  String recoveryAnswer,
   long version,
   int recheckedSubmissions,
   boolean terminalEnabled,

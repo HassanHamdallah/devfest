@@ -118,6 +118,11 @@
   font-size: var(--font-size-base);
 }
 
+.clues__hints {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 @media (max-width: 480px) {
   .where__title {
     font-size: 1.35rem;

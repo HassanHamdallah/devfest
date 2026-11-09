@@ -6,20 +6,25 @@ import dev.devfest.event.dto.ClueOverrideRequest;
 import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.JudgementRequest;
 import dev.devfest.event.dto.JudgementView;
-import dev.devfest.event.dto.PenaltyRequest;
-import dev.devfest.event.dto.PenaltyView;
+import dev.devfest.event.dto.CancelDeductionRequest;
+import dev.devfest.event.dto.CheatingRequest;
+import dev.devfest.event.dto.DeductionView;
+import dev.devfest.event.dto.HintRequest;
+import dev.devfest.event.dto.ManualScoreRequest;
+import dev.devfest.event.dto.ManualScoreView;
 import dev.devfest.event.dto.RoomBoard;
 import dev.devfest.event.dto.RoomContentRequest;
 import dev.devfest.event.dto.RoomContentView;
-import dev.devfest.event.dto.VoidPenaltyRequest;
 import dev.devfest.event.dto.RoomArrivalView;
 import dev.devfest.event.service.EventArrivalService;
 import dev.devfest.event.service.EventClueReviewService;
 import dev.devfest.event.service.EventContentService;
 import dev.devfest.event.service.EventJudgingService;
-import dev.devfest.event.service.EventPenaltyService;
+import dev.devfest.event.service.EventDeductionService;
+import dev.devfest.event.service.EventManualScoreService;
 import dev.devfest.event.service.EventRoomBoardService;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +42,8 @@ public class EventManagerController {
 
   private final EventRoomBoardService boards;
   private final EventJudgingService judging;
-  private final EventPenaltyService penalties;
+  private final EventDeductionService deductions;
+  private final EventManualScoreService manualScores;
   private final EventContentService content;
   private final EventClueReviewService clueReview;
   private final EventArrivalService arrivals;
@@ -45,14 +51,16 @@ public class EventManagerController {
   public EventManagerController(
     EventRoomBoardService boards,
     EventJudgingService judging,
-    EventPenaltyService penalties,
+    EventDeductionService deductions,
+    EventManualScoreService manualScores,
     EventContentService content,
     EventClueReviewService clueReview,
     EventArrivalService arrivals
   ) {
     this.boards = boards;
     this.judging = judging;
-    this.penalties = penalties;
+    this.deductions = deductions;
+    this.manualScores = manualScores;
     this.content = content;
     this.clueReview = clueReview;
     this.arrivals = arrivals;
@@ -92,22 +100,46 @@ public class EventManagerController {
     return judging.judge(principal, roomId, teamId, request);
   }
 
-  @PostMapping("/rooms/{roomId}/penalties")
-  PenaltyView addPenalty(
+  @PostMapping("/rooms/{roomId}/hints")
+  DeductionView giveHint(
     @PathVariable long roomId,
-    @Valid @RequestBody PenaltyRequest request,
+    @Valid @RequestBody HintRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return penalties.add(principal, roomId, request);
+    return deductions.recordHint(principal, roomId, request);
   }
 
-  @PostMapping("/penalties/{penaltyId}/void")
-  PenaltyView voidPenalty(
-    @PathVariable long penaltyId,
-    @Valid @RequestBody VoidPenaltyRequest request,
+  @PostMapping("/rooms/{roomId}/cheating")
+  DeductionView recordCheating(
+    @PathVariable long roomId,
+    @Valid @RequestBody CheatingRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return penalties.voidPenalty(principal, penaltyId, request);
+    return deductions.recordCheating(principal, roomId, request);
+  }
+
+  @PostMapping("/deductions/{deductionId}/cancel")
+  DeductionView cancelDeduction(
+    @PathVariable long deductionId,
+    @Valid @RequestBody CancelDeductionRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return deductions.cancel(principal, deductionId, request);
+  }
+
+  @GetMapping("/rooms/{roomId}/deductions")
+  List<DeductionView> roomDeductions(@PathVariable long roomId, @AuthenticationPrincipal AuthService.Principal principal) {
+    return deductions.roomLog(principal, roomId);
+  }
+
+  @PutMapping("/rooms/{roomId}/manual-scores/{teamId}")
+  ManualScoreView saveManualScore(
+    @PathVariable long roomId,
+    @PathVariable long teamId,
+    @Valid @RequestBody ManualScoreRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return manualScores.save(principal, roomId, teamId, request);
   }
 
   @PutMapping("/rooms/{roomId}/content")

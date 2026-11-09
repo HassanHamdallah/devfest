@@ -32,6 +32,7 @@
     [busy]="actionState.busy()"
     (action)="request($event)"
   />
+  <app-final-timer-panel [open]="data.state.finalOpen" />
   <app-action-status [state]="actionState" />
   <app-room-cards
     [rooms]="data.rooms"

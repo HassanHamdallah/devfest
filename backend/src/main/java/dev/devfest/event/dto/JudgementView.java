@@ -8,7 +8,6 @@ public record JudgementView(
   long teamId,
   long roomId,
   JudgeStatus status,
-  int hints,
   String note,
   long version,
   String reviewerName,

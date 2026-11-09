@@ -8,7 +8,6 @@ public record RoomJudgementRecord(
   long teamId,
   long roomId,
   JudgeStatus status,
-  int hints,
   String note,
   long version,
   Long reviewerId,
@@ -16,14 +15,14 @@ public record RoomJudgementRecord(
   Instant updatedAt
 ) {
   public static RoomJudgementRecord pending(long teamId, long roomId) {
-    return new RoomJudgementRecord(teamId, roomId, JudgeStatus.PENDING, 0, "", 0, null, null, null);
+    return new RoomJudgementRecord(teamId, roomId, JudgeStatus.PENDING, "", 0, null, null, null);
   }
 
   public boolean exists() {
     return version > 0;
   }
 
-  public boolean sameDecision(JudgeStatus otherStatus, int otherHints, String otherNote) {
-    return status == otherStatus && hints == otherHints && note.equals(otherNote);
+  public boolean sameDecision(JudgeStatus otherStatus, String otherNote) {
+    return status == otherStatus && note.equals(otherNote);
   }
 }

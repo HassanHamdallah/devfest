@@ -3,11 +3,17 @@ package dev.devfest.event.dto;
 import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.RoomCode;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** One active team on a room board; {@code penalties} are this team's penalties in this room only. */
+/**
+ * One active team on a room board. {@code deductions} are this team's hint and cheating rows in this room only (active
+ * and cancelled, newest first); {@code hintsUsed} counts its active hints across all four rooms (of {@code hintsAllowed});
+ * {@code roomHints} and {@code cheating} are the active deductions in this room. {@code manualScore} is the typed room
+ * score (0..15) of a room without an automatic score, null while none is entered or when the room scores itself.
+ */
 public record RoomTeamRow(
   long teamId,
   String teamName,
@@ -20,9 +26,12 @@ public record RoomTeamRow(
   SubmissionDetail latestSubmission,
   int submissionCount,
   JudgementView judgement,
-  List<PenaltyView> penalties,
-  int activePenaltyMinutes,
-  boolean hintPenaltyMismatch
+  List<DeductionView> deductions,
+  int roomHints,
+  int hintsUsed,
+  int hintsAllowed,
+  boolean cheating,
+  BigDecimal manualScore
 ) {
   /**
    * The latest submission with its clue verdict: {@code clueCorrect} at submission time, {@code autoCorrect}

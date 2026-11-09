@@ -4,18 +4,16 @@ import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
-import { CaseForm } from "./content/case-form";
+import { FinalContentSection } from "./content/final-content-section";
 import { READ_ONLY_REASON } from "./content/content-view";
 import { RoomContentForm } from "./content/room-content-form";
-import { SuspectsSection } from "./content/suspects-section";
 import { RemoteData } from "./shared/remote-data";
 
-/** The case content from GET /admin/content: message, suspects, solution and each room's clue and recovery. */
+/** The event content: the final's content file and each room's clue key and settings. */
 @Component({
   imports: [
-    CaseForm,
+    FinalContentSection,
     RoomContentForm,
-    SuspectsSection,
     UiAlert,
     UiPageState,
     UiStatusChip,
@@ -52,10 +50,9 @@ import { RemoteData } from "./shared/remote-data";
             >Showing the last loaded content. {{ error }}</ui-alert
           >
         }
-        <app-case-form [content]="data" (changed)="reload()" />
-        <app-suspects-section [content]="data" (changed)="reload()" />
+        <app-final-content-section />
         <section aria-labelledby="room-content-heading">
-          <h2 id="room-content-heading">Room clues and recovery</h2>
+          <h2 id="room-content-heading">Room clues</h2>
           <div class="event-grid">
             @for (room of data.rooms; track room.roomId) {
               <app-room-content-form

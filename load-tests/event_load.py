@@ -24,6 +24,17 @@ submits it once; the last two teams only save, so the round's end submits them. 
 dashboard open (a GET every 5 s). Every team must end with exactly one submission, the dashboard total its own
 answers predict and its clue iff its final clue was right; the backend heap is sampled during the downloads. The
 bundle download is measured on its own and excluded from the 300 ms p95 limit. Results go to docs/event-load-linux.json.
+
+Mode "final": the 100-point scoring and the crypto final. The four room rounds first run through the API: 16 teams
+collect their clues while the 4 managers type room scores and record hints (-2), cheating (-7.5), one cancelled hint
+and one hint beyond the two allowed (refused with 409). The admin imports the content and opens the final, then all 16
+teams start together: unlock (with wrong tries), the four layers, the one-time verdicts and the suspect, two teams
+through the Recovery Challenge, a share of the writes retried with the same Idempotency-Key, repeats of the one-time
+answers refused. The admin keeps the live final table and the scoreboard open (a GET every 5 s). Two teams never submit
+a suspect: the admin's close finalises them. Every team must be finalised exactly once (the finish time of a team that
+submitted does not move at the close, closing twice changes nothing), the final parts, the room scores with their
+deductions and the totals must be the ones the plans predict, no member response may carry a verdict, deduction or
+score, and no endpoint may reach a p95 of 300 ms. Results go to docs/event-load-final.json.
 """
 import argparse
 import datetime as dt
@@ -60,7 +71,7 @@ def parse_args():
     parser.add_argument("--seconds", type=int, default=300, help=f"measured duration (30..{MAX_SECONDS})")
     parser.add_argument("--base-url", default=DEFAULT_BASE)
     parser.add_argument("--ui-url", default="http://localhost:4202", help="linux: where the site's static files are served")
-    parser.add_argument("--mode", choices=("mixed", "sse", "sentinel", "linux"), default="mixed")
+    parser.add_argument("--mode", choices=("mixed", "sse", "sentinel", "linux", "final"), default="mixed")
     parser.add_argument("--streams", type=int, default=21, help="sse: concurrent streams (1..300)")
     parser.add_argument("--actions", type=int, default=20, help="sse: admin actions to announce (1..200)")
     parser.add_argument("--gap-ms", type=int, default=500, help="sse: pause between admin actions")
@@ -255,8 +266,7 @@ class ManagerClient(Client):
         return time.monotonic() + random.uniform(JUDGE_SECONDS * 0.8, JUDGE_SECONDS * 1.2)
 
     def judge(self, judgement):
-        body = {"status": self.STATUS_CYCLE[judgement["status"]], "hints": random.randint(0, 3),
-                "note": "Synthetic load review.", "version": judgement["version"]}
+        body = {"status": self.STATUS_CYCLE[judgement["status"]], "note": "Synthetic load review.", "version": judgement["version"]}
         path = f"/event/rooms/{self.room_id}/judgements/{judgement['teamId']}"
         status, _ = self.request("PUT", path, body, conflict_expected=True)
         # Own writes and conflicts both make the cached versions stale.
@@ -294,8 +304,7 @@ def set_clue_keys(api, managers):
         room_id = api.setup("GET", "/event/home", token)["roomId"]
         room = api.setup("GET", f"/event/rooms/{room_id}/board", token)["room"]
         api.setup("PUT", f"/event/rooms/{room_id}/content", token, {
-            "clueKey": PRACTICE_KEYS[room["code"]], "recoveryPrompt": room["recoveryPrompt"],
-            "recoveryAnswer": room["recoveryAnswer"], "version": room["version"]})
+            "clueKey": PRACTICE_KEYS[room["code"]], "version": room["version"]})
 
 
 def prepare_round_one(api, admin):
@@ -599,16 +608,17 @@ STAGE_RUNS = {1: ["iqr-1.5", "iqr-3"], 3: ["knn-1", "knn-5", "tree-2", "tree-5"]
 SENTINEL_UNFINISHED_TEAMS = (15, 16)
 
 
-def forbidden_keys(node, found=None):
+def forbidden_keys(node, found=None, keys=None):
     found = set() if found is None else found
+    keys = SENTINEL_FORBIDDEN_KEYS if keys is None else keys
     if isinstance(node, dict):
         for key, value in node.items():
-            if key in SENTINEL_FORBIDDEN_KEYS:
+            if key in keys:
                 found.add(key)
-            forbidden_keys(value, found)
+            forbidden_keys(value, found, keys)
     elif isinstance(node, list):
         for item in node:
-            forbidden_keys(item, found)
+            forbidden_keys(item, found, keys)
     return found
 
 
@@ -1128,6 +1138,398 @@ def linux_run(args, api, config):
     print(f"Linux load check passed; report in {output}")
 
 
+# ---- Crypto final mode --------------------------------------------------------------------------------------
+
+FINAL_CONTENT = ROOT / "docs/final/crypto-content.json"
+FINAL_LAYER_ANSWERS = (52, 17, 8, 17)
+FINAL_RECOVERY_ANSWER = "EIGHT BITS"
+FINAL_RIGHT_SUSPECT, FINAL_WRONG_SUSPECT = 2, 1
+ROOM_ORDER = ("AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE")
+# A member's final screens never carry one of these keys, at any depth (no verdict, deduction, score or plaintext).
+FINAL_FORBIDDEN_KEYS = {"cheating", "deduction", "deductions", "score", "scores", "total", "points", "verdictCorrect",
+                        "suspectCorrect", "yourVerdictCorrect", "correctSuspect", "plaintext", "privateExponent",
+                        "acceptedAnswers", "answer", "hintDeduction"}
+# Hints and cheating recorded by the managers while the rooms run: {(team, round)}.
+FINAL_HINTS = {(t, 1) for t in range(1, 9)} | {(t, 2) for t in range(1, 5)}
+FINAL_CHEATING = {(3, 2), (10, 2), (10, 3)}
+FINAL_CANCELLED_HINTS = {(5, 1)}
+# Team 1 already used its two hints: a third one must be refused with 409.
+FINAL_REFUSED_HINTS = {(1, 3)}
+
+
+def final_plan(team):
+    """What each of the 16 teams does in the final. Teams 12 and 16 never submit a suspect: the close finalises them."""
+    plan = {"clues": 4, "wrongUnlock": 0, "wrongLayers": 0, "verdict3": "NO", "suspect": FINAL_RIGHT_SUSPECT,
+            "stopAfterLayer": None}
+    if team == 12:
+        plan["suspect"] = None
+    if team == 13:
+        plan.update(suspect=FINAL_WRONG_SUSPECT, wrongLayers=2)
+    if team == 14:
+        plan.update(verdict3="YES", wrongUnlock=2)
+    if team in (15, 16):
+        plan["clues"] = 3
+    if team == 16:
+        plan.update(stopAfterLayer=2, suspect=None)
+    return plan
+
+
+def final_expected(plan):
+    """The final score parts the plan must produce (as the API rounds them)."""
+    layers = plan["stopAfterLayer"] or 4
+    verdicts = 0 if layers < 4 else (plan["verdict3"] == "NO") + 1
+    suspect = 10 if plan["suspect"] == FINAL_RIGHT_SUSPECT else 0
+    time_points = 15 if plan["suspect"] is not None and layers == 4 else 0
+    return {"layers": 2.5 * layers, "verdicts": 2.5 * verdicts, "suspect": suspect, "time": time_points,
+            "total": 2.5 * layers + 2.5 * verdicts + suspect + time_points}
+
+
+def typed_score(team, rnd):
+    return 8 + (team + rnd) % 8
+
+
+def hit(run, token, method, path, body=None, key=None, conflict_expected=False):
+    status, data, elapsed = run.api.call(method, path, token, body, key)
+    run.metrics.record(method, path, status, elapsed, conflict_expected)
+    return status, data
+
+
+class FinalLedger:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.retries = self.retry_mismatches = 0
+        self.refusals = self.refusals_ok = 0
+        self.samples = []
+
+    @staticmethod
+    def same_outcome(first, second):
+        """A replayed correct answer says "Accepted." and omits the screen; what it decided must be the same."""
+        if isinstance(first, dict) and "accepted" in first and isinstance(second, dict):
+            return all(first.get(key) == second.get(key) for key in ("accepted", "status", "waitSeconds"))
+        return first == second
+
+    def replay(self, first, second, label=""):
+        with self.lock:
+            self.retries += 1
+            if not self.same_outcome(first, second):
+                self.retry_mismatches += 1
+                if len(self.samples) < 12:
+                    self.samples.append({"retry": label, "first": first, "again": second})
+
+    def refusal(self, ok, label="", status=None, data=None):
+        with self.lock:
+            self.refusals += 1
+            self.refusals_ok += bool(ok)
+            if not ok and len(self.samples) < 24:
+                self.samples.append({"refusal": label, "status": status, "data": data})
+
+
+def run_room_round(run, rnd, teams, managers, team_ids, room_ids, plans, expected_rooms):
+    """One room round: every team submits its clue and every manager types scores and records deductions, at once."""
+
+    def code_of(team):
+        return ROOM_ORDER[(((team - 1) * 4) // 16 + rnd - 1) % 4]
+
+    barrier = threading.Barrier(len(teams) + len(managers))
+
+    def team_work(team):
+        barrier.wait()
+        if plans[team]["clues"] == 3 and rnd == 4:
+            return
+        code = code_of(team)
+        key = str(uuid.uuid4())
+        body = {"technicalOutput": "Synthetic load submission.", "clueAnswer": PRACTICE_KEYS[code]}
+        path = f"/event/team/rooms/{room_ids[code]}/submissions"
+        status, receipt = hit(run, teams[team - 1], "POST", path, body, key)
+        if status != 200 or not receipt.get("clueCorrect"):
+            run.metrics.error(f"team {team}: the {code} clue was not collected in round {rnd}: {status}")
+            return
+        if random.random() < RETRY_SHARE:
+            again_status, again = hit(run, teams[team - 1], "POST", path, body, key)
+            if again_status == 200:
+                run.final.replay(receipt, again, path)
+
+    def manager_work(code):
+        token = managers[code]
+        room = room_ids[code]
+        barrier.wait()
+        for team in range(1, len(teams) + 1):
+            if code_of(team) != code:
+                continue
+            tid = team_ids[team]
+            hit(run, token, "PUT", f"/event/rooms/{room}/manual-scores/{tid}", {"score": typed_score(team, rnd)})
+            if (team, rnd) in FINAL_HINTS:
+                status, hint = hit(run, token, "POST", f"/event/rooms/{room}/hints", {"teamId": tid, "note": "Synthetic hint."})
+                if status == 200 and (team, rnd) in FINAL_CANCELLED_HINTS:
+                    hit(run, token, "POST", f"/event/deductions/{hint['id']}/cancel", {"reason": "Given by mistake."})
+            if (team, rnd) in FINAL_CHEATING:
+                hit(run, token, "POST", f"/event/rooms/{room}/cheating",
+                    {"teamId": tid, "reason": "Synthetic violation.", "confirmed": True})
+            if (team, rnd) in FINAL_REFUSED_HINTS:
+                status, _ = hit(run, token, "POST", f"/event/rooms/{room}/hints", {"teamId": tid, "note": ""},
+                                conflict_expected=True)
+                run.final.refusal(status == 409, "third hint", status)
+            hit(run, token, "GET", f"/event/rooms/{room}/board")
+
+    threads = [threading.Thread(target=team_work, args=(team,), daemon=True) for team in range(1, len(teams) + 1)]
+    threads += [threading.Thread(target=manager_work, args=(code,), daemon=True) for code in managers]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    for team in range(1, len(teams) + 1):
+        expected_rooms.setdefault(team, {})[code_of(team)] = typed_score(team, rnd)
+
+
+class FinalTeamClient(Client):
+    """One team's browser in the final: it reloads the screen before every answer and plays its plan."""
+
+    def __init__(self, run, token, team, plan, start_at, gap):
+        super().__init__(run, token, "/event/team/final")
+        self.team, self.plan, self.start_at, self.gap = team, plan, start_at, gap
+        self.steps = []
+        if plan["clues"] == 3:
+            self.steps += [("recovery", "WRONG ANSWER", False), ("recovery", FINAL_RECOVERY_ANSWER, True)]
+        self.steps += [("unlock", None, False)] * plan["wrongUnlock"] + [("unlock", None, True), ("start", None, True)]
+        last = plan["stopAfterLayer"] or 4
+        for layer in range(1, last + 1):
+            if layer == 1:
+                self.steps += [("layer", (1, "99999"), False)] * plan["wrongLayers"]
+            self.steps.append(("layer", (layer, str(FINAL_LAYER_ANSWERS[layer - 1])), True))
+        if last == 4:
+            self.steps += [("verdict", (3, plan["verdict3"]), True), ("verdict", (4, "YES"), True)]
+            if plan["suspect"] is not None:
+                self.steps.append(("suspect", plan["suspect"], True))
+
+    def first_action(self):
+        return self.start_at + random.uniform(0, 0.3)
+
+    def leak_check(self, data):
+        leaked = forbidden_keys(data, keys=FINAL_FORBIDDEN_KEYS)
+        if leaked:
+            self.run_state.metrics.error(f"team {self.team}: a final response carries {sorted(leaked)}")
+
+    def write(self, path, body, key):
+        status, data = self.request("POST", path, body, key)
+        self.leak_check(data)
+        if key and status == 200 and random.random() < RETRY_SHARE:
+            again_status, again = self.request("POST", path, body, key)
+            if again_status == 200:
+                self.run_state.final.replay(data, again, f"team {self.team} {path}")
+        return status, data
+
+    def repeat(self, path, body):
+        """A verdict and a suspect are final: asking again is refused and changes nothing."""
+        status, data = self.request("POST", path, body, None, conflict_expected=True)
+        self.run_state.final.refusal(status == 409 or (status == 200 and data.get("accepted") is False),
+                                     f"team {self.team} {path}", status, data)
+
+    def act(self):
+        if not self.steps:
+            return math.inf
+        self.refetch_board()
+        self.leak_check(self.board)
+        kind, arg, expect = self.steps.pop(0)
+        key = str(uuid.uuid4())
+        base = "/event/team/final"
+        if kind == "recovery":
+            status, data = self.write(f"{base}/recovery", {"answer": arg}, key)
+            ok = status == 200 and data.get("correct") is expect
+        elif kind == "unlock":
+            codes = [PRACTICE_KEYS[code] for code in ROOM_ORDER]
+            if not expect:
+                codes[0] = "WRONG CODE"
+            status, data = self.write(f"{base}/unlock", {"codes": codes}, key)
+            ok = status == 200 and data.get("accepted") is expect
+        elif kind == "start":
+            status, data = self.write(f"{base}/start", {}, None)
+            ok = status == 200
+        elif kind == "layer":
+            layer, value = arg
+            status, data = self.write(f"{base}/layers/{layer}", {"value": value}, key)
+            ok = status == 200 and data.get("accepted") is expect
+        elif kind == "verdict":
+            layer, value = arg
+            status, data = self.write(f"{base}/verdicts/{layer}", {"verdict": value}, None)
+            ok = status == 200 and data.get("accepted") is True
+            self.repeat(f"{base}/verdicts/{layer}", {"verdict": "YES" if value == "NO" else "NO"})
+        else:
+            status, data = self.write(f"{base}/suspect", {"suspectId": arg}, None)
+            ok = status == 200 and data.get("accepted") is True
+            self.repeat(f"{base}/suspect", {"suspectId": arg % 6 + 1})  # another suspect than the one chosen
+        if not ok:
+            self.run_state.metrics.error(f"team {self.team}: step {kind} {arg} answered {status} {data}")
+        self.refetch_board()
+        return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4) if self.steps else math.inf
+
+
+class FinalAdminClient(Client):
+    """The admin with the scoreboard and the live final table open: a fresh GET of both every 5 s."""
+
+    def first_action(self):
+        return self.run_state.started + 2
+
+    def act(self):
+        self.request("GET", "/event/admin/final/board")
+        self.request("GET", "/event/admin/scoreboard")
+        return time.monotonic() + 5
+
+
+def final_run(args, api, config):
+    admin, managers_list, teams = sign_in_everyone(api, config)
+    managers = dict(zip(config["managers"], managers_list))
+    set_clue_keys(api, managers_list)
+    content = FINAL_CONTENT.read_text(encoding="utf-8")
+    content = content.replace("PLACEHOLDER - replace this with the real Recovery Challenge question before the event.",
+                              "How many bits are in a byte?").replace("PLACEHOLDER-REPLACE-ME", FINAL_RECOVERY_ANSWER)
+    api.setup("PUT", "/event/admin/final/content", admin, json.loads(content))
+    board = api.setup("GET", "/event/admin/board", admin)
+    room_ids = {room["code"]: room["id"] for room in board["rooms"]}
+    for room_id in room_ids.values():
+        api.setup("PUT", f"/event/admin/rooms/{room_id}/activity", admin, {"activity": None})
+    organization = api.setup("GET", "/event/admin/organization", admin)
+    by_email = {team["accountEmail"]: team for team in organization["teams"]}
+    team_ids = {number: by_email[email]["id"] for number, email in enumerate(config["members"], 1)}
+    team_names = {number: by_email[email]["name"] for number, email in enumerate(config["members"], 1)}
+    plans = {number: final_plan(number) for number in range(1, len(teams) + 1)}
+
+    run = LoadRun(api)
+    run.final = FinalLedger()
+    run.begin(args.seconds)
+    expected_rooms = {}
+    print("Round phase: 16 teams collect clues while 4 managers type scores and record hints and cheating...", flush=True)
+    for rnd in range(1, 5):
+        api.setup("POST", "/event/admin/round", admin, {"round": rnd})
+        for room_id in room_ids.values():
+            api.setup("POST", f"/event/admin/rooms/{room_id}/open", admin)
+        api.setup("POST", "/event/admin/round/timer/start", admin)
+        run_room_round(run, rnd, teams, managers, team_ids, room_ids, plans, expected_rooms)
+    api.setup("POST", "/event/admin/round", admin, {"round": 5})
+    for room_id in room_ids.values():
+        api.setup("POST", f"/event/admin/rooms/{room_id}/close", admin)
+    api.setup("POST", "/event/admin/final/open", admin)
+
+    # Every team starts together; about 14 writes per team spread over about 70% of the run.
+    gap = args.seconds * 0.7 / 16
+    start_at = time.monotonic() + 1
+    run.begin(args.seconds)
+    clients = [Client(run, admin, "/event/admin/board"), FinalAdminClient(run, admin, "/event/admin/final/board")]
+    clients += [FinalTeamClient(run, token, number, plans[number], start_at, gap) for number, token in enumerate(teams, 1)]
+    print(f"Final phase: {len(teams)} teams start together for up to {args.seconds} s (a write every ~{gap:.1f} s)...",
+          flush=True)
+    for client in clients:
+        client.start()
+    for client in clients:
+        client.join()
+    elapsed = time.monotonic() - run.started
+    for client in clients:
+        if isinstance(client, FinalTeamClient) and client.steps:
+            run.metrics.error(f"team {client.team} did not finish its plan: {len(client.steps)} steps left")
+
+    # The close finalises the teams that never submitted a suspect; closing twice changes nothing.
+    rows_before = {row["teamName"]: row for row in api.setup("GET", "/event/admin/final/board", admin)}
+    hit(run, admin, "POST", "/event/admin/final/close")
+    hit(run, admin, "POST", "/event/admin/final/close", conflict_expected=True)
+    rows = {row["teamName"]: row for row in api.setup("GET", "/event/admin/final/board", admin)}
+    scoreboard = api.setup("GET", "/event/admin/scoreboard", admin)
+    deductions = api.setup("GET", "/event/admin/deductions", admin)
+    cross_check = []
+    finalised = 0
+    for number in range(1, len(teams) + 1):
+        name = team_names[number]
+        row, before = rows.get(name, {}), rows_before.get(name, {})
+        plan, want = plans[number], final_expected(plans[number])
+        got = {"layers": row.get("layersPoints"), "verdicts": row.get("verdictsPoints"), "suspect": row.get("suspectPoints"),
+               "time": row.get("timePoints"), "total": row.get("finalScore")}
+        submitted = plan["suspect"] is not None
+        problems = []
+        if row.get("status") != "COMPLETED":
+            problems.append(f"not finalised: {row.get('status')}")
+        else:
+            finalised += 1
+        if submitted and (row.get("finishedAt") is None or before.get("finishedAt") != row.get("finishedAt")):
+            problems.append("finish time missing or changed after the team's own finish")
+        if not submitted and before.get("status") == "COMPLETED":
+            problems.append("finalised before the close although it never submitted a suspect")
+        for part, value in want.items():
+            if got[part] is None or abs(got[part] - value) > 0.005:
+                problems.append(f"{part} {got[part]} != {value}")
+        view = api.setup("GET", "/event/team/final", teams[number - 1])
+        leaked = sorted(forbidden_keys(view, keys=FINAL_FORBIDDEN_KEYS))
+        if view.get("status") != "COMPLETED" or leaked:
+            problems.append(f"member view {view.get('status')} {leaked}")
+        for problem in problems:
+            run.metrics.error(f"team {number}: {problem}")
+        cross_check.append({"team": number, "finalised": row.get("status") == "COMPLETED", "finishedBy": row.get("finishedBy"),
+                            "got": got, "expected": want, "ok": not problems})
+
+    # Room score = typed score less 2 per active hint and 7.5 for an active cheating record; total = rooms + final.
+    active_hints = {}
+    active_cheating = set()
+    for entry in deductions:
+        if entry["cancelled"]:
+            continue
+        pair = (entry["teamName"], entry["roomCode"])
+        if entry["kind"] == "HINT":
+            active_hints[pair] = active_hints.get(pair, 0) + 1
+        else:
+            active_cheating.add(pair)
+    ranked_totals = []
+    for row in scoreboard:
+        scores = row["scores"]
+        number = next(n for n, name in team_names.items() if name == scores["teamName"])
+        problems = []
+        rooms_sum = 0
+        for line in scores["rooms"]:
+            typed = expected_rooms[number][line["code"]]
+            hints = active_hints.get((scores["teamName"], line["code"]), 0)
+            cheating = (scores["teamName"], line["code"]) in active_cheating
+            want = max(0, typed - 2 * hints - (7.5 if cheating else 0))
+            rooms_sum += want
+            if abs(line["score"] - want) > 0.005 or line["hints"] != hints or line["cheating"] != cheating:
+                problems.append(f"{line['code']}: score {line['score']} hints {line['hints']} cheating {line['cheating']}; "
+                                f"expected {want} / {hints} / {cheating}")
+        want_total = rooms_sum + final_expected(plans[number])["total"]
+        if abs(scores["total"] - want_total) > 0.005:
+            problems.append(f"total {scores['total']} != {want_total}")
+        for problem in problems:
+            run.metrics.error(f"team {number} scoreboard: {problem}")
+        if row["rank"] is not None:
+            ranked_totals.append((row["rank"], scores["total"]))
+    ranked_totals.sort()
+    if any(a[1] < b[1] for a, b in zip(ranked_totals, ranked_totals[1:])):
+        run.metrics.error("the ranking is not ordered by total score")
+    if len(scoreboard) != len(teams):
+        run.metrics.error(f"the scoreboard lists {len(scoreboard)} of {len(teams)} teams")
+    if finalised != len(teams):
+        run.metrics.error(f"{finalised} of {len(teams)} teams were finalised")
+
+    endpoints = endpoint_summary(run.metrics.latencies)
+    worst_p95 = max(row["p95Ms"] for row in endpoints.values())
+    ledger = run.final
+    report = {
+        "testedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic final traffic; no WAN latency.",
+        "baseUrl": args.base_url, "mode": "final", "seconds": args.seconds, "elapsedSeconds": round(elapsed, 1),
+        "teams": len(teams), "endpoints": endpoints,
+        "totals": {"requests": sum(e["requests"] for e in endpoints.values()), "errors": len(run.metrics.errors),
+                   "worstP95Ms": worst_p95, "retries": ledger.retries, "retryMismatches": ledger.retry_mismatches,
+                   "refusalProbes": ledger.refusals, "refusalsAnswered": ledger.refusals_ok,
+                   "expectedConflicts": run.metrics.expected_conflicts, "finalisedTeams": finalised,
+                   "activeHints": sum(active_hints.values()), "activeCheating": len(active_cheating),
+                   "deductionLogRows": len(deductions)},
+        "finalCrossCheck": cross_check, "diagnostics": ledger.samples,
+        "errorSamples": run.metrics.errors[:50],
+    }
+    output = ROOT / "docs/event-load-final.json"
+    output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print_summary(report)
+    totals = report["totals"]
+    if (totals["errors"] or totals["retryMismatches"] or totals["refusalsAnswered"] != totals["refusalProbes"]
+            or worst_p95 >= 300 or finalised != len(teams)):
+        raise SystemExit(f"Final load check failed; see {output}")
+    print(f"Final load check passed; report in {output}")
+
 
 def main():
     args = parse_args()
@@ -1141,6 +1543,9 @@ def main():
         return
     if args.mode == "linux":
         linux_run(args, api, config)
+        return
+    if args.mode == "final":
+        final_run(args, api, config)
         return
     # Setup goes through Api.setup, which is never recorded in the measurements.
     admin, managers, teams = sign_in_everyone(api, config)

@@ -1,8 +1,15 @@
-import { JudgeStatus, PenaltyKind, RoomActivity, TeamRoomStatus } from "./event-models";
+import { JudgeStatus, RoomActivity, TeamRoomStatus } from "./event-models";
 
 const EMPTY = "—";
 
-/** Adjusted final time in seconds → "h:mm:ss" (3725 → "1:02:05"); "—" when unfinished. */
+/** Seconds → "m:ss" (2400 → "40:00"); "—" when absent. */
+export function formatClock(seconds: number | null): string {
+  if (seconds === null) return EMPTY;
+  const safe = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(safe / 60)}:${pad(safe % 60)}`;
+}
+
+/** Active seconds → "h:mm:ss"; "—" when absent. */
 export function formatAdjustedSeconds(seconds: number | null): string {
   if (seconds === null) return EMPTY;
   const safe = Math.max(0, Math.floor(seconds));
@@ -10,6 +17,12 @@ export function formatAdjustedSeconds(seconds: number | null): string {
   const minutes = Math.floor((safe % 3600) / 60);
   const rest = safe % 60;
   return `${hours}:${pad(minutes)}:${pad(rest)}`;
+}
+
+/** Points with at most 2 decimals and no trailing zeros: 14.85 → "14.85", 15 → "15", 7.5 → "7.5". */
+export function formatPoints(points: number | null): string {
+  if (points === null || points === undefined) return EMPTY;
+  return String(Math.round(points * 100) / 100);
 }
 
 /** ISO instant → local time with seconds, e.g. "14:05:09"; "—" when absent. */
@@ -32,11 +45,6 @@ export function formatDateTime(iso: string | null): string {
     : EMPTY;
 }
 
-/** 5 → "+5 min"; 0 → "0 min". */
-export function formatPenaltyMinutes(minutes: number): string {
-  return minutes > 0 ? `+${minutes} min` : `${minutes} min`;
-}
-
 /** Admin status text for `current_round`: "Not started" / "Round 2 of 4" / "Rooms finished". */
 export function roundStatusLabel(currentRound: number): string {
   if (currentRound <= 0) return "Not started";
@@ -44,37 +52,13 @@ export function roundStatusLabel(currentRound: number): string {
   return `Round ${currentRound} of 4`;
 }
 
-export const PENALTY_KIND_LABELS: Record<PenaltyKind, string> = {
-  HINT: "Hint",
-  MINOR_VIOLATION: "Minor violation",
-  PROHIBITED_TOOL: "Prohibited tool",
-  CHEATING: "Cheating",
-  ANSWER_SHARING: "Answer sharing",
+export const FINAL_STAGE_LABELS: Record<string, string> = {
+  LOCKED: "Not open",
+  NOT_QUALIFIED: "Not qualified",
   RECOVERY: "Recovery",
-  WRONG_ACCUSATION: "Wrong accusation",
-  TIME_ADJUSTMENT: "Time adjustment",
+  IN_FINAL: "In final",
+  COMPLETED: "Completed",
 };
-
-export const PENALTY_KIND_MINUTES: Record<PenaltyKind, number> = {
-  HINT: 2,
-  MINOR_VIOLATION: 2,
-  PROHIBITED_TOOL: 5,
-  CHEATING: 5,
-  ANSWER_SHARING: 5,
-  RECOVERY: 5,
-  WRONG_ACCUSATION: 3,
-  /** Signed minutes per entry (set by the admin), so no fixed cost. */
-  TIME_ADJUSTMENT: 0,
-};
-
-/** Kinds a manager or admin may add by hand; RECOVERY and WRONG_ACCUSATION are automatic. */
-export const MANUAL_PENALTY_KINDS: readonly PenaltyKind[] = [
-  "HINT",
-  "MINOR_VIOLATION",
-  "PROHIBITED_TOOL",
-  "CHEATING",
-  "ANSWER_SHARING",
-];
 
 export const JUDGE_STATUS_LABELS: Record<JudgeStatus, string> = {
   PENDING: "Pending",

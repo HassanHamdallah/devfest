@@ -6,11 +6,8 @@ import {
   input,
 } from "@angular/core";
 import { PublicRankingRow } from "../../../core/event/event-models";
+import { formatPoints } from "../../../core/event/format";
 import { TeamDrawerService } from "../../../core/shell/team-drawer.service";
-import {
-  formatAdjustedSeconds,
-  formatPenaltyMinutes,
-} from "../../../core/event/format";
 
 /** The admin's rows also carry the team id, which lets the team name open the team drawer. */
 type RankingInput = PublicRankingRow & { teamId?: number };
@@ -20,29 +17,30 @@ interface RankingLine {
   rank: string;
   teamName: string;
   groupCode: string;
-  clues: string;
-  penalties: string;
-  time: string;
-  finished: boolean;
+  rooms: string[];
+  final: string;
+  total: string;
+  disqualified: boolean;
 }
 
-/** Display text of one ranking row: rank "—" for teams still playing, "Disqualified" (never ranked). */
+/** Display text of one ranking row: rank "Disqualified" for a team outside the ranking. */
 function toRankingLine(row: RankingInput): RankingLine {
   return {
     teamId: row.teamId ?? null,
     rank: row.disqualified ? "Disqualified" : row.rank === null ? "—" : String(row.rank),
     teamName: row.teamName,
     groupCode: row.groupCode,
-    clues: `${row.clues} of 4`,
-    penalties: formatPenaltyMinutes(row.penaltyMinutes),
-    time: row.finished
-      ? formatAdjustedSeconds(row.adjustedSeconds)
-      : "Not finished",
-    finished: row.finished,
+    rooms: row.roomScores.map((score) => formatPoints(score)),
+    final: formatPoints(row.finalScore),
+    total: formatPoints(row.total),
+    disqualified: row.disqualified,
   };
 }
 
-/** The ranking table shared by the admin control page and the results page (caption "Ranking"). */
+/**
+ * The ranking table shared by the admin control page and the results page (caption "Ranking"): the four room scores
+ * (out of 15 each), the final (out of 40) and the total (out of 100).
+ */
 @Component({
   selector: "app-ranking-table",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,14 +54,17 @@ function toRankingLine(row: RankingInput): RankingLine {
           <th scope="col">Rank</th>
           <th scope="col">Team</th>
           <th scope="col">Group</th>
-          <th scope="col">Clues</th>
-          <th scope="col">Penalties</th>
-          <th scope="col">Adjusted time</th>
+          <th scope="col">AI</th>
+          <th scope="col">Problem solving</th>
+          <th scope="col">Linux</th>
+          <th scope="col">Hardware</th>
+          <th scope="col">Final</th>
+          <th scope="col">Total / 100</th>
         </tr>
       </thead>
       <tbody>
         @for (line of lines(); track $index) {
-          <tr [attr.data-team]="line.teamName">
+          <tr [attr.data-team]="line.teamName" [class.ranking-table__out]="line.disqualified">
             <td class="event-num" [class.ranking-table__podium]="line.rank === '1'">{{ line.rank }}</td>
             <th scope="row">
               @if (line.teamId !== null) {
@@ -79,15 +80,15 @@ function toRankingLine(row: RankingInput): RankingLine {
               }
             </th>
             <td>{{ line.groupCode }}</td>
-            <td>{{ line.clues }}</td>
-            <td>{{ line.penalties }}</td>
-            <td [class.ranking-table__unfinished]="!line.finished">
-              {{ line.time }}
-            </td>
+            @for (score of line.rooms; track $index) {
+              <td class="event-num">{{ score }}</td>
+            }
+            <td class="event-num">{{ line.final }}</td>
+            <td class="event-num ranking-table__total">{{ line.total }}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="ranking-table__empty">
+            <td colspan="9" class="ranking-table__empty">
               No active teams yet.
             </td>
           </tr>
@@ -106,11 +107,12 @@ function toRankingLine(row: RankingInput): RankingLine {
     th {
       white-space: nowrap;
     }
-    .ranking-table__unfinished,
-    .ranking-table__empty {
+    .ranking-table__empty,
+    .ranking-table__out {
       color: var(--color-text-muted);
     }
-    .ranking-table__podium {
+    .ranking-table__podium,
+    .ranking-table__total {
       font-weight: var(--font-weight-bold);
     }
     td:nth-child(n + 4) {

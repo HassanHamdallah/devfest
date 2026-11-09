@@ -18,7 +18,6 @@ import dev.devfest.event.dto.OverrideOutcome;
 import dev.devfest.event.dto.RoomExceptionRequest;
 import dev.devfest.event.dto.RotationPreviewView;
 import dev.devfest.event.dto.SwapRequest;
-import dev.devfest.event.dto.TimeAdjustmentRequest;
 import dev.devfest.event.repository.CollectedClueRepository;
 import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventRoomRepository;
@@ -26,7 +25,6 @@ import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.EventTeamRepository;
-import dev.devfest.event.repository.PenaltyRepository;
 import dev.devfest.event.repository.RoomSubmissionRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import java.util.ArrayList;
@@ -39,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The admin's overrides for real-world problems: swap or move teams between groups (with a rotation preview),
- * a per-team room for the current round, manual clues, time adjustments and disqualification. ADMIN only; each
+ * a per-team room for the current round, manual clues and disqualification. ADMIN only; each
  * needs a reason, is audited with it and bumps the revision, in one transaction with the standard lock order
  * (event_state → teams by ascending id → room). Requests that would change nothing succeed without a write.
  */
@@ -54,7 +52,6 @@ public class EventOverrideService {
     "EVENT_ROOM_EXCEPTION_CLEARED",
     "EVENT_CLUE_GRANTED",
     "EVENT_CLUE_REVOKED",
-    "EVENT_TIME_ADJUSTMENT",
     "EVENT_TEAM_DISQUALIFIED",
     "EVENT_TEAM_REINSTATED",
     "EVENT_FINAL_RESET",
@@ -69,7 +66,6 @@ public class EventOverrideService {
   private final EventRoomRepository rooms;
   private final TeamRoomExceptionRepository exceptions;
   private final CollectedClueRepository clues;
-  private final PenaltyRepository penalties;
   private final RoomSubmissionRepository submissions;
   private final AuditLog audit;
   private final EventClock clock;
@@ -81,7 +77,6 @@ public class EventOverrideService {
     EventRoomRepository rooms,
     TeamRoomExceptionRepository exceptions,
     CollectedClueRepository clues,
-    PenaltyRepository penalties,
     RoomSubmissionRepository submissions,
     AuditLog audit,
     EventClock clock
@@ -92,7 +87,6 @@ public class EventOverrideService {
     this.rooms = rooms;
     this.exceptions = exceptions;
     this.clues = clues;
-    this.penalties = penalties;
     this.submissions = submissions;
     this.audit = audit;
     this.clock = clock;
@@ -232,23 +226,7 @@ public class EventOverrideService {
     return OverrideOutcome.done("%s no longer holds the %s clue.".formatted(team.name(), room.name()));
   }
 
-  // ---- O5 time adjustment -------------------------------------------------------------------------
-
-  /** A TIME_ADJUSTMENT penalty row with signed minutes; voidable like other penalties. */
-  @Transactional
-  public OverrideOutcome timeAdjustment(Principal principal, TimeAdjustmentRequest request) {
-    access.requireAdmin(principal);
-    String reason = requireReason(request.reason());
-    if (request.minutes() == 0) throw fail(400, "Adjust by at least one minute.");
-    states.lockForUpdate();
-    EventTeamRecord team = teams.lockForUpdate(request.teamId()).orElseThrow(() -> fail(404, "Team not found."));
-    long penaltyId = penalties.insertTimeAdjustment(team.id(), request.minutes(), reason, principal.id(), clock.now());
-    String signed = (request.minutes() > 0 ? "+" : "") + request.minutes();
-    changed(principal, "EVENT_TIME_ADJUSTMENT", "team:" + team.id() + " penalty:" + penaltyId + " " + signed + "min", reason);
-    return OverrideOutcome.done("%s min applied to the adjusted time of %s.".formatted(signed, team.name()));
-  }
-
-  // ---- O6 disqualify / reinstate ------------------------------------------------------------------
+  // ---- O5 disqualify / reinstate ------------------------------------------------------------------
 
   @Transactional
   public OverrideOutcome setDisqualified(Principal principal, long teamId, boolean disqualified, String reasonText) {

@@ -2,7 +2,7 @@
 
 One Angular + Spring Boot application with two parts:
 
-- **Investigation event** (ADMIN, MANAGER, MEMBER): 4 fixed rooms, 16 teams in groups A–D rotating over 4 rounds, automatic clue checking, manager judging and penalties, a final with recovery and accusation, and a published ranking. Rules: [docs/EVENT-RULES.md](docs/EVENT-RULES.md). Design: [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md). Performance evidence: [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md).
+- **Investigation event** (ADMIN, MANAGER, MEMBER): 4 fixed rooms, 16 teams in groups A–D rotating over 4 rounds, automatic clue checking, manager judging, a 100-point score (four rooms of 15 plus a 40-point crypto final) with hint and cheating point deductions, one Recovery Challenge for 3-clue teams, and a published ranking. Rules: [docs/EVENT-RULES.md](docs/EVENT-RULES.md). Design: [docs/EVENT-ARCHITECTURE.md](docs/EVENT-ARCHITECTURE.md). Performance evidence: [docs/EVENT-PERFORMANCE.md](docs/EVENT-PERFORMANCE.md).
 - **Legacy coding contest** (PARTICIPANT, Judge0, Monaco): kept in the codebase and hidden from event navigation; documented further below.
 
 Both are **local prototypes, not deployed**. See [STATUS.md](STATUS.md) for what is verified.
@@ -34,7 +34,7 @@ Seeded development accounts (all use the seed password; nothing secret is in the
 | Room managers | `manager.ai@event.test`, `manager.ps@event.test`, `manager.linux@event.test`, `manager.hw@event.test` |
 | Teams (MEMBER) | `team01@event.test` … `teamNN@event.test` (NN = `DEVFEST_EVENT_SEED_TEAMS`) in balanced consecutive blocks; with 16: Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
 
-The seed also sets practice recovery challenges, six suspects, the correct suspect and a practice encrypted message; replace them on the Content page before the event. It sets **no clue keys**.
+The seed sets **no clue keys** and no final content: the admin imports `docs/final/crypto-content.json` (with the real Recovery Challenge written in) on the Content page before the event.
 
 ### Event-day round procedure (admin)
 
@@ -203,6 +203,7 @@ cd frontend; npm run build; cd ..
 pwsh -File .\infrastructure\start-event-rehearsal.ps1   # PowerShell 7; API 8082, UI 4202; resets ONLY event tables + app_user in devfest_test and seeds (no clue keys; add -PracticeKeys for a manual rehearsal)
 cd frontend; npx playwright test --config playwright.event.config.ts; cd ..   # each test restarts the rehearsal backend on reset data (-ResetBackend); screenshots go to docs/event-*.png
 python load-tests/event_load.py --scale 1 --seconds 300   # 21 clients; --scale 3 simulates 48 teams; refuses non-local URLs
+python load-tests/event_load.py --mode final --seconds 90 # the 100-point scoring and the crypto final with 16 teams starting together
 pwsh -File .\infrastructure\stop-event-rehearsal.ps1    # stops only the recorded rehearsal processes
 ```
 

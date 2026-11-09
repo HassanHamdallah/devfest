@@ -8,7 +8,7 @@ import dev.devfest.event.dto.AdminAlert;
 import dev.devfest.event.dto.ClueVerdictView;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.JudgementView;
-import dev.devfest.event.dto.PenaltyView;
+import dev.devfest.event.dto.DeductionView;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.RoomContentView;
 import dev.devfest.event.dto.RoomEvidence;
@@ -18,7 +18,7 @@ import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.GroupSizeRecord;
-import dev.devfest.event.repository.PenaltyRecord;
+import dev.devfest.event.repository.DeductionRecord;
 import dev.devfest.event.repository.RoomJudgementRecord;
 import dev.devfest.event.repository.RoomSubmissionRecord;
 import dev.devfest.event.repository.TeamRoomProgressRecord;
@@ -138,7 +138,6 @@ public final class EventViews {
       judgement.teamId(),
       judgement.roomId(),
       judgement.status(),
-      judgement.hints(),
       judgement.note(),
       judgement.version(),
       judgement.reviewerName(),
@@ -146,20 +145,21 @@ public final class EventViews {
     );
   }
 
-  public static PenaltyView penalty(PenaltyRecord penalty) {
-    return new PenaltyView(
-      penalty.id(),
-      penalty.teamId(),
-      penalty.roomId(),
-      penalty.kind(),
-      penalty.minutes(),
-      penalty.note(),
-      penalty.createdByName(),
-      penalty.createdAt(),
-      penalty.voided(),
-      penalty.voidedByName(),
-      penalty.voidedAt(),
-      penalty.voidReason()
+  public static DeductionView deduction(DeductionRecord d) {
+    return new DeductionView(
+      d.id(),
+      d.teamId(),
+      d.teamName(),
+      d.roomId(),
+      d.roomCode(),
+      d.kind(),
+      d.reason(),
+      d.createdByName(),
+      d.createdAt(),
+      d.cancelled(),
+      d.cancelledByName(),
+      d.cancelledAt(),
+      d.cancelReason()
     );
   }
 
@@ -173,8 +173,6 @@ public final class EventViews {
       room.code(),
       room.name(),
       room.clueKey(),
-      room.recoveryPrompt(),
-      room.recoveryAnswer(),
       room.version(),
       recheckedSubmissions,
       room.terminalEnabled(),

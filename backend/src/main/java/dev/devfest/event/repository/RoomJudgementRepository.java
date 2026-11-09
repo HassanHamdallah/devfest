@@ -26,7 +26,7 @@ public class RoomJudgementRepository {
   public RoomJudgementRecord find(long teamId, long roomId) {
     return db.query(
       """
-      SELECT j.team_id, j.room_id, j.status, j.hints, j.note, j.version, j.reviewer_id,
+      SELECT j.team_id, j.room_id, j.status, j.note, j.version, j.reviewer_id,
              u.name AS reviewer_name, j.updated_at
       FROM room_judgement j
       JOIN app_user u ON u.id = j.reviewer_id
@@ -44,23 +44,21 @@ public class RoomJudgementRepository {
   public void saveWithHistory(
     RoomJudgementRecord previous,
     JudgeStatus status,
-    int hints,
     String note,
     long reviewerId,
     Instant changedAt
   ) {
     long version = previous.version() + 1;
-    upsert(previous.teamId(), previous.roomId(), status, hints, note, reviewerId, changedAt, version);
+    upsert(previous.teamId(), previous.roomId(), status, note, reviewerId, changedAt, version);
     db.update(
       """
-      INSERT INTO room_judgement_history(team_id, room_id, old_status, new_status, hints, note,
+      INSERT INTO room_judgement_history(team_id, room_id, old_status, new_status, note,
                                          reviewer_id, changed_at, version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
       previous.teamId(),
       previous.roomId(),
       previous.exists() ? previous.status().name() : null,
       status.name(),
-      hints,
       note,
       reviewerId,
       timestamp(changedAt),
@@ -72,7 +70,7 @@ public class RoomJudgementRepository {
   public List<JudgementHistoryRecord> history(long teamId, long roomId) {
     return db.query(
       """
-      SELECT h.id, h.team_id, h.room_id, h.old_status, h.new_status, h.hints, h.note, h.reviewer_id,
+      SELECT h.id, h.team_id, h.room_id, h.old_status, h.new_status, h.note, h.reviewer_id,
              u.name AS reviewer_name, h.changed_at, h.version
       FROM room_judgement_history h
       JOIN app_user u ON u.id = h.reviewer_id
@@ -88,7 +86,6 @@ public class RoomJudgementRepository {
     long teamId,
     long roomId,
     JudgeStatus status,
-    int hints,
     String note,
     long reviewerId,
     Instant updatedAt,
@@ -96,15 +93,14 @@ public class RoomJudgementRepository {
   ) {
     db.update(
       """
-      INSERT INTO room_judgement(team_id, room_id, status, hints, note, reviewer_id, updated_at, version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO room_judgement(team_id, room_id, status, note, reviewer_id, updated_at, version)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (team_id, room_id) DO UPDATE
-      SET status = EXCLUDED.status, hints = EXCLUDED.hints, note = EXCLUDED.note,
+      SET status = EXCLUDED.status, note = EXCLUDED.note,
           reviewer_id = EXCLUDED.reviewer_id, updated_at = EXCLUDED.updated_at, version = EXCLUDED.version""",
       teamId,
       roomId,
       status.name(),
-      hints,
       note,
       reviewerId,
       timestamp(updatedAt),
@@ -117,7 +113,6 @@ public class RoomJudgementRepository {
       rs.getLong("team_id"),
       rs.getLong("room_id"),
       JudgeStatus.valueOf(rs.getString("status")),
-      rs.getInt("hints"),
       rs.getString("note"),
       rs.getLong("version"),
       nullableLong(rs, "reviewer_id"),
@@ -134,7 +129,6 @@ public class RoomJudgementRepository {
       rs.getLong("room_id"),
       oldStatus == null ? null : JudgeStatus.valueOf(oldStatus),
       JudgeStatus.valueOf(rs.getString("new_status")),
-      rs.getInt("hints"),
       rs.getString("note"),
       rs.getLong("reviewer_id"),
       rs.getString("reviewer_name"),

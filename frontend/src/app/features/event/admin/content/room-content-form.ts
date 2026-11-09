@@ -20,22 +20,19 @@ import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
-import { UiTextarea } from "../../../../shared/ui/ui-textarea/ui-textarea";
 import { ActionState } from "../shared/action-state";
 import { ActionStatus } from "../shared/action-status";
 import { fieldError } from "../shared/form-rules";
 import { roomContentStatus } from "./content-view";
 import { syncEditableForm } from "./editable-form";
 
-type RoomField = "clueKey" | "recoveryPrompt" | "recoveryAnswer";
+type RoomField = "clueKey";
 
 const FIELD_LABELS: Record<RoomField, string> = {
   clueKey: "Clue key",
-  recoveryPrompt: "Recovery prompt",
-  recoveryAnswer: "Recovery answer",
 };
 
-/** Clue key and recovery challenge of one room (`data-room="<CODE>"`), PUT /rooms/{id}/content. */
+/** Clue key of one room (`data-room="<CODE>"`), PUT /rooms/{id}/content. */
 @Component({
   selector: "app-room-content-form",
   imports: [
@@ -45,7 +42,6 @@ const FIELD_LABELS: Record<RoomField, string> = {
     UiCard,
     UiInput,
     UiStatusChip,
-    UiTextarea,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { "[attr.data-room]": "room().code" },
@@ -65,14 +61,6 @@ export class RoomContentForm {
   protected readonly activityState = new ActionState();
   protected readonly form = new FormGroup({
     clueKey: new FormControl("", {
-      nonNullable: true,
-      validators: [Validators.maxLength(500)],
-    }),
-    recoveryPrompt: new FormControl("", {
-      nonNullable: true,
-      validators: [Validators.maxLength(4000)],
-    }),
-    recoveryAnswer: new FormControl("", {
       nonNullable: true,
       validators: [Validators.maxLength(500)],
     }),
@@ -166,8 +154,6 @@ export class RoomContentForm {
   private sync(room: RoomContentView, readOnly: boolean): void {
     const synced = syncEditableForm(this.form, readOnly, {
       clueKey: room.clueKey,
-      recoveryPrompt: room.recoveryPrompt,
-      recoveryAnswer: room.recoveryAnswer,
     });
     if (synced) this.baseVersion = room.version;
   }

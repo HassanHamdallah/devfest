@@ -9,11 +9,11 @@ components, signals, OnPush). No ORM, no sockets. Frontend runtime dependencies 
 
 | Package | Responsibility | Classes |
 |---|---|---|
-| `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, content, suspects), `EventOperationsController` (`GET /api/v1/health`), `EventStreamController` (stream ticket, SSE revision stream) |
-| `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventPenaltyService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`, `StreamTicketService`, `EventStreamRegistry` + `RevisionBroadcaster` (revision push); helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
-| `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `PenaltyRepository`, `SuspectRepository`, `EventContentRepository`, `RecoveryAttemptRepository`, `AccusationRepository`, `TeamFinalRepository`, `EventRankingRepository` (the one D12 ranking query), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
-| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `RecoveryResult`, `AccusationResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a recovery answer, correct suspect or another team's data; the only clue key a member can receive is `RoomEvidence.clueValue`, set only for a finished room whose clue the team collected (`EvidenceVisibility`, rules §17) | |
-| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `PenaltyKind`, `FinalStage`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `PenaltyRules`, `EvidenceVisibility` (room finished for a team; when its clue key may be shown), `EventRuleException` |
+| `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, room content), `EventOperationsController` (`GET /api/v1/health`), `EventStreamController` (stream ticket, SSE revision stream) |
+| `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventDeductionService` (hints, cheating), `EventManualScoreService`, `EventFinalContentService`, `EventFinalTimerService`, `EventFinalBoardService`, `ScoreBreakdownService` (the one score and ranking read), `TerminalScoreService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`, `StreamTicketService`, `EventStreamRegistry` + `RevisionBroadcaster` (revision push); helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
+| `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `DeductionRepository`, `ManualScoreRepository`, `FinalContentRepository`, `FinalAdjustmentRepository`, `RecoveryAttemptRepository`, `TeamFinalRepository` (the final row, attempts, verdicts), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
+| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `FinalActionResult`, `RecoveryResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a plaintext, a private exponent, a verdict's correctness, a recovery answer, the correct suspect, a deduction or another team's data; the only clue key a member can receive is `RoomEvidence.clueValue`, set only for a finished room whose clue the team collected (`EvidenceVisibility`, rules §17) | |
+| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `DeductionKind`, `FinalStage`, `FinalScreen`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `RoomScoring`, `FinalScoring`, `EventRanking`, `AttemptThrottle`, `CryptoContent` + `CryptoContentRules` (the content file and its validation), `EvidenceVisibility` (room finished for a team; when its clue key may be shown), `EventRuleException` |
 | `seed` | Development data only | `EventDevelopmentSeed` (requires `DEVFEST_EVENT_SEED_PASSWORD` **and** `DEVFEST_DEVELOPMENT=true`; refuses to start otherwise; idempotent) |
 
 Shared pieces reused: `dev.devfest.audit.AuditLog` (also used by `ContestService.audit`), `auth.RateLimit`
@@ -34,14 +34,14 @@ erDiagram
   event_team ||--o{ collected_clue : collects
   event_room ||--o{ collected_clue : "clue of"
   room_submission |o--o| collected_clue : "source ROOM"
-  event_team ||--o{ penalty : receives
-  event_room |o--o{ penalty : "room (null = wrong accusation)"
+  event_team ||--o{ score_deduction : receives
+  event_room ||--o{ score_deduction : "room of the deduction"
+  event_team ||--o{ room_manual_score : "typed score"
   event_team ||--o{ recovery_attempt : attempts
-  event_team ||--o{ accusation : accuses
-  suspect ||--o{ accusation : "named in"
-  suspect |o--o| event_content : "correct suspect"
-  event_team ||--o| team_final : finishes
-  accusation ||--|| team_final : "finishing accusation"
+  event_team ||--o{ final_unlock_attempt : "unlock tries"
+  event_team ||--o{ final_layer_attempt : "layer tries"
+  event_team ||--o{ final_verdict : "one per report"
+  event_team ||--o| team_final : "progress in the final"
   event_state {
     int id PK "always 1"
     int current_round "0..5"
@@ -59,8 +59,6 @@ erDiagram
     bigint manager_id UK
     bool is_open
     varchar clue_key
-    text recovery_prompt
-    varchar recovery_answer
     bigint version
   }
   event_team {
@@ -79,20 +77,20 @@ erDiagram
     timestamptz received_at
     uuid idempotency_key "UNIQUE with team_id"
   }
-  penalty {
+  score_deduction {
     bigint id PK
-    varchar kind
-    int minutes
-    bigint voided_by
-    timestamptz voided_at
+    varchar kind "HINT or CHEATING"
+    varchar reason
+    bigint cancelled_by
+    timestamptz cancelled_at
   }
 ```
 
 Integrity rules in the database: CHECK constraints for every enum and every text limit (`octet_length` matching
 the DTO limits, which services also enforce in bytes); `UNIQUE(team_id, idempotency_key)` on `room_submission`,
-`recovery_attempt` and `accusation`; one RECOVERY penalty per team and one correct accusation per team (partial
-unique indexes); triggers make submissions, recovery attempts, accusations and judgement history append-only and
-allow a penalty only a single void (never a delete). All timestamps are `TIMESTAMPTZ`. Indexes exist on every
+`recovery_attempt` and the unlock and layer attempts; one correct attempt per team and layer and one active cheating
+violation per team and room (partial unique indexes); triggers make submissions, the final's attempts and verdicts and
+judgement history append-only and allow a deduction only a single cancellation (never a delete). All timestamps are `TIMESTAMPTZ`. Indexes exist on every
 foreign key used in joins/filters and on `room_submission(room_id, received_at DESC)` and
 `room_submission(team_id, room_id, received_at DESC)` (latest submission lookups).
 
@@ -169,25 +167,48 @@ RUNNING, and keep ASSIGNED unstarted. `room_arrival(round, room_id)` holds "All 
   elapsed since the response arrived (independent of clock offset) and restarts from the server value at every
   refetch and on tab visibility change.
 
+## Scoring and the crypto final (V20, rules §8 to §12)
+
+V20 retires the minute-based penalties, adjusted time, the per-room recovery challenges, the encrypted-message final
+and its accusations (tables `penalty`, `suspect`, `accusation`, the old `team_final`, `event_content`), and adds
+`score_deduction`, `room_manual_score`, `final_content`, the final's timer columns on `event_state`,
+`final_time_adjustment`, the new `team_final`, `final_unlock_attempt`, `final_layer_attempt`, `final_verdict` and the
+new `recovery_attempt`.
+
+- **One score read.** `ScoreBreakdownService` computes every team's four room scores and its final in a fixed number of
+  statements: the AI mission's total (× 0.15), the Linux terminal's and the contest's /15 scores, or the typed score,
+  then `RoomScoring` (MAX(0, base − 2 × hints − 7.5 if cheating)) and `FinalScoring`; `EventRanking` (pure) orders
+  them. Nothing is stored; the admin board, results, CSV and the team's own final use it.
+- **One timer.** The final's 40 minutes are the `RoundTimer` arithmetic on `event_state`: running from the moment the
+  admin opens the final, one pause, resume and added time for every team, a team's active seconds at its suspect
+  submission feed the time points.
+- **Exactly-once finalisation.** Every final write takes the `event_state` lock first (`TeamWriteGate`); a write that
+  finds no time left finalises the team and is answered 409 with the finalisation kept (`FinalTimeUp`,
+  `noRollbackFor`), the admin's close finalises everyone still open, and the guarded `UPDATE … WHERE finalised_at IS
+  NULL` makes a race harmless. There is no scheduler.
+- **Secrets.** The content file's plaintexts, private exponents and verdicts are derived in `CryptoContent` and never
+  reach a member DTO; one-time actions (verdict, suspect) answer identically whether or not they were right.
+
+V21 drops the judgement's own informational hint counter (`room_judgement.hints`, `room_judgement_history.hints`): nothing
+read it, and hints are now only the −2 deductions of V20. A judgement is a status and a note.
+
 ## Admin overrides (V9)
 
 V9 adds `team_room_exception(round, team_id)`, `event_snapshot` (JSONB copy of deleted rows), `audit_event.reason`,
-`event_team.disqualified*`, the collected-clue source `MANUAL`, and the penalty kind `TIME_ADJUSTMENT` with signed
-minutes (−60..60, ≠ 0; other kinds keep `minutes > 0`). The append-only trigger functions now allow DELETE only
+`event_team.disqualified*` and the collected-clue source `MANUAL` (its time-adjustment penalty kind was retired by V20). The append-only trigger functions now allow DELETE only
 when the transaction-local setting `devfest.allow_reset` is `on`; UPDATE stays refused.
 
 - `RoomAssignment` (domain) is the single resolver of a team's room in a round (exception, else rotation). It is
   used by the submission check, the team board, the room boards ("teams expected now", "in room now") and the
   admin board's "teams now".
 - `RotationPreview` (domain) computes the swap/move preview (rooms visited, remaining rounds, MISS / REPEAT).
-- `EventOverrideService` (swap, move, room exception, manual clue, time adjustment, disqualification) and
+- `EventOverrideService` (swap, move, room exception, manual clue, disqualification) and
   `EventResetService` (resets, snapshots) are ADMIN only, lock `event_state` → teams by ascending id → room, audit
   with the reason and bump the revision. Resets save the snapshot first (`EventSnapshotRepository`: one
   `INSERT … SELECT jsonb_build_object(...)`), then `EventResetRepository.allowResetDeletes()` and one bulk DELETE
   per table in foreign-key order.
-- The ranking SQL counts `TIME_ADJUSTMENT` minutes in adjusted time but not in penalty entries, and lists
-  disqualified teams last without a rank. The disqualified check sits right after the idempotent-retry lookup of
-  room submissions, recovery answers and accusations.
+- The ranking (`EventRanking`, pure) lists disqualified teams last without a rank. The disqualified check sits right
+  after the idempotent-retry lookup of room submissions and of every step of the final.
 
 ## Evidence (rules §17)
 
@@ -317,7 +338,7 @@ Overrides never touch `collected_clue` or `room_submission`; the event ranking q
 Anonymous requests get 401 on every event endpoint (only `GET /api/v1/health` is public; `GET /event/stream`
 passes the security filter but answers 401 without a valid ticket). PARTICIPANT gets 403 on
 all of `/api/v1/event/**`. "own" means the room assigned to the manager or the team derived from the member's
-account — client-supplied ids never establish ownership. A foreign room/team/penalty/receipt is reported as 404.
+account — client-supplied ids never establish ownership. A foreign room, team, deduction or receipt is reported as 404.
 
 | Endpoint (under `/api/v1/event`) | ADMIN | MANAGER | MEMBER |
 |---|---|---|---|
@@ -325,11 +346,11 @@ account — client-supplied ids never establish ownership. A foreign room/team/p
 | `GET /stream?ticket=…` (no bearer token; the single-use ticket names the account and session) | ✔ | ✔ | ✔ |
 | `GET /results` | ✔ | 403 | ✔ after publication, else 403 |
 | `GET /team/board`, `/team/final`, `/team/submissions[/{id}]` | 403 | 403 | own team (foreign receipt 404) |
-| `POST /team/rooms/{id}/submissions`, `/team/final/recovery`, `/team/final/accusations` | 403 | 403 | own team |
+| `POST /team/rooms/{id}/submissions`, `/team/final/{recovery,unlock,start,layers/{n},verdicts/{n},suspect}` | 403 | 403 | own team |
 | `GET /team/rooms/{id}/terminal-files` | 403 | 403 | own team, only its assigned terminal room while ASSIGNED/RUNNING/PAUSED (else 404) |
 | `GET/POST /rooms/{id}/terminal-files`, `GET /rooms/{id}/terminal-files/content`, `GET/PUT/DELETE /rooms/{id}/terminal-files/{fileId}` | any room | own room (else 404) | 403 |
-| `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/penalties`, `PUT /rooms/{id}/content`, `PUT /rooms/{id}/submissions/{submissionId}/clue-override` | any room | own room (else 404) | 403 |
-| `POST /penalties/{id}/void` | any | own room's penalties (room-less → 404) | 403 |
+| `GET /rooms/{id}/board`, `PUT /rooms/{id}/judgements/{teamId}`, `POST /rooms/{id}/{hints,cheating}` (a team in the room now), `GET /rooms/{id}/deductions`, `PUT /rooms/{id}/manual-scores/{teamId}`, `PUT /rooms/{id}/content`, `PUT /rooms/{id}/submissions/{submissionId}/clue-override` | any room | own room (else 404) | 403 |
+| `POST /deductions/{id}/cancel` | any | own room's deductions for a team in the room now (else 404) | 403 |
 | `PUT /rooms/{id}/arrival` | any room | own room (else 404) | 403 |
 | `/admin/**` (incl. `PUT /admin/rooms/{id}/terminal`, `/admin/overrides/**`, `/admin/reset/**`, `/admin/snapshots/**`, `PUT /admin/teams/{id}/group`, `POST /admin/teams/{id}/{disqualify,reinstate}`, `POST /admin/round/timer/{start,pause,resume,adjust,end}`, `PUT /admin/teams/planned-count`, `POST /admin/teams/generate`, `POST /admin/teams/{id}/sign-out`) | ✔ | 403 | 403 |
 
@@ -403,11 +424,11 @@ SQL statements per read (fixed, independent of team count; documented on each se
 | Endpoint | Statements |
 |---|---|
 | `GET /revision` | 1 |
-| `GET /team/board` | 5 (team, state, rooms with judgement/clue/latest submission and collected key via LATERAL, finish, the team's room exceptions) |
-| `GET /team/final` | 5 base (team, state, summary, rooms, room exceptions — the evidence); +1 RECOVERY, +2 MESSAGE, +3 FINISHED (max 8) |
-| `GET /rooms/{id}/board` | 4 (room, state, all teams' progress via LATERAL, room penalties) |
-| `GET /admin/board` | 6 (state, room stats, active teams, ranking, content status, group sizes) |
-| `GET /admin/organization` | 4 · `GET /admin/content` 4 · `GET /results` 2 · CSV export 1 |
+| `GET /team/board` | 5 (team, state, rooms with judgement/clue/latest submission and collected key via LATERAL, the final flag and hint count, the team's room exceptions) |
+| `GET /team/final` | 11 (team, state, clue facts, final row, content, solved layers, verdicts, rooms, the evidence's rooms and exceptions, plus the answer screen's wrong-answer streak) |
+| `GET /rooms/{id}/board` | 6 (room, state, all teams' progress via LATERAL, the room's deductions, every team's hint count, typed scores for a room without an automatic score) |
+| `GET /admin/board` | 16 (state, room stats, active teams, the score breakdown reads, the final content, group sizes, flags, overrides, …) |
+| `GET /admin/organization` | 4 · `GET /admin/content` 2 · `GET /admin/scores` 7 · `GET /results` 7 · CSV export 8 · `GET /rooms/{id}/deductions` 2 |
 
 ## Idempotency and receipts
 
@@ -432,7 +453,7 @@ sequenceDiagram
   UI->>UI: clear stored attempt on any response; on network failure show "Retry" (same key and body, also after reload)
 ```
 
-The request hash is SHA-256 of a discriminator (room id, `recovery`, `accusation`) plus the JSON body.
+The request hash is SHA-256 of a discriminator (room id, `recovery`, `final-unlock`, `final-layer:n`) plus the JSON body.
 
 ## Lock order and timeouts
 

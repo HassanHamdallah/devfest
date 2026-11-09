@@ -1,26 +1,7 @@
 package dev.devfest.event.dto;
 
-import dev.devfest.event.domain.GroupCode;
-import dev.devfest.event.domain.RoomCode;
-import java.time.Instant;
-import java.util.List;
-
 /**
- * The admin's ranking row; {@code rank}, {@code finishedAt} and {@code adjustedSeconds} stay null until a team
- * finishes. {@code clueRooms} names the rooms whose clue the team holds (room position order); admin-only, the
- * public ranking keeps just the count.
+ * The admin's ranking row: the team's place and its full score breakdown. {@code rank} is null for a disqualified team,
+ * which stays outside the ranking and is listed last.
  */
-public record RankingRow(
-  Integer rank,
-  long teamId,
-  String teamName,
-  GroupCode groupCode,
-  int clues,
-  List<RoomCode> clueRooms,
-  int penaltyMinutes,
-  int penaltyEntries,
-  boolean finished,
-  Instant finishedAt,
-  Long adjustedSeconds,
-  boolean disqualified
-) {}
+public record RankingRow(Integer rank, TeamScoreBreakdown scores) {}

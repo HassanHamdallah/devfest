@@ -14,6 +14,7 @@ import dev.devfest.event.repository.EventBoardRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
+import dev.devfest.event.domain.DeductionKind;
 import dev.devfest.event.repository.TeamFinalRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.repository.TeamRoomProgressRecord;
@@ -51,22 +52,24 @@ public class EventTeamBoardService {
   }
 
   /**
-   * 5 SQL statements whatever the number of teams: team of the caller, event state, the team's four rooms (with
-   * its latest submissions and collected keys), the team's finish record, and all of its room exceptions.
+   * 6 SQL statements whatever the number of teams: team of the caller, event state, the team's four rooms (with
+   * its latest submissions and collected keys), the team's final row, all of its room exceptions and its hint count.
+   * The team sees only how many of its 2 hints it used: never a cheating record, a deduction or a score.
    */
   public TeamBoard board(Principal principal) {
     EventTeamRecord team = access.requireTeamOf(principal);
     EventStateRecord state = states.state();
     List<TeamRoomProgressRecord> progress = boards.teamRooms(team.id());
-    boolean finished = finals.findForTeam(team.id()).isPresent();
     int cluesCollected = (int) progress.stream().filter(TeamRoomProgressRecord::clueCollected).count();
-    FinalStage stage = FinalStageResolver.resolve(state.finalEverOpened(), state.finalOpen(), finished, cluesCollected);
+    Instant now = clock.now();
+    TeamFinalRepository.BoardFacts facts = finals.boardFacts(team.id());
+    boolean finalised = facts.finalised() || (FinalClock.timeUp(state, now) && cluesCollected >= 3);
+    FinalStage stage = FinalStageResolver.resolve(state.finalEverOpened(), cluesCollected, finalised);
     Map<Integer, RoomCode> teamExceptions = exceptions.findForTeam(team.id());
     Optional<RoomCode> exception = Rotation.isRunningRound(state.currentRound())
       ? Optional.ofNullable(teamExceptions.get(state.currentRound()))
       : Optional.empty();
     Optional<RoomCode> assigned = RoomAssignment.roomFor(team.groupCode(), state.currentRound(), exception);
-    Instant now = clock.now();
     return new TeamBoard(
       team.name(),
       team.groupCode(),
@@ -79,6 +82,8 @@ public class EventTeamBoardService {
       state.resultsPublished(),
       state.revision(),
       team.disqualified(),
+      facts.hintsUsed(),
+      DeductionKind.MAX_HINTS_PER_TEAM,
       EventViews.evidence(team, state, progress, teamExceptions, now)
     );
   }

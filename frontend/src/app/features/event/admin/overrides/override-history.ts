@@ -49,9 +49,6 @@ const ACTION_LABELS: Record<string, string> = {
         @if (flag.manualClues) {
           <ui-status-chip>Manual clues: {{ flag.manualClues }}</ui-status-chip>
         }
-        @if (flag.timeAdjustmentMinutes) {
-          <ui-status-chip>Time adjustment: {{ signed(flag.timeAdjustmentMinutes) }} min</ui-status-chip>
-        }
       </div>
     } @empty {
       <p class="event-muted">No team has an active override.</p>
@@ -99,17 +96,12 @@ export class OverrideHistory {
       (flag) =>
         flag.disqualified ||
         flag.exceptionRoom !== null ||
-        flag.manualClues > 0 ||
-        flag.timeAdjustmentMinutes !== 0,
+        flag.manualClues > 0,
     ),
   );
 
   protected roomName(flag: TeamFlagsView): string {
     return this.rooms().find((room) => room.code === flag.exceptionRoom)?.name ?? "";
-  }
-
-  protected signed(minutes: number): string {
-    return minutes > 0 ? `+${minutes}` : String(minutes);
   }
 
   protected time(entry: OverrideAuditView): string {
