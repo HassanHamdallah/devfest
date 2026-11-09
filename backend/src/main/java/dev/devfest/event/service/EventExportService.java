@@ -4,54 +4,48 @@ import static dev.devfest.admin.AdminController.csvCell;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
-import dev.devfest.event.repository.EventRankingRepository;
-import dev.devfest.event.repository.RankedTeamRecord;
+import dev.devfest.event.dto.TeamScoreBreakdown;
+import dev.devfest.event.dto.TeamScoreBreakdown.RoomScoreLine;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 
-/** The organizer's results spreadsheet, in ranking order (decision D12). */
+/** The organizer's results spreadsheet, in ranking order. */
 @Service
 public class EventExportService {
 
   static final String HEADER =
-    "rank,team,group,clues,recoveryUsed,accusationAttempts,penaltyMinutes,penaltyEntries,finishedAt,adjustedSeconds\r\n";
+    "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,"
+      + "layers,verdicts,suspect,time,finalScore,total,finishedAt\r\n";
 
   private final EventAccessPolicy access;
-  private final EventRankingRepository ranking;
+  private final ScoreBreakdownService scores;
   private final AuditLog audit;
 
-  public EventExportService(EventAccessPolicy access, EventRankingRepository ranking, AuditLog audit) {
+  public EventExportService(EventAccessPolicy access, ScoreBreakdownService scores, AuditLog audit) {
     this.access = access;
-    this.ranking = ranking;
+    this.scores = scores;
     this.audit = audit;
   }
 
-  /** 1 SQL statement (ranking). Team names go through csvCell, which neutralizes spreadsheet formulas. */
+  /** Team names go through csvCell, which neutralizes spreadsheet formulas. Room columns follow room position order. */
   public String exportCsv(Principal principal) {
     access.requireAdmin(principal);
     StringBuilder csv = new StringBuilder(HEADER);
-    for (RankedTeamRecord row : ranking.ranking()) {
-      csv
-        .append(text(row.rank()))
-        .append(',')
-        .append(csvCell(row.teamName()))
-        .append(',')
-        .append(row.groupCode())
-        .append(',')
-        .append(row.clues())
-        .append(',')
-        .append(row.recoveryUsed())
-        .append(',')
-        .append(row.accusationAttempts())
-        .append(',')
-        .append(row.penaltyMinutes())
-        .append(',')
-        .append(row.penaltyEntries())
-        .append(',')
-        .append(text(row.finishedAt()))
-        .append(',')
-        .append(text(row.adjustedSeconds()))
-        .append("\r\n");
+    for (ScoreBreakdownService.RankedBreakdown ranked : scores.ranking()) {
+      TeamScoreBreakdown b = ranked.breakdown();
+      csv.append(text(ranked.rank())).append(',').append(csvCell(b.teamName())).append(',').append(b.groupCode()).append(',');
+      csv.append(b.finalScore().status()).append(',');
+      for (RoomScoreLine room : b.rooms()) csv.append(room.score().toPlainString()).append(',');
+      csv.append(b.rooms().stream().mapToInt(RoomScoreLine::hints).sum()).append(',');
+      csv.append(b.rooms().stream().filter(RoomScoreLine::cheating).count()).append(',');
+      csv.append(b.roomsTotal().toPlainString()).append(',');
+      csv.append(b.finalScore().layers().toPlainString()).append(',');
+      csv.append(b.finalScore().verdicts().toPlainString()).append(',');
+      csv.append(b.finalScore().suspect().toPlainString()).append(',');
+      csv.append(b.finalScore().time().toPlainString()).append(',');
+      csv.append(b.finalScore().total().toPlainString()).append(',');
+      csv.append(b.total().toPlainString()).append(',');
+      csv.append(text(b.finalScore().finishedAt())).append("\r\n");
     }
     audit.record(principal.id(), "EVENT_EXPORT", "results");
     return csv.toString();

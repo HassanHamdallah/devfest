@@ -71,6 +71,7 @@
       [roomId]="view.room.id"
       [row]="row"
       [contentEditable]="view.room.contentEditable"
+      [manualScoring]="view.room.manualScoring"
       [expanded]="expanded().has(row.teamId)"
       (toggled)="toggle(row)"
       (changed)="reload()"
@@ -129,6 +130,5 @@
     </div>
   </ui-card>
   }
-  <event-room-content-card [room]="view.room" (changed)="reload()" />
 </div>
 }

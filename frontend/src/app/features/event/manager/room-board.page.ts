@@ -30,7 +30,6 @@ import { BoardLoader } from "./board-loader";
 import { EventArrivalCard } from "./arrival-card";
 import { EventClueKeyCard } from "./clue-key-card";
 import { EventRefreshError } from "./refresh-error";
-import { EventRoomContentCard } from "./room-content-card";
 import { EventRoomTeamRow } from "./room-team-row";
 import { EventTerminalFilesCard } from "./terminal-files-card";
 import {
@@ -49,7 +48,6 @@ import {
     EventArrivalCard,
     EventClueKeyCard,
     EventRefreshError,
-    EventRoomContentCard,
     EventRoomTeamRow,
     EventTerminalFilesCard,
     NavIcon,

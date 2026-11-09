@@ -13,7 +13,6 @@ import dev.devfest.event.dto.RotationPreviewView;
 import dev.devfest.event.dto.SnapshotView;
 import dev.devfest.event.dto.SwapPreviewRequest;
 import dev.devfest.event.dto.SwapRequest;
-import dev.devfest.event.dto.TimeAdjustmentRequest;
 import dev.devfest.event.service.EventOverrideService;
 import dev.devfest.event.service.EventResetService;
 import jakarta.validation.Valid;
@@ -103,14 +102,6 @@ public class EventOverridesController {
   @PostMapping("/overrides/clue")
   OverrideOutcome clue(@Valid @RequestBody ManualClueRequest request, @AuthenticationPrincipal AuthService.Principal principal) {
     return overrides.clue(principal, request);
-  }
-
-  @PostMapping("/overrides/time-adjustment")
-  OverrideOutcome timeAdjustment(
-    @Valid @RequestBody TimeAdjustmentRequest request,
-    @AuthenticationPrincipal AuthService.Principal principal
-  ) {
-    return overrides.timeAdjustment(principal, request);
   }
 
   @PostMapping("/teams/{teamId}/disqualify")

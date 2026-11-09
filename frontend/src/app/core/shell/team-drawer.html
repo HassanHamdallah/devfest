@@ -32,7 +32,7 @@
       </dd>
       <dt>Clues</dt>
       <dd>
-        @if (s.ranking; as rank) {
+        @if (s.scores; as rank) {
         <ul class="team-drawer__clues" aria-label="Clues by room">
           @for (slot of s.clues; track slot.code) {
           <li
@@ -50,18 +50,16 @@
         <span class="event-num">{{ rank.clues }} of 4</span>
         } @else { — }
       </dd>
-      <dt>Penalties</dt>
-      <dd class="event-num">{{ penaltyText() }}</dd>
+      <dt>Score</dt>
+      <dd class="event-num" data-drawer-score>{{ scoreText() }}</dd>
       <dt>Last seen</dt>
       <dd class="event-num">{{ s.team.lastSeenAt ? (s.team.lastSeenAt | date: "HH:mm") : "Never" }}</dd>
       @if (s.flags; as flags) { @if (flags.manualClues) {
       <dt>Manual clues</dt>
       <dd class="event-num">{{ flags.manualClues }}</dd>
-      } @if (flags.timeAdjustmentMinutes) {
-      <dt>Time adjustment</dt>
-      <dd class="event-num">{{ flags.timeAdjustmentMinutes }} min</dd>
       } }
     </dl>
+    <app-team-drawer-deductions [teamId]="s.team.id" [teamName]="s.team.name" />
     <section aria-labelledby="team-drawer-actions">
       <h3 id="team-drawer-actions">Actions</h3>
       <ul class="team-drawer__actions">

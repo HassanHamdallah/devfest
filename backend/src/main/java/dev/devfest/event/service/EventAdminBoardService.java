@@ -17,13 +17,11 @@ import dev.devfest.event.dto.RankingRow;
 import dev.devfest.event.dto.RotationRow;
 import dev.devfest.event.repository.AdminRoomStatsRecord;
 import dev.devfest.event.repository.EventBoardRepository;
-import dev.devfest.event.repository.EventRankingRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.EventTeamRepository;
 import dev.devfest.event.repository.GroupSizeRecord;
-import dev.devfest.event.repository.RankedTeamRecord;
 import dev.devfest.event.repository.RoomArrivalRecord;
 import dev.devfest.event.repository.OverrideAuditRepository;
 import dev.devfest.event.repository.SentinelContentRepository;
@@ -53,7 +51,8 @@ public class EventAdminBoardService {
   private final EventStateRepository states;
   private final EventBoardRepository boards;
   private final EventTeamRepository teams;
-  private final EventRankingRepository ranking;
+  private final ScoreBreakdownService scores;
+  private final FinalContentReader finalContent;
   private final RoomArrivalRepository arrivals;
   private final TeamRoomExceptionRepository exceptions;
   private final OverrideAuditRepository overrideAudit;
@@ -66,7 +65,8 @@ public class EventAdminBoardService {
     EventStateRepository states,
     EventBoardRepository boards,
     EventTeamRepository teams,
-    EventRankingRepository ranking,
+    ScoreBreakdownService scores,
+    FinalContentReader finalContent,
     RoomArrivalRepository arrivals,
     TeamRoomExceptionRepository exceptions,
     OverrideAuditRepository overrideAudit,
@@ -78,7 +78,8 @@ public class EventAdminBoardService {
     this.states = states;
     this.boards = boards;
     this.teams = teams;
-    this.ranking = ranking;
+    this.scores = scores;
+    this.finalContent = finalContent;
     this.arrivals = arrivals;
     this.exceptions = exceptions;
     this.overrideAudit = overrideAudit;
@@ -88,18 +89,23 @@ public class EventAdminBoardService {
   }
 
   /**
-   * 12 SQL statements: event state, room stats, active teams, ranking, content status, AI mission content stats, Linux
-   * terminal answer keys, group sizes, team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
+   * A fixed number of SQL statements whatever the number of teams: event state, room stats, active teams, the ranking
+   * (the score breakdown reads), the final content, AI mission content stats, Linux terminal answer keys, group sizes,
+   * team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
    */
   public AdminBoard board(Principal principal) {
     access.requireAdmin(principal);
     EventStateRecord state = states.state();
     List<AdminRoomStatsRecord> rooms = boards.adminRooms();
     List<EventTeamRecord> activeTeams = teams.findActive();
-    List<RankingRow> rows = ranking.ranking().stream().map(EventAdminBoardService::rankingRow).toList();
+    List<RankingRow> rows = scores.ranking().stream().map(r -> new RankingRow(r.rank(), r.breakdown())).toList();
+    Optional<dev.devfest.event.domain.CryptoContent> finalFile = finalContent.content();
     List<AdminAlert> alerts = alerts(rooms, state.plannedTeamCount(), teams.activeGroupSizes());
-    EventContentGaps.find(boards.contentStatus(), rooms).forEach(gap ->
+    EventContentGaps.find(finalFile.isPresent(), rooms).forEach(gap ->
       alerts.add(new AdminAlert(gap.code(), gap.message(), CONTENT_PAGE))
+    );
+    finalFile.filter(dev.devfest.event.domain.CryptoContent::recoveryIsPlaceholder).ifPresent(file ->
+      alerts.add(new AdminAlert("RECOVERY_PLACEHOLDER", "The Recovery Challenge is still the placeholder text.", CONTENT_PAGE))
     );
     List<AiRoomStartCheck.Blocker> blockers = AiRoomStartCheck.blockers(missionContent.stats());
     blockers.forEach(blocker -> alerts.add(new AdminAlert(blocker.code(), blocker.message(), missionEditor(blocker.roomId()), true)));
@@ -243,25 +249,7 @@ public class EventAdminBoardService {
       flags.teamName(),
       flags.disqualified(),
       flags.exceptionRoom(),
-      flags.manualClues(),
-      flags.timeAdjustmentMinutes()
-    );
-  }
-
-  private static RankingRow rankingRow(RankedTeamRecord row) {
-    return new RankingRow(
-      row.rank(),
-      row.teamId(),
-      row.teamName(),
-      row.groupCode(),
-      row.clues(),
-      row.clueRooms(),
-      row.penaltyMinutes(),
-      row.penaltyEntries(),
-      row.finished(),
-      row.finishedAt(),
-      row.adjustedSeconds(),
-      row.disqualified()
+      flags.manualClues()
     );
   }
 }

@@ -333,7 +333,7 @@ class EventContestTest extends EventIntegrationTest {
   }
 
   @Test
-  void thereIsOneReadOnlyServiceMethodForTheRoomScoreAndTheEventRankingDoesNotChange() {
+  void thereIsAReadOnlyServiceMethodForTheRoomScore() {
     Round1 s = round1();
     assertEquals(Optional.of(new RoomScore(15, 15)), scoreService.roomScore(s.winner().id()));
     assertEquals(Optional.of(new RoomScore(10, 15)), scoreService.roomScore(s.tiedOne().id()));
@@ -348,13 +348,23 @@ class EventContestTest extends EventIntegrationTest {
   }
 
   @Test
-  void savingResultsLeavesTheEventRankingExactlyAsItWas() {
+  void savingResultsFeedsOnlyTheProblemSolvingRoomScoreOfTheEventRanking() {
     TestTeam bravo = team("Bravo", GroupCode.B);
     team("Alpha", GroupCode.A);
-    String before = expectOk(get("/admin/board", admin)).json("$.ranking").toString();
+    Response before = expectOk(get("/admin/scores", admin));
+    assertEquals(List.of(0.0, 0.0), ((List<?>) before.json("$[*].roomsTotal")).stream().map(n -> ((Number) n).doubleValue()).toList());
     expectOk(save(bravo, "[\"A\",\"B\",\"C\",\"D\",\"E\"]", 0));
-    assertEquals(before, expectOk(get("/admin/board", admin)).json("$.ranking").toString());
-    assertEquals(before, expectOk(get("/admin/board", admin)).json("$.ranking").toString());
+    Response after = expectOk(get("/admin/scores", admin));
+    // Five solved is 12 problem points plus the first-place bonus of 3: the room's 15, on the Problem solving line only.
+    List<Number> psRoom = after.json("$[?(@.teamName == 'Bravo')].rooms[1].score");
+    assertEquals(15.0, psRoom.get(0).doubleValue());
+    assertEquals(List.of("CONTEST"), after.json("$[?(@.teamName == 'Bravo')].rooms[1].source"));
+    List<Number> bravoTotal = after.json("$[?(@.teamName == 'Bravo')].total");
+    assertEquals(15.0, bravoTotal.get(0).doubleValue());
+    List<Number> alphaTotal = after.json("$[?(@.teamName == 'Alpha')].total");
+    assertEquals(0.0, alphaTotal.get(0).doubleValue());
+    List<Number> others = after.json("$[?(@.teamName == 'Bravo')].rooms[0,2,3].score");
+    assertEquals(List.of(0.0, 0.0, 0.0), others.stream().map(Number::doubleValue).toList());
     assertEquals(0, count("SELECT count(*) FROM information_schema.columns WHERE table_name = 'event_team' AND column_name ~ 'contest|score|point'"));
   }
 
@@ -600,9 +610,7 @@ class EventContestTest extends EventIntegrationTest {
           Response response = get(path, team.token());
           if (response.status() == 404 || response.status() == 409) continue;
           assertEquals(200, response.status(), path + " at step " + step + ": " + response.body());
-          // /team/final and /home already carry the final phase's own penaltyMinutes, which has nothing to do with the contest.
-          String checked = path.equals("/team/final") || path.equals("/home") ? response.body().replace("\"penaltyMinutes\"", "\"finalPenaltyMinutes\"") : response.body();
-          var matcher = FORBIDDEN_FIELDS.matcher(checked);
+          var matcher = FORBIDDEN_FIELDS.matcher(response.body());
           boolean leaked = matcher.find();
           assertFalse(leaked, "step " + step + " " + team.name() + " " + path + " leaked a field: " + response.body());
           if (!released(team)) {

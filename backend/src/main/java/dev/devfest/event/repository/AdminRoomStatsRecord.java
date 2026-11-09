@@ -16,7 +16,6 @@ public record AdminRoomStatsRecord(
   Long managerId,
   String managerName,
   boolean hasClueKey,
-  boolean hasRecoveryChallenge,
   boolean terminalEnabled,
   int terminalFiles,
   int passed,

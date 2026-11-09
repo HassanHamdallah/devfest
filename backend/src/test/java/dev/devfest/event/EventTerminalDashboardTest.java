@@ -175,16 +175,16 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
   }
 
   @Test
-  void thereIsNoSeparateEncryptedMessageAnywhereInTheLinuxFormTablesWhileTheFinalKeepsItsOwn() {
+  void thereIsNoSeparateEncryptedMessageAnywhereInTheLinuxFormTables() {
     assertEquals(
       0,
       (int) db.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('terminal_form', 'terminal_answer_key', 'terminal_form_override') AND column_name LIKE '%message%'", Integer.class),
       "V17 dropped the message answer and the message key"
     );
     assertEquals(
-      1,
+      0,
       (int) db.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name = 'event_content' AND column_name = 'encrypted_message'", Integer.class),
-      "the final's encrypted message is untouched"
+      "the crypto final has no encrypted-message column anywhere"
     );
     // The check constraint knows the new item and not the old one (an item the API would never send).
     assertEquals(
@@ -254,19 +254,29 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
   }
 
   @Test
-  void theFifteenPointsStayInTheRoomTheEventsRankingDoesNotChange() {
+  void theFifteenPointsAreTheLinuxRoomsBaseInTheEventScoreAndNothingHereReachesATeam() {
     Scenario s = scenario();
-    String before = expectOk(get("/admin/board", admin)).json("$.ranking").toString();
-    String resultsBefore = expectOk(get("/admin/board", admin)).json("$.ranking[*].clues").toString();
-    expectOk(put("/rooms/" + linux + "/terminal-dashboard/teams/" + s.bravo().id() + "/items/PATH", manager, "{\"awarded\":true}"));
+    assertEquals(15.0, linuxScore("Charlie"));
+    assertEquals(6.0, linuxScore("Bravo"));
+    assertEquals(0.0, linuxScore("Delta"));
+    assertEquals(List.of("LINUX"), expectOk(get("/admin/scores", admin)).json("$[?(@.teamName == 'Bravo')].rooms[2].source"));
+    String cluesBefore = expectOk(get("/admin/board", admin)).json("$.ranking[*].scores.finalScore.status").toString();
+    expectOk(put("/rooms/" + linux + "/terminal-dashboard/teams/" + s.bravo().id() + "/items/USERNAME", manager, "{\"awarded\":true}"));
+    assertEquals(9.0, linuxScore("Bravo"), "an organizer's award counts in the event score at once");
     expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", manager, keysJson("x", "x", "x", "x")));
-    assertEquals(before, expectOk(get("/admin/board", admin)).json("$.ranking").toString());
-    assertEquals(resultsBefore, expectOk(get("/admin/board", admin)).json("$.ranking[*].clues").toString());
+    assertEquals(3.0, linuxScore("Charlie"), "a changed key changes the score on the next read; only the clue, checked against the room's clue key, is still right");
+    assertEquals(3.0, linuxScore("Bravo"), "only the award is left");
+    assertEquals(cluesBefore, expectOk(get("/admin/board", admin)).json("$.ranking[*].scores.finalScore.status").toString(), "the final is untouched");
     // And nothing here reaches a team.
     for (TestTeam team : List.of(s.charlie(), s.bravo())) {
       String board = expectOk(get("/team/board", team.token())).body();
       assertFalse(board.contains("tech9") || board.contains("terminal-dashboard") || board.contains("answerKey"), board);
     }
+  }
+
+  private double linuxScore(String teamName) {
+    List<Number> found = expectOk(get("/admin/scores", admin)).json("$[?(@.teamName == '" + teamName + "')].rooms[2].score");
+    return found.get(0).doubleValue();
   }
 
   // ---- statements, export, reset ---------------------------------------------------------------------

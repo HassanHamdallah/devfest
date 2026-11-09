@@ -7,58 +7,58 @@
   (retry)="reload()"
 />
 @if (final(); as view) {
-<div class="event-stack final">
+<div class="event-stack final" [attr.data-final-screen-now]="view.screen">
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
   }
-  @if (step(); as current) {
-  <ol class="final-steps" aria-label="Final steps">
-    @for (label of steps; track label; let index = $index) {
-    <li
-      [class.final-steps__done]="index + 1 < current"
-      [class.final-steps__now]="index + 1 === current"
-      [attr.aria-current]="index + 1 === current ? 'step' : null"
-    >
-      <span class="final-steps__number" aria-hidden="true">{{ index + 1 }}</span>
-      {{ label }}
-    </li>
-    }
-  </ol>
-  }
-  @switch (view.stage) { @case ("LOCKED") {
-  <ui-card>
-    <div class="final-state">
-      <ui-status-chip variant="warning">Locked</ui-status-chip>
-      <p class="final-state__title">The final opens for all teams at the same time.</p>
-      <p class="event-muted">{{ cluesLine() }}</p>
+  <event-final-status [final]="view" />
+  <div class="final-layout">
+    <div class="final-main">
+      @switch (view.screen) { @case ("LOCKED") {
+      <ui-card data-final-screen="LOCKED">
+        <div class="final-state">
+          <ui-status-chip variant="warning">Locked</ui-status-chip>
+          <p class="final-state__title">The final opens for all teams at the same time.</p>
+          <p class="event-muted">{{ cluesLine() }}</p>
+        </div>
+      </ui-card>
+      } @case ("NOT_QUALIFIED") {
+      <ui-card data-final-screen="NOT_QUALIFIED">
+        <div class="final-state">
+          <p class="final-state__title">You did not qualify for the final</p>
+          <p>{{ cluesLine() }}</p>
+          <p class="event-muted">
+            The final needs at least 3 clues, so your team cannot take part in it. Thank you for playing.
+          </p>
+        </div>
+      </ui-card>
+      } @case ("RECOVERY") { @if (view.recovery; as recovery) {
+      <event-final-recovery [recovery]="recovery" (changed)="reload()" />
+      } } @case ("UNLOCK") { @if (view.unlock; as unlock) {
+      <event-final-unlock [roomNames]="unlock.roomNames" [waitSeconds]="view.waitSeconds" (changed)="reload()" />
+      } } @case ("MISSION") { @if (view.mission; as mission) {
+      <event-final-mission [story]="mission.story" [equipment]="mission.equipment" (changed)="reload()" />
+      } } @case ("LAYER") { @if (view.layer; as layer) {
+      <event-final-layer [layer]="layer" [waitSeconds]="view.waitSeconds" (changed)="reload()" />
+      } } @case ("SUSPECTS") {
+      <event-final-suspects [suspects]="view.suspects" (changed)="reload()" />
+      } @case ("SUBMITTED") { @if (view.submitted; as submitted) {
+      <event-final-submitted [submitted]="submitted" />
+      } } }
+      @if (view.resultsPublished) {
+      <ui-card>
+        <p class="final-results">The results are published.</p>
+        <a class="final-results__link" routerLink="/event/results">View ranking</a>
+      </ui-card>
+      }
     </div>
-  </ui-card>
-  } @case ("NOT_ENOUGH_CLUES") {
-  <ui-card>
-    <h2 ui-card-header>Better luck next time</h2>
-    <p>{{ cluesLine() }}</p>
-    <p class="event-muted">
-      The final needs at least 3 clues, so your team cannot take part in it.
-      Thank you for playing.
-    </p>
-  </ui-card>
-  } @case ("RECOVERY") { @if (view.recovery; as recovery) {
-  <event-final-recovery-form [recovery]="recovery" (changed)="reload()" />
-  } } @case ("MESSAGE") {
-  <event-final-accusation-form [final]="view" (changed)="reload()" />
-  } @case ("FINISHED") {
-  <event-final-finished [final]="view" />
-  } @case ("CLOSED") {
-  <ui-card>
-    <div class="final-state">
-      <ui-status-chip variant="warning">Closed</ui-status-chip>
-      <p class="final-state__title">The final is closed.</p>
-      <p class="event-muted">No more answers or accusations are accepted.</p>
-    </div>
-  </ui-card>
-  } }
-  @if (showsEvidence()) {
-  <event-final-evidence [evidence]="view.evidence" />
-  }
+    <aside class="final-side" aria-label="Notebook and evidence">
+      @if (view.notebook.length > 0 || view.screen === "LAYER" || view.screen === "SUSPECTS") {
+      <event-final-notebook [entries]="view.notebook" (changed)="reload()" />
+      } @if (showsEvidence()) {
+      <event-final-evidence [evidence]="view.evidence" />
+      }
+    </aside>
+  </div>
 </div>
 }

@@ -2,7 +2,7 @@ import {
   AdminBoard,
   Organization,
   ROOM_CODES,
-  RankingRow,
+  TeamScoreBreakdown,
   RoomCode,
   TeamFlagsView,
   TeamView,
@@ -21,7 +21,8 @@ export interface TeamSummary {
   /** This round's room (an exception wins over the rotation); null outside rounds 1..4. */
   room: { id: number; code: RoomCode; name: string } | null;
   round: number;
-  ranking: RankingRow | null;
+  /** The team's full score breakdown from the admin board; null until the board is loaded. */
+  scores: TeamScoreBreakdown | null;
   flags: TeamFlagsView | null;
 }
 
@@ -42,9 +43,9 @@ export function teamSummary(
   const code =
     round >= 1 && round <= 4 ? (team.exceptionRoom ?? rotationCode) : undefined;
   const room = organization.rooms.find((candidate) => candidate.code === code);
-  const ranking = board?.ranking.find((row) => row.teamId === teamId) ?? null;
-  const held = new Set(ranking?.clueRooms ?? []);
-  const clues = ranking
+  const scores = board?.ranking.find((row) => row.scores.teamId === teamId)?.scores ?? null;
+  const held = new Set(scores?.clueRooms ?? []);
+  const clues = scores
     ? [...organization.rooms]
         .sort((a, b) => ROOM_CODES.indexOf(a.code) - ROOM_CODES.indexOf(b.code))
         .map((slot) => ({ code: slot.code, name: slot.name, held: held.has(slot.code) }))
@@ -54,7 +55,7 @@ export function teamSummary(
     clues,
     room: room ? { id: room.id, code: room.code, name: room.name } : null,
     round,
-    ranking,
+    scores,
     flags: board?.teamFlags.find((row) => row.teamId === teamId) ?? null,
   };
 }

@@ -38,13 +38,13 @@
     part="decision"
     [roomId]="roomId()"
     [judgement]="row().judgement"
-    [hintPenaltyMismatch]="row().hintPenaltyMismatch"
     (changed)="changed.emit()"
   />
 
   <div class="summary__meta">
-    <span class="event-num">{{ row().judgement.hints }} {{ row().judgement.hints === 1 ? "hint" : "hints" }}</span>
-    <span class="event-num">{{ activePenalties() }} {{ activePenalties() === 1 ? "penalty" : "penalties" }}</span>
+    @if (!row().scheduledNow) {
+      <span class="event-num" data-hints-summary>Hints: {{ row().hintsUsed }} of {{ row().hintsAllowed }}</span>
+    }
     <button
       type="button"
       class="summary__toggle"
@@ -58,6 +58,21 @@
   </div>
 </div>
 
+@if (row().scheduledNow) {
+<div class="deductions" data-card-deductions>
+  <event-team-deductions
+    [roomId]="roomId()"
+    [teamId]="row().teamId"
+    [teamName]="row().teamName"
+    [deductions]="row().deductions"
+    [hintsUsed]="row().hintsUsed"
+    [hintsAllowed]="row().hintsAllowed"
+    [cheating]="row().cheating"
+    (changed)="changed.emit()"
+  />
+</div>
+}
+
 @if (expanded()) {
 <div class="details" [id]="detailsId()">
   <section>
@@ -70,31 +85,26 @@
       (changed)="changed.emit()"
     />
   </section>
+  @if (manualScoring()) {
   <section>
-    <h4>Hints</h4>
-    <event-judgement-controls
-      part="hints"
-      [roomId]="roomId()"
-      [judgement]="row().judgement"
-      [hintPenaltyMismatch]="row().hintPenaltyMismatch"
-      (changed)="changed.emit()"
-    />
-    @if (row().judgement.note) {
-    <span class="event-muted">Note: {{ row().judgement.note }}</span>
-    }
-  </section>
-  <section>
-    <h4>Penalties · {{ penaltyTotal() }}</h4>
-    <event-penalty-form
+    <h4>Room score</h4>
+    <event-manual-score
       [roomId]="roomId()"
       [teamId]="row().teamId"
+      [score]="row().manualScore"
       (changed)="changed.emit()"
     />
-    @for (penalty of row().penalties; track penalty.id) {
-    <event-penalty-item [penalty]="penalty" (changed)="changed.emit()" />
-    } @empty {
-    <span class="event-muted">No penalties in this room.</span>
-    }
   </section>
+  } @if (!row().scheduledNow) {
+  <section>
+    <h4>Deductions in this room</h4>
+    @for (deduction of row().deductions; track deduction.id) {
+    <event-deduction-item [deduction]="deduction" [canCancel]="false" />
+    } @empty {
+    <span class="event-muted">No deductions in this room.</span>
+    }
+    <span class="event-muted">Hints and cheating are recorded while the team is in this room.</span>
+  </section>
+  }
 </div>
 }

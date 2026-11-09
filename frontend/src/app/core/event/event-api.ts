@@ -4,11 +4,19 @@ import { firstValueFrom } from "rxjs";
 import { Api, BASE } from "../api";
 import {
   AccountView,
-  AccusationRequest,
-  AccusationResult,
+  CheatingRequest,
+  DeductionView,
+  FinalActionResult,
+  FinalBoardRow,
+  FinalContentView,
+  FinalTimerView,
+  HintRequest,
+  LayerAnswerRequest,
+  ManualScoreView,
+  RankingRow,
+  UnlockRequest,
   AdminBoard,
   AdminContent,
-  AdminContentRequest,
   AiRoomActivity,
   ContestResultRequest,
   ContestResults,
@@ -28,8 +36,6 @@ import {
   JudgementView,
   Organization,
   OverrideOutcome,
-  PenaltyRequest,
-  PenaltyView,
   SentinelRunReceipt,
   SentinelSavedReceipt,
   Receipt,
@@ -47,8 +53,6 @@ import {
   SnapshotView,
   RoomSubmissionRequest,
   StreamTicket,
-  SuspectRequest,
-  SuspectView,
   TeamBoard,
   TeamCredential,
   TeamFinal,
@@ -73,7 +77,8 @@ const EVENT = "/event";
 export const roomSubmissionPath = (roomId: number) =>
   `${EVENT}/team/rooms/${roomId}/submissions`;
 export const RECOVERY_PATH = `${EVENT}/team/final/recovery`;
-export const ACCUSATION_PATH = `${EVENT}/team/final/accusations`;
+export const UNLOCK_PATH = `${EVENT}/team/final/unlock`;
+export const layerPath = (layer: number) => `${EVENT}/team/final/layers/${layer}`;
 
 /** One typed method per /api/v1/event endpoint (EVENT-CONTRACT §3). */
 @Injectable({ providedIn: "root" })
@@ -118,8 +123,16 @@ export class EventApi {
   submitRecovery(body: RecoveryRequest, key: string) {
     return this.postIdempotent<RecoveryResult>(RECOVERY_PATH, body, key);
   }
-  submitAccusation(body: AccusationRequest, key: string) {
-    return this.postIdempotent<AccusationResult>(ACCUSATION_PATH, body, key);
+  startCase() {
+    return this.send<FinalActionResult>("POST", "/team/final/start", {});
+  }
+  /** One time only; the answer is the same whether or not the verdict was right. */
+  giveVerdict(layer: number, verdict: "YES" | "NO") {
+    return this.send<FinalActionResult>("POST", `/team/final/verdicts/${layer}`, { verdict });
+  }
+  /** One time only; the answer never says whether the suspect was right. */
+  submitSuspect(suspectId: number) {
+    return this.send<FinalActionResult>("POST", "/team/final/suspect", { suspectId });
   }
   /** 404 unless the team is assigned to the room this round and the round is not over (rules §18). */
   teamTerminalFiles(roomId: number) {
@@ -203,13 +216,24 @@ export class EventApi {
       body,
     );
   }
-  addPenalty(roomId: number, body: PenaltyRequest) {
-    return this.send<PenaltyView>("POST", `/rooms/${roomId}/penalties`, body);
+  /** "Hint given (-2)": one click, optional note (the room's manager, or the admin for any room). */
+  giveHint(roomId: number, body: HintRequest) {
+    return this.send<DeductionView>("POST", `/rooms/${roomId}/hints`, body);
   }
-  voidPenalty(penaltyId: number, reason: string) {
-    return this.send<PenaltyView>("POST", `/penalties/${penaltyId}/void`, {
-      reason,
-    });
+  /** "Cheating (-7.5)": needs the confirmation and a reason. */
+  recordCheating(roomId: number, body: CheatingRequest) {
+    return this.send<DeductionView>("POST", `/rooms/${roomId}/cheating`, body);
+  }
+  /** Cancelling keeps the row in the log and restores the hint or the points. */
+  cancelDeduction(deductionId: number, reason: string) {
+    return this.send<DeductionView>("POST", `/deductions/${deductionId}/cancel`, { reason });
+  }
+  roomDeductions(roomId: number) {
+    return this.get<DeductionView[]>(`/rooms/${roomId}/deductions`);
+  }
+  /** The typed 0-15 score of a team in a room without an automatic score. */
+  saveManualScore(roomId: number, teamId: number, score: number) {
+    return this.send<ManualScoreView>("PUT", `/rooms/${roomId}/manual-scores/${teamId}`, { score });
   }
   saveRoomContent(roomId: number, body: RoomContentRequest) {
     return this.send<RoomContentView>("PUT", `/rooms/${roomId}/content`, body);
@@ -432,17 +456,33 @@ export class EventApi {
       activity,
     });
   }
-  saveAdminContent(body: AdminContentRequest) {
-    return this.send<AdminContent>("PUT", "/admin/content", body);
+  finalContent() {
+    return this.get<FinalContentView>("/admin/final/content");
   }
-  createSuspect(body: SuspectRequest) {
-    return this.send<SuspectView>("POST", "/admin/suspects", body);
+  /** The whole crypto content file as JSON text; refused whole with every problem listed. */
+  importFinalContent(json: string) {
+    return this.api.request<FinalContentView>("PUT", EVENT + "/admin/final/content", json, { "Content-Type": "application/json" });
   }
-  updateSuspect(suspectId: number, body: SuspectRequest) {
-    return this.send<SuspectView>("PUT", `/admin/suspects/${suspectId}`, body);
+  finalTimer() {
+    return this.get<FinalTimerView>("/admin/final/timer");
   }
-  deleteSuspect(suspectId: number) {
-    return this.send<AdminContent>("DELETE", `/admin/suspects/${suspectId}`);
+  pauseFinal() {
+    return this.send<FinalTimerView>("POST", "/admin/final/timer/pause", {});
+  }
+  resumeFinal() {
+    return this.send<FinalTimerView>("POST", "/admin/final/timer/resume", {});
+  }
+  addFinalTime(seconds: number, key: string) {
+    return this.api.request<FinalTimerView>("POST", EVENT + "/admin/final/timer/add", { seconds }, { "Idempotency-Key": key });
+  }
+  scoreboard() {
+    return this.get<RankingRow[]>("/admin/scoreboard");
+  }
+  finalBoard() {
+    return this.get<FinalBoardRow[]>("/admin/final/board");
+  }
+  adminDeductions() {
+    return this.get<DeductionView[]>("/admin/deductions");
   }
 
   // ---- Admin: overrides ----
@@ -475,9 +515,6 @@ export class EventApi {
       alsoRemoveRecovery,
       reason,
     });
-  }
-  timeAdjustment(teamId: number, minutes: number, reason: string) {
-    return this.send<OverrideOutcome>("POST", "/admin/overrides/time-adjustment", { teamId, minutes, reason });
   }
   setDisqualified(teamId: number, disqualified: boolean, reason: string) {
     const action = disqualified ? "disqualify" : "reinstate";

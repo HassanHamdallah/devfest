@@ -49,16 +49,16 @@ export class EventTeamFinalCard {
   readonly board = input.required<TeamBoard>();
 
   protected readonly canOpen = computed(
-    () => this.board().finalOpen || this.board().finalStage === "FINISHED",
+    () => this.board().finalOpen || this.board().finalStage === "COMPLETED",
   );
   protected readonly openText = computed(() =>
-    this.board().finalStage === "FINISHED"
-      ? "Your team solved the case."
-      : "The final is open for all teams.",
+    this.board().finalStage === "COMPLETED"
+      ? "Your team's final answer is recorded."
+      : this.board().finalStage === "NOT_QUALIFIED"
+        ? "Your team did not qualify for the final."
+        : "The final is open for all teams.",
   );
   protected readonly lockedReason = computed(() =>
-    this.board().finalStage === "CLOSED"
-      ? "The final is closed."
-      : "The final opens for all teams at the same time.",
+    "The final opens for all teams at the same time.",
   );
 }

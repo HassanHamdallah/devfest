@@ -30,6 +30,14 @@ public class ContestScoreService {
     this.contest = contest;
   }
 
+  /** Every scored team's total (0..15) in the given contest room, by team id. One statement whatever the number of teams. */
+  @Transactional(readOnly = true)
+  public java.util.Map<Long, Integer> roomTotals(EventRoomRecord room) {
+    java.util.Map<Long, Integer> totals = new java.util.HashMap<>();
+    ContestBoard.scores(contest.teams(room.id()), room.position()).forEach((teamId, score) -> totals.put(teamId, score.total()));
+    return totals;
+  }
+
   /**
    * The team's score in the room that runs the contest activity, or empty when no room does, the team is inactive or
    * disqualified (those teams are left out of the placement), or no result has been saved for it yet. 3 SQL statements.

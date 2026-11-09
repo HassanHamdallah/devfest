@@ -4,22 +4,20 @@ export type RoomCode = "AI" | "PROBLEM_SOLVING" | "LINUX" | "HARDWARE";
 export type GroupCode = "A" | "B" | "C" | "D";
 export type JudgeStatus = "PENDING" | "PASS" | "FAIL";
 export type TeamRoomStatus = "NOT_STARTED" | "SUBMITTED" | "PASSED" | "FAILED";
-export type FinalStage =
+/** A team's status in the final: Not qualified / Recovery / In final / Completed (LOCKED before the final opens). */
+export type FinalStage = "LOCKED" | "NOT_QUALIFIED" | "RECOVERY" | "IN_FINAL" | "COMPLETED";
+/** The screen the server says the team is on; the page only renders it. */
+export type FinalScreen =
   | "LOCKED"
-  | "NOT_ENOUGH_CLUES"
+  | "NOT_QUALIFIED"
   | "RECOVERY"
-  | "MESSAGE"
-  | "FINISHED"
-  | "CLOSED";
-export type PenaltyKind =
-  | "HINT"
-  | "MINOR_VIOLATION"
-  | "PROHIBITED_TOOL"
-  | "CHEATING"
-  | "ANSWER_SHARING"
-  | "RECOVERY"
-  | "WRONG_ACCUSATION"
-  | "TIME_ADJUSTMENT";
+  | "UNLOCK"
+  | "MISSION"
+  | "LAYER"
+  | "SUSPECTS"
+  | "SUBMITTED";
+/** The only two point deductions of the event: a hint (-2) and a cheating violation (-7.5). */
+export type DeductionKind = "HINT" | "CHEATING";
 export type EventRole = "ADMIN" | "MANAGER" | "MEMBER";
 export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
@@ -72,14 +70,15 @@ export interface ResultsView {
 }
 
 export interface PublicRankingRow {
+  /** Null for a disqualified team, which is listed last and never ranked. */
   rank: number | null;
   teamName: string;
   groupCode: GroupCode;
-  clues: number;
-  penaltyMinutes: number;
-  finished: boolean;
-  adjustedSeconds: number | null;
-  /** Listed last, never ranked. */
+  /** The four room scores in room order (AI, Problem solving, Linux, Hardware). */
+  roomScores: number[];
+  finalScore: number;
+  total: number;
+  finalStatus: FinalStage;
   disqualified: boolean;
 }
 
@@ -111,6 +110,9 @@ export interface TeamBoard {
   revision: number;
   /** The organizer disqualified the team: it keeps its records but cannot submit. */
   disqualified: boolean;
+  /** "Hints used: n of 2": the only deduction information a team ever sees. */
+  hintsUsed: number;
+  hintsAllowed: number;
   /** One entry per room, in room order. */
   evidence: RoomEvidence[];
 }
@@ -163,42 +165,62 @@ export interface RoomSubmissionRequest {
   clueAnswer: string;
 }
 
-export interface TeamRecovery {
-  roomId: number;
-  roomCode: RoomCode;
-  roomName: string;
-  prompt: string;
-  attempts: number;
+export interface FinalNotebookEntry {
+  id: string;
+  text: string;
+  claimedSigner: string | null;
+  /** S, e, n and H of a signed report (E03, E04); null for the other evidence. */
+  signature: { s: number; e: number; n: number; h: number } | null;
+  /** The team may still give its one verdict on this report. */
+  verdictOpen: boolean;
+  /** The team's own YES / NO, once given; never whether it was right. */
+  yourVerdict: "YES" | "NO" | null;
 }
 
 export interface FinalSuspect {
   id: number;
   name: string;
-  description: string;
 }
 
-export interface TeamFinish {
-  finishedAt: string;
-  adjustedSeconds: number;
-  receiptId: string;
-  suspectName: string;
-}
-
+/** The team's final, always built from the server's state; parts of other screens are null or empty. */
 export interface TeamFinal {
-  stage: FinalStage;
-  finalStartedAt: string | null;
+  status: FinalStage;
+  screen: FinalScreen;
   serverNow: string;
+  finalStartedAt: string | null;
+  timerPhase: RoundPhase | null;
+  remainingSeconds: number | null;
   cluesCollected: number;
-  recovery: TeamRecovery | null;
-  encryptedMessage: string | null;
+  /** Seconds to wait before the next try after five wrong answers in a row. */
+  waitSeconds: number;
+  unlock: { roomNames: string[] } | null;
+  recovery: { question: string; attempts: number } | null;
+  mission: { story: string; equipment: string } | null;
+  /** Only the ciphertext and the modulus of the layer being solved. */
+  layer: { layer: number; c: number; n: number; solvedLayers: number } | null;
+  notebook: FinalNotebookEntry[];
   suspects: FinalSuspect[];
-  accusationAttempts: number;
-  wrongAccusations: number;
-  penaltyMinutes: number;
-  finish: TeamFinish | null;
+  submitted: { teamName: string; status: FinalStage; at: string; message: string } | null;
   resultsPublished: boolean;
   /** The same per-room evidence as on the team board. */
   evidence: RoomEvidence[];
+}
+
+/** The answer to an unlock, layer, verdict, start or suspect step (never carries the value or a correctness). */
+export interface FinalActionResult {
+  accepted: boolean;
+  message: string;
+  waitSeconds: number;
+  status: FinalStage;
+  screen: FinalScreen | null;
+}
+
+export interface UnlockRequest {
+  codes: string[];
+}
+
+export interface LayerAnswerRequest {
+  value: string;
 }
 
 export interface RecoveryRequest {
@@ -207,19 +229,6 @@ export interface RecoveryRequest {
 
 export interface RecoveryResult {
   attemptId: string;
-  correct: boolean;
-  stage: FinalStage;
-  receivedAt: string;
-}
-
-export interface AccusationRequest {
-  suspectId: number;
-  decryptedMessage: string;
-  evidence: string;
-}
-
-export interface AccusationResult {
-  receiptId: string;
   correct: boolean;
   stage: FinalStage;
   receivedAt: string;
@@ -234,8 +243,6 @@ export interface RoomBoardRoom {
   position: number;
   open: boolean;
   clueKey: string;
-  recoveryPrompt: string;
-  recoveryAnswer: string;
   version: number;
   contentEditable: boolean;
   /** False while the clue key is empty; the room cannot open. */
@@ -244,6 +251,8 @@ export interface RoomBoardRoom {
   terminalEnabled: boolean;
   /** The room's team activity; for AI_QUIZ its manager prepares the questions and repairs. */
   activity: RoomActivity | null;
+  /** The room has no automatic score: its manager types a 0-15 score for each team. */
+  manualScoring: boolean;
 }
 
 export interface RoomCounters {
@@ -311,58 +320,69 @@ export interface RoomTeamRow {
   latestSubmission: LatestSubmission | null;
   submissionCount: number;
   judgement: JudgementView;
-  penalties: PenaltyView[];
-  activePenaltyMinutes: number;
-  hintPenaltyMismatch: boolean;
+  /** This team's hint and cheating rows in this room (active and cancelled, newest first). */
+  deductions: DeductionView[];
+  roomHints: number;
+  /** Active hints across all four rooms, of `hintsAllowed`. */
+  hintsUsed: number;
+  hintsAllowed: number;
+  cheating: boolean;
+  /** The typed 0-15 score of a room without an automatic score; null while none is entered. */
+  manualScore: number | null;
 }
 
 export interface JudgementView {
   teamId: number;
   roomId: number;
   status: JudgeStatus;
-  hints: number;
   note: string;
   version: number;
   reviewerName: string | null;
   updatedAt: string | null;
 }
 
-export interface PenaltyView {
+export interface DeductionView {
   id: number;
   teamId: number;
-  roomId: number | null;
-  kind: PenaltyKind;
-  minutes: number;
-  note: string;
+  teamName: string;
+  roomId: number;
+  roomCode: RoomCode;
+  kind: DeductionKind;
+  /** The optional hint note or the required cheating reason. */
+  reason: string;
   createdByName: string;
   createdAt: string;
-  voided: boolean;
-  voidedByName: string | null;
-  voidedAt: string | null;
-  voidReason: string | null;
+  cancelled: boolean;
+  cancelledByName: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
 }
 
 export interface JudgementRequest {
   status: JudgeStatus;
-  hints: number;
   note: string;
   version: number;
 }
 
-export interface PenaltyRequest {
+export interface HintRequest {
   teamId: number;
-  kind: PenaltyKind;
   note: string;
 }
 
-export interface VoidPenaltyRequest {
+export interface CheatingRequest {
+  teamId: number;
   reason: string;
+  confirmed: boolean;
+}
+
+export interface ManualScoreView {
+  teamId: number;
+  roomId: number;
+  score: number;
 }
 
 export interface RoomContentRequest {
   clueKey: string;
-  recoveryPrompt: string;
-  recoveryAnswer: string;
   version: number;
 }
 
@@ -371,8 +391,6 @@ export interface RoomContentView {
   code: RoomCode;
   name: string;
   clueKey: string;
-  recoveryPrompt: string;
-  recoveryAnswer: string;
   version: number;
   /** Answers re-checked by this save because the clue key changed (0 otherwise). */
   recheckedSubmissions: number;
@@ -775,20 +793,104 @@ export interface RotationRow {
   rooms: RoomCode[];
 }
 
-export interface RankingRow {
-  rank: number | null;
+/** One room of a team's score: the base, the deductions and what is left (rounded to 2 decimals). */
+export interface RoomScoreLine {
+  roomId: number;
+  code: RoomCode;
+  name: string;
+  /** AI, LINUX, CONTEST or MANUAL: how the base was obtained. */
+  source: string;
+  base: number;
+  hints: number;
+  cheating: boolean;
+  hintDeduction: number;
+  cheatingDeduction: number;
+  score: number;
+}
+
+export interface FinalScoreLine {
+  status: FinalStage;
+  layersCorrect: number;
+  verdictsCorrect: number;
+  layers: number;
+  verdicts: number;
+  crypto: number;
+  suspectSubmitted: boolean;
+  suspectCorrect: boolean;
+  suspect: number;
+  activeSeconds: number | null;
+  time: number;
+  total: number;
+  finishedAt: string | null;
+}
+
+/** A team's full score out of 100: four rooms of 15 plus the final's 40. Organizers only. */
+export interface TeamScoreBreakdown {
   teamId: number;
   teamName: string;
   groupCode: GroupCode;
-  clues: number;
-  /** Rooms whose clue the team holds, in room order (admin only). */
-  clueRooms: RoomCode[];
-  penaltyMinutes: number;
-  penaltyEntries: number;
-  finished: boolean;
-  finishedAt: string | null;
-  adjustedSeconds: number | null;
   disqualified: boolean;
+  /** Clues held, and the rooms they come from in room order. */
+  clues: number;
+  clueRooms: RoomCode[];
+  rooms: RoomScoreLine[];
+  roomsTotal: number;
+  finalScore: FinalScoreLine;
+  total: number;
+}
+
+export interface RankingRow {
+  /** Null for a disqualified team, which stays outside the ranking. */
+  rank: number | null;
+  scores: TeamScoreBreakdown;
+}
+
+/** One team on the admin's live final table. */
+export interface FinalBoardRow {
+  teamId: number;
+  teamName: string;
+  groupCode: GroupCode;
+  disqualified: boolean;
+  status: FinalStage;
+  stage: string;
+  clues: number;
+  layersSolved: number;
+  unlockAttempts: number;
+  unlockWrong: number;
+  layerAttempts: number;
+  layerWrong: number;
+  recoveryAttempts: number;
+  verdictE03: "YES" | "NO" | null;
+  verdictE03Correct: boolean | null;
+  verdictE04: "YES" | "NO" | null;
+  verdictE04Correct: boolean | null;
+  suspect: string | null;
+  suspectCorrect: boolean | null;
+  activeSeconds: number | null;
+  finishedAt: string | null;
+  finishedBy: string | null;
+  layersPoints: number;
+  verdictsPoints: number;
+  suspectPoints: number;
+  timePoints: number;
+  finalScore: number;
+}
+
+export interface FinalTimerView {
+  open: boolean;
+  phase: RoundPhase | null;
+  remainingSeconds: number | null;
+  durationSeconds: number | null;
+  serverNow: string;
+}
+
+export interface FinalContentView {
+  imported: boolean;
+  readOnly: boolean;
+  importedAt: string | null;
+  fullUntilMinutes: number | null;
+  recoveryIsPlaceholder: boolean;
+  content: string | null;
 }
 
 export interface AdminAlert {
@@ -829,7 +931,6 @@ export interface TeamFlagsView {
   disqualified: boolean;
   exceptionRoom: RoomCode | null;
   manualClues: number;
-  timeAdjustmentMinutes: number;
 }
 
 export interface OverrideAuditView {
@@ -989,29 +1090,8 @@ export interface RoomManagerRequest {
 /** Response of PUT /admin/rooms/{roomId}/manager. */
 export type RoomManagerView = OrganizationRoom;
 
-export interface SuspectView {
-  id: number;
-  name: string;
-  description: string;
-  position: number;
-}
-
+/** The admin's content page: every room's content and settings. */
 export interface AdminContent {
-  encryptedMessage: string;
-  correctSuspectId: number | null;
-  version: number;
-  suspects: SuspectView[];
   rooms: RoomContentView[];
   readOnly: boolean;
-}
-
-export interface AdminContentRequest {
-  encryptedMessage: string;
-  correctSuspectId: number | null;
-  version: number;
-}
-
-export interface SuspectRequest {
-  name: string;
-  description: string;
 }

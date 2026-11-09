@@ -29,6 +29,15 @@ public class SentinelScoreService {
     this.work = work;
   }
 
+  /**
+   * The saved-stage totals (0..100) of every team that saved a stage in the given AI mission room, by team id. One SQL
+   * statement whatever the number of teams; the event score converts it with {@code RoomScoring.aiBase}.
+   */
+  @Transactional(readOnly = true)
+  public java.util.Map<Long, BigDecimal> roomTotals(long roomId) {
+    return work.totalsByTeam(roomId);
+  }
+
   /** The team's score in the room that runs the AI mission, or empty when no room does. 2 SQL statements. */
   @Transactional(readOnly = true)
   public Optional<RoomScore> roomScore(long teamId) {

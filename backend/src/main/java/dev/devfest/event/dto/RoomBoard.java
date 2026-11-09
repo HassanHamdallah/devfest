@@ -23,13 +23,12 @@ public record RoomBoard(
     int position,
     boolean open,
     String clueKey,
-    String recoveryPrompt,
-    String recoveryAnswer,
     long version,
     boolean contentEditable,
     boolean clueKeySet,
     boolean terminalEnabled,
-    RoomActivity activity
+    RoomActivity activity,
+    boolean manualScoring
   ) {}
 
   public record RoomCounters(int inRoomNow, int pending, int passed, int failed) {}

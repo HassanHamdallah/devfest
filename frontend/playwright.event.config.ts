@@ -16,6 +16,8 @@ export default defineConfig({
     "event-terminal-tools.spec.ts",
     "event-terminal-dashboard.spec.ts",
     "event-contest.spec.ts",
+    "event-final.spec.ts",
+    "event-scores.spec.ts",
     "event.spec.ts",
   ],
   timeout: 300000,

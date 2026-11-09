@@ -13,18 +13,19 @@ import { UiRoomChip } from "../../shared/ui/ui-room-chip/ui-room-chip";
 import { UiStatusChip } from "../../shared/ui/ui-status-chip/ui-status-chip";
 import { EventApi } from "../event/event-api";
 import { EventLiveStore } from "../event/event-live-store";
-import { formatPenaltyMinutes } from "../event/format";
+import { formatPoints } from "../event/format";
+import { TeamDrawerDeductions } from "./team-drawer-deductions";
 import { TEAM_OVERRIDE_LINKS, TeamDrawerService } from "./team-drawer.service";
 import { teamSummary } from "./team-summary";
 
 /**
- * The organizer's side panel for one team: where it is this round, clues, penalties, device, flags, and the
+ * The organizer's side panel for one team: where it is this round, clues, score, hints and cheating, device, flags, and the
  * same override actions as the Teams page "…" menu. It reads the boards pages already loaded and fetches
  * one (existing endpoint) only if none is loaded yet.
  */
 @Component({
   selector: "app-team-drawer",
-  imports: [DatePipe, RouterLink, UiDrawer, UiRoomChip, UiStatusChip],
+  imports: [DatePipe, RouterLink, TeamDrawerDeductions, UiDrawer, UiRoomChip, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: "./team-drawer.html",
   styleUrl: "./team-drawer.css",
@@ -44,12 +45,10 @@ export class TeamDrawer {
   protected readonly heading = computed(
     () => this.summary()?.team.name ?? "Team",
   );
-  protected readonly penaltyText = computed(() => {
-    const summary = this.summary();
-    if (!summary?.ranking) return "—";
-    const { penaltyMinutes, penaltyEntries } = summary.ranking;
-    const entries = penaltyEntries === 1 ? "1 entry" : `${penaltyEntries} entries`;
-    return `${formatPenaltyMinutes(penaltyMinutes)} · ${entries}`;
+  /** "42.5 of 100" from the team's breakdown, or a dash while the board is loading. */
+  protected readonly scoreText = computed(() => {
+    const scores = this.summary()?.scores;
+    return scores ? `${formatPoints(scores.total)} of 100` : "—";
   });
 
   constructor() {

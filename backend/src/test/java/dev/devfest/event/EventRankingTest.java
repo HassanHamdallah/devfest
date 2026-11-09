@@ -1,201 +1,217 @@
 package dev.devfest.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.devfest.event.domain.GroupCode;
 import dev.devfest.event.domain.RoomCode;
-import java.sql.Timestamp;
+import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Ranking (D12) with controlled timestamps written straight into devfest_test: adjusted time, tie-breaks,
- * shared ranks, unfinished teams and publication.
+ * The 100-point ranking: total DESC, then final score DESC, then the earlier final finish; ties share a rank;
+ * unqualified teams rank by their room scores; disqualified teams stay outside; scores reach teams only once published.
  */
 class EventRankingTest extends EventIntegrationTest {
 
-  private static final Instant FINAL_STARTED = Instant.parse("2026-11-01T10:00:00Z");
-
-  private long adminId;
+  private static final Instant T0 = Instant.parse("2026-11-08T10:00:00Z");
 
   @BeforeEach
-  void startFinal() {
+  void prepare() {
     loadContent();
-    adminId = db.queryForObject("SELECT id FROM app_user WHERE role = 'ADMIN'", Long.class);
-    db.update(
-      "UPDATE event_state SET current_round = 5, final_open = TRUE, final_started_at = ? WHERE id = 1",
-      Timestamp.from(FINAL_STARTED)
-    );
   }
 
   @Test
-  void finishedTeamsAreOrderedByAdjustedTimeThenPenaltyEntriesThenFinishTime() {
-    TestTeam fast = team("Fast", GroupCode.A);
-    TestTeam penalized = team("Penalized", GroupCode.A);
+  void roomScoresAddUpToTheTotalAndTotalDecidesFirst() {
+    TestTeam high = team("High", GroupCode.A);
+    TestTeam low = team("Low", GroupCode.B);
+    TestTeam mid = team("Mid", GroupCode.C);
+    manual(high, "14.5");
+    manual(low, "3");
+    manual(mid, "9.25");
+    assertEquals(List.of("High", "Mid", "Low"), names());
+    assertEquals(List.of(1, 2, 3), ranks());
+    assertEquals(new BigDecimal("14.50"), total("High"));
+    Response board = expectOk(get("/admin/board", admin));
+    List<Number> roomScores = board.json("$.ranking[0].scores.rooms[*].score");
+    assertEquals(List.of(0.0, 0.0, 0.0, 14.5), roomScores.stream().map(Number::doubleValue).toList());
+    assertEquals("MANUAL", board.json("$.ranking[0].scores.rooms[3].source"));
+  }
+
+  @Test
+  void equalTotalsAreSeparatedByTheFinalScore() {
+    TestTeam withFinal = team("WithFinal", GroupCode.A);
+    TestTeam roomsOnly = team("RoomsOnly", GroupCode.B);
+    // 10 points from the final's four layers against 10 points from the Hardware room.
+    manual(roomsOnly, "10");
+    layers(withFinal, 4);
+    assertEquals(new BigDecimal("10.00"), total("WithFinal"));
+    assertEquals(new BigDecimal("10.00"), total("RoomsOnly"));
+    assertEquals(List.of("WithFinal", "RoomsOnly"), names());
+    assertEquals(List.of(1, 2), ranks());
+  }
+
+  @Test
+  void equalTotalAndFinalScoreAreSeparatedByTheEarlierFinish() {
+    TestTeam late = team("Late", GroupCode.A);
     TestTeam early = team("Early", GroupCode.B);
-    TestTeam tieOne = team("Tie one", GroupCode.B);
-    TestTeam tieTwo = team("Tie two", GroupCode.C);
-    TestTeam last = team("Last", GroupCode.C);
-    finish(fast, 600);
-    penalty(fast, 5, true);
-    finish(penalized, 480);
-    penalty(penalized, 2, false);
-    finish(early, 300);
-    penalty(early, 5, false);
-    finish(tieOne, 900);
-    finish(tieTwo, 900);
-    finish(last, 1000);
-    team("Unfinished two clues", GroupCode.D);
-    TestTeam threeClues = team("Unfinished three clues", GroupCode.D);
-    TestTeam twoClues = team("Another two clues", GroupCode.D);
-    clues(threeClues, 3);
-    clues(twoClues, 2);
+    layers(late, 4);
+    layers(early, 4);
+    submitted(late, T0.plusSeconds(90), 600, false);
+    submitted(early, T0.plusSeconds(30), 600, false);
+    assertEquals(total("Late"), total("Early"));
+    assertEquals(List.of("Early", "Late"), names());
+    assertEquals(List.of(1, 2), ranks());
+  }
 
+  @Test
+  void teamsEqualOnEverythingShareARankAndTheNextOneSkips() {
+    TestTeam a = team("A", GroupCode.A);
+    TestTeam b = team("B", GroupCode.B);
+    TestTeam c = team("C", GroupCode.C);
+    TestTeam d = team("D", GroupCode.D);
+    manual(a, "10");
+    manual(b, "10");
+    manual(c, "5");
+    manual(d, "0");
+    assertEquals(List.of("A", "B", "C", "D"), names());
+    assertEquals(List.of(1, 1, 3, 4), ranks());
+  }
+
+  @Test
+  void teamsThatDidNotQualifyRankByTheirRoomScoresAndDisqualifiedTeamsStayOutside() {
+    TestTeam qualified = team("Qualified", GroupCode.A);
+    TestTeam unqualified = team("Unqualified", GroupCode.B);
+    TestTeam cheater = team("Cheater", GroupCode.C);
+    for (RoomCode code : RoomCode.values()) db.update("INSERT INTO collected_clue(team_id, room_id, source, collected_at) VALUES (?, ?, 'MANUAL', now())", qualified.id(), rooms.get(code));
+    manual(qualified, "4");
+    manual(unqualified, "12");
+    manual(cheater, "15");
+    expectOk(post("/admin/teams/" + cheater.id() + "/disqualify", admin, "{\"reason\":\"Broke the rules of the event\"}"));
+    setRound(5);
+    openFinal();
     Response board = expectOk(get("/admin/board", admin));
-    List<String> names = board.json("$.ranking[*].teamName");
-    assertEquals(
-      List.of("Fast", "Early", "Penalized", "Tie one", "Tie two", "Last", "Unfinished three clues", "Another two clues", "Unfinished two clues"),
-      names
-    );
+    assertEquals(List.of("Unqualified", "Qualified", "Cheater"), board.json("$.ranking[*].scores.teamName"));
     List<Integer> ranks = board.json("$.ranking[*].rank");
-    assertEquals(Arrays.asList(1, 2, 3, 4, 4, 6, null, null, null), ranks);
-    List<Integer> adjusted = board.json("$.ranking[0:3].adjustedSeconds");
-    assertEquals(List.of(600, 600, 600), adjusted);
-    assertEquals(0, (int) board.json("$.ranking[0].penaltyMinutes"));
+    assertEquals(Integer.valueOf(1), ranks.get(0));
+    assertEquals(Integer.valueOf(2), ranks.get(1));
+    assertNull(ranks.get(2), "a disqualified team has no rank");
+    assertEquals("NOT_QUALIFIED", board.json("$.ranking[0].scores.finalScore.status"));
+    assertEquals(new BigDecimal("0.00"), finalTotal("Unqualified"));
   }
 
   @Test
-  void aTimeAdjustmentChangesAdjustedTimeButNotThePenaltyCount() {
-    TestTeam team = team("Compensated", GroupCode.A);
-    finish(team, 1000);
-    penalty(team, 5, false);
-    String body = "{\"teamId\":%d,\"minutes\":-5,\"reason\":\"Wi-Fi was down for five minutes\"}".formatted(team.id());
-    expectOk(post("/admin/overrides/time-adjustment", admin, body));
-    Response board = expectOk(get("/admin/board", admin));
-    assertEquals(1000, (int) board.json("$.ranking[0].adjustedSeconds"), "+5 penalty and -5 adjustment cancel out");
-    assertEquals(1, (int) board.json("$.ranking[0].penaltyEntries"), "the adjustment is not a penalty entry");
-    assertEquals(0, (int) board.json("$.ranking[0].penaltyMinutes"));
-
-    long adjustment = db.queryForObject("SELECT id FROM penalty WHERE kind = 'TIME_ADJUSTMENT'", Long.class);
-    expectOk(post("/penalties/" + adjustment + "/void", admin, "{\"reason\":\"Entered for the wrong team\"}"));
-    assertEquals(1300, (int) expectOk(get("/admin/board", admin)).json("$.ranking[0].adjustedSeconds"));
+  void deductionsReduceTheTotalAndChangeTheOrder() {
+    TestTeam a = team("A", GroupCode.A);
+    TestTeam b = team("B", GroupCode.B);
+    manual(a, "15");
+    manual(b, "14");
+    assertEquals(List.of("A", "B"), names());
+    setRound(4);
+    expectOk(post("/rooms/" + rooms.get(RoomCode.HARDWARE) + "/hints", admin, "{\"teamId\":" + a.id() + "}"));
+    assertEquals(new BigDecimal("13.00"), total("A"));
+    assertEquals(List.of("B", "A"), names());
+    expectOk(post("/rooms/" + rooms.get(RoomCode.HARDWARE) + "/cheating", admin, "{\"teamId\":%d,\"reason\":\"Used a phone\",\"confirmed\":true}".formatted(b.id())));
+    assertEquals(new BigDecimal("6.50"), total("B"));
+    assertEquals(List.of("A", "B"), names());
   }
 
   @Test
-  void aDisqualifiedTeamIsListedLastWithoutARank() {
-    TestTeam fastest = team("Fastest", GroupCode.A);
-    TestTeam second = team("Second", GroupCode.B);
-    finish(fastest, 500);
-    finish(second, 900);
-    expectOk(post("/admin/teams/" + fastest.id() + "/disqualify", admin, "{\"reason\":\"Shared answers with another team\"}"));
-    Response board = expectOk(get("/admin/board", admin));
-    assertEquals(List.of("Second", "Fastest"), board.json("$.ranking[*].teamName"));
-    assertEquals(1, (int) board.json("$.ranking[0].rank"));
-    assertNull(board.json("$.ranking[1].rank"));
-    assertEquals(true, board.json("$.ranking[1].disqualified"));
+  void scoresReachTeamsOnlyOnceTheAdminPublishes() {
+    TestTeam a = team("A", GroupCode.A);
+    TestTeam b = team("B", GroupCode.B);
+    manual(a, "11");
+    manual(b, "7.5");
+    expectError(get("/results", a.token()), 403, "Results are not published yet.");
+    assertEquals(403, get("/results", managers.get(RoomCode.AI)).status(), "managers never see the ranking");
+    assertEquals(false, expectOk(get("/results", admin)).json("$.published"));
     expectOk(put("/admin/publication", admin, "{\"published\":true}"));
-    assertEquals(List.of(false, true), expectOk(get("/results", second.token())).json("$.rows[*].disqualified"));
-  }
-
-  @Test
-  void theAdminRankingNamesTheRoomsWhoseCluesATeamHolds() {
-    TestTeam collector = team("Collector", GroupCode.A);
-    TestTeam empty = team("Nothing yet", GroupCode.B);
-    // Collected out of room order on purpose: the list follows the room positions.
-    clue(collector, RoomCode.HARDWARE);
-    clue(collector, RoomCode.AI);
-    clue(collector, RoomCode.LINUX);
-
-    Response board = expectOk(get("/admin/board", admin));
-    assertEquals(List.of("Collector", "Nothing yet"), board.json("$.ranking[*].teamName"));
-    assertEquals(List.of("AI", "LINUX", "HARDWARE"), board.json("$.ranking[0].clueRooms"));
-    assertEquals(3, (int) board.json("$.ranking[0].clues"));
-    assertEquals(List.of(), board.json("$.ranking[1].clueRooms"));
-
-    expectOk(put("/admin/publication", admin, "{\"published\":true}"));
-    assertFalse(expectOk(get("/results", empty.token())).body().contains("clueRooms"), "the public ranking keeps only the count");
-  }
-
-  @Test
-  void resultsArePrivateUntilPublished() {
-    TestTeam member = team("Member team", GroupCode.A);
-    finish(member, 120);
-    expectError(get("/results", member.token()), 403, "Results are not published yet.");
-    expectOk(get("/results", admin));
-    expectOk(put("/admin/publication", admin, "{\"published\":true}"));
-    Response results = expectOk(get("/results", member.token()));
-    assertEquals("Member team", results.json("$.rows[0].teamName"));
-    assertEquals(120, (int) results.json("$.rows[0].adjustedSeconds"));
-    assertFalse(results.body().contains("teamId"));
+    Response published = expectOk(get("/results", a.token()));
+    assertEquals(List.of("A", "B"), published.json("$.rows[*].teamName"));
+    assertEquals(List.of(1, 2), published.json("$.rows[*].rank"));
+    assertEquals(List.of(11.0, 7.5), ((List<?>) published.json("$.rows[*].total")).stream().map(n -> ((Number) n).doubleValue()).toList());
+    assertEquals(4, (int) published.json("$.rows[0].roomScores.length()"));
+    assertFalse(published.body().contains("hints") || published.body().contains("cheating") || published.body().contains("deduction"));
     expectOk(put("/admin/publication", admin, "{\"published\":false}"));
-    assertEquals(403, get("/results", member.token()).status());
+    expectError(get("/results", b.token()), 403, "Results are not published yet.");
   }
 
   @Test
-  void csvExportIsRankedAndFormulaSafe() {
-    TestTeam formula = team("=cmd", GroupCode.A);
-    finish(formula, 60);
+  void theSpreadsheetFollowsTheRankingAndNeutralizesFormulas() {
+    TestTeam a = team("=SUM(1+1)", GroupCode.A);
+    team("Plain", GroupCode.B);
+    manual(a, "8");
     Response csv = expectOk(get("/admin/export.csv", admin));
     String[] lines = csv.body().split("\r\n");
     assertEquals(
-      "rank,team,group,clues,recoveryUsed,accusationAttempts,penaltyMinutes,penaltyEntries,finishedAt,adjustedSeconds",
+      "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,layers,verdicts,suspect,time,finalScore,total,finishedAt",
       lines[0]
     );
-    assertTrue(lines[1].startsWith("1,\"'=cmd\",A,"), lines[1]);
-    assertTrue(lines[1].endsWith(",60"), lines[1]);
-    assertEquals(403, get("/admin/export.csv", formula.token()).status());
+    assertEquals(3, lines.length);
+    assertTrue(lines[1].startsWith("1,"), lines[1]);
+    assertFalse(lines[1].contains(",=SUM"), "formula-safe cell: " + lines[1]);
+    assertTrue(lines[1].contains(",8.00,"), lines[1]);
+    assertTrue(lines[2].startsWith("2,\"Plain\",B,LOCKED,"), lines[2]);
   }
 
-  /** Records a correct accusation and the team's finish {@code seconds} after the final started. */
-  private void finish(TestTeam team, long seconds) {
-    UUID accusation = UUID.randomUUID();
-    Timestamp at = Timestamp.from(FINAL_STARTED.plusSeconds(seconds));
+  // ---- helpers ----------------------------------------------------------------------------------
+
+  /** The Hardware room has no automatic score: the manager types it. */
+  private void manual(TestTeam team, String score) {
+    expectOk(put("/rooms/" + rooms.get(RoomCode.HARDWARE) + "/manual-scores/" + team.id(), managers.get(RoomCode.HARDWARE), "{\"score\":" + score + "}"));
+  }
+
+  /** {@code count} correct layers, recorded directly (the layers themselves are tested with the final). */
+  private void layers(TestTeam team, int count) {
+    for (int layer = 1; layer <= count; layer++) {
+      db.update(
+        "INSERT INTO final_layer_attempt(id, team_id, layer, value, correct, received_at, idempotency_key, request_hash) VALUES (?, ?, ?, ?, TRUE, ?, ?, 'x')",
+        UUID.randomUUID(),
+        team.id(),
+        layer,
+        Long.toString(LAYER_ANSWERS[layer - 1]),
+        java.sql.Timestamp.from(T0),
+        UUID.randomUUID()
+      );
+    }
+  }
+
+  private void submitted(TestTeam team, Instant at, int activeSeconds, boolean correct) {
     db.update(
       """
-      INSERT INTO accusation(id, team_id, suspect_id, decrypted_message, evidence, correct, received_at,
-                             idempotency_key, request_hash)
-      VALUES (?, ?, ?, 'message', 'evidence', TRUE, ?, ?, 'hash')""",
-      accusation,
+      INSERT INTO team_final(team_id, unlocked_at, case_started_at, suspect_id, suspect_correct, submitted_at, active_seconds, finalised_at, finalised_cause)
+      VALUES (?, ?, ?, 2, ?, ?, ?, ?, 'SUBMITTED')""",
       team.id(),
-      suspectId(CORRECT_SUSPECT),
-      at,
-      UUID.randomUUID()
-    );
-    db.update("INSERT INTO team_final(team_id, finished_at, finishing_accusation_id) VALUES (?, ?, ?)", team.id(), at, accusation);
-    clues(team, 4);
-  }
-
-  private void penalty(TestTeam team, int minutes, boolean voided) {
-    db.update(
-      """
-      INSERT INTO penalty(team_id, room_id, kind, minutes, created_by, created_at, voided_by, voided_at, void_reason)
-      VALUES (?, ?, 'PROHIBITED_TOOL', ?, ?, now(), ?, ?, ?)""",
-      team.id(),
-      rooms.get(RoomCode.AI),
-      minutes,
-      adminId,
-      voided ? adminId : null,
-      voided ? Timestamp.from(Instant.now()) : null,
-      voided ? "mistake" : null
+      java.sql.Timestamp.from(T0),
+      java.sql.Timestamp.from(T0),
+      correct,
+      java.sql.Timestamp.from(at),
+      activeSeconds,
+      java.sql.Timestamp.from(at)
     );
   }
 
-  private void clues(TestTeam team, int count) {
-    for (RoomCode code : List.of(RoomCode.values()).subList(0, count)) clue(team, code);
+  private List<String> names() {
+    return expectOk(get("/admin/board", admin)).json("$.ranking[*].scores.teamName");
   }
 
-  private void clue(TestTeam team, RoomCode code) {
-    db.update(
-      "INSERT INTO collected_clue(team_id, room_id, source, collected_at) VALUES (?, ?, 'RECOVERY', now())",
-      team.id(),
-      rooms.get(code)
-    );
+  private List<Integer> ranks() {
+    return expectOk(get("/admin/board", admin)).json("$.ranking[*].rank");
+  }
+
+  private BigDecimal total(String teamName) {
+    List<Number> found = expectOk(get("/admin/scores", admin)).json("$[?(@.teamName == '" + teamName + "')].total");
+    return new BigDecimal(found.get(0).toString()).setScale(2);
+  }
+
+  private BigDecimal finalTotal(String teamName) {
+    List<Number> found = expectOk(get("/admin/scores", admin)).json("$[?(@.teamName == '" + teamName + "')].finalScore.total");
+    return new BigDecimal(found.get(0).toString()).setScale(2);
   }
 }

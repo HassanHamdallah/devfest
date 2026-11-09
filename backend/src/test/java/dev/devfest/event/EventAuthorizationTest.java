@@ -21,7 +21,11 @@ class EventAuthorizationTest extends EventIntegrationTest {
     "/admin/board",
     "/admin/organization",
     "/admin/content",
-    "/admin/export.csv"
+    "/admin/export.csv",
+    "/admin/scores",
+    "/admin/deductions",
+    "/admin/final/content",
+    "/admin/final/timer"
   );
 
   private TestTeam member;
@@ -63,9 +67,12 @@ class EventAuthorizationTest extends EventIntegrationTest {
     long linux = rooms.get(RoomCode.LINUX);
     expectError(get("/rooms/" + linux + "/board", aiManager), 404, "Room not found.");
     expectError(put("/rooms/" + linux + "/judgements/" + member.id(), aiManager, judgement()), 404, "Room not found.");
-    String penalty = "{\"teamId\":%d,\"kind\":\"HINT\",\"note\":\"\"}".formatted(member.id());
-    expectError(post("/rooms/" + linux + "/penalties", aiManager, penalty), 404, "Room not found.");
-    String content = "{\"clueKey\":\"X\",\"recoveryPrompt\":\"P\",\"recoveryAnswer\":\"A\",\"version\":1}";
+    String hint = "{\"teamId\":%d,\"note\":\"\"}".formatted(member.id());
+    expectError(post("/rooms/" + linux + "/hints", aiManager, hint), 404, "Room not found.");
+    String cheating = "{\"teamId\":%d,\"reason\":\"Copied the neighbour\",\"confirmed\":true}".formatted(member.id());
+    expectError(post("/rooms/" + linux + "/cheating", aiManager, cheating), 404, "Room not found.");
+    expectError(get("/rooms/" + linux + "/deductions", aiManager), 404, "Room not found.");
+    String content = "{\"clueKey\":\"X\",\"version\":1}";
     expectError(put("/rooms/" + linux + "/content", aiManager, content), 404, "Room not found.");
     expectOk(get("/rooms/" + rooms.get(RoomCode.AI) + "/board", aiManager));
     assertEquals(403, get("/admin/board", aiManager).status());
@@ -85,7 +92,7 @@ class EventAuthorizationTest extends EventIntegrationTest {
 
   /**
    * D3: a member receives a room's clue key only for a finished room whose clue its own team collected; never a
-   * recovery answer, the correct suspect or another team's key. (collectClues answers with the key itself, so the
+   * recovery answer, a plaintext, the correct suspect or another team's key. (collectClues answers with the key itself, so the
    * key texts of the collected rooms are the team's own answers too.)
    */
   @Test
@@ -110,11 +117,20 @@ class EventAuthorizationTest extends EventIntegrationTest {
     );
 
     List<String> after = new ArrayList<>();
-    after.add(expectOk(recover(member, UUID.randomUUID(), RECOVERY_ANSWERS.get(RoomCode.HARDWARE))).body());
+    after.add(expectOk(recover(member, UUID.randomUUID(), RECOVERY_ANSWER)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
-    after.add(expectOk(accuse(member, UUID.randomUUID(), "Nadia Murad")).body());
-    after.add(expectOk(accuse(member, UUID.randomUUID(), CORRECT_SUSPECT)).body());
+    after.add(expectOk(unlockWithKeys(member)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
+    after.add(expectOk(startCase(member)).body());
+    for (int n = 1; n <= 4; n++) {
+      after.add(expectOk(layer(member, n, Long.toString(LAYER_ANSWERS[n - 1]))).body());
+      after.add(expectOk(get("/team/final", member.token())).body());
+    }
+    after.add(expectOk(verdict(member, 3, "YES")).body());
+    after.add(expectOk(verdict(member, 4, "YES")).body());
+    after.add(expectOk(suspect(member, 4)).body());
+    after.add(expectOk(get("/team/final", member.token())).body());
+    after.add(expectOk(get("/team/board", member.token())).body());
     expectOk(put("/admin/publication", admin, "{\"published\":true}"));
     after.add(expectOk(get("/results", member.token())).body());
     for (String body : after) assertNoSecrets(body, EnumSet.allOf(RoomCode.class));
@@ -150,13 +166,13 @@ class EventAuthorizationTest extends EventIntegrationTest {
     CLUE_KEYS.forEach((room, key) -> {
       if (!allowedKeys.contains(room)) assertFalse(body.contains(key), room + " clue key leaked: " + body);
     });
-    for (String answer : RECOVERY_ANSWERS.values()) assertFalse(body.contains(answer), "recovery answer leaked: " + body);
-    for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect")) {
+    assertFalse(body.contains(RECOVERY_ANSWER), "recovery answer leaked: " + body);
+    for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect", "acceptedAnswers", "privateExponent", "plaintext")) {
       assertFalse(body.contains(field), field + " leaked: " + body);
     }
   }
 
   private static String judgement() {
-    return "{\"status\":\"PASS\",\"hints\":0,\"note\":\"\",\"version\":0}";
+    return "{\"status\":\"PASS\",\"note\":\"\",\"version\":0}";
   }
 }

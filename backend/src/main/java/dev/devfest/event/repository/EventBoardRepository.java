@@ -52,7 +52,7 @@ public class EventBoardRepository {
            ls.idempotency_key, ls.request_hash, cnt.submissions,
            v.auto_correct, v.override, v.effective_correct, v.override_by, ou.name AS override_by_name,
            v.override_at, v.version AS verdict_version,
-           j.status, j.hints, j.note, j.version, j.reviewer_id, u.name AS reviewer_name, j.updated_at
+           j.status, j.note, j.version, j.reviewer_id, u.name AS reviewer_name, j.updated_at
     FROM event_team t
     JOIN event_room r ON r.id = ?
     LEFT JOIN LATERAL (
@@ -75,7 +75,6 @@ public class EventBoardRepository {
   private static final String ADMIN_ROOMS_SQL = """
     SELECT r.id, r.code, r.name, r.position, r.is_open, r.manager_id, u.name AS manager_name,
            r.clue_key ~ '\\S' AS has_clue_key,
-           r.recovery_prompt ~ '\\S' AND r.recovery_answer ~ '\\S' AS has_recovery,
            r.terminal_enabled,
            (SELECT count(*) FROM room_terminal_file f WHERE f.room_id = r.id)
              + (SELECT count(*) FROM room_terminal_bundle b WHERE b.room_id = r.id) AS terminal_files,
@@ -94,18 +93,9 @@ public class EventBoardRepository {
     ORDER BY r.position
     """;
 
-  private static final String CONTENT_STATUS_SQL = """
-    SELECT c.encrypted_message ~ '\\S' AS has_message,
-           c.correct_suspect_id IS NOT NULL AS has_correct_suspect,
-           (SELECT count(*) FROM suspect) AS suspects
-    FROM event_content c WHERE c.id = 1
-    """;
-
   private static final String TEAM_FLAGS_SQL = """
     SELECT t.id, t.name, t.disqualified, er.code AS exception_room,
-           (SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id AND c.source = 'MANUAL') AS manual_clues,
-           (SELECT COALESCE(sum(p.minutes), 0) FROM penalty p
-            WHERE p.team_id = t.id AND p.kind = 'TIME_ADJUSTMENT' AND p.voided_at IS NULL) AS time_adjustment
+           (SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id AND c.source = 'MANUAL') AS manual_clues
     FROM event_team t
     LEFT JOIN team_room_exception e ON e.team_id = t.id AND e.round = ?
     LEFT JOIN event_room er ON er.id = e.room_id
@@ -147,22 +137,9 @@ public class EventBoardRepository {
           rs.getString("name"),
           rs.getBoolean("disqualified"),
           rs.getString("exception_room") == null ? null : RoomCode.valueOf(rs.getString("exception_room")),
-          rs.getInt("manual_clues"),
-          rs.getInt("time_adjustment")
+          rs.getInt("manual_clues")
         ),
       round
-    );
-  }
-
-  public ContentStatusRecord contentStatus() {
-    return db.queryForObject(
-      CONTENT_STATUS_SQL,
-      (rs, row) ->
-        new ContentStatusRecord(
-          rs.getBoolean("has_message"),
-          rs.getBoolean("has_correct_suspect"),
-          rs.getInt("suspects")
-        )
     );
   }
 
@@ -246,7 +223,6 @@ public class EventBoardRepository {
       teamId,
       roomId,
       JudgeStatus.valueOf(status),
-      rs.getInt("hints"),
       rs.getString("note"),
       rs.getLong("version"),
       nullableLong(rs, "reviewer_id"),
@@ -265,7 +241,6 @@ public class EventBoardRepository {
       nullableLong(rs, "manager_id"),
       rs.getString("manager_name"),
       rs.getBoolean("has_clue_key"),
-      rs.getBoolean("has_recovery"),
       rs.getBoolean("terminal_enabled"),
       rs.getInt("terminal_files"),
       rs.getInt("passed"),

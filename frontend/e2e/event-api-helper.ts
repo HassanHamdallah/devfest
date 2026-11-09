@@ -197,7 +197,7 @@ export class EventAdminShortcuts {
 }
 
 interface ManagerRoom {
-  room: { id: number; recoveryPrompt: string; recoveryAnswer: string; version: number };
+  room: { id: number; version: number };
 }
 
 /** A room manager setting the clue key the way the manager board does (PUT /rooms/{id}/content). */
@@ -207,12 +207,7 @@ export class EventManagerShortcuts {
   async setClueKey(clueKey: string) {
     const { roomId } = await this.manager.send<{ roomId: number }>("GET", "/event/home");
     const { room } = await this.manager.send<ManagerRoom>("GET", `/event/rooms/${roomId}/board`);
-    await this.manager.send("PUT", `/event/rooms/${roomId}/content`, {
-      clueKey,
-      recoveryPrompt: room.recoveryPrompt,
-      recoveryAnswer: room.recoveryAnswer,
-      version: room.version,
-    });
+    await this.manager.send("PUT", `/event/rooms/${roomId}/content`, { clueKey, version: room.version });
   }
 }
 

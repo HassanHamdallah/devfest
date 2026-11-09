@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
 /**
  * Snapshots: the rows a reset is about to delete (and the event state before it) as one JSONB document, built
  * by PostgreSQL in a single INSERT … SELECT inside the reset's transaction, so a failed snapshot changes nothing.
- * Never deleted by the application. Room secrets (clue keys, recovery answers) and accounts are not included.
+ * Never deleted by the application. Room secrets (clue keys) and accounts are not included.
  */
 @Repository
 public class EventSnapshotRepository {
@@ -106,16 +106,18 @@ public class EventSnapshotRepository {
     tables.put("event_state", EVENT_STATE);
     switch (scope) {
       case FINAL -> {
-        tables.put("team_final", "SELECT * FROM team_final");
-        tables.put("accusation", "SELECT * FROM accusation");
-        tables.put("recovery_attempt", "SELECT * FROM recovery_attempt");
+        for (String table : List.of(
+          "team_final", "final_unlock_attempt", "final_layer_attempt", "final_verdict", "recovery_attempt", "final_time_adjustment"
+        )) {
+          tables.put(table, "SELECT * FROM " + table);
+        }
         tables.put("collected_clue", "SELECT * FROM collected_clue WHERE source = 'RECOVERY'");
-        tables.put("penalty", "SELECT * FROM penalty WHERE kind IN ('RECOVERY', 'WRONG_ACCUSATION')");
       }
       case TEAM -> {
         for (String table : List.of(
-          "team_final", "accusation", "recovery_attempt", "collected_clue", "room_submission",
-          "room_judgement_history", "room_judgement", "penalty", "team_room_exception", "sentinel_run",
+          "team_final", "final_unlock_attempt", "final_layer_attempt", "final_verdict", "recovery_attempt",
+          "collected_clue", "room_submission", "room_judgement_history", "room_judgement", "score_deduction",
+          "room_manual_score", "team_room_exception", "sentinel_run",
           "sentinel_submission", "sentinel_evaluation", "terminal_form", "terminal_form_request",
           "terminal_form_override", "contest_result", "contest_release"
         )) {
@@ -128,9 +130,10 @@ public class EventSnapshotRepository {
       }
       case EVENT -> {
         for (String table : List.of(
-          "team_final", "accusation", "recovery_attempt", "collected_clue", "room_submission",
-          "submission_clue_verdict", "submission_clue_verdict_history", "room_judgement_history",
-          "room_judgement", "penalty", "team_room_exception", "room_arrival", "round_time_adjustment",
+          "team_final", "final_unlock_attempt", "final_layer_attempt", "final_verdict", "recovery_attempt",
+          "final_time_adjustment", "collected_clue", "room_submission", "submission_clue_verdict",
+          "submission_clue_verdict_history", "room_judgement_history", "room_judgement", "score_deduction",
+          "room_manual_score", "team_room_exception", "room_arrival", "round_time_adjustment",
           "sentinel_run", "sentinel_submission", "sentinel_evaluation", "terminal_form",
           "terminal_form_request", "terminal_form_override", "contest_result", "contest_release"
         )) {

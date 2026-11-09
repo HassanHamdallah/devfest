@@ -79,17 +79,14 @@ class EventOrganizationTest extends EventIntegrationTest {
   }
 
   @Test
-  void suspectsAreLimitedToSixAndAlertsListMissingSetup() {
+  void alertsListMissingSetup() {
     Response board = expectOk(get("/admin/board", admin));
     List<String> codes = board.json("$.alerts[*].code");
-    assertTrue(codes.containsAll(List.of("TEAM_COUNT", "MISSING_CLUE_KEY", "MISSING_RECOVERY", "MISSING_SUSPECTS", "MISSING_MESSAGE", "MISSING_CORRECT_SUSPECT")), codes.toString());
+    assertTrue(codes.containsAll(List.of("TEAM_COUNT", "MISSING_CLUE_KEY", "MISSING_FINAL_CONTENT")), codes.toString());
     loadContent();
-    expectError(post("/admin/suspects", admin, "{\"name\":\"Seventh\",\"description\":\"\"}"), 409, "There are already 6 suspects.");
-    expectError(delete("/admin/suspects/" + suspectId(CORRECT_SUSPECT), admin), 409, "Choose another correct suspect before deleting this one.");
-    assertEquals(5, (int) expectOk(delete("/admin/suspects/" + suspectId("Kareem Shehab"), admin)).json("$.suspects.length()"));
     List<String> after = expectOk(get("/admin/board", admin)).json("$.alerts[*].code");
-    // The Linux room has the terminal on by default and no terminal files yet (rules §18).
-    assertEquals(List.of("TERMINAL_WITHOUT_FILES", "TEAM_COUNT", "MISSING_SUSPECTS"), after);
+    // The Linux room has the terminal on by default and no terminal files yet (rules section 18).
+    assertEquals(List.of("TERMINAL_WITHOUT_FILES", "TEAM_COUNT"), after);
   }
 
   @Test
@@ -202,7 +199,7 @@ class EventOrganizationTest extends EventIntegrationTest {
     assertEquals(401, call(org.springframework.http.HttpMethod.POST, "/api/v1/auth/login", null,
       "{\"email\":\"" + droppedEmail + "\",\"password\":\"" + PASSWORD + "\"}", null).status());
     Response board = expectOk(get("/admin/board", admin));
-    assertEquals(List.of("A1"), board.json("$.ranking[*].teamName"));
+    assertEquals(List.of("A1"), board.json("$.ranking[*].scores.teamName"));
     assertEquals(List.of("A1"), board.json("$.rooms[0].teamsNow"));
     List<String> roomTeams = expectOk(get("/rooms/" + rooms.get(RoomCode.AI) + "/board", managers.get(RoomCode.AI))).json("$.teams[*].teamName");
     assertEquals(List.of("A1"), roomTeams);

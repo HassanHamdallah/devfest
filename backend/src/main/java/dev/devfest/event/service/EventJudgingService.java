@@ -57,11 +57,11 @@ public class EventJudgingService {
     teams.lockForUpdate(teamId).orElseThrow(() -> fail(404, "Team not found."));
     rooms.lockForUpdate(roomId).orElseThrow(() -> fail(404, "Room not found."));
     RoomJudgementRecord current = judgements.find(teamId, roomId);
-    if (current.sameDecision(request.status(), request.hints(), request.note())) return EventViews.judgement(current);
+    if (current.sameDecision(request.status(), request.note())) return EventViews.judgement(current);
     if (request.version() != current.version()) {
       throw fail(409, "Someone else changed this judgement. Reload and try again.");
     }
-    judgements.saveWithHistory(current, request.status(), request.hints(), request.note(), principal.id(), clock.now());
+    judgements.saveWithHistory(current, request.status(), request.note(), principal.id(), clock.now());
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_JUDGEMENT", "team:" + teamId + ":room:" + roomId + ":" + request.status());
     return EventViews.judgement(judgements.find(teamId, roomId));

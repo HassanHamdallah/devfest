@@ -26,10 +26,10 @@ class EventRevisionTest extends EventIntegrationTest {
     assertBumps(() -> openRoom(RoomCode.AI));
     assertBumps(() -> expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "WHITE VAN")));
     String judgement = "/rooms/" + rooms.get(RoomCode.AI) + "/judgements/" + alpha.id();
-    assertBumps(() -> expectOk(put(judgement, managers.get(RoomCode.AI), EventJudgingTest.judgement("PASS", 0, "", 0))));
-    String penalty = "{\"teamId\":%d,\"kind\":\"HINT\",\"note\":\"\"}".formatted(alpha.id());
-    assertBumps(() -> expectOk(post("/rooms/" + rooms.get(RoomCode.AI) + "/penalties", managers.get(RoomCode.AI), penalty)));
-    assertBumps(() -> expectOk(saveRoomContent(RoomCode.LINUX, admin, "WEST TOWER", "P", "A")));
+    assertBumps(() -> expectOk(put(judgement, managers.get(RoomCode.AI), EventJudgingTest.judgement("PASS", "", 0))));
+    String hint = "{\"teamId\":%d,\"note\":\"\"}".formatted(alpha.id());
+    assertBumps(() -> expectOk(post("/rooms/" + rooms.get(RoomCode.AI) + "/hints", managers.get(RoomCode.AI), hint)));
+    assertBumps(() -> expectOk(saveRoomContent(RoomCode.LINUX, admin, "WEST TOWER")));
     assertBumps(() -> expectOk(put("/admin/publication", admin, "{\"published\":true}")));
   }
 
@@ -40,7 +40,7 @@ class EventRevisionTest extends EventIntegrationTest {
     UUID key = UUID.randomUUID();
     expectOk(submit(alpha, RoomCode.AI, key, "o", "WHITE VAN"));
     String judgement = "/rooms/" + rooms.get(RoomCode.AI) + "/judgements/" + alpha.id();
-    String pass = EventJudgingTest.judgement("PASS", 0, "", 0);
+    String pass = EventJudgingTest.judgement("PASS", "", 0);
     expectOk(put(judgement, managers.get(RoomCode.AI), pass));
     long before = revision();
 

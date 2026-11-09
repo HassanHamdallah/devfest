@@ -7,6 +7,7 @@ import {
   resetRehearsal,
   setPracticeKeys,
 } from "./event-api-helper";
+import { finalContentJson } from "./event-final-helper";
 import { DESKTOP, PHONE, openRolePage, selectOptionContaining, signIn } from "./event-ui-helper";
 
 let accounts: RehearsalAccounts;
@@ -60,6 +61,7 @@ test("live: admin and manager actions reach the team, manager and admin screens 
   const control = new EventAdminShortcuts(adminApi);
   try {
     await setPracticeKeys(accounts, ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
+    await adminApi.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson()));
     // The team submits through the AI room's plain answer form; the AI mission (on by default) has its own spec.
     await control.setRoomActivity("AI", null);
     await signInLive(member.page, accounts.members[0], accounts.seedPassword);
@@ -121,21 +123,21 @@ test("live: admin and manager actions reach the team, manager and admin screens 
       await expect(member.page.locator('[data-room="AI"]').getByText("Passed", { exact: true })).toBeVisible(PUSHED);
       await expect(admin.page.locator('[aria-label="AI teams passed"]')).toHaveAttribute("aria-valuenow", "1", PUSHED);
     });
-    await test.step("manager adds a hint penalty; the admin ranking follows", async () => {
+    await test.step("manager types the room score and gives a hint; the admin ranking follows", async () => {
       const ranking = admin.page.getByRole("table", { name: "Ranking", exact: true });
       const teamRow = ranking.locator("tbody tr").filter({ hasText: TEAM });
       await expect(teamRow).toBeVisible();
-      const before = await teamRow.innerText();
       const row = manager.page.locator(`[data-team="${TEAM}"]`);
-      await selectOptionContaining(row.getByRole("combobox", { name: "Penalty kind", exact: true }), "Hint");
-      await row.getByRole("textbox", { name: "Penalty note", exact: true }).fill("Live push check.");
-      await button(row, "Add penalty").click();
-      const confirm = manager.page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true });
-      const added = row.getByText("Live push check.");
-      await expect(confirm.or(added).first()).toBeVisible();
-      if (await confirm.isVisible()) await confirm.click();
-      await expect(added).toBeVisible();
+      const toggle = button(row, `Details for ${TEAM}`);
+      if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+      await row.getByRole("spinbutton", { name: "Room score (0 to 15)", exact: true }).fill("10");
+      await button(row, "Save score").click();
+      await expect(teamRow).toContainText("10", PUSHED);
+      const before = await teamRow.innerText();
+      await button(row, "Hint given (−2)").click();
+      await expect(row.locator("[data-hints-count]")).toHaveText("Hints: 1 of 2");
       await expect(teamRow).not.toHaveText(before, PUSHED);
+      await expect(member.page.locator("[data-hints-used]")).toHaveText("Hints used: 1 of 2", PUSHED);
     });
     await test.step("admin finishes the rooms and opens the final", async () => {
       await control.setRound(5);

@@ -52,21 +52,20 @@ public abstract class EventIntegrationTest {
     RoomCode.LINUX, "WEST TOWER",
     RoomCode.HARDWARE, "+970-59-881"
   );
-  protected static final Map<RoomCode, String> RECOVERY_ANSWERS = Map.of(
-    RoomCode.AI, "FOUR",
-    RoomCode.PROBLEM_SOLVING, "THIRTY-TWO",
-    RoomCode.LINUX, "PWD-SECRET",
-    RoomCode.HARDWARE, "EIGHT BITS"
-  );
+  /** The Recovery Challenge of the content the tests import (the shipped file has an obvious placeholder). */
+  protected static final String RECOVERY_QUESTION = "How many bits are in a byte?";
+  protected static final String RECOVERY_ANSWER = "EIGHT BITS";
   protected static final List<String> SUSPECTS = List.of(
+    "Kareem Shehab",
+    "Leila Nasser",
     "Tariq Al-Khatib",
     "Nadia Murad",
     "Farid Mansour",
-    "Leila Nasser",
-    "Mazen Haddad",
-    "Kareem Shehab"
+    "Mazen Haddad"
   );
   protected static final String CORRECT_SUSPECT = "Leila Nasser";
+  /** The layers' plaintexts the server derives from the shipped content, and the verdicts it derives. */
+  protected static final long[] LAYER_ANSWERS = { 52, 17, 8, 17 };
 
   /** A test team with its member account's access token. */
   protected record TestTeam(long id, String name, GroupCode group, long accountId, String token) {}
@@ -108,8 +107,9 @@ public abstract class EventIntegrationTest {
     db.execute(
       """
       TRUNCATE audit_event, auth_session, refresh_token, rate_bucket, app_user, event_team, room_submission,
-               room_judgement, room_judgement_history, collected_clue, penalty, suspect, recovery_attempt,
-               accusation, team_final, event_content, sentinel_content
+               room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score,
+               recovery_attempt, team_final, final_unlock_attempt, final_layer_attempt, final_verdict, final_content,
+               final_time_adjustment, sentinel_content
       RESTART IDENTITY CASCADE"""
     );
     db.update(
@@ -119,16 +119,16 @@ public abstract class EventIntegrationTest {
       ON CONFLICT (code) DO NOTHING"""
     );
     db.update(
-      "UPDATE event_room SET manager_id = NULL, is_open = FALSE, clue_key = '', recovery_prompt = '', " +
-      "recovery_answer = '', version = 1, terminal_enabled = (code = 'LINUX'), activity = NULL, " +
+      "UPDATE event_room SET manager_id = NULL, is_open = FALSE, clue_key = '', " +
+      "version = 1, terminal_enabled = (code = 'LINUX'), activity = NULL, " +
       "quiz_pass_score = 60"
     );
-    db.update("INSERT INTO event_content(id) VALUES (1)");
     db.update(
       "UPDATE event_state SET current_round = 0, round_started_at = NULL, round_minutes = 25, final_open = FALSE, " +
       "final_started_at = NULL, final_closed_at = NULL, results_published = FALSE, revision = 1, " +
       "planned_team_count = 16, round_phase = NULL, round_duration_seconds = NULL, " +
-      "round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE WHERE id = 1"
+      "round_elapsed_before_seconds = 0, round_resumed_at = NULL, round_ended = FALSE, final_phase = NULL, " +
+      "final_duration_seconds = NULL, final_elapsed_before_seconds = 0, final_resumed_at = NULL, final_ended = FALSE WHERE id = 1"
     );
     managers.clear();
     managerIds.clear();
@@ -189,51 +189,44 @@ public abstract class EventIntegrationTest {
   }
 
   /**
-   * Complete event content: each room's manager sets the clue key and recovery challenge through the API (no
-   * key exists in production code), then six suspects, the correct suspect and the message.
+   * Complete event content: each room's manager sets the clue key through the API (no key exists in production code),
+   * then the admin imports the final's content file (the shipped docs/final/crypto-content.json with a real Recovery
+   * Challenge in place of its placeholder).
    */
   protected void loadContent() {
-    for (RoomCode code : RoomCode.values()) {
-      expectOk(saveRoomContent(code, managers.get(code), CLUE_KEYS.get(code), "Recovery prompt for " + code, RECOVERY_ANSWERS.get(code)));
-    }
-    for (int i = 0; i < SUSPECTS.size(); i++) {
-      db.update("INSERT INTO suspect(name, description, position) VALUES (?, ?, ?)", SUSPECTS.get(i), "Suspect " + i, i);
-    }
-    db.update(
-      "UPDATE event_content SET encrypted_message = 'WKH SUDFWLFH FOXH', correct_suspect_id = ? WHERE id = 1",
-      suspectId(CORRECT_SUSPECT)
-    );
+    for (RoomCode code : RoomCode.values()) expectOk(setClueKey(code, CLUE_KEYS.get(code)));
+    expectOk(importFinalContent(finalContentJson()));
   }
 
-  /** PUT /rooms/{id}/content as {@code token}, at the room's current version. */
-  protected Response saveRoomContent(RoomCode code, String token, String clueKey, String recoveryPrompt, String recoveryAnswer) {
-    String body = "{\"clueKey\":%s,\"recoveryPrompt\":%s,\"recoveryAnswer\":%s,\"version\":%d}".formatted(
-      quote(clueKey),
-      quote(recoveryPrompt),
-      quote(recoveryAnswer),
-      roomVersion(code)
-    );
+  /** The shipped content file, with the Recovery Challenge the tests use. */
+  protected static String finalContentJson() {
+    try {
+      String shipped = java.nio.file.Files.readString(java.nio.file.Path.of("..", "docs", "final", "crypto-content.json"), StandardCharsets.UTF_8);
+      return shipped
+        .replace("PLACEHOLDER - replace this with the real Recovery Challenge question before the event.", RECOVERY_QUESTION)
+        .replace("PLACEHOLDER-REPLACE-ME", RECOVERY_ANSWER);
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  protected Response importFinalContent(String json) {
+    return put("/admin/final/content", admin, json);
+  }
+
+  /** PUT /rooms/{id}/content as the room's manager (or {@code token}), at the room's current version. */
+  protected Response saveRoomContent(RoomCode code, String token, String clueKey) {
+    String body = "{\"clueKey\":%s,\"version\":%d}".formatted(quote(clueKey), roomVersion(code));
     return put("/rooms/" + rooms.get(code) + "/content", token, body);
   }
 
-  /** The room's manager changes only the clue key, keeping the recovery challenge. */
+  /** The room's manager changes the clue key. */
   protected Response setClueKey(RoomCode code, String clueKey) {
-    var room = db.queryForMap("SELECT recovery_prompt, recovery_answer FROM event_room WHERE id = ?", rooms.get(code));
-    return saveRoomContent(
-      code,
-      managers.get(code),
-      clueKey,
-      (String) room.get("recovery_prompt"),
-      (String) room.get("recovery_answer")
-    );
+    return saveRoomContent(code, managers.get(code), clueKey);
   }
 
   protected long roomVersion(RoomCode code) {
     return db.queryForObject("SELECT version FROM event_room WHERE id = ?", Long.class, rooms.get(code));
-  }
-
-  protected long suspectId(String name) {
-    return db.queryForObject("SELECT id FROM suspect WHERE name = ?", Long.class, name);
   }
 
   protected long revision() {
@@ -301,9 +294,38 @@ public abstract class EventIntegrationTest {
     return teamPost(team, "/team/final/recovery", key, "{\"answer\":" + quote(answer) + "}");
   }
 
-  protected Response accuse(TestTeam team, UUID key, String suspect) {
-    String body = "{\"suspectId\":%d,\"decryptedMessage\":\"THE PRACTICE CLUE\",\"evidence\":\"Seen at the library\"}";
-    return teamPost(team, "/team/final/accusations", key, body.formatted(suspectId(suspect)));
+  /** The four room outputs in room order (AI, Problem solving, Linux, Hardware). */
+  protected Response unlock(TestTeam team, String... codes) {
+    String list = java.util.Arrays.stream(codes).map(EventIntegrationTest::quote).collect(java.util.stream.Collectors.joining(","));
+    return teamPost(team, "/team/final/unlock", UUID.randomUUID(), "{\"codes\":[" + list + "]}");
+  }
+
+  /** Unlocks with every room's real clue key. */
+  protected Response unlockWithKeys(TestTeam team) {
+    return unlock(team, CLUE_KEYS.get(RoomCode.AI), CLUE_KEYS.get(RoomCode.PROBLEM_SOLVING), CLUE_KEYS.get(RoomCode.LINUX), CLUE_KEYS.get(RoomCode.HARDWARE));
+  }
+
+  protected Response startCase(TestTeam team) {
+    return teamPost(team, "/team/final/start", UUID.randomUUID(), null);
+  }
+
+  protected Response layer(TestTeam team, int layer, String value) {
+    return teamPost(team, "/team/final/layers/" + layer, UUID.randomUUID(), "{\"value\":" + quote(value) + "}");
+  }
+
+  protected Response verdict(TestTeam team, int layer, String verdict) {
+    return teamPost(team, "/team/final/verdicts/" + layer, UUID.randomUUID(), "{\"verdict\":" + quote(verdict) + "}");
+  }
+
+  protected Response suspect(TestTeam team, int suspectId) {
+    return teamPost(team, "/team/final/suspect", UUID.randomUUID(), "{\"suspectId\":" + suspectId + "}");
+  }
+
+  /** Unlocks, starts the case and solves the first {@code layers} layers with the right integers. */
+  protected void playTo(TestTeam team, int layers) {
+    expectOk(unlockWithKeys(team));
+    expectOk(startCase(team));
+    for (int n = 1; n <= layers; n++) expectOk(layer(team, n, Long.toString(LAYER_ANSWERS[n - 1])));
   }
 
   protected Response teamPost(TestTeam team, String path, UUID key, String body) {

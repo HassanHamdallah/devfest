@@ -1,5 +1,7 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { FinalShortcuts, RECOVERY_ANSWER, RECOVERY_QUESTION, finalContentJson } from "./event-final-helper";
 import {
   EventAdminShortcuts,
   EventApiSession,
@@ -26,8 +28,6 @@ import {
 let accounts: RehearsalAccounts;
 const docs = path.resolve("..", "docs");
 const TEAM = "Team 01";
-const HINT_NOTE = "Hint: compare precision and recall.";
-const ENCRYPTED_MESSAGE = "WKH SUDFWLFH FOXH SRLQWV WR WKH OLEUDUB";
 // Other screens follow an admin or manager action when the pushed revision changes; generous timeout.
 const NEXT_POLL = { timeout: 25000 };
 
@@ -149,10 +149,9 @@ async function judgeAiRoom(page: Page) {
   const row = page.locator(`[data-team="${TEAM}"]`);
   await expect(row.getByText("Correct", { exact: true })).toBeVisible();
   await clickConfirmingIfAsked(page, button(row, "Pass"), row.getByText("Passed", { exact: true }));
-  await selectOptionContaining(combobox(row, "Penalty kind"), "Hint");
-  await textbox(row, "Penalty note").fill(HINT_NOTE);
-  await clickConfirmingIfAsked(page, button(row, "Add penalty"), row.getByText(HINT_NOTE));
-  await expect(button(row, "Void")).toBeVisible();
+  await button(row, "Hint given (−2)").click();
+  await expect(row.locator("[data-hints-count]")).toHaveText("Hints: 1 of 2");
+  await expect(row.locator('[data-deduction="HINT"]')).toBeVisible();
   await saveScreenshot(page, path.join(docs, "event-manager-board.png"));
   await expectFitsPhone(page);
   await screenshotPhone(page, path.join(docs, "event-manager-board-phone.png"));
@@ -195,28 +194,27 @@ async function recoverMissingClue(page: Page) {
   await page.reload();
   await page.getByRole("link", { name: "Open final", exact: true }).click();
   await expect(heading(page, "Final")).toBeVisible();
-  await expect(page.getByText("Hardware").first()).toBeVisible();
-  await expect(page.getByText("Practice: how many bits are in a byte?").first()).toBeVisible();
-  await expect(page.getByText("+5 minutes").first()).toBeVisible();
-  await textbox(page, "Recovery answer").fill("8");
-  const message = page.locator("pre");
-  await clickConfirmingIfAsked(page, button(page, "Submit recovery answer"), message);
-  await expect(message).toContainText(ENCRYPTED_MESSAGE);
+  await expect(page.locator("[data-final-status]")).toHaveText("Recovery");
+  await expect(page.locator("[data-recovery-question]")).toHaveText(RECOVERY_QUESTION);
+  await textbox(page, "Recovery answer").fill(RECOVERY_ANSWER);
+  await button(page, "Submit recovery answer").click();
+  await expect(page.locator("[data-final-status]")).toHaveText("In final");
+  await expect(page.locator('[data-final-screen="UNLOCK"]')).toBeVisible();
   await expectFitsPhone(page);
   await saveScreenshot(page, path.join(docs, "event-team-final.png"));
 }
 
-async function accuse(page: Page, suspect: string, outcome: Locator) {
-  await selectOptionContaining(combobox(page, "Suspect"), suspect);
-  await textbox(page, "Decrypted message").fill("THE PRACTICE CLUE POINTS TO THE LIBRARY");
-  await textbox(page, "Evidence").fill("Library visitor log and the white van sighting.");
-  await clickConfirmingIfAsked(page, button(page, "Submit accusation"), outcome);
-}
-
 async function solveCase(page: Page) {
-  const wrong = page.getByText("Incorrect accusation — +3 minutes. Try again.", { exact: true });
-  await accuse(page, "Tariq Al-Khatib", wrong);
-  await accuse(page, "Leila Nasser", page.getByRole("heading", { name: "Case solved" }));
+  const team = await EventApiSession.fromPage(page);
+  try {
+    await new FinalShortcuts(team, () => randomUUID()).playAll();
+  } finally {
+    await team.dispose();
+  }
+  await page.reload();
+  await expect(page.locator('[data-final-screen="SUBMITTED"]')).toContainText(
+    "Your final answer is recorded. The result stays confidential until judging.",
+  );
   await expect(page.getByRole("link", { name: "View ranking", exact: true })).toHaveCount(0);
 }
 
@@ -225,6 +223,8 @@ async function publishResults(page: Page) {
   const leader = page.getByRole("table", { name: "Ranking", exact: true }).locator("tbody tr").first();
   await expect(leader).toContainText(TEAM);
   await expect(leader.locator("td, th").first()).toHaveText(/^\s*#?1\s*$/);
+  // No room score was typed in, so the whole total is the final's 40 points.
+  await expect(leader).toContainText("40");
   await saveScreenshot(page, path.join(docs, "event-admin-control.png"));
   await expectFitsPhone(page);
   await screenshotPhone(page, path.join(docs, "event-admin-control-phone.png"));
@@ -249,7 +249,7 @@ test.beforeAll(() => {
 // The journey opens the final, which happens once per event: every run starts from a reset event.
 test.beforeEach(() => resetRehearsal());
 
-test("event: rounds, room clues, judging, recovery, accusation, ranking and publication", async ({ browser }) => {
+test("event: rounds, room clues, judging, hint, recovery, the case, ranking and publication", async ({ browser }) => {
   const admin = await openRolePage(browser, "admin", DESKTOP);
   const member = await openRolePage(browser, "member", PHONE);
   const manager = await openRolePage(browser, "manager", DESKTOP);
@@ -259,9 +259,10 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
     // This journey uses the AI room's plain answer form; the AI mission (on by default) has its own spec.
     await new EventAdminShortcuts(adminApi).setRoomActivity("AI", null);
     await test.step("AI manager sets the room's clue key on the board", () => setAiKeyInUi(manager.page));
-    await test.step("the other managers set their keys", () =>
-      setPracticeKeys(accounts, ["PROBLEM_SOLVING", "LINUX", "HARDWARE"]),
-    );
+    await test.step("the other managers set their keys; the admin imports the final content", async () => {
+      await setPracticeKeys(accounts, ["PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
+      await adminApi.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson()));
+    });
     await test.step("admin moves to round 1 (assigned) and opens the AI room", () => startFirstRound(admin.page));
     await test.step("team is sent to the AI room; the form waits for the timer", () => teamWaitsForTheTimer(member.page));
     await test.step("AI manager confirms all teams are here", () => confirmAiArrival(manager.page));
@@ -272,7 +273,7 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
       await expect(member.page.getByText("The round is paused.", { exact: true })).toBeVisible(NEXT_POLL);
     });
     await test.step("admin adds a minute and resumes", () => addMinuteAndResume(admin.page));
-    await test.step("AI manager passes the team and adds a hint penalty", () => judgeAiRoom(manager.page));
+    await test.step("AI manager passes the team and gives a hint", () => judgeAiRoom(manager.page));
     await test.step("admin ends the round; the team sees time is up", async () => {
       await endRound(admin.page);
       await expect(member.page.getByText("Time is up for this round.", { exact: true })).toBeVisible(NEXT_POLL);
@@ -284,7 +285,7 @@ test("event: rounds, room clues, judging, recovery, accusation, ranking and publ
     await test.step("team home shows three collected clues", () => confirmThreeClues(member.page));
     await test.step("admin opens the final", () => openFinal(admin.page));
     await test.step("team recovers the missing Hardware clue", () => recoverMissingClue(member.page));
-    await test.step("team accuses wrongly, then solves the case", () => solveCase(member.page));
+    await test.step("team plays the case to the end", () => solveCase(member.page));
     await test.step("admin sees Team 01 first and publishes", () => publishResults(admin.page));
     await test.step("team opens the published ranking", () => viewResults(member.page));
   } finally {

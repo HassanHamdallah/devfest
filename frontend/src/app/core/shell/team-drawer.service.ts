@@ -10,7 +10,6 @@ export const TEAM_OVERRIDE_LINKS: readonly { label: string; fragment: string }[]
   { label: "Move to group…", fragment: "move" },
   { label: "Room exception…", fragment: "room-exception" },
   { label: "Grant/Revoke clue…", fragment: "clue" },
-  { label: "Time adjustment…", fragment: "time-adjustment" },
   { label: "Disqualify/Reinstate…", fragment: "disqualify" },
   { label: "Reset team…", fragment: "reset-team" },
 ];

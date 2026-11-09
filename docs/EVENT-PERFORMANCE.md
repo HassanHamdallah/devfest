@@ -21,19 +21,20 @@ event hardware.
 |---|---|
 | `GET /event/revision` | 1 |
 | `GET /event/team/board` | 5 (constant whatever the number of teams; `EventEvidenceTest`) |
-| `GET /event/team/final` | 5–8 by stage (since the evidence change: + rooms, + room exceptions) |
+| `GET /event/team/final` | 11 (identical for 2 and 14 teams; `EventScoringTest`) |
 | `GET /event/rooms/{id}/board` | 6 |
-| `GET /event/admin/board` | 10 |
+| `GET /event/admin/board` | 16 |
+| `GET /event/admin/scores` | 7 · `GET /event/admin/scoreboard` and `/event/admin/final/board` use the same score read |
 | `GET /event/admin/organization` | 5 (event state, accounts, teams with presence, rooms, group sizes) |
 | any authenticated request | 1 session check by primary key; plus 1 conditional `last_seen_at` update at most once per 60 s per session |
-| `GET /event/admin/content` | 4 |
-| `GET /event/results` | 2 |
+| `GET /event/admin/content` | 2 |
+| `GET /event/results` | 7 |
 
 Board data is fetched with LATERAL joins and aggregates; the browser never issues per-row requests.
 
 ## EXPLAIN (ANALYZE, BUFFERS) on the seeded data
 
-Data at the time: 16 teams, 87 room submissions, 36 judgements, 3 penalties. Each statement was run twice: with the
+Data at the time (2026-10, before the 100-point scoring of V20; the penalty and accusation tables named below no longer exist, and the ranking is now computed by `ScoreBreakdownService` in a constant number of statements, see the table at the top): 16 teams, 87 room submissions, 36 judgements, 3 penalties. Each statement was run twice: with the
 default planner settings and with `SET enable_seqscan = off`, which proves that a usable index exists for every
 filtered or joined column.
 
@@ -50,6 +51,19 @@ filtered or joined column.
 Conclusion: PostgreSQL chooses sequential scans only because the tables hold a few dozen rows (cheaper than an index
 probe); every filter has an index the planner uses as soon as the tables grow. No additional index (V6) was needed.
 Raw plans: produced by the EXPLAIN script during verification (not committed).
+
+## Final load check (`--mode final`, 2026-11-09)
+
+`python load-tests/event_load.py --mode final --seconds 90` on a freshly reset rehearsal: the four room rounds run through the API (16 teams
+collect clues, 4 managers type room scores and record 11 hints, 3 cheating records, 1 cancelled hint and 1 refused third hint), then the admin
+imports the content and opens the final and all 16 teams start together (unlock with wrong tries, four layers, one-time verdicts, suspect; teams 15
+and 16 through the Recovery Challenge; teams 12 and 16 never submit a suspect, so the admin's close finalises them). The admin keeps the live
+final table and the scoreboard open (a GET every 5 s).
+
+Result: 1009 requests, 0 errors, worst p95 143.4 ms (clue submission; final endpoints 25 to 34 ms), 24 same-key retries equal, 45 of 45 repeats of
+one-time answers refused, 16 of 16 teams finalised exactly once (`team_final`: 16 rows, 16 teams, 16 finalised; audit: 14 `EVENT_FINAL_SUBMITTED`
+and one `EVENT_FINAL_CLOSED`; 62 layers and 30 verdicts, the exact numbers the plans predict), every final part, room score and total as
+predicted, no member response carrying a verdict, deduction or score. Report: `docs/event-load-final.json`.
 
 ## Load check (`load-tests/event_load.py`, 300 s each)
 
@@ -179,7 +193,7 @@ connections return to 0.
 
 Browser (Playwright, `e2e/event-live.spec.ts`, rehearsal via the 4202 dev proxy): after each admin action (assign
 round, start, open room, pause, +1 min, resume, finish rooms, open final, publish) and each manager action (pass,
-hint penalty) the team, manager and admin screens showed the change within the asserted 1.5 s; with the stream
+hint given) the team, manager and admin screens showed the change within the asserted 1.5 s; with the stream
 blocked the team page followed through 3-second polling within 4.5 s and the stream reconnected once unblocked;
 a second sign-in of the same team sent the first device to the login page with the "another device" message
 within 2 s.

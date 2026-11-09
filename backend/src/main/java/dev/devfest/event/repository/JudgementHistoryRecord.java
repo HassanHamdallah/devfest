@@ -10,7 +10,6 @@ public record JudgementHistoryRecord(
   long roomId,
   JudgeStatus oldStatus,
   JudgeStatus newStatus,
-  int hints,
   String note,
   long reviewerId,
   String reviewerName,

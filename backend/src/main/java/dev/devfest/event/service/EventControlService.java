@@ -5,6 +5,7 @@ import static dev.devfest.api.Errors.fail;
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ClueCheck;
+import dev.devfest.event.domain.FinalScoring;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
@@ -16,6 +17,7 @@ import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
+import dev.devfest.event.repository.TeamFinalRepository;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,8 @@ public class EventControlService {
   private final RoomArrivalRepository arrivals;
   private final AiRoomEvaluationService missionEvaluation;
   private final TerminalFormService terminalForms;
+  private final TeamFinalRepository finals;
+  private final FinalContentReader finalContent;
   private final AuditLog audit;
   private final EventClock clock;
 
@@ -46,6 +50,8 @@ public class EventControlService {
     RoomArrivalRepository arrivals,
     AiRoomEvaluationService missionEvaluation,
     TerminalFormService terminalForms,
+    TeamFinalRepository finals,
+    FinalContentReader finalContent,
     AuditLog audit,
     EventClock clock
   ) {
@@ -56,6 +62,8 @@ public class EventControlService {
     this.arrivals = arrivals;
     this.missionEvaluation = missionEvaluation;
     this.terminalForms = terminalForms;
+    this.finals = finals;
+    this.finalContent = finalContent;
     this.audit = audit;
     this.clock = clock;
   }
@@ -108,7 +116,10 @@ public class EventControlService {
     return changed(principal, "EVENT_ROUND_MINUTES", "minutes:" + roundMinutes, now);
   }
 
-  /** Opens the final exactly once; a request while it is already open is a harmless repeat. */
+  /**
+   * Opens the final exactly once, for every team at the same moment: its one 40-minute timer starts now. A request
+   * while it is already open is a harmless repeat.
+   */
   @Transactional
   public EventStateView openFinal(Principal principal) {
     access.requireAdmin(principal);
@@ -117,7 +128,7 @@ public class EventControlService {
     if (state.finalOpen()) return EventViews.eventState(state, now);
     if (state.finalEverOpened()) throw fail(409, "The final was already opened once.");
     requireCompleteContent();
-    states.openFinal(now);
+    states.openFinal(now, FinalScoring.FINAL_MINUTES * 60);
     return changed(principal, "EVENT_FINAL_OPENED", "final", now);
   }
 
@@ -127,7 +138,14 @@ public class EventControlService {
     EventStateRecord state = states.lockForUpdate();
     if (!state.finalOpen()) throw fail(409, "The final is not open.");
     Instant now = clock.now();
+    // Closing ends the timer and finalises every team still in the final, once, in this same transaction.
+    boolean timeUp = FinalClock.timeUp(state, now);
+    state.finalTimer().ifPresent(timer -> {
+      var ended = timer.endNow(now);
+      if (!ended.equals(timer)) states.saveFinalTimer(ended);
+    });
     states.closeFinal(now);
+    finals.finaliseAllOpen(timeUp ? "TIME_UP" : "CLOSED", now);
     return changed(principal, "EVENT_FINAL_CLOSED", "final", now);
   }
 
@@ -144,7 +162,7 @@ public class EventControlService {
   /** Content writers lock event_state first, so nothing can be removed between this check and the opening. */
   private void requireCompleteContent() {
     List<String> missing = EventContentGaps
-      .find(boards.contentStatus(), boards.adminRooms())
+      .find(finalContent.content().isPresent(), boards.adminRooms())
       .stream()
       .map(EventContentGaps.Gap::missingItem)
       .toList();

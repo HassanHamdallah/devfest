@@ -5,7 +5,7 @@ import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 
 /**
- * One event_room row including its secrets (clue key, recovery answer); never expose it to teams.
+ * One event_room row including its secrets (clue key); never expose it to teams.
  * {@code terminalEnabled}: the room offers the in-browser terminal (admin setting). {@code activity}: the team
  * activity that replaces the answer form (admin setting; null = none); {@code quizPassScore}: the total a team needs
  * for the AI room's clue.
@@ -18,8 +18,6 @@ public record EventRoomRecord(
   Long managerId,
   boolean open,
   String clueKey,
-  String recoveryPrompt,
-  String recoveryAnswer,
   long version,
   boolean terminalEnabled,
   RoomActivity activity,
@@ -33,9 +31,5 @@ public record EventRoomRecord(
   /** A key that normalizes to nothing can never be matched, so it counts as missing. */
   public boolean hasClueKey() {
     return !AnswerNormalizer.normalize(clueKey).isEmpty();
-  }
-
-  public boolean hasRecoveryChallenge() {
-    return !recoveryPrompt.isBlank() && !AnswerNormalizer.normalize(recoveryAnswer).isEmpty();
   }
 }

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
 public class EventRoomRepository {
 
   private static final String COLUMNS = """
-    id, code, name, position, manager_id, is_open, clue_key, recovery_prompt, recovery_answer, version,
+    id, code, name, position, manager_id, is_open, clue_key, version,
     terminal_enabled, activity, quiz_pass_score""";
 
   private static final String WITH_MANAGER = """
@@ -87,21 +87,10 @@ public class EventRoomRepository {
   }
 
   /** Optimistic write: returns false (nothing written) when {@code expectedVersion} is stale. */
-  public boolean updateContent(
-    long roomId,
-    long expectedVersion,
-    String clueKey,
-    String recoveryPrompt,
-    String recoveryAnswer
-  ) {
+  public boolean updateContent(long roomId, long expectedVersion, String clueKey) {
     return db.update(
-      """
-      UPDATE event_room
-      SET clue_key = ?, recovery_prompt = ?, recovery_answer = ?, version = version + 1
-      WHERE id = ? AND version = ?""",
+      "UPDATE event_room SET clue_key = ?, version = version + 1 WHERE id = ? AND version = ?",
       clueKey,
-      recoveryPrompt,
-      recoveryAnswer,
       roomId,
       expectedVersion
     ) == 1;
@@ -120,8 +109,6 @@ public class EventRoomRepository {
       nullableLong(rs, "manager_id"),
       rs.getBoolean("is_open"),
       rs.getString("clue_key"),
-      rs.getString("recovery_prompt"),
-      rs.getString("recovery_answer"),
       rs.getLong("version"),
       rs.getBoolean("terminal_enabled"),
       RoomActivity.fromStored(rs.getString("activity")),

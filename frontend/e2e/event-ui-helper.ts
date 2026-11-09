@@ -20,7 +20,7 @@ export async function openRolePage(
   const problems: string[] = [];
   page.on("pageerror", (error) => problems.push(`${label} page error: ${error.message}`));
   page.on("console", (message) => {
-    if (message.type() === "error") problems.push(`${label} console error: ${message.text()}`);
+    if (message.type() === "error") problems.push(`${label} console error: ${message.text()} (${message.location().url})`);
   });
   return { page, problems };
 }

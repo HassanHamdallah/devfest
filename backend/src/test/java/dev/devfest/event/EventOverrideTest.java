@@ -53,7 +53,6 @@ class EventOverrideTest extends EventIntegrationTest {
       new Endpoint(HttpMethod.PUT, "/admin/overrides/room-exception", "{" + teamRoom + "%s}", true),
       new Endpoint(HttpMethod.DELETE, "/admin/overrides/room-exception/" + alpha.id(), "{%s}", true),
       new Endpoint(HttpMethod.POST, "/admin/overrides/clue", "{" + teamRoom + ",\"action\":\"GRANT\"%s}", true),
-      new Endpoint(HttpMethod.POST, "/admin/overrides/time-adjustment", "{\"teamId\":" + alpha.id() + ",\"minutes\":-5%s}", true),
       new Endpoint(HttpMethod.POST, "/admin/teams/" + alpha.id() + "/disqualify", "{%s}", true),
       new Endpoint(HttpMethod.POST, "/admin/teams/" + alpha.id() + "/reinstate", "{%s}", true),
       new Endpoint(HttpMethod.POST, "/admin/reset/final", "{%s}", true),
@@ -140,9 +139,9 @@ class EventOverrideTest extends EventIntegrationTest {
     collectClues(alpha, RoomCode.AI, RoomCode.PROBLEM_SOLVING, RoomCode.LINUX);
     setRound(5);
     openFinal();
-    assertEquals("RECOVERY", expectOk(get("/team/final", alpha.token())).json("$.stage"));
+    assertEquals("RECOVERY", expectOk(get("/team/final", alpha.token())).json("$.status"));
     expectOk(post("/admin/overrides/clue", admin, clue(alpha, RoomCode.HARDWARE, "GRANT", false)));
-    assertEquals("MESSAGE", expectOk(get("/team/final", alpha.token())).json("$.stage"));
+    assertEquals("IN_FINAL", expectOk(get("/team/final", alpha.token())).json("$.status"));
     assertEquals("MANUAL", source(alpha, RoomCode.HARDWARE));
 
     db.update("UPDATE collected_clue SET source = 'RECOVERY' WHERE team_id = ? AND room_id = ?", alpha.id(), rooms.get(RoomCode.HARDWARE));
@@ -163,10 +162,11 @@ class EventOverrideTest extends EventIntegrationTest {
     openRoom(RoomCode.AI);
     String disqualified = "Your team has been disqualified. Contact the organizer.";
     expectError(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "x"), 409, disqualified);
-    expectError(accuse(alpha, UUID.randomUUID(), CORRECT_SUSPECT), 409, disqualified);
+    expectError(suspect(alpha, 2), 409, disqualified);
+    expectError(unlockWithKeys(alpha), 409, disqualified);
     Response board = expectOk(get("/admin/board", admin));
-    assertEquals("Alpha", board.json("$.ranking[3].teamName"));
-    assertEquals(true, board.json("$.ranking[3].disqualified"));
+    assertEquals("Alpha", board.json("$.ranking[3].scores.teamName"));
+    assertEquals(true, board.json("$.ranking[3].scores.disqualified"));
     assertNull(board.json("$.ranking[3].rank"));
     assertEquals(true, expectOk(get("/team/board", alpha.token())).json("$.disqualified"));
 
@@ -177,28 +177,31 @@ class EventOverrideTest extends EventIntegrationTest {
   @Test
   void resettingTheFinalAllowsOpeningItAgainAndKeepsRoomData() {
     collectClues(alpha, RoomCode.values());
+    String ai = "/rooms/" + rooms.get(RoomCode.AI);
+    expectOk(post(ai + "/hints", admin, "{\"teamId\":" + alpha.id() + "}"));
     setRound(5);
     openFinal();
-    expectOk(accuse(alpha, UUID.randomUUID(), "Tariq Al-Khatib"));
-    expectOk(accuse(alpha, UUID.randomUUID(), CORRECT_SUSPECT));
+    playTo(alpha, 4);
+    expectOk(verdict(alpha, 4, "YES"));
+    expectOk(suspect(alpha, 2));
     int submissions = count("room_submission");
 
     Response reset = expectOk(post("/admin/reset/final", admin, "{" + REASON + "}"));
     long snapshot = ((Number) reset.json("$.snapshotId")).longValue();
-    assertEquals(0, count("accusation") + count("team_final"));
-    assertEquals(0, (int) db.queryForObject("SELECT count(*) FROM penalty WHERE kind = 'WRONG_ACCUSATION'", Integer.class));
+    assertEquals(0, count("team_final") + count("final_layer_attempt") + count("final_unlock_attempt") + count("final_verdict"));
+    assertEquals(0, count("final_time_adjustment"));
     assertEquals(submissions, count("room_submission"));
     assertEquals(4, count("collected_clue"));
-    assertEquals(2, snapshotRows(snapshot, "accusation"));
+    assertEquals(1, count("score_deduction"), "deductions belong to the rooms, not to the final");
     assertEquals(1, snapshotRows(snapshot, "team_final"));
+    assertEquals(4, snapshotRows(snapshot, "final_layer_attempt"));
+    assertEquals(1, snapshotRows(snapshot, "final_verdict"));
+    assertEquals(1, snapshotRows(snapshot, "final_unlock_attempt"));
+    assertNull(db.queryForObject("SELECT final_phase FROM event_state", String.class), "the final timer is cleared with the final");
 
-    String content = "{\"encryptedMessage\":\"NEW MESSAGE\",\"correctSuspectId\":%d,\"version\":%d}".formatted(
-      suspectId(CORRECT_SUSPECT),
-      db.queryForObject("SELECT version FROM event_content WHERE id = 1", Long.class)
-    );
-    expectOk(put("/admin/content", admin, content));
     openFinal();
-    assertEquals("MESSAGE", expectOk(get("/team/final", alpha.token())).json("$.stage"));
+    assertEquals("IN_FINAL", expectOk(get("/team/final", alpha.token())).json("$.status"));
+    assertEquals("UNLOCK", expectOk(get("/team/final", alpha.token())).json("$.screen"));
   }
 
   @Test
@@ -241,12 +244,12 @@ class EventOverrideTest extends EventIntegrationTest {
     assertEquals(0, (int) state.json("$.state.currentRound"));
     assertNull(state.json("$.state.phase"));
     assertEquals(List.of(false, false, false, false), state.json("$.rooms[*].open"));
-    for (String table : List.of("room_submission", "collected_clue", "submission_clue_verdict", "penalty", "room_arrival")) {
+    for (String table : List.of("room_submission", "collected_clue", "submission_clue_verdict", "score_deduction", "room_manual_score", "team_final", "final_layer_attempt", "room_arrival")) {
       assertEquals(0, count(table), table);
     }
     assertEquals(accounts, count("app_user"));
     assertEquals(4, count("event_team"));
-    assertEquals(6, count("suspect"));
+    assertEquals(1, count("final_content"), "the final content is setup, not progress");
     assertEquals(CLUE_KEYS.get(RoomCode.AI), db.queryForObject("SELECT clue_key FROM event_room WHERE id = ?", String.class, rooms.get(RoomCode.AI)));
     assertEquals(submissions, snapshotRows(snapshot, "room_submission"));
 
@@ -262,8 +265,8 @@ class EventOverrideTest extends EventIntegrationTest {
     setRound(1);
     openRoom(RoomCode.AI);
     expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "x"));
-    String hint = "{\"teamId\":%d,\"kind\":\"HINT\",\"note\":\"\"}".formatted(alpha.id());
-    expectOk(post("/rooms/" + rooms.get(RoomCode.AI) + "/penalties", managers.get(RoomCode.AI), hint));
+    String hint = "{\"teamId\":%d,\"note\":\"\"}".formatted(alpha.id());
+    expectOk(post("/rooms/" + rooms.get(RoomCode.AI) + "/hints", managers.get(RoomCode.AI), hint));
     assertThrows(DataAccessException.class, () -> db.update("DELETE FROM room_submission"));
     assertThrows(DataAccessException.class, () ->
       transactions.executeWithoutResult(status -> {
@@ -286,7 +289,7 @@ class EventOverrideTest extends EventIntegrationTest {
       status.setRollbackOnly();
     });
     assertEquals(1, count("room_submission"));
-    assertThrows(DataAccessException.class, () -> db.update("DELETE FROM penalty"));
+    assertThrows(DataAccessException.class, () -> db.update("DELETE FROM score_deduction"));
   }
 
   private static String sep(Endpoint endpoint) {

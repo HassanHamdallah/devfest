@@ -21,13 +21,26 @@ public record EventStateRecord(
   Integer roundDurationSeconds,
   int roundElapsedBeforeSeconds,
   Instant roundResumedAt,
-  boolean roundEnded
+  boolean roundEnded,
+  RoundPhase finalPhase,
+  Integer finalDurationSeconds,
+  int finalElapsedBeforeSeconds,
+  Instant finalResumedAt,
+  boolean finalEnded
 ) {
   /** The running round's timer; empty in rounds 0 and 5. */
   public Optional<RoundTimer> timer() {
     if (roundPhase == null) return Optional.empty();
     return Optional.of(
       new RoundTimer(roundPhase, roundDurationSeconds, roundElapsedBeforeSeconds, roundResumedAt, roundEnded)
+    );
+  }
+
+  /** The final's one timer; empty until the admin opens the final (or after a final reset). */
+  public Optional<RoundTimer> finalTimer() {
+    if (finalPhase == null) return Optional.empty();
+    return Optional.of(
+      new RoundTimer(finalPhase, finalDurationSeconds, finalElapsedBeforeSeconds, finalResumedAt, finalEnded)
     );
   }
 

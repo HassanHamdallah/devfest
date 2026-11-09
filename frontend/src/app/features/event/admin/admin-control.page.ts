@@ -25,6 +25,7 @@ import {
 } from "./control/control-actions";
 import { RankingPanel } from "./control/ranking-panel";
 import { RoomCards } from "./control/room-cards";
+import { FinalTimerPanel } from "./control/final-timer-panel";
 import { RoundTimerPanel } from "./control/round-timer-panel";
 import { RotationTable } from "./control/rotation-table";
 import { RoundSettings } from "./control/round-settings";
@@ -46,6 +47,7 @@ const NO_CONFIRMATION: ConfirmationCopy = {
     ControlBar,
     RankingPanel,
     RoomCards,
+    FinalTimerPanel,
     RoundTimerPanel,
     RotationTable,
     RoundSettings,

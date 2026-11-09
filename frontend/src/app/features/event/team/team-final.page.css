@@ -2,56 +2,24 @@
   gap: var(--space-4);
 }
 
-.final-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.final-steps li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-block-size: 36px;
-  padding: 0 var(--space-3) 0 var(--space-1);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-}
-
-.final-steps__number {
+.final-layout {
   display: grid;
-  place-items: center;
-  inline-size: 28px;
-  block-size: 28px;
-  font-weight: var(--font-weight-bold);
-  background: var(--color-surface-subtle);
-  border-radius: 50%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
 }
 
-.final-steps__done {
-  color: var(--color-text);
+@media (min-width: 1000px) {
+  .final-layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
 }
 
-.final-steps__done .final-steps__number {
-  color: var(--color-surface);
-  background: var(--brand-green-ink);
-}
-
-.final-steps__now {
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-  background: var(--color-primary-subtle);
-  border: var(--border-outline-thin);
-}
-
-.final-steps__now .final-steps__number {
-  color: var(--color-on-primary);
-  background: var(--color-primary);
+.final-main,
+.final-side {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
 }
 
 .final-state {
@@ -67,4 +35,25 @@
 .final-state__title {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
+}
+
+.final-results {
+  margin: 0 0 var(--space-2);
+}
+
+.final-results__link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding: 0 var(--space-5);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border: var(--border-outline);
+  border-radius: var(--radius-full);
+}
+
+.final-results__link:hover {
+  text-decoration: none;
+  background: var(--color-primary-hover);
 }

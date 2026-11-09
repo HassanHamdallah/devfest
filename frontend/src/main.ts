@@ -40,6 +40,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/admin/scores",
+    canActivate: [eventAdminGuard],
+    loadComponent: () =>
+      import("./app/features/event/admin/admin-scores.page").then(
+        (m) => m.EventAdminScoresPage,
+      ),
+  },
+  {
     path: "event/admin/content",
     canActivate: [eventAdminGuard],
     loadComponent: () =>
