@@ -1,0 +1,10 @@
+/* The unit tests (vitest) of plain TypeScript logic; tsconfig.json already references this file. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": [
+    "src/**/*.spec.ts"
+  ]
+}

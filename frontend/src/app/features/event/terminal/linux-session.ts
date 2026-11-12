@@ -1,4 +1,4 @@
-import type { V86 } from "v86";
+import type { V86, V86Options } from "v86";
 import type { TerminalBundleInfo, TerminalStartFiles } from "../../../core/event/event-models";
 import type { TerminalBuffers, V86Constructor } from "./terminal-assets";
 
@@ -13,6 +13,7 @@ const PACKAGE_MEMORY = 80 * 1024 * 1024;
 export const TERMINAL_ROWS = 24;
 
 const BOOT_TIMEOUT_MS = 120_000;
+const RESTORE_TIMEOUT_MS = 30_000;
 /** The shell prompt at the end of the serial output ("~% " in the image, "# " or "$ " elsewhere). */
 const PROMPT = /[#%$] $/;
 const READY_PATTERN = /__DEVFEST_READY__\r?\n/;
@@ -25,6 +26,23 @@ const TOOLS_FAILED_PATTERN = /__DEVFEST_TOOLS_FAILED__\r?\n/;
 const SETUP =
   `stty cols ${TERMINAL_COLS} rows ${TERMINAL_ROWS} 2>/dev/null; mkdir -p ~/logs; cp -r /mnt/. ~/ 2>/dev/null; cd ~;` +
   ` echo __DEVFEST""_READY__\n`;
+
+function emulatorOptions(buffers: TerminalBuffers, packaged: boolean): V86Options {
+  return {
+    wasm_fn: async (imports) => (await WebAssembly.instantiate(buffers.wasm, imports)).instance.exports,
+    bios: { buffer: buffers.bios },
+    vga_bios: { buffer: buffers.vgaBios },
+    cdrom: { buffer: buffers.image },
+    memory_size: packaged ? PACKAGE_MEMORY : BASE_MEMORY,
+    filesystem: {},
+    // "none" is neither ne2k nor virtio, so v86 creates no network card at all (its default is an NE2000).
+    net_device: { type: "none" as "ne2k" },
+    autostart: true,
+    disable_keyboard: true,
+    disable_mouse: true,
+    disable_speaker: true,
+  };
+}
 
 /** The files a server package puts on the 9p share (created by the page, removed by the setup). */
 const BUNDLE_FILE = "devfest-bundle.tgz";
@@ -95,20 +113,7 @@ export class LinuxSession {
     banner: string,
     onOutput: (byte: number) => void,
   ): Promise<LinuxSession> {
-    const emulator = new Emulator({
-      wasm_fn: async (imports) => (await WebAssembly.instantiate(buffers.wasm, imports)).instance.exports,
-      bios: { buffer: buffers.bios },
-      vga_bios: { buffer: buffers.vgaBios },
-      cdrom: { buffer: buffers.image },
-      memory_size: bundle ? PACKAGE_MEMORY : BASE_MEMORY,
-      filesystem: {},
-      // "none" is neither ne2k nor virtio, so v86 creates no network card at all (its default is an NE2000).
-      net_device: { type: "none" as "ne2k" },
-      autostart: true,
-      disable_keyboard: true,
-      disable_mouse: true,
-      disable_speaker: true,
-    });
+    const emulator = new Emulator(emulatorOptions(buffers, bundle !== null));
     const session = new LinuxSession(emulator, onOutput);
     try {
       await session.start(files, bundle, new TextEncoder().encode(banner));
@@ -117,6 +122,33 @@ export class LinuxSession {
       throw error;
     }
     return session;
+  }
+
+  /**
+   * Brings back a terminal from a saved VM state (the same guest memory, disk and processes), without booting. The
+   * state must come from a terminal built with the same image and the same kind of room (`packaged`).
+   */
+  static async restore(
+    Emulator: V86Constructor,
+    buffers: TerminalBuffers,
+    packaged: boolean,
+    state: ArrayBuffer,
+    onOutput: (byte: number) => void,
+  ): Promise<LinuxSession> {
+    const emulator = new Emulator({ ...emulatorOptions(buffers, packaged), autostart: false });
+    const session = new LinuxSession(emulator, onOutput);
+    try {
+      await session.resume(state);
+    } catch (error) {
+      await session.destroy();
+      throw error;
+    }
+    return session;
+  }
+
+  /** The VM state for a snapshot (about 45 ms, synchronous work in the emulator; the caller stores it). */
+  saveState(): Promise<ArrayBuffer> {
+    return this.emulator.save_state();
   }
 
   send(data: string): void {
@@ -132,6 +164,18 @@ export class LinuxSession {
     if (this.destroyed) return;
     this.destroyed = true;
     await this.emulator.destroy();
+  }
+
+  private async resume(state: ArrayBuffer): Promise<void> {
+    await withTimeout(
+      new Promise<void>((resolve) => this.emulator.add_listener("emulator-loaded", () => resolve())),
+      RESTORE_TIMEOUT_MS,
+      "The saved terminal could not be loaded in time.",
+    );
+    await this.emulator.restore_state(state);
+    this.forwarding = true;
+    this.emulator.add_listener("serial0-output-byte", (byte: number) => this.onOutput(byte));
+    await this.emulator.run();
   }
 
   private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array): Promise<void> {

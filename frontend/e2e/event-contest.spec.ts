@@ -100,6 +100,12 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
       // Before the timer starts there is no link yet.
       await expect(team05.page.locator("[data-contest-waiting]")).toBeVisible();
       await expect(team05.page.locator("[data-contest-link]")).toHaveCount(0);
+      const before = await EventApiSession.fromPage(team05.page);
+      try {
+        expect(JSON.stringify(await before.send("GET", `/event/team/rooms/${room}/contest`))).not.toContain(LINK);
+      } finally {
+        await before.dispose();
+      }
       await control.startTimer();
       for (const role of teams) {
         await expect(role.page.locator("[data-contest-link]")).toHaveAttribute("href", LINK);
@@ -121,6 +127,16 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
       }
       await expectFitsPhone(team05.page);
       await team05.page.setViewportSize(WIDE);
+    });
+
+    await test.step("a paused timer hides the link and says the contest is paused", async () => {
+      await control.pauseTimer();
+      for (const role of teams) {
+        await expect(role.page.locator("[data-contest-paused]")).toHaveText("The contest is paused.");
+        await expect(role.page.locator("[data-contest-link]")).toHaveCount(0);
+      }
+      await control.resumeTimer();
+      for (const role of teams) await expect(role.page.locator("[data-contest-link]")).toHaveAttribute("href", LINK);
     });
 
     const page = manager.page;
@@ -245,6 +261,21 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
       await enterResult(page, "Team 06", ["A"], 60);
       await expect(row(page, "Team 06").locator("[data-warning]")).toContainText("Released, but no longer eligible");
       await expect(team06.page.locator('[data-contest-result="unlocked"]')).toBeVisible();
+    });
+
+    await test.step("after the admin ends the round no team has a link, only the review line or the released clue", async () => {
+      await control.endRound();
+      for (const role of teams) await expect(role.page.locator("[data-contest-link]")).toHaveCount(0);
+      await expect(team07.page.locator("[data-contest-review]")).toHaveText("Your results are being reviewed by the room organizer.");
+      await expect(team07.page.locator("[data-contest-running]")).toHaveCount(0);
+      for (const role of [team05, team06, team08]) await expect(role.page.locator('[data-contest-result="unlocked"]')).toBeVisible();
+      const api = await EventApiSession.fromPage(team07.page);
+      try {
+        const view = await api.send("GET", `/event/team/rooms/${room}/contest`);
+        expect(JSON.stringify(view)).not.toContain(LINK);
+      } finally {
+        await api.dispose();
+      }
     });
   } finally {
     await adminApi.dispose();

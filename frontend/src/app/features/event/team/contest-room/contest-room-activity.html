@@ -29,14 +29,16 @@
     <p>This room's clue is now in your evidence. Keep it for the final.</p>
     <event-masked-clue [value]="value" />
   </section>
-  } @else if (view.contestUrl; as url) {
+  } @else if (phase() === "RUNNING" && view.contestUrl; as url) {
   <div class="contest__run" data-contest-running>
     <p>Your contest is running on Codeforces. Solve as many problems as you can.</p>
     <a class="contest__open" [href]="url" target="_blank" rel="noopener noreferrer" data-contest-link>Open the contest</a>
     <p class="contest__review" data-contest-review role="status">Your results are being reviewed by the room organizer.</p>
   </div>
-  } @else if (phase() === "RUNNING" || phase() === "PAUSED") {
+  } @else if (phase() === "RUNNING") {
   <p class="contest__notice" data-contest-no-link>The contest link is not ready yet. Ask the organizer.</p>
+  } @else if (phase() === "PAUSED") {
+  <p class="contest__notice" data-contest-paused>The contest is paused.</p>
   } @else if (phase() === "ASSIGNED") {
   <p class="contest__notice" data-contest-waiting>The contest link appears here when the timer starts.</p>
   } @else {

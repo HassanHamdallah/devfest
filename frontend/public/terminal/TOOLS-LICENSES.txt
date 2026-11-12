@@ -31,10 +31,22 @@ visitor's browser (an emulated Linux); the server does not run them.
 * busybox-static 1.37.0-r31  license GPL-2.0-only  upstream https://busybox.net/
     package https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/busybox-static-1.37.0-r31.apk
     package sha256 26d45cc895b3fa99ba7500d0860c3934a363e74e464eeb5fc623f08147c33cfd
+* libncursesw 6.6_p20260516-r0  license X11  upstream https://invisible-island.net/ncurses/
+    package https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libncursesw-6.6_p20260516-r0.apk
+    package sha256 49a048c29a93046b3fc5e72a21bb55ef537558d026f1064a42d25f42f19a90e9
+* ncurses-terminfo-base 6.6_p20260516-r0  license X11  upstream https://invisible-island.net/ncurses/
+    package https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/ncurses-terminfo-base-6.6_p20260516-r0.apk
+    package sha256 dbb8268b7a8c9e98b109dc6bd1a989f846bd49b71a186308a2224f3195620501
+* nano 9.3-r0  license GPL-3.0-or-later  upstream https://www.nano-editor.org/
+    package https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/nano-9.3-r0.apk
+    package sha256 22f9e80f856b64073dd9a77b30016e2bbd6c3f79ab956f1701cd0294ce6bf737
+* tree 2.3.2-r0  license GPL-2.0-or-later  upstream https://oldmanprogrammer.net/source.php?dir=projects/tree
+    package https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/tree-2.3.2-r0.apk
+    package sha256 0259e3aa65fd275f0a681ceef37e212af1d34c59f877f8af6d6737d17901ea49
 
 ----------------------------------------------------------------
 
-GNU General Public License, version 3  (findutils (GNU find and xargs))
+GNU General Public License, version 3  (findutils (GNU find and xargs), nano)
 source: https://www.gnu.org/licenses/gpl-3.0.txt
 
 GNU GENERAL PUBLIC LICENSE
@@ -714,7 +726,7 @@ Public License instead of this License.  But first, please read
 
 ----------------------------------------------------------------
 
-GNU General Public License, version 2  (BusyBox (base64))
+GNU General Public License, version 2  (BusyBox (base64), tree)
 source: https://www.gnu.org/licenses/gpl-2.0.txt
 
 GNU GENERAL PUBLIC LICENSE
@@ -1289,6 +1301,41 @@ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
+
+----------------------------------------------------------------
+
+ncurses license (X11)  (libncursesw, the terminfo entry)
+source: https://raw.githubusercontent.com/mirror/ncurses/master/COPYING
+
+Copyright 2018-2022,2023 Thomas E. Dickey
+Copyright 1998-2017,2018 Free Software Foundation, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, distribute with modifications, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name(s) of the above copyright
+holders shall not be used in advertising or otherwise to promote the
+sale, use or other dealings in this Software without prior written
+authorization.
+
+-- vile:txtmode fc=72
+-- $Id: COPYING,v 1.12 2023/01/07 17:55:53 tom Exp $
 
 ----------------------------------------------------------------
 

@@ -6,6 +6,7 @@
     "build": "ng build",
     "test": "playwright test",
     "test:e2e": "playwright test",
+    "test:unit": "ng test --no-watch",
     "format": "prettier --plugin=prettier-plugin-java --write \"../backend/src/**/*.java\" \"src/**/*.{ts,html,css}\""
   },
   "private": true,
