@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the DevFest database backup every 10 minutes
+
+[Timer]
+# During the event: every 10 minutes. Outside the event switch to daily (docs/DEPLOYMENT.md section 6).
+OnCalendar=*:0/10
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

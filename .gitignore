@@ -12,3 +12,5 @@
 **/test-results/
 **/playwright-report/
 **/DATABASERECREAT.md/
+# Release zips from infrastructure/deploy/build-release.ps1
+release/
