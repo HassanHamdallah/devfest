@@ -32,6 +32,7 @@ import { EventLiveStore } from "../event/event-live-store";
 import { ROOM_CODES } from "../event/event-models";
 import { RevisionSync } from "../event/revision-sync";
 import { RoleHome } from "../role-home";
+import { terminalSnapshots } from "../../features/event/terminal/terminal-snapshot";
 import { EventStatusBar } from "./event-status-bar";
 import {
   EventNavLink,
@@ -169,6 +170,8 @@ export class EventShell {
   }
 
   protected signOut(): void {
+    // The team's saved terminal stays on the device only as long as the team is signed in.
+    void terminalSnapshots.clear();
     this.store.clear();
     void this.api.logout();
   }

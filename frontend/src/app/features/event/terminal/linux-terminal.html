@@ -1,4 +1,4 @@
-<section class="linux-terminal" aria-label="Linux terminal" [attr.data-state]="state()">
+<section class="linux-terminal" aria-label="Linux terminal" [attr.data-state]="state()" [attr.data-saves]="saves()">
   <div class="linux-terminal__bar">
     <h3 class="linux-terminal__title">Terminal</h3>
     <span class="linux-terminal__status" aria-live="polite">
@@ -32,7 +32,11 @@
   </div>
   } @else if (state() === "booting") {
   <div class="linux-terminal__progress">
+    @if (restoring()) {
+    <span>Restoring your terminal…</span>
+    } @else {
     <span>Booting Linux in your browser. This takes a few seconds.</span>
+    }
   </div>
   }
   @if (error(); as text) {
@@ -50,12 +54,15 @@
   @if (notice(); as text) {
   <p class="linux-terminal__notice" aria-live="polite">{{ text }}</p>
   }
+  @if (saveNotice(); as text) {
+  <p class="linux-terminal__notice" data-save-notice>{{ text }}</p>
+  }
 </section>
 
 <ui-confirm-dialog
   [open]="confirmRestart()"
   title="Restart the terminal?"
-  message="Linux restarts from the beginning with the room's files. Anything you created or changed in the terminal is lost."
+  message="Linux restarts from the beginning with the room's files. Anything you created or changed in the terminal, including its saved copy, is lost."
   confirmVariant="danger"
   (confirmed)="restart()"
   (cancelled)="confirmRestart.set(false)"

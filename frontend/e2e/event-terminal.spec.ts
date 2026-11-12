@@ -160,15 +160,13 @@ test("terminal: the Linux team boots Linux in the browser, greps the room's file
       await expect(page.getByRole("heading", { name: "Receipt", exact: true })).toBeVisible();
     });
 
-    await test.step("at Time's up the terminal says Time is up and takes no more input", async () => {
+    await test.step("when the admin ends the round the terminal is gone without any click", async () => {
       await control.endRound();
-      await expect(terminal(page)).toHaveAttribute("data-state", "ended", PUSHED);
-      await expect(terminal(page).locator(".linux-terminal__ended")).toHaveText("Time is up");
+      // No click anywhere: the terminal, its "Time is up" overlay and the old "Close terminal" button are all removed.
+      await expect(terminal(page)).toHaveCount(0, PUSHED);
+      await expect(page.getByRole("button", { name: "Close terminal", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Start terminal", exact: true })).toHaveCount(0);
       expect(await teamFilesStatus(page, linuxRoom)).toBe(404);
-      await terminal(page).locator(".xterm").click();
-      await page.keyboard.type("echo still-here");
-      await page.keyboard.press("Enter");
-      await expect(terminalRow(page, "still-here")).toHaveCount(0);
     });
   } finally {
     await adminApi.dispose();

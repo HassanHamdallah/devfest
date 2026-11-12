@@ -22,7 +22,9 @@ import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiProgress } from "../../../shared/ui/ui-progress/ui-progress";
 import { LinuxSession, TERMINAL_COLS, TERMINAL_ROWS, TOOLS_FAILED, TerminalBundle } from "./linux-session";
-import { terminalAssets } from "./terminal-assets";
+import { SnapshotScheduler } from "./snapshot-scheduler";
+import { TerminalBuffers, V86Constructor, terminalAssets } from "./terminal-assets";
+import { SnapshotScope, packageKey, terminalSnapshots } from "./terminal-snapshot";
 
 type TerminalState = "downloading" | "booting" | "ready" | "ended" | "failed";
 
@@ -30,6 +32,9 @@ const BANNER = "\x1b[1mYour files are in ~/logs. There is no internet in this te
 const SERVER_BANNER = "\x1b[1mRami's server is mounted. There is no internet in this terminal.\x1b[0m\r\n";
 const TIME_UP = "\r\n\x1b[1;31mTime is up.\x1b[0m The terminal no longer accepts input.\r\n";
 const MB = 1024 * 1024;
+const NEWLINE = String.fromCharCode(13, 10);
+const NOT_SAVABLE = "Your terminal cannot be saved in this browser. A page refresh will restart it.";
+const NOT_RESTORED = "Your saved terminal could not be restored, so a new one was started.";
 
 /**
  * A Linux terminal running entirely in this browser tab (v86 + xterm.js). It starts as soon as it is created:
@@ -55,12 +60,23 @@ export class EventLinuxTerminal {
   /** Shows "Use selection as technical output" (the team's answer form is next to the terminal). */
   readonly offerOutput = input(false);
   readonly useAsOutput = output<string>();
+  /**
+   * Whose terminal this is. Set for a team's room terminal: its VM is then saved in the browser and comes back after
+   * a page refresh. Null (the manager's test terminal) saves nothing.
+   */
+  readonly snapshotScope = input<SnapshotScope | null>(null);
 
   protected readonly state = signal<TerminalState>("downloading");
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly bootSeconds = signal<number | null>(null);
   protected readonly confirmRestart = signal(false);
+  /** The terminal is being brought back from the saved state instead of booting. */
+  protected readonly restoring = signal(false);
+  /** Saving stopped for this session because the browser refused it (one small notice). */
+  protected readonly saveNotice = signal<string | null>(null);
+  /** How many saves finished in this session (read by the browser tests). */
+  protected readonly saves = signal(0);
   protected readonly downloaded = computed(() => (terminalAssets.loadedBytes() / MB).toFixed(1));
   protected readonly downloadTotal = (terminalAssets.totalBytes / MB).toFixed(1);
   protected readonly loadedBytes = terminalAssets.loadedBytes;
@@ -74,6 +90,10 @@ export class EventLinuxTerminal {
   private generation = 0;
   private pending: number[] = [];
   private flushQueued = false;
+  private scheduler: SnapshotScheduler | null = null;
+  private readonly saveWhenHidden = () => {
+    if (document.visibilityState === "hidden") this.scheduler?.flush();
+  };
   private readonly warnBeforeLeaving = (event: BeforeUnloadEvent) => {
     event.preventDefault();
     event.returnValue = "";
@@ -92,8 +112,11 @@ export class EventLinuxTerminal {
       if (active) window.addEventListener("beforeunload", this.warnBeforeLeaving);
       else window.removeEventListener("beforeunload", this.warnBeforeLeaving);
     });
+    document.addEventListener("visibilitychange", this.saveWhenHidden);
     inject(DestroyRef).onDestroy(() => {
       this.generation++;
+      this.scheduler?.stop();
+      document.removeEventListener("visibilitychange", this.saveWhenHidden);
       window.removeEventListener("beforeunload", this.warnBeforeLeaving);
       void this.session?.destroy();
       this.session = null;
@@ -105,10 +128,15 @@ export class EventLinuxTerminal {
   protected async restart(): Promise<void> {
     this.confirmRestart.set(false);
     if (this.ended()) return;
-    await this.session?.destroy();
+    // A restart begins from the room's files: the saved terminal is thrown away first.
+    this.scheduler?.stop();
+    this.scheduler = null;
+    const old = this.session;
     this.session = null;
+    await terminalSnapshots.clear();
+    await old?.destroy();
     this.terminal?.reset();
-    await this.start();
+    await this.start(false);
   }
 
   protected async copySelection(): Promise<void> {
@@ -140,12 +168,13 @@ export class EventLinuxTerminal {
     return text || null;
   }
 
-  private async start(): Promise<void> {
+  private async start(allowRestore = true): Promise<void> {
     const generation = ++this.generation;
     const current = () => generation === this.generation;
     const started = performance.now();
     this.error.set(null);
     this.notice.set(null);
+    this.restoring.set(false);
     this.bootSeconds.set(null);
     this.state.set("downloading");
     // After "Time is up" the admin may add time; a restart then takes input again.
@@ -156,25 +185,102 @@ export class EventLinuxTerminal {
         terminalAssets.load(),
         this.loadFiles()(),
       ]);
-      const bundle = await this.downloadBundle(files);
       if (!current() || this.ended()) return;
       this.state.set("booting");
-      const banner = bundle ? SERVER_BANNER : BANNER;
-      const session = await LinuxSession.boot(Emulator, buffers, files, bundle, banner, (byte) => this.write(byte));
+      let session = allowRestore ? await this.restoreSaved(Emulator, buffers, files, current) : null;
       if (!current() || this.ended()) {
-        await session.destroy();
+        await session?.destroy();
         return;
       }
+      if (!session) {
+        this.restoring.set(false);
+        const bundle = await this.downloadBundle(files);
+        if (!current() || this.ended()) return;
+        session = await LinuxSession.boot(Emulator, buffers, files, bundle, bundle ? SERVER_BANNER : BANNER, (byte) => this.write(byte));
+        if (!current() || this.ended()) {
+          await session.destroy();
+          return;
+        }
+      }
       this.session = session;
+      this.restoring.set(false);
       this.bootSeconds.set((performance.now() - started) / 1000);
       this.state.set("ready");
       this.terminal?.focus();
+      this.startSaving(files);
     } catch (error) {
       if (!current()) return;
       if (error instanceof Error && error.message === TOOLS_FAILED) terminalAssets.dropTools();
+      this.restoring.set(false);
       this.error.set(message(error));
       this.state.set("failed");
     }
+  }
+
+  /**
+   * The saved terminal of this team, room, round and package, brought back and drawn on the screen; null when there
+   * is none (the terminal then boots). A snapshot that cannot be restored is deleted, with a short notice.
+   */
+  private async restoreSaved(
+    Emulator: V86Constructor,
+    buffers: TerminalBuffers,
+    files: TerminalStartFiles,
+    current: () => boolean,
+  ): Promise<LinuxSession | null> {
+    const scope = this.snapshotScope();
+    if (!scope) return null;
+    const record = await terminalSnapshots.load({ ...scope, packageKey: packageKey(files) });
+    if (!record || !current()) return null;
+    this.restoring.set(true);
+    try {
+      this.terminal?.reset();
+      const session = await LinuxSession.restore(Emulator, buffers, files.bundle !== null, record.state, (byte) => this.write(byte));
+      this.terminal?.write(record.screen);
+      return session;
+    } catch {
+      this.terminal?.reset();
+      await terminalSnapshots.clear();
+      this.notice.set(NOT_RESTORED);
+      return null;
+    }
+  }
+
+  /** Starts saving this terminal: after input, never while idle. Without a scope (a test terminal) nothing is saved. */
+  private startSaving(files: TerminalStartFiles): void {
+    this.scheduler?.stop();
+    this.scheduler = null;
+    const scope = this.snapshotScope();
+    const session = this.session;
+    if (!scope || !session) return;
+    const key = { ...scope, packageKey: packageKey(files) };
+    this.saveNotice.set(null);
+    this.scheduler = new SnapshotScheduler(
+      async () => {
+        const screen = this.screenText();
+        const state = await session.saveState();
+        // A restart, the end of the round or a new session may have happened while the state was gathered.
+        if (this.session !== session) return;
+        await terminalSnapshots.save(key, state, screen);
+        this.saves.update((count) => count + 1);
+      },
+      () => this.saveNotice.set(NOT_SAVABLE),
+    );
+  }
+
+  /** The text of the screen and its history up to the cursor, to be written back after a restore. */
+  private screenText(): string {
+    const buffer = this.terminal?.buffer.normal;
+    if (!buffer) return "";
+    const last = buffer.baseY + buffer.cursorY;
+    let text = "";
+    for (let row = 0; row <= last; row++) {
+      const line = buffer.getLine(row);
+      if (!line) continue;
+      if (row === last) return text + line.translateToString(false, 0, buffer.cursorX);
+      const continues = buffer.getLine(row + 1)?.isWrapped === true;
+      text += line.translateToString(!continues) + (continues ? "" : NEWLINE);
+    }
+    return text;
   }
 
   /** The room's server package, when it has one (the browser revalidates it by ETag on a restart). */
@@ -190,6 +296,9 @@ export class EventLinuxTerminal {
   private async end(): Promise<void> {
     if (this.state() === "ended") return;
     this.generation++;
+    this.scheduler?.stop();
+    this.scheduler = null;
+    if (this.snapshotScope()) void terminalSnapshots.clear();
     const wasRunning = this.state() === "ready";
     this.state.set("ended");
     if (this.terminal) {
@@ -211,7 +320,9 @@ export class EventLinuxTerminal {
     });
     terminal.open(this.screen().nativeElement);
     terminal.onData((data) => {
-      if (this.state() === "ready") this.session?.send(data);
+      if (this.state() !== "ready") return;
+      this.session?.send(data);
+      this.scheduler?.touch();
     });
     return terminal;
   }

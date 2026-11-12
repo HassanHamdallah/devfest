@@ -12,12 +12,14 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
+import { Api } from "../../../core/api";
 import { effectivePhase, remainingSeconds } from "../../../core/event/countdown";
 import { EventApi } from "../../../core/event/event-api";
 import { TeamBoard } from "../../../core/event/event-models";
 import { UiButton } from "../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../shared/ui/ui-card/ui-card";
 import { EventLinuxTerminal } from "../terminal/linux-terminal";
+import { SnapshotScope, terminalSnapshots } from "../terminal/terminal-snapshot";
 import { EventContestRoomActivity } from "./contest-room/contest-room-activity";
 import { EventRoomSubmissionPanel } from "./room-submission-panel";
 import { EventSentinelActivity } from "./sentinel/sentinel-activity";
@@ -26,7 +28,7 @@ import { EventTerminalForm } from "./terminal-form";
 /** The split view needs room for an 80-column terminal next to the answer form. */
 const WIDE_QUERY = "(min-width: 900px)";
 
-/** The terminal of one room in one round; it stays on screen ("Time is up") after its round ends. */
+/** The terminal of one room in one round; it is removed automatically when its round ends. */
 interface TerminalSession {
   roomId: number;
   round: number;
@@ -48,6 +50,7 @@ interface TerminalSession {
 })
 export class EventTeamRoomWorkspace {
   private readonly eventApi = inject(EventApi);
+  private readonly api = inject(Api);
 
   readonly board = input.required<TeamBoard>();
   /** A submission got a response: the page reloads its board and receipts. */
@@ -87,6 +90,15 @@ export class EventTeamRoomWorkspace {
     return session !== null && (eligible?.roomId !== session.roomId || eligible.round !== session.round);
   });
   protected readonly showTerminal = computed(() => this.eligible() !== null || this.session() !== null);
+  /** This team's terminal, as a saved copy is filed: the team's login, the room and the round. Null when nothing runs. */
+  protected readonly snapshotScope = computed<SnapshotScope | null>(() => {
+    const session = this.session();
+    const teamId = this.api.user()?.id;
+    return session && teamId !== undefined ? { teamId, roomId: session.roomId, round: session.round } : null;
+  });
+  /** No terminal is allowed now (round over, other room, disqualified): the saved copy is of no use any more. */
+  private readonly closed = computed(() => this.eligible() === null);
+  private autoStartChecked = false;
   protected readonly preparing = signal(false);
   protected readonly loadFiles = () => this.eventApi.teamTerminalFiles(this.session()?.roomId ?? 0);
   protected readonly loadBundle = () => this.eventApi.terminalBundle(this.session()?.roomId ?? 0, "team");
@@ -101,6 +113,21 @@ export class EventTeamRoomWorkspace {
     effect(() => {
       const waiting = this.eligible() !== null && this.phase() === "ASSIGNED";
       if (waiting && (this.wide() || this.opened())) untracked(() => this.preload());
+    });
+    // When the round ends the terminal is removed at once (its VM memory is freed); no click is needed.
+    effect(() => {
+      if (this.ended()) untracked(() => this.session.set(null));
+    });
+    // Without a running-round terminal the team's saved copy is deleted too.
+    effect(() => {
+      if (this.closed()) untracked(() => void terminalSnapshots.clear());
+    });
+    // After a page refresh in a running round, a team that had a saved terminal gets it back without a click.
+    effect(() => {
+      const eligible = this.eligible();
+      if (!eligible || this.phase() !== "RUNNING" || this.autoStartChecked || untracked(this.session) !== null) return;
+      this.autoStartChecked = true;
+      untracked(() => void this.resumeSaved(eligible));
     });
     inject(DestroyRef).onDestroy(() => {
       clearInterval(timer);
@@ -123,9 +150,16 @@ export class EventTeamRoomWorkspace {
     this.session.set(eligible);
   }
 
-  /** After "Time is up": removes the old terminal (and frees its memory). */
-  protected close(): void {
-    this.session.set(null);
+  private async resumeSaved(eligible: TerminalSession): Promise<void> {
+    const teamId = this.api.user()?.id;
+    if (teamId === undefined) return;
+    const saved = await terminalSnapshots.peek({ teamId, roomId: eligible.roomId, round: eligible.round });
+    const stillEligible = this.eligible();
+    if (saved && !this.session() && stillEligible?.roomId === eligible.roomId && stillEligible.round === eligible.round) {
+      // A phone user did not ask for the terminal, but a saved one is theirs to continue.
+      this.opened.set(true);
+      this.start();
+    }
   }
 
   private preload(): void {
