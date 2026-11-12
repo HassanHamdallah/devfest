@@ -39,7 +39,8 @@ import {
       id="disqualify"
       aria-labelledby="disqualify-heading"
     >
-      <h2 id="disqualify-heading">Disqualify or reinstate</h2>
+      <details class="override-section__details" data-collapsible>
+      <summary><h2 id="disqualify-heading">Disqualify or reinstate</h2></summary>
       <p class="event-muted">
         A disqualified team stays signed in and keeps its records, but cannot
         submit anything and is listed last in the ranking without a rank.
@@ -78,7 +79,8 @@ import {
         (confirmed)="setStatus($event)"
         (cancelled)="statusRun.cancel()"
       />
-    </section>`,
+    </details>
+  </section>`,
 })
 export class TeamStatusSection {
   private readonly eventApi = inject(EventApi);

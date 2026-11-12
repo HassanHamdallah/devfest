@@ -6,6 +6,7 @@ import {
   input,
   output,
 } from "@angular/core";
+import { RouterLink } from "@angular/router";
 import { EventApi } from "../../../../core/event/event-api";
 import { PublicRankingRow, RankingRow } from "../../../../core/event/event-models";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
@@ -15,10 +16,12 @@ import { ActionState } from "../shared/action-state";
 import { ActionStatus } from "../shared/action-status";
 import { ControlAction } from "./control-actions";
 
-/** Live ranking (total out of 100) with publication and CSV export. */
+const TOP_TEAMS = 5;
+
+/** The top of the live ranking (total out of 100) with a link to Scores, plus publication and CSV export. */
 @Component({
   selector: "app-ranking-panel",
-  imports: [ActionStatus, RankingTable, UiButton, UiStatusChip],
+  imports: [ActionStatus, RankingTable, RouterLink, UiButton, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<section class="event-stack" aria-labelledby="ranking-heading">
     <div class="event-page-header ranking-panel__header">
@@ -54,7 +57,11 @@ import { ControlAction } from "./control-actions";
     @if (download.error()) {
       <app-action-status [state]="download" />
     }
-    <app-ranking-table [rows]="lines()" />
+    <app-ranking-table [rows]="topLines()" />
+    <p class="ranking-panel__more">
+      <a routerLink="/event/admin/scores" data-all-scores>All scores →</a>
+      <span class="event-muted">Top {{ topLines().length }} of {{ lines().length }} teams.</span>
+    </p>
   </section>`,
   styles: `
     h2 {
@@ -65,6 +72,13 @@ import { ControlAction } from "./control-actions";
     }
     .event-stack {
       gap: var(--space-3);
+    }
+    .ranking-panel__more {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2) var(--space-4);
+      margin: 0;
     }
   `,
 })
@@ -91,6 +105,9 @@ export class RankingPanel {
       disqualified: row.scores.disqualified,
     })),
   );
+
+  /** Only the leaders show here; the Scores page has every team. */
+  protected readonly topLines = computed(() => this.lines().slice(0, TOP_TEAMS));
 
   protected setPublication(published: boolean): void {
     if (!this.busy()) this.action.emit({ kind: "setPublication", published });

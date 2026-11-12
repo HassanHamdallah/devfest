@@ -1,37 +1,24 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
 import { RoomEvidence } from "../../../core/event/event-models";
-import { UiRoomChip } from "../../../shared/ui/ui-room-chip/ui-room-chip";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { EventMaskedClue } from "./masked-clue";
 
 /**
- * A finished room on the team home: the team's latest technical output and clue answer with its result, and the
+ * The evidence part of a finished room's card on the team home (inside event-team-room-card): the team's latest technical output and clue answer with its result, and the
  * room's official clue behind the eye toggle when the team collected it. A room with an activity (AI mission) shows
  * only its outcome: "Clue unlocked" with the clue, or that the required score was not reached; the Problem Solving
  * contest shows only whether its clue was unlocked.
  */
 @Component({
   selector: "event-team-evidence-card",
-  imports: [EventMaskedClue, UiRoomChip, UiStatusChip],
+  imports: [EventMaskedClue, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     "[attr.data-evidence]": "evidence().roomCode",
-    "[class]": "'room-tone--' + evidence().roomCode",
   },
   styles: `
     :host {
-      display: grid;
-      align-content: start;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-block-start: 6px solid var(--room-color);
-      border-radius: var(--radius-card);
-    }
-    h3 {
-      margin: 0;
-      font-size: var(--font-size-base);
+      display: block;
     }
     dl {
       display: grid;
@@ -60,11 +47,7 @@ import { EventMaskedClue } from "./masked-clue";
       overflow-wrap: anywhere;
     }
   `,
-  template: `<div class="event-inline">
-      <ui-room-chip [code]="evidence().roomCode" [name]="evidence().roomName" />
-      <h3>Evidence</h3>
-    </div>
-    <dl>
+  template: `<dl>
       @if (evidence().activity === "LINUX_TERMINAL") {
         <dt>Your answers</dt>
         <dd data-form-outcome>

@@ -100,6 +100,8 @@ export class EventShell {
   private loadingNavigation = false;
 
   protected readonly isAdmin = computed(() => this.user().role === "ADMIN");
+  /** True on the organizer's Control page, where the round timer panel shows the phase itself. */
+  protected readonly onControlPage = signal(false);
   protected readonly showStatus = computed(() => this.user().role !== "MEMBER");
   protected readonly roleLabel = computed(() => ROLE_LABELS[this.user().role]);
   protected readonly homePath = computed(() =>
@@ -115,12 +117,15 @@ export class EventShell {
   );
 
   constructor() {
-    inject(Router)
-      .events.pipe(
+    const router = inject(Router);
+    this.onControlPage.set(router.url.split(/[?#]/)[0] === "/event/admin");
+    router.events
+      .pipe(
         filter((event) => event instanceof NavigationEnd),
         takeUntilDestroyed(),
       )
       .subscribe(() => {
+        this.onControlPage.set(router.url.split(/[?#]/)[0] === "/event/admin");
         this.menuOpen.set(false);
         this.teamDrawer.close();
       });

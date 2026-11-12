@@ -1,7 +1,14 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { RouterLink } from "@angular/router";
 import { AdminAlert } from "../../../../core/event/event-models";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
+
+/** The board alerts that also stop the final from opening (the same gaps the open-final check names). */
+const FINAL_GAP_CODES = ["MISSING_FINAL_CONTENT", "MISSING_CLUE_KEY"];
+
+export function hasFinalGap(alerts: readonly AdminAlert[]): boolean {
+  return alerts.some((alert) => FINAL_GAP_CODES.includes(alert.code));
+}
 
 /**
  * Setup problems reported by the board; each links to the page that fixes it. With no alerts it shrinks to
@@ -26,12 +33,20 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
         <p class="event-muted">No alerts. The event setup is complete.</p>
       }
     </div>
+    @if (finalRefused() && hasGap()) {
+      <p class="alerts__refused" role="alert" data-final-refused>
+        The final cannot open yet. Fix the items marked "Needed for the final": each one links to the page that fixes it.
+      </p>
+    }
     @if (alerts().length) {
       <ul aria-labelledby="alerts-heading">
         @for (alert of alerts(); track alert.code + alert.message) {
           <li [attr.data-alert]="alert.code" [attr.data-blocking]="alert.blocking || null">
             @if (alert.blocking) {
               <ui-status-chip variant="danger">Blocks the timer</ui-status-chip>
+            }
+            @if (finalRefused() && isGap(alert)) {
+              <ui-status-chip variant="warning">Needed for the final</ui-status-chip>
             }
             <a [routerLink]="alert.link">{{ alert.message }}</a>
           </li>
@@ -70,14 +85,25 @@ import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chi
       margin: 0;
       font-size: var(--font-size-sm);
     }
+    .alerts__refused {
+      font-weight: var(--font-weight-semibold);
+    }
     li[data-blocking] {
       font-weight: var(--font-weight-semibold);
     }
-    li[data-blocking] ui-status-chip {
+    li ui-status-chip {
       margin-inline-end: var(--space-2);
     }
   `,
 })
 export class AlertsList {
   readonly alerts = input.required<readonly AdminAlert[]>();
+  /** Opening the final was just refused because of gaps listed here. */
+  readonly finalRefused = input(false);
+
+  protected readonly hasGap = computed(() => hasFinalGap(this.alerts()));
+
+  protected isGap(alert: AdminAlert): boolean {
+    return FINAL_GAP_CODES.includes(alert.code);
+  }
 }

@@ -33,6 +33,10 @@ const WHOLE_NUMBER = /^[0-9]{1,12}$/;
       display: grid;
       gap: var(--space-3);
     }
+    .help {
+      margin: var(--space-3) 0;
+      color: var(--color-text-muted);
+    }
     .numbers {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -71,9 +75,10 @@ const WHOLE_NUMBER = /^[0-9]{1,12}$/;
         <dd data-layer-n>{{ layer().n }}</dd>
       </div>
     </dl>
+    <p class="help">Find the key card where p × q = n, then M = C^d mod n.</p>
     <form (ngSubmit)="submit()">
       <ui-input
-        label="Your integer"
+        label="Decrypted number M"
         name="value"
         type="text"
         [required]="true"

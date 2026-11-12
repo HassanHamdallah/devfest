@@ -23,6 +23,7 @@ import { EventFinalRecovery } from "./final/final-recovery";
 import { EventFinalStatus } from "./final/final-status";
 import { EventFinalSubmitted } from "./final/final-submitted";
 import { EventFinalSuspects } from "./final/final-suspects";
+import { EventFinalVerdicts } from "./final/final-verdicts";
 import { EventFinalUnlock } from "./final/final-unlock";
 
 /**
@@ -41,6 +42,7 @@ import { EventFinalUnlock } from "./final/final-unlock";
     EventFinalSubmitted,
     EventFinalSuspects,
     EventFinalUnlock,
+    EventFinalVerdicts,
     EventRefreshError,
     RouterLink,
     UiCard,
@@ -56,10 +58,15 @@ export class EventTeamFinalPage {
 
   protected readonly loader = new BoardLoader<TeamFinal>(() => this.eventApi.teamFinal());
   protected readonly final = this.loader.data;
-  /** "Your evidence" in every state except before the final opens. */
+  /** "Room clues" in every state except before the final opens. */
   protected readonly showsEvidence = computed(() => {
     const status = this.final()?.status;
     return status !== undefined && status !== "LOCKED";
+  });
+  /** The team is past the mission screen (layers, suspects or submitted): the room clues start collapsed. */
+  protected readonly caseStarted = computed(() => {
+    const screen = this.final()?.screen;
+    return screen === "LAYER" || screen === "SUSPECTS" || screen === "SUBMITTED";
   });
   protected readonly cluesLine = computed(
     () => `Your team collected ${this.final()?.cluesCollected ?? 0} of 4 clues.`,

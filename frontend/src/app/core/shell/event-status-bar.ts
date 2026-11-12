@@ -33,9 +33,11 @@ import { roundStatusLabel } from "../event/format";
       @if (view(); as v) {
         <strong class="status__round">{{ v.round }}</strong>
         @if (v.phase; as phase) {
+          @if (!hidePhase()) {
           <ui-status-chip [variant]="phaseVariants[phase]">{{
             phaseLabels[phase]
           }}</ui-status-chip>
+          }
         }
         @if (v.digits; as digits) {
           <span
@@ -132,6 +134,8 @@ export class EventStatusBar {
   protected readonly store = inject(EventLiveStore);
   /** Organizers also see whether results are published. */
   readonly showResults = input(false);
+  /** The organizer's Control page shows the phase next to its timer buttons, so the bar leaves it out there. */
+  readonly hidePhase = input(false);
 
   protected readonly phaseLabels = PHASE_LABELS;
   protected readonly phaseVariants = PHASE_VARIANTS;

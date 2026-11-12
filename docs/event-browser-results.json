@@ -2,15 +2,18 @@
   "config": {
     "argv": [
       "C:\\Program Files\\nodejs\\node.exe",
-      "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
       "-c",
       "playwright.event.config.ts",
-      "event-ai-room",
-      "event-sentinel-manager"
+      "event-terminal-form.spec.ts",
+      "--trace",
+      "off",
+      "--repeat-each",
+      "4"
     ],
-    "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
-    "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+    "configFile": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
+    "rootDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -26,15 +29,15 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
-        "repeatEach": 1,
+        "outputDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
+        "repeatEach": 4,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "id": "",
         "name": "",
-        "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+        "testDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -50,6 +53,8 @@
           "event-terminal-tools.spec.ts",
           "event-terminal-dashboard.spec.ts",
           "event-contest.spec.ts",
+          "event-final.spec.ts",
+          "event-scores.spec.ts",
           "event.spec.ts"
         ],
         "timeout": 300000
@@ -59,15 +64,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
-        "repeatEach": 1,
+        "outputDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
+        "repeatEach": 4,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
-        "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "testDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "snapshotDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -83,6 +88,8 @@
           "event-terminal-tools.spec.ts",
           "event-terminal-dashboard.spec.ts",
           "event-contest.spec.ts",
+          "event-final.spec.ts",
+          "event-scores.spec.ts",
           "event.spec.ts"
         ],
         "timeout": 300000,
@@ -91,7 +98,7 @@
           "browserName": "chromium",
           "channel": "msedge",
           "headless": true,
-          "trace": "retain-on-failure"
+          "trace": "off"
         },
         "dependencies": [],
         "ignoreSnapshots": false,
@@ -125,18 +132,18 @@
   },
   "suites": [
     {
-      "title": "event-ai-room.spec.ts",
-      "file": "event-ai-room.spec.ts",
+      "title": "event-terminal-form.spec.ts",
+      "file": "event-terminal-form.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [
         {
-          "title": "sentinel: one team repairs it and sees the clue, another does not and sees no number",
-          "ok": true,
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": false,
           "tags": [],
           "tests": [
             {
-              "timeout": 420000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
@@ -145,9 +152,28 @@
                 {
                   "workerIndex": 0,
                   "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 27495,
-                  "errors": [],
+                  "status": "failed",
+                  "duration": 18974,
+                  "error": {
+                    "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                    "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                    "location": {
+                      "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                      "column": 77,
+                      "line": 140
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                        "column": 77,
+                        "line": 140
+                      },
+                      "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n\n  138 |       await dialog.getByRole(\"button\", { name: \"Cancel\", exact: true }).click();\n  139 |       await expect(chip(page)).toHaveText(\"Saved\");\n> 140 |       await page.getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n      |                                                                             ^\n  141 |       await page.getByRole(\"dialog\").getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n  142 |       await expect(chip(page)).toHaveText(\"Submitted\");\n  143 |       await expect(page.getByText(\"Submitted. Your answers are locked.\", { exact: true })).toBeVisible();\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5"
+                    }
+                  ],
                   "stdout": [
                     {
                       "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
@@ -157,93 +183,97 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "before the timer starts the team sees the story and waits",
-                      "duration": 572
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 53
                     },
                     {
-                      "title": "the start screen, then three mission panels with stage status",
-                      "duration": 188
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 7004
                     },
                     {
-                      "title": "stage 1 Outlier Hunt: played in the browser, shown, submitted",
-                      "duration": 890
+                      "title": "there is no 'use selection' button, only a copy button",
+                      "duration": 5
                     },
                     {
-                      "title": "stage 2 Feature Check: played in the browser, shown, submitted",
-                      "duration": 741
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 1005
                     },
                     {
-                      "title": "stage 3 Tune & Deploy: played in the browser, shown, submitted",
-                      "duration": 1016
-                    },
-                    {
-                      "title": "stage 4 Nearest Vehicle: played in the browser, shown, submitted",
-                      "duration": 674
-                    },
-                    {
-                      "title": "stage 5 Camera Accuracy: played in the browser, shown, submitted",
-                      "duration": 646
-                    },
-                    {
-                      "title": "stage 6 Group the Frames: played in the browser, shown, submitted",
-                      "duration": 2858
-                    },
-                    {
-                      "title": "stage 7 Route Planner: played in the browser, shown, submitted",
-                      "duration": 666
-                    },
-                    {
-                      "title": "stage 8 Threat Filter: played in the browser, shown, submitted",
-                      "duration": 580
-                    },
-                    {
-                      "title": "stage 9 Rule Engine: played in the browser, shown, submitted",
-                      "duration": 1421
-                    },
-                    {
-                      "title": "stage 10 RAG Fix: played in the browser, shown, submitted",
-                      "duration": 1595
-                    },
-                    {
-                      "title": "the last stage records the result: SENTINEL restored, the clue behind the eye",
-                      "duration": 210
-                    },
-                    {
-                      "title": "Team 02 saves one stage; at the round's end it did not restore SENTINEL and sees no number",
-                      "duration": 2669
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 354,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                        "location": {
+                          "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                          "column": 77,
+                          "line": 140
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      }
                     }
                   ],
-                  "startTime": "2026-11-08T03:03:18.440Z",
+                  "startTime": "2026-11-11T23:02:58.010Z",
                   "annotations": [],
-                  "attachments": []
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-terminal-form-linux--46242-e-and-the-clue-is-collected\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                    "column": 77,
+                    "line": 140
+                  }
                 }
               ],
-              "status": "expected"
+              "status": "unexpected"
             }
           ],
-          "id": "58483f3d2a2e61c04a90-d9002fcebd4d5e65435c",
-          "file": "event-ai-room.spec.ts",
-          "line": 316,
+          "id": "ce5c442fc1bc94ffc468-3da69dc0b898f718ba9e",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
           "column": 5
         },
         {
-          "title": "sentinel: a refresh or a new sign-in resumes mid-way and the experiment budgets persist",
-          "ok": true,
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": false,
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
               "results": [
                 {
-                  "workerIndex": 0,
+                  "workerIndex": 1,
                   "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 29375,
-                  "errors": [],
+                  "status": "failed",
+                  "duration": 19504,
+                  "error": {
+                    "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                    "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                    "location": {
+                      "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                      "column": 77,
+                      "line": 140
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                        "column": 77,
+                        "line": 140
+                      },
+                      "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n\n  138 |       await dialog.getByRole(\"button\", { name: \"Cancel\", exact: true }).click();\n  139 |       await expect(chip(page)).toHaveText(\"Saved\");\n> 140 |       await page.getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n      |                                                                             ^\n  141 |       await page.getByRole(\"dialog\").getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n  142 |       await expect(chip(page)).toHaveText(\"Submitted\");\n  143 |       await expect(page.getByText(\"Submitted. Your answers are locked.\", { exact: true })).toBeVisible();\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5"
+                    }
+                  ],
                   "stdout": [
                     {
                       "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
@@ -253,61 +283,97 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "every stage fits a phone",
-                      "duration": 11248
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 53
                     },
                     {
-                      "title": "stage 1 is saved, stage 3 and stage 10 use part of their budgets",
-                      "duration": 1493
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 7522
                     },
                     {
-                      "title": "a page refresh resumes with the saved stage, the runs and the budgets",
-                      "duration": 1168
+                      "title": "there is no 'use selection' button, only a copy button",
+                      "duration": 6
                     },
                     {
-                      "title": "the last run is spent and nothing more can run",
-                      "duration": 821
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 1103
                     },
                     {
-                      "title": "a paused round freezes the input",
-                      "duration": 369
-                    },
-                    {
-                      "title": "a new sign-in in a fresh browser resumes the same way",
-                      "duration": 3316
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 343,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                        "location": {
+                          "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                          "column": 77,
+                          "line": 140
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      }
                     }
                   ],
-                  "startTime": "2026-11-08T03:03:46.190Z",
+                  "startTime": "2026-11-11T23:03:17.857Z",
                   "annotations": [],
-                  "attachments": []
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-terminal-form-linux--46242-e-and-the-clue-is-collected-repeat1\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                    "column": 77,
+                    "line": 140
+                  }
                 }
               ],
-              "status": "expected"
+              "status": "unexpected"
             }
           ],
-          "id": "58483f3d2a2e61c04a90-e5624acfda5838bf1602",
-          "file": "event-ai-room.spec.ts",
-          "line": 417,
+          "id": "ce5c442fc1bc94ffc468-f404394172426171ac0c",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
           "column": 5
         },
         {
-          "title": "sentinel: a room without mission content blocks the timer until the admin presses Start anyway",
-          "ok": true,
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": false,
           "tags": [],
           "tests": [
             {
-              "timeout": 180000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
               "results": [
                 {
-                  "workerIndex": 0,
+                  "workerIndex": 2,
                   "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 12929,
-                  "errors": [],
+                  "status": "failed",
+                  "duration": 18964,
+                  "error": {
+                    "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                    "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                    "location": {
+                      "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                      "column": 77,
+                      "line": 140
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                        "column": 77,
+                        "line": 140
+                      },
+                      "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n\n  138 |       await dialog.getByRole(\"button\", { name: \"Cancel\", exact: true }).click();\n  139 |       await expect(chip(page)).toHaveText(\"Saved\");\n> 140 |       await page.getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n      |                                                                             ^\n  141 |       await page.getByRole(\"dialog\").getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n  142 |       await expect(chip(page)).toHaveText(\"Submitted\");\n  143 |       await expect(page.getByText(\"Submitted. Your answers are locked.\", { exact: true })).toBeVisible();\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5"
+                    }
+                  ],
                   "stdout": [
                     {
                       "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
@@ -317,133 +383,97 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "the admin sees the blocking alert and must confirm Start anyway",
-                      "duration": 1183
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 48
                     },
                     {
-                      "title": "the AI room's team sees that the mission is not ready",
-                      "duration": 1627
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 6966
+                    },
+                    {
+                      "title": "there is no 'use selection' button, only a copy button",
+                      "duration": 8
+                    },
+                    {
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 1049
+                    },
+                    {
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 342,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                        "location": {
+                          "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                          "column": 77,
+                          "line": 140
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      }
                     }
                   ],
-                  "startTime": "2026-11-08T03:04:15.580Z",
+                  "startTime": "2026-11-11T23:03:38.223Z",
                   "annotations": [],
-                  "attachments": []
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-terminal-form-linux--46242-e-and-the-clue-is-collected-repeat2\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                    "column": 77,
+                    "line": 140
+                  }
                 }
               ],
-              "status": "expected"
+              "status": "unexpected"
             }
           ],
-          "id": "58483f3d2a2e61c04a90-5d9f9a7a31e5cee409ad",
-          "file": "event-ai-room.spec.ts",
-          "line": 525,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-sentinel-manager.spec.ts",
-      "file": "event-sentinel-manager.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "sentinel manager page: import, pass score, Field Guide, live results, CSV and the manual verdict",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 420000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 19371,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "the room board links to the SENTINEL page, which starts empty",
-                      "duration": 945
-                    },
-                    {
-                      "title": "a bad file is refused whole with every problem listed",
-                      "duration": 334
-                    },
-                    {
-                      "title": "the right file is imported and shows ten stages worth 100",
-                      "duration": 378
-                    },
-                    {
-                      "title": "Export JSON downloads the same mission",
-                      "duration": 365
-                    },
-                    {
-                      "title": "the pass score is saved",
-                      "duration": 166
-                    },
-                    {
-                      "title": "the Field Guide prints on one page and holds only the ideas",
-                      "duration": 539
-                    },
-                    {
-                      "title": "live results follow two teams: one finishes all ten stages, one saves a single stage",
-                      "duration": 4775
-                    },
-                    {
-                      "title": "at the round's end the other team is evaluated; the pass score and the import lock",
-                      "duration": 288
-                    },
-                    {
-                      "title": "Export CSV lists each team with its per-stage points",
-                      "duration": 210
-                    },
-                    {
-                      "title": "the manager's manual verdict still decides the clue: Reject takes it back",
-                      "duration": 771
-                    }
-                  ],
-                  "startTime": "2026-11-08T03:04:28.540Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a15f093d1ebf278b9b7b-b97e91aea670be3a1f06",
-          "file": "event-sentinel-manager.spec.ts",
-          "line": 72,
+          "id": "ce5c442fc1bc94ffc468-8403fc5795fa049ebdad",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
           "column": 5
         },
         {
-          "title": "sentinel manager page: another room's manager and teams cannot open it",
-          "ok": true,
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": false,
           "tags": [],
           "tests": [
             {
-              "timeout": 120000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
               "results": [
                 {
-                  "workerIndex": 0,
+                  "workerIndex": 3,
                   "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 9614,
-                  "errors": [],
+                  "status": "failed",
+                  "duration": 18877,
+                  "error": {
+                    "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                    "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                    "location": {
+                      "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                      "column": 77,
+                      "line": 140
+                    },
+                    "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                        "column": 77,
+                        "line": 140
+                      },
+                      "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n\n  138 |       await dialog.getByRole(\"button\", { name: \"Cancel\", exact: true }).click();\n  139 |       await expect(chip(page)).toHaveText(\"Saved\");\n> 140 |       await page.getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n      |                                                                             ^\n  141 |       await page.getByRole(\"dialog\").getByRole(\"button\", { name: \"Final submit\", exact: true }).click();\n  142 |       await expect(chip(page)).toHaveText(\"Submitted\");\n  143 |       await expect(page.getByText(\"Submitted. Your answers are locked.\", { exact: true })).toBeVisible();\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5"
+                    }
+                  ],
                   "stdout": [
                     {
                       "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
@@ -451,17 +481,60 @@
                   ],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-08T03:04:47.937Z",
+                  "steps": [
+                    {
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 50
+                    },
+                    {
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 6986
+                    },
+                    {
+                      "title": "there is no 'use selection' button, only a copy button",
+                      "duration": 5
+                    },
+                    {
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 970
+                    },
+                    {
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 338,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('button', { name: 'Final submit', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--md ui-button-el--primary\">…</button> aka getByRole('form', { name: 'Your answers' }).getByRole('button', { name: 'Final submit' })\n    2) <button type=\"button\" _ngcontent-ng-c1907314977=\"\" class=\"ui-button-el ui-button-el--danger ui-button-el--md\">…</button> aka getByRole('dialog').getByRole('button', { name: 'Final submit' })\n\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Final submit', exact: true })\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:140:77\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts:134:5",
+                        "location": {
+                          "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                          "column": 77,
+                          "line": 140
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 138 |\u001b[39m       \u001b[36mawait\u001b[39m dialog\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Cancel\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 139 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Saved\"\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 140 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 141 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"dialog\"\u001b[39m)\u001b[33m.\u001b[39mgetByRole(\u001b[32m\"button\"\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m\"Final submit\"\u001b[39m\u001b[33m,\u001b[39m exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 142 |\u001b[39m       \u001b[36mawait\u001b[39m expect(chip(page))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"Submitted\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 143 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[32m\"Submitted. Your answers are locked.\"\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mtrue\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                      }
+                    }
+                  ],
+                  "startTime": "2026-11-11T23:03:58.041Z",
                   "annotations": [],
-                  "attachments": []
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-terminal-form-linux--46242-e-and-the-clue-is-collected-repeat3\\error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-terminal-form.spec.ts",
+                    "column": 77,
+                    "line": 140
+                  }
                 }
               ],
-              "status": "expected"
+              "status": "unexpected"
             }
           ],
-          "id": "a15f093d1ebf278b9b7b-04fb6a8d54f839bf06ac",
-          "file": "event-sentinel-manager.spec.ts",
-          "line": 247,
+          "id": "ce5c442fc1bc94ffc468-a08a837debf173118c62",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
           "column": 5
         }
       ]
@@ -469,11 +542,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-08T03:03:18.042Z",
-    "duration": 100025.34,
-    "expected": 5,
+    "startTime": "2026-11-11T23:02:57.632Z",
+    "duration": 79826.976,
+    "expected": 0,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 4,
     "flaky": 0
   }
 }

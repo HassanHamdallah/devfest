@@ -6,17 +6,13 @@
 />
 @if (dashboard(); as view) {
 <div class="event-stack dashboard room-tone--LINUX">
-  <header class="dashboard__header">
-    <a class="dashboard__back" [routerLink]="['/event/room', view.roomId]">← {{ view.roomName }} board</a>
-    <h1>Linux room dashboard</h1>
-    <div class="event-inline">
-      <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
-      <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
-      <ui-button variant="secondary" size="sm" (click)="testing.set(!testing())">{{
-        testing() ? "Close test terminal" : "Test terminal"
-      }}</ui-button>
-    </div>
-  </header>
+  <event-room-subpage-header [roomId]="view.roomId" [roomName]="view.roomName" [title]="'Linux room dashboard'">
+    <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
+    <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
+    <ui-button variant="secondary" size="sm" (click)="testing.set(!testing())">{{
+      testing() ? "Close test terminal" : "Test terminal"
+    }}</ui-button>
+  </event-room-subpage-header>
   @if (loader.refreshError(); as text) {
   <ui-alert variant="warning">{{ text }}</ui-alert>
   }

@@ -6,14 +6,10 @@
 />
 @if (results(); as view) {
 <div class="event-stack contest room-tone--PROBLEM_SOLVING">
-  <header class="contest__header">
-    <a class="contest__back" [routerLink]="['/event/room', view.roomId]">← {{ view.roomName }} board</a>
-    <h1>Problem Solving results</h1>
-    <div class="event-inline">
-      <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
-      <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
-    </div>
-  </header>
+  <event-room-subpage-header [roomId]="view.roomId" [roomName]="view.roomName" [title]="'Problem Solving results'">
+    <span class="event-muted" aria-live="polite">Updated {{ updated() }} · refreshes every 5 s</span>
+    <ui-button variant="secondary" size="sm" (click)="exportCsv()">Export CSV</ui-button>
+  </event-room-subpage-header>
   @if (loader.refreshError(); as text) {
   <ui-alert variant="warning">{{ text }}</ui-alert>
   }

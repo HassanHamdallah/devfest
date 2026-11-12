@@ -60,6 +60,16 @@ export const SECTION_STYLES = `
     margin: 0;
     font-size: var(--font-size-lg);
   }
+  .override-section__details {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .override-section__details > summary {
+    cursor: pointer;
+  }
+  .override-section__details > summary h2 {
+    display: inline;
+  }
   p {
     margin: 0;
   }

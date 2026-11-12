@@ -24,6 +24,7 @@
     >Showing the last loaded board. {{ error }}</ui-alert
   >
   }
+  <app-alerts-list [alerts]="data.alerts" [finalRefused]="finalRefused()" />
   <app-round-timer-panel
     [state]="data.state"
     [rooms]="data.rooms"
@@ -40,7 +41,6 @@
     [roomError]="roomError()"
     (action)="request($event)"
   />
-  <app-alerts-list [alerts]="data.alerts" />
   <app-rotation-table [board]="data" />
   <app-ranking-panel
     [rows]="data.ranking"

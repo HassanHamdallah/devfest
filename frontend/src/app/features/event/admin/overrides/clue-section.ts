@@ -39,7 +39,8 @@ const ACTIONS = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [SECTION_STYLES],
   template: `<section class="override-section" id="clue" aria-labelledby="clue-heading">
-    <h2 id="clue-heading">Manual clue</h2>
+    <details class="override-section__details" data-collapsible>
+      <summary><h2 id="clue-heading">Manual clue</h2></summary>
     <p class="event-muted">
       Grant or revoke the clue of one room for one team. Teams see a granted
       clue as collected; only admin screens mark it "Manual".
@@ -92,6 +93,7 @@ const ACTIONS = [
       (confirmed)="confirm($event)"
       (cancelled)="run.cancel()"
     />
+  </details>
   </section>`,
 })
 export class ClueSection {

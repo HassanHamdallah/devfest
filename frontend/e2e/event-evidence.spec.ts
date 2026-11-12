@@ -117,7 +117,7 @@ test("evidence: finished rooms show the answer and the masked clue; the final li
       await expect(clueValue(solving)).toHaveCount(0);
     });
 
-    await test.step("in the final, Your evidence lists the collected clues masked", async () => {
+    await test.step("in the final, Room clues lists the collected clues masked", async () => {
       // One device per team: borrow the browser's session instead of signing in again.
       const teamApi = await EventApiSession.fromPage(page);
       borrowed.push(teamApi);
@@ -134,7 +134,7 @@ test("evidence: finished rooms show the answer and the masked clue; the final li
       await control.openFinal();
       await page.getByRole("link", { name: "Open final", exact: true }).click();
       const panel = page.locator("event-final-evidence");
-      await expect(page.getByRole("heading", { name: "Your evidence", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Room clues", exact: true })).toBeVisible();
       for (const room of ["AI", "LINUX", "HARDWARE"]) {
         const row = page.locator(`[data-final-evidence="${room}"]`);
         await expect(clueValue(row)).toContainText(MASK);

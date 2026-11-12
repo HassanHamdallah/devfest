@@ -49,7 +49,8 @@ import {
     id="room-exception"
     aria-labelledby="room-exception-heading"
   >
-    <h2 id="room-exception-heading">Room exception (current round)</h2>
+    <details class="override-section__details" data-collapsible>
+      <summary><h2 id="room-exception-heading">Room exception (current round)</h2></summary>
     <p class="event-muted">
       Send one team to a different room for this round only, e.g. when a room
       broke or the team was late. From the next round it follows the rotation.
@@ -125,6 +126,7 @@ import {
       (confirmed)="clear($event)"
       (cancelled)="clearRun.cancel()"
     />
+  </details>
   </section>`,
 })
 export class RoomExceptionSection {

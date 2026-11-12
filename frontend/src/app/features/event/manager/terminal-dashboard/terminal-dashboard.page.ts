@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, RouterLink } from "@angular/router";
+import { ActivatedRoute } from "@angular/router";
 import { message } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import {
@@ -21,6 +21,7 @@ import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-stat
 import { UiTextarea } from "../../../../shared/ui/ui-textarea/ui-textarea";
 import { EventLinuxTerminal } from "../../terminal/linux-terminal";
 import { BoardLoader } from "../board-loader";
+import { EventRoomSubpageHeader } from "../room-subpage-header";
 
 /** Forms and overrides do not change the event revision, so this page asks for fresh scores on its own. */
 const REFRESH_MS = 5000;
@@ -43,7 +44,7 @@ type Decision = "auto" | "award" | "deny";
  * room's current package. Scores are computed by the server on every read; they stay inside this room.
  */
 @Component({
-  imports: [FormsModule, RouterLink, EventLinuxTerminal, UiAlert, UiButton, UiCard, UiPageState, UiStatusChip, UiTextarea],
+  imports: [EventRoomSubpageHeader, FormsModule, EventLinuxTerminal, UiAlert, UiButton, UiCard, UiPageState, UiStatusChip, UiTextarea],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./terminal-dashboard.page.css",
   templateUrl: "./terminal-dashboard.page.html",

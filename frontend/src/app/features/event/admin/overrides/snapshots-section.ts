@@ -32,7 +32,8 @@ const KIND_LABELS: Record<SnapshotView["kind"], string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [SECTION_STYLES],
   template: `<section class="override-section" id="snapshots" aria-labelledby="snapshots-heading">
-    <h2 id="snapshots-heading">Snapshots</h2>
+    <details class="override-section__details" data-collapsible>
+      <summary><h2 id="snapshots-heading">Snapshots</h2></summary>
     <p class="event-muted">
       Every reset saves a snapshot of what it deletes first. Snapshots are
       never deleted; download one to inspect it.
@@ -90,6 +91,7 @@ const KIND_LABELS: Record<SnapshotView["kind"], string> = {
       (confirmed)="take($event)"
       (cancelled)="run.cancel()"
     />
+  </details>
   </section>`,
 })
 export class SnapshotsSection {

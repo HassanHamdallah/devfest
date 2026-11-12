@@ -13,7 +13,7 @@ import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
 import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiConfirmDialog } from "../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
-import { AlertsList } from "./control/alerts-list";
+import { AlertsList, hasFinalGap } from "./control/alerts-list";
 import { ControlBar } from "./control/control-bar";
 import {
   ConfirmationCopy,
@@ -65,6 +65,11 @@ export class EventAdminControlPage {
   protected readonly actionState = new ActionState();
   /** Why the last "Open room" failed (e.g. no clue key yet), shown on that room's card. */
   protected readonly roomError = signal<RoomActionError | null>(null);
+  /**
+   * Opening the final was refused while setup gaps are listed in Alerts: the Alerts panel then says so once, next
+   * to the items that fix it, instead of the same text appearing again as an error under the timer.
+   */
+  protected readonly finalRefused = signal(false);
   private readonly pendingAction = signal<ControlAction | null>(null);
 
   protected readonly confirmOpen = computed(
@@ -107,10 +112,15 @@ export class EventAdminControlPage {
   }
 
   private async execute(action: ControlAction): Promise<void> {
+    this.finalRefused.set(false);
     const ok = await this.actionState.run(
       () => performControlAction(this.eventApi, action),
       successNotice(action),
     );
+    if (!ok && action.kind === "openFinal" && this.actionState.conflict() && hasFinalGap(this.board.data()?.alerts ?? [])) {
+      this.finalRefused.set(true);
+      this.actionState.reset();
+    }
     const failure = this.actionState.error();
     this.roomError.set(
       !ok && action.kind === "openRoom" && failure

@@ -19,20 +19,19 @@ import { EventRefreshError } from "../manager/refresh-error";
 import { EventTeamRoomWorkspace } from "./room-workspace";
 import { currentRoomLine } from "./submission-availability";
 import { EventTeamAnswerHistory } from "./team-answer-history";
-import { EventTeamEvidenceCard } from "./team-evidence-card";
 import { EventTeamFinalCard } from "./team-final-card";
 import { EventTeamHero } from "./team-hero";
 import { EventTeamRoomCard } from "./team-room-card";
 
 /**
  * /event/team: where the team must be now and its clues on top, the answer form for the current room right
- * under it, then the four rooms, the evidence of finished rooms, the way to the final and the answer history.
+ * under it, then the four rooms (each with its status and clue, and its answers once finished), the way to the
+ * final and the answer history, collapsed.
  */
 @Component({
   imports: [
     EventRefreshError,
     EventTeamAnswerHistory,
-    EventTeamEvidenceCard,
     EventTeamFinalCard,
     EventTeamHero,
     EventTeamRoomCard,
@@ -74,14 +73,21 @@ export class EventTeamHomePage {
     (this.board()?.evidence ?? []).filter((evidence) => evidence.finished),
   );
 
-  /** The single missing clue of a team with 3 clues can still be won back by the recovery challenge. */
   /** The room's activity from the board's evidence (the room cards carry none). */
   protected activityOf(board: TeamBoard, code: RoomCode): RoomActivity | null {
     return board.evidence.find((entry) => entry.roomCode === code)?.activity ?? null;
   }
 
-  protected isRecoverable(board: TeamBoard, evidence: RoomEvidence): boolean {
+  /** The room's evidence, only once its round is over for this team. */
+  protected finishedEvidenceOf(code: RoomCode): RoomEvidence | null {
+    return this.finishedEvidence().find((entry) => entry.roomCode === code) ?? null;
+  }
+
+  /** The single missing clue of a team with 3 clues can still be won back by the recovery challenge. */
+  protected isRecoverable(board: TeamBoard, code: RoomCode): boolean {
+    const evidence = this.finishedEvidenceOf(code);
     return (
+      !!evidence &&
       !evidence.clueCollected &&
       board.cluesCollected === 3 &&
       (board.finalStage === "LOCKED" || board.finalStage === "RECOVERY")

@@ -14,6 +14,7 @@ import { UiConfirmDialog } from "../../../../shared/ui/ui-confirm-dialog/ui-conf
 import { UiPageState } from "../../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../board-loader";
+import { EventRoomSubpageHeader } from "../room-subpage-header";
 
 /** Stage points do not change the event revision, so the results ask for fresh numbers on their own while open. */
 const REFRESH_MS = 5000;
@@ -47,7 +48,7 @@ function problemsOf(error: unknown): string[] {
  * status, finish time, CSV). Teams never see any of it. The manual clue verdict stays on the room board.
  */
 @Component({
-  imports: [RouterLink, UiAlert, UiButton, UiCard, UiConfirmDialog, UiPageState, UiStatusChip],
+  imports: [EventRoomSubpageHeader, RouterLink, UiAlert, UiButton, UiCard, UiConfirmDialog, UiPageState, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./mission.page.css",
   templateUrl: "./mission.page.html",

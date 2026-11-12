@@ -65,13 +65,15 @@ import { ControlAction } from "./control-actions";
           >End round</ui-button
         >
       }
-      <ui-button
-        [variant]="phase() ? 'secondary' : 'primary'"
-        [size]="phase() ? 'md' : 'lg'"
-        [disabled]="nextRoundBlocked() || busy()"
-        (click)="nextRound.emit()"
-        >Next round</ui-button
-      >
+      @if (!nextRoundBlocked()) {
+        <ui-button
+          [variant]="phase() ? 'secondary' : 'primary'"
+          [size]="phase() ? 'md' : 'lg'"
+          [disabled]="busy()"
+          (click)="nextRound.emit()"
+          >Next round</ui-button
+        >
+      }
     </div>
   </div>`,
   styles: `

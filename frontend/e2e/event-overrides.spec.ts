@@ -22,6 +22,14 @@ function section(page: Page, name: string) {
   return page.getByRole("region", { name, exact: true });
 }
 
+/** The override sections are collapsed until opened (or linked by their fragment): open one, then use it. */
+async function openSection(page: Page, name: string) {
+  const region = section(page, name);
+  const details = region.locator("details[data-collapsible]");
+  if ((await details.getAttribute("open")) === null) await region.locator("summary").click();
+  return region;
+}
+
 async function choose(scope: Locator, label: string, option: string) {
   await scope.getByRole("combobox", { name: label, exact: true }).selectOption({ label: option });
 }
@@ -36,7 +44,7 @@ async function confirmWithReason(page: Page) {
 }
 
 async function swapTeams(page: Page) {
-  const swap = section(page, "Swap teams");
+  const swap = await openSection(page, "Swap teams");
   await choose(swap, "First team", "Team 01 (group A)");
   await choose(swap, "Second team", "Team 05 (group B)");
   await button(swap, "Preview swap").click();
@@ -48,7 +56,7 @@ async function swapTeams(page: Page) {
 }
 
 async function sendTeamToLinux(page: Page) {
-  const exception = section(page, "Room exception (current round)");
+  const exception = await openSection(page, "Room exception (current round)");
   await choose(exception, "Team", "Team 02 (group A)");
   await choose(exception, "Room", "Linux");
   await button(exception, "Review exception…").click();
@@ -58,7 +66,7 @@ async function sendTeamToLinux(page: Page) {
 }
 
 async function grantClue(page: Page) {
-  const clue = section(page, "Manual clue");
+  const clue = await openSection(page, "Manual clue");
   await choose(clue, "Team", "Team 03 (group A)");
   await choose(clue, "Room", "AI");
   await button(clue, "Review clue change…").click();
@@ -67,7 +75,7 @@ async function grantClue(page: Page) {
 }
 
 async function disqualifyAndReinstate(page: Page) {
-  const status = section(page, "Disqualify or reinstate");
+  const status = await openSection(page, "Disqualify or reinstate");
   await choose(status, "Team", "Team 04 (group A)");
   await button(status, "Disqualify…").click();
   await confirmWithReason(page);
@@ -78,7 +86,7 @@ async function disqualifyAndReinstate(page: Page) {
 }
 
 async function takeAndDownloadSnapshot(page: Page) {
-  const snapshots = section(page, "Snapshots");
+  const snapshots = await openSection(page, "Snapshots");
   await button(snapshots, "Take snapshot now").click();
   await confirmWithReason(page);
   const row = snapshots.locator("[data-snapshot]").first();

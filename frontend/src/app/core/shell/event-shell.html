@@ -71,7 +71,7 @@
       </div>
       @if (showStatus()) {
       @defer (on immediate) {
-      <app-event-status-bar [showResults]="isAdmin()">
+      <app-event-status-bar [showResults]="isAdmin()" [hidePhase]="onControlPage()">
         @if (isAdmin()) {
         <button
           type="button"

@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   output,
@@ -40,6 +41,18 @@ export function recheckNotice(count: number): string {
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-card);
+    }
+    .clue-key__summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2) var(--space-3);
+      cursor: pointer;
+    }
+    .clue-key__body {
+      display: grid;
+      gap: var(--space-3);
+      margin-block-start: var(--space-3);
     }
     .clue-key--missing {
       background: var(--color-warning-subtle);
@@ -83,23 +96,31 @@ export function recheckNotice(count: number): string {
       display: none;
     }
   `,
-  template: `<section
+  template: `<details
     class="clue-key"
     [class.clue-key--missing]="!room().clueKeySet"
-    aria-labelledby="clue-key-heading"
+    [open]="isOpen()"
+    #box
+    (toggle)="expanded.set(box.open)"
+    data-clue-key-details
   >
-    <div class="clue-key__line">
+    <summary class="clue-key__summary" (click)="keepOpenWhenMissing($event)">
       <h2 id="clue-key-heading">Clue key</h2>
       @if (room().clueKeySet) {
         <span class="clue-key__set">Set ✓</span>
-        <p class="clue-key__value" data-clue-key-value>
-          {{ revealed() ? room().clueKey : mask }}
-        </p>
       } @else {
         <span aria-hidden="true">✗</span>
         <ui-status-chip variant="warning"
           >Not set — the room cannot open</ui-status-chip
         >
+      }
+    </summary>
+    <div class="clue-key__body">
+    <div class="clue-key__line">
+      @if (room().clueKeySet) {
+        <p class="clue-key__value" data-clue-key-value>
+          {{ revealed() ? room().clueKey : mask }}
+        </p>
       }
       @if (!editing()) {
         <div class="clue-key__actions">
@@ -157,7 +178,8 @@ export function recheckNotice(count: number): string {
     @if (error(); as text) {
       <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
     }
-  </section>`,
+    </div>
+  </details>`,
 })
 export class EventClueKeyCard {
   private readonly eventApi = inject(EventApi);
@@ -166,6 +188,13 @@ export class EventClueKeyCard {
   readonly room = input.required<RoomBoardRoom>();
   readonly changed = output<void>();
 
+  /**
+   * The card starts open while no key is set and collapsed once one is; after that the manager's own toggling
+   * wins (so saving a key never collapses the card under the manager's hands). It can never be closed while the
+   * key is missing.
+   */
+  protected readonly expanded = signal<boolean | null>(null);
+  protected readonly isOpen = computed(() => !this.room().clueKeySet || (this.expanded() ?? false));
   protected readonly mask = MASK;
   protected readonly editing = signal(false);
   protected readonly revealed = signal(false);
@@ -174,7 +203,12 @@ export class EventClueKeyCard {
   protected readonly notice = signal("");
   protected readonly error = signal<string | null>(null);
 
+  protected keepOpenWhenMissing(event: Event): void {
+    if (!this.room().clueKeySet) event.preventDefault();
+  }
+
   protected edit(): void {
+    this.expanded.set(true);
     this.draft.set(this.room().clueKey);
     this.notice.set("");
     this.error.set(null);
