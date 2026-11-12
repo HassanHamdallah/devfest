@@ -40,6 +40,7 @@ import {
   eventHomePath,
   eventNavGroups,
 } from "./event-nav";
+import { AppCredit } from "./app-credit";
 import { NavIcon } from "./nav-icon";
 import { QuickJump } from "./quick-jump";
 import { TeamDrawer } from "./team-drawer";
@@ -63,6 +64,7 @@ function readCollapsed(): boolean {
 @Component({
   selector: "app-event-shell",
   imports: [
+    AppCredit,
     AppLogo,
     BrandBar,
     EventStatusBar,

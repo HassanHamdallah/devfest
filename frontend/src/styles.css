@@ -252,6 +252,19 @@ summary:focus-visible,
   grid-template-columns: 230px minmax(0, 1fr);
   min-height: 100vh;
 }
+/* Column layout so the developer credit sits at the bottom of a short page without a second scrollbar. */
+.app-shell > main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app-shell > main > .topbar {
+  flex-shrink: 0;
+}
+.app-shell > main > .page {
+  flex: 1;
+  width: 100%;
+}
 .sidebar {
   position: sticky;
   top: 0;
