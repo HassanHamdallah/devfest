@@ -46,7 +46,7 @@
   ],
   "correctSuspect": "Leila Nasser",
   "recovery": {
-    "question": "PLACEHOLDER - replace this with the real Recovery Challenge question before the event.",
-    "acceptedAnswers": ["PLACEHOLDER-REPLACE-ME"]
+    "question": "TEST QUESTION (replace before the event). Rami hid one word in his last note with a Caesar cipher: every letter was moved 3 places forward in the alphabet (A became D, B became E). The note says ZDUHKRXVH. Decrypt it and enter the word.",
+    "acceptedAnswers": ["WAREHOUSE"]
   }
 }
