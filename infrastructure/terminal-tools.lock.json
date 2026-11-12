@@ -5,7 +5,7 @@
     "arch": "x86",
     "keyName": "alpine-devel@lists.alpinelinux.org-61666e3f.rsa.pub",
     "keySha256": "128d34d4aec39b0daedea8163cd8dc24dff36fd3d848630ab97eeb1d3084bbb3",
-    "indexSha256": "38327f9a43949eb03225632b8127cc77bce457bbeb423d4eafee59df5dcbc878"
+    "indexSha256": "95f85a1b80ba06428498b447ca757511b5bd1b1e703d7c0516bcbc15f51d3f34"
   },
   "packages": [
     {
@@ -95,6 +95,50 @@
       "license": "GPL-2.0-only",
       "upstream": "https://busybox.net/",
       "origin": "busybox"
+    },
+    {
+      "name": "libncursesw",
+      "version": "6.6_p20260516-r0",
+      "file": "libncursesw-6.6_p20260516-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libncursesw-6.6_p20260516-r0.apk",
+      "sha256": "49a048c29a93046b3fc5e72a21bb55ef537558d026f1064a42d25f42f19a90e9",
+      "bytes": 162671,
+      "license": "X11",
+      "upstream": "https://invisible-island.net/ncurses/",
+      "origin": "ncurses"
+    },
+    {
+      "name": "ncurses-terminfo-base",
+      "version": "6.6_p20260516-r0",
+      "file": "ncurses-terminfo-base-6.6_p20260516-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/ncurses-terminfo-base-6.6_p20260516-r0.apk",
+      "sha256": "dbb8268b7a8c9e98b109dc6bd1a989f846bd49b71a186308a2224f3195620501",
+      "bytes": 22173,
+      "license": "X11",
+      "upstream": "https://invisible-island.net/ncurses/",
+      "origin": "ncurses"
+    },
+    {
+      "name": "nano",
+      "version": "9.3-r0",
+      "file": "nano-9.3-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/nano-9.3-r0.apk",
+      "sha256": "22f9e80f856b64073dd9a77b30016e2bbd6c3f79ab956f1701cd0294ce6bf737",
+      "bytes": 161574,
+      "license": "GPL-3.0-or-later",
+      "upstream": "https://www.nano-editor.org/",
+      "origin": "nano"
+    },
+    {
+      "name": "tree",
+      "version": "2.3.2-r0",
+      "file": "tree-2.3.2-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/tree-2.3.2-r0.apk",
+      "sha256": "0259e3aa65fd275f0a681ceef37e212af1d34c59f877f8af6d6737d17901ea49",
+      "bytes": 33233,
+      "license": "GPL-2.0-or-later",
+      "upstream": "https://oldmanprogrammer.net/source.php?dir=projects/tree",
+      "origin": "tree"
     }
   ],
   "licenses": {
@@ -113,6 +157,10 @@
     "BSD-2-Clause": {
       "url": "https://raw.githubusercontent.com/file/file/master/COPYING",
       "sha256": "0bfa856a9930bddadbef95d1be1cf4e163c0be618e76ea3275caaf255283e274"
+    },
+    "X11": {
+      "url": "https://raw.githubusercontent.com/mirror/ncurses/master/COPYING",
+      "sha256": "0413b2f4ea863194c174673032f0fca84f1ea1ed4eed6476baea68c075a631ce"
     },
     "bzip2": {
       "url": "https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;hb=HEAD",

@@ -13,4 +13,12 @@ public enum RoundPhase {
   public boolean stored() {
     return this != TIME_UP;
   }
+
+  /**
+   * Whether the Problem Solving contest link may be handed to a team in this phase (rules §20.3): only while its
+   * timer is RUNNING or PAUSED, never before it starts (ASSIGNED) or after it ends (TIME_UP).
+   */
+  public boolean contestLinkOpen() {
+    return this == RUNNING || this == PAUSED;
+  }
 }

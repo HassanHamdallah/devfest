@@ -18,7 +18,17 @@ Remove the package to go back to them. Rooms without a package behave exactly as
 - The shell starts in the home directory `~` (`/root`). The team is `root` in its own private VM, so file modes do not
   stop them from reading anything; owners and groups matter for `ls -l`, `find -user` and `find -group` challenges.
 - The banner says: *Rami's server is mounted. There is no internet in this terminal.*
-- Nothing is saved. A restart (and a page refresh) starts again from your package.
+- **The terminal is saved in the team's browser.** After the team types, the whole Linux VM (files, shell history,
+  running state and the text on the screen) is saved to the browser's own storage (IndexedDB): 5 seconds after the last
+  keystroke, at most once every 15 seconds, and at once when the tab goes to the background. A terminal nobody typed in
+  is not saved again. There is one saved terminal per browser, replaced by every save. After a **page refresh** in a
+  running round the terminal starts by itself and shows "Restoring your terminal…" (about 1.5 s, against 6–8 s for a
+  normal boot); the team is back at the same screen with its files. The save belongs to the team, the room, the round
+  and the exact package (a changed package or terminal clock is a different one): anything else is deleted, and if a
+  restore fails the terminal boots normally with a short notice. **Restart terminal**, the end of the round and
+  **signing out** delete the saved terminal. A save is about 70–85 MB (the guest's RAM, 80 MB with a package). If the
+  browser refuses to store it (no space, a private window), the terminal keeps running and shows *"Your terminal cannot
+  be saved in this browser. A page refresh will restart it."* Never an error dialog.
 
 ## 2. The ZIP
 
@@ -149,11 +159,15 @@ starts, and `/usr/local/bin` comes first in the `PATH`, so **`find` is GNU find*
 | `base64` | the base64 applet of BusyBox 1.37 (static): encode, `-d` decode, `-w` wrapping |
 | `bzip2`, `bunzip2`, `bzcat` | bzip2 1.0.8 (`-k`, `-c`, `-d`, `-1` … `-9`) |
 | `zip` | Info-ZIP zip 3.0 (BusyBox's `unzip` reads what it writes) |
+| `nano` | GNU nano 9.3: a full-screen editor (`nano file`; **Ctrl+O** saves, **Ctrl+X** exits, arrow keys move). It runs on the terminal's alternate screen, so the team gets back exactly the screen it had |
+| `tree` | tree 2.3.2: draws a folder as a tree (`tree -L 2 /srv`, `-a`, `-d`, `-u`, `-p`) |
 
 They are 32-bit x86 programs built against musl; each command is a small wrapper that starts the real program through
-the musl loader, so nothing in `/lib` or `/etc` is touched. In a room **without** a package none of them exist and the
+the musl loader, so nothing in `/lib` or `/etc` is touched. `nano` also needs a terminal description: its wrapper points
+`TERMINFO` at the one entry the guest uses (`TERM=linux`), which is part of the archive, so nothing outside `/usr/local`
+is needed there either. In a room **without** a package none of them exist and the
 terminal behaves exactly as before (BusyBox `find` without `-printf`, and so on). Sources, versions and licenses are in
-section 9.
+section 10.
 
 **Files and text:** `cat` `head` `tail` `less` `more` `nl` `fold` `paste` `cut` `tr` `sort` `uniq` `wc` `sed` `awk`
 `grep` `egrep` `fgrep` `diff` `cmp` `patch` `od` `hexdump` `xxd` `strings` `uuencode` `uudecode` `dos2unix` `unix2dos`
@@ -176,13 +190,13 @@ section 9.
 **System:** `ps` `top` `kill` `killall` `pidof` `free` `uptime` `date` `uname` `hostname` `dmesg` `env` `printenv` `sleep`
 `time` `watch` `mount` `umount` `ifconfig` `ip` `netstat` (there is no network device, so these show nothing useful)
 
-**Not available** (a challenge must not rely on them): `stat`, `tree`, `nano`, `whereis`, `locate`, `tac`, `rev`, `comm`,
-`expand`, and in a room **without** a package also `file`, `base64`, `bzip2` and `zip`. Alternatives: `ls -l --full-time`
+**Not available** (a challenge must not rely on them): `stat`, `whereis`, `locate`, `tac`, `rev`, `comm`,
+`expand`, and in a room **without** a package also `file`, `base64`, `bzip2`, `zip`, `nano` and `tree`. Alternatives: `ls -l --full-time`
 or `find -printf` instead of `stat`; `ls -lnR` for numeric owners; `xxd`, `hexdump` or `od` to look inside a file.
 
 Do not rebuild the Linux image for a challenge; design with the commands above. If a command is truly needed, ask the
 admin first: the image is a shared, versioned asset (`ATTRIBUTION.md`). The tools archive is the way to add commands;
-see section 9.
+see section 10.
 
 ## 6. The terminal clock
 
@@ -261,8 +275,8 @@ whole listing with `ls -lnR` once through **Test terminal** before the event.
 
 Official **Alpine Linux v3.24 x86** packages (32-bit, musl), unmodified, taken from `https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/`.
 Nothing is compiled. `infrastructure/build-terminal-tools.py` builds `frontend/public/terminal/devfest-tools.tgz`
-(1,886,271 bytes gzip, 13.2 MB unpacked, SHA-256
-`f1b1bd7993acd44e98742c8a8397ea3ea61c799c073615cb3fdeb593ad653e63`, the same bytes on every rebuild).
+(2,236,342 bytes gzip, 13.2 MB unpacked, SHA-256
+`82aa6cd7b8e657fcbceb59b0483624ddcbe2810ee43aed1d65e71a70e7bcaf8c`, the same bytes on every rebuild).
 
 | Package | Version | License | SHA-256 of the package file | Download |
 |---|---|---|---|---|
@@ -274,6 +288,10 @@ Nothing is compiled. `infrastructure/build-terminal-tools.py` builds `frontend/p
 | findutils | 4.10.0-r1 | GPL-3.0-or-later | `8a3227f462cdcac121850e252122fe43c7e0e5523846242d9af732afd3f0fb81` | [findutils-4.10.0-r1.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/findutils-4.10.0-r1.apk) |
 | zip | 3.0-r13 | Info-ZIP | `546054e32b36c18c5020175af4a96d84783be72aac69d8a38bad4e1da0038ead` | [zip-3.0-r13.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/zip-3.0-r13.apk) |
 | busybox-static | 1.37.0-r31 | GPL-2.0-only | `26d45cc895b3fa99ba7500d0860c3934a363e74e464eeb5fc623f08147c33cfd` | [busybox-static-1.37.0-r31.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/busybox-static-1.37.0-r31.apk) |
+| libncursesw | 6.6_p20260516-r0 | X11 | `49a048c29a93046b3fc5e72a21bb55ef537558d026f1064a42d25f42f19a90e9` | [libncursesw-6.6_p20260516-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libncursesw-6.6_p20260516-r0.apk) |
+| ncurses-terminfo-base | 6.6_p20260516-r0 | X11 | `dbb8268b7a8c9e98b109dc6bd1a989f846bd49b71a186308a2224f3195620501` | [ncurses-terminfo-base-6.6_p20260516-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/ncurses-terminfo-base-6.6_p20260516-r0.apk) |
+| nano | 9.3-r0 | GPL-3.0-or-later | `22f9e80f856b64073dd9a77b30016e2bbd6c3f79ab956f1701cd0294ce6bf737` | [nano-9.3-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/nano-9.3-r0.apk) |
+| tree | 2.3.2-r0 | GPL-2.0-or-later | `0259e3aa65fd275f0a681ceef37e212af1d34c59f877f8af6d6737d17901ea49` | [tree-2.3.2-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/tree-2.3.2-r0.apk) |
 
 How the downloads are treated as untrusted until verified (`python infrastructure/build-terminal-tools.py --lock` does
 it, and a normal build repeats the checks):
@@ -287,15 +305,24 @@ it, and a normal build repeats the checks):
 4. A build uses exactly the locked versions and refuses any file whose SHA-256 differs. Moving to newer versions is a
    deliberate `--lock` run followed by a build and a test.
 
-`file` and `libmagic` (BSD-2-Clause), `bzip2` and `libbz2` (the bzip2 license), `musl` (MIT) and `zip` (Info-ZIP license)
-are permissively licensed. **GNU findutils (GPL-3.0-or-later) and BusyBox (GPL-2.0-only)** come with their source: the
+`file` and `libmagic` (BSD-2-Clause), `bzip2` and `libbz2` (the bzip2 license), `musl` (MIT), `zip` (Info-ZIP license),
+and `libncursesw` with its terminfo entry (the ncurses X11 license) are permissively licensed. **GNU findutils and GNU nano
+(GPL-3.0-or-later), tree (GPL-2.0-or-later) and BusyBox (GPL-2.0-only)** come with their source: the
 exact source archives are the ones Alpine builds from (`https://gitlab.alpinelinux.org/alpine/aports`, branch
-`3.24-stable`, `main/findutils` and `main/busybox`, which name the upstream tarballs and their checksums), and the
+`3.24-stable`, `main/findutils`, `main/nano`, `main/tree` and `main/busybox`, which name the upstream tarballs and their checksums), and the
 programs run only inside the visitor's browser. The full license texts, each from its project's own site and pinned by
 SHA-256, are in `frontend/public/terminal/TOOLS-LICENSES.txt`, next to `V86-LICENSE`.
 
-Limits: archive 1.9 MB gzip (limit 6 MB, kept); free memory with a 20 MB package is 21 to 22 MB (limit 10 MB, kept;
+Terminfo: only `l/linux` is bundled, because the guest's `TERM` is `linux` (checked in the real terminal); the wrapper sets
+`TERMINFO=/usr/local/devfest-tools/share/terminfo`. Adding `nano`, `tree`, libncursesw and that entry grew the archive by
+350,071 bytes gzip (1,886,271 to 2,236,342) and the unpacked size by about 0.7 MB.
+
+Limits: archive 2.2 MB gzip (limit 6 MB, kept); free memory with a 20 MB package is 21 to 22 MB (limit 10 MB, kept;
 this needed the 80 MB guest described in section 4, because with 64 MB only 6 MB were left). Boot growth (limit 2 s):
 on the idle laptop the tools added about 1.0 to 1.4 s (one 301-file run, 4.4 to 4.8 s before, 5.8 s after); that was not
 re-measured against a no-tools build under the later, loaded conditions, so treat the 2 s limit as met on an idle laptop
 and unproven under load (section 4).
+
+Boot time with the four added packages (test terminal, 301-file package, headless Edge, the terminal's own "Ready in",
+one warm-up boot then three measured): before 5.4, 5.1, 5.1 s (mean 5.20 s); after 5.1, 5.1, 5.3 s and 5.3, 5.2, 5.1 s
+(means 5.17 and 5.20 s), and 5.2, 4.9, 5.3 s (5.13 s) with the final archive. No measurable growth (limit 1 s).
