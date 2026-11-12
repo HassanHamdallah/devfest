@@ -51,7 +51,8 @@ const GROUP_OPTIONS = GROUP_CODES.map((code) => ({
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [SECTION_STYLES],
   template: `<section class="override-section" id="move" aria-labelledby="move-heading">
-    <h2 id="move-heading">Move team</h2>
+    <details class="override-section__details" data-collapsible>
+      <summary><h2 id="move-heading">Move team</h2></summary>
     <p class="event-muted">
       Move a team to another group. The group limit still applies; if the
       group is full, swap instead.
@@ -104,6 +105,7 @@ const GROUP_OPTIONS = GROUP_CODES.map((code) => ({
       (confirmed)="confirm($event)"
       (cancelled)="run.cancel()"
     />
+  </details>
   </section>`,
 })
 export class MoveSection {

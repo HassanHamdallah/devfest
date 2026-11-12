@@ -19,6 +19,7 @@ import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
 import { UiPageState } from "../../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../board-loader";
+import { EventRoomSubpageHeader } from "../room-subpage-header";
 
 /** Results do not change the event revision, so this page asks for fresh numbers on its own while it is open. */
 const REFRESH_MS = 5000;
@@ -38,7 +39,7 @@ interface Draft {
  * per round, and the spreadsheet export. Nothing here is ever sent to the teams except the link and the released clue.
  */
 @Component({
-  imports: [FormsModule, RouterLink, UiAlert, UiButton, UiCard, UiInput, UiPageState, UiStatusChip],
+  imports: [EventRoomSubpageHeader, FormsModule, RouterLink, UiAlert, UiButton, UiCard, UiInput, UiPageState, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./contest-results.page.css",
   templateUrl: "./contest-results.page.html",

@@ -27,10 +27,15 @@ interface HistoryEntry {
   imports: [UiCard, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
+    summary {
+      cursor: pointer;
+      min-block-size: 32px;
+      color: var(--color-text-muted);
+    }
     ol {
       display: grid;
       gap: var(--space-2);
-      margin: 0;
+      margin: var(--space-2) 0 0;
       padding: 0;
       list-style: none;
     }
@@ -49,6 +54,8 @@ interface HistoryEntry {
   `,
   template: `<ui-card>
     <h2 ui-card-header>Answer history</h2>
+    <details data-answer-history>
+    <summary>{{ entries().length }} {{ entries().length === 1 ? "answer" : "answers" }} submitted</summary>
     @if (error(); as text) {
       <p class="event-muted">Could not load the answer history: {{ text }}</p>
     }
@@ -70,6 +77,7 @@ interface HistoryEntry {
         <li class="event-muted">No answers submitted yet.</li>
       }
     </ol>
+    </details>
   </ui-card>`,
 })
 export class EventTeamAnswerHistory {

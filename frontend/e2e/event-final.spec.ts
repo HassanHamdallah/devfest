@@ -80,7 +80,7 @@ async function typeCodes(page: Page, codes: readonly string[]) {
 }
 
 async function submitLayer(page: Page, value: string) {
-  await page.getByRole("textbox", { name: "Your integer", exact: true }).fill(value);
+  await page.getByRole("textbox", { name: "Decrypted number M", exact: true }).fill(value);
   await page.getByRole("button", { name: "Try this number", exact: true }).click();
 }
 

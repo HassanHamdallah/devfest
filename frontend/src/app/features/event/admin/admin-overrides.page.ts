@@ -120,8 +120,14 @@ export class EventAdminOverridesPage {
     await Promise.all([this.organization.load(), this.board.load()]);
     const fragment = this.route.snapshot.fragment;
     if (!fragment) return;
-    afterNextRender(() => document.getElementById(fragment)?.scrollIntoView({ block: "start" }), {
-      injector: this.injector,
-    });
+    afterNextRender(
+      () => {
+        const target = document.getElementById(fragment);
+        // A section linked by its fragment (the Teams page's "…" menu) opens before it scrolls into view.
+        target?.querySelector("details[data-collapsible]")?.setAttribute("open", "");
+        target?.scrollIntoView({ block: "start" });
+      },
+      { injector: this.injector },
+    );
   }
 }

@@ -44,7 +44,8 @@ import { RotationPreviewTable } from "./rotation-preview-table";
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [SECTION_STYLES],
   template: `<section class="override-section" id="swap" aria-labelledby="swap-heading">
-    <h2 id="swap-heading">Swap teams</h2>
+    <details class="override-section__details" data-collapsible>
+      <summary><h2 id="swap-heading">Swap teams</h2></summary>
     <p class="event-muted">
       Exchange the groups of two active teams. Group sizes stay the same.
     </p>
@@ -96,6 +97,7 @@ import { RotationPreviewTable } from "./rotation-preview-table";
       (confirmed)="confirm($event)"
       (cancelled)="run.cancel()"
     />
+  </details>
   </section>`,
 })
 export class SwapSection {

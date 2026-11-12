@@ -3,18 +3,6 @@
   margin: 0;
 }
 
-.contest__header {
-  display: grid;
-  gap: var(--space-2);
-  padding-inline-start: var(--space-4);
-  border-inline-start: 6px solid var(--room-color);
-}
-
-.contest__back {
-  color: var(--color-primary-text);
-  font-weight: var(--font-weight-semibold);
-}
-
 .contest__intro {
   margin: 0 0 var(--space-3);
 }

@@ -24,6 +24,17 @@
       <ui-countdown [clock]="view.clock" />
       <span class="event-muted">{{ roundLine() }}</span>
     </div>
+    @switch (view.room.activity) {
+    @case ("AI_QUIZ") {
+    <a class="board__quiz-link" data-room-page-link [routerLink]="['/event/room', view.room.id, 'mission']">SENTINEL page</a>
+    }
+    @case ("LINUX_TERMINAL") {
+    <a class="board__quiz-link" data-room-page-link [routerLink]="['/event/room', view.room.id, 'dashboard']">Organizer dashboard</a>
+    }
+    @case ("CONTEST_RESULTS") {
+    <a class="board__quiz-link" data-room-page-link [routerLink]="['/event/room', view.room.id, 'contest']">Contest results</a>
+    }
+    }
   </div>
   <dl class="board-header__counters">
     <div><dt>In room now</dt><dd class="event-num">{{ view.counters.inRoomNow }}</dd></div>
@@ -37,11 +48,6 @@
   @if (loader.refreshError(); as error) {
   <event-refresh-error [error]="error" (retry)="reload()" />
   }
-  @if (view.clock.phase === "ASSIGNED") {
-  <event-arrival-card [board]="view" (changed)="reload()" />
-  }
-  <event-clue-key-card [room]="view.room" (changed)="reload()" />
-
   <section class="teams" aria-labelledby="room-teams-heading">
     <div class="teams__bar">
       <h2 id="room-teams-heading">Teams</h2>
@@ -89,46 +95,39 @@
     </ui-empty-state>
     }
   </section>
+  @if (view.clock.phase === "ASSIGNED") {
+  <event-arrival-card [board]="view" (changed)="reload()" />
+  }
+  <event-clue-key-card [room]="view.room" (changed)="reload()" />
   @if (view.room.terminalEnabled) {
   <event-terminal-files-card [room]="view.room" [revision]="view.revision" />
   }
-  @if (view.room.activity === "LINUX_TERMINAL") {
-  <ui-card>
-    <h2 ui-card-header>Linux room scores</h2>
-    <p class="event-muted board__quiz-intro">
+  @if (view.room.activity) {
+  <details class="how" data-how-room-works>
+    <summary>How this room works</summary>
+    @switch (view.room.activity) {
+    @case ("LINUX_TERMINAL") {
+    <p class="event-muted how__text">
       Teams in this room fill in a six-field form. Set the answer keys and follow every team's answers and score out of
       15 on the organizer dashboard.
     </p>
-    <div class="event-inline">
-      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'dashboard']">Organizer dashboard</a>
-    </div>
-  </ui-card>
-  }
-  @if (view.room.activity === "CONTEST_RESULTS") {
-  <ui-card>
-    <h2 ui-card-header>Problem Solving contest</h2>
-    <p class="event-muted board__quiz-intro">
+    }
+    @case ("CONTEST_RESULTS") {
+    <p class="event-muted how__text">
       The contest runs on Codeforces; teams have no answer form here. Set the contest link, type each team's solved
       problems and penalty from the Codeforces standings, and release the clue to the teams that qualify (at least 3
       solved). Scores are worked out on the results page and are never shown to teams.
     </p>
-    <div class="event-inline">
-      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'contest']">Contest results</a>
-    </div>
-  </ui-card>
-  }
-  @if (view.room.activity === "AI_QUIZ") {
-  <ui-card>
-    <h2 ui-card-header>SENTINEL</h2>
-    <p class="event-muted board__quiz-intro">
+    }
+    @case ("AI_QUIZ") {
+    <p class="event-muted how__text">
       Teams in this room repair SENTINEL in ten stages. A team that reaches the pass score gets the room's clue
-      automatically; its result appears below like any submission, so you can still override the verdict. Import the
+      automatically; its result appears in the team list like any submission, so you can still override the verdict. Import the
       mission, set the pass score, print the Field Guide and follow the results on the SENTINEL page.
     </p>
-    <div class="event-inline">
-      <a class="board__quiz-link" [routerLink]="['/event/room', view.room.id, 'mission']">SENTINEL page</a>
-    </div>
-  </ui-card>
+    }
+    }
+  </details>
   }
 </div>
 }

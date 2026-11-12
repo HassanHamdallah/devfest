@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { FinalScreen, FinalStage, RoundClock, TeamFinal } from "../../../../core/event/event-models";
 import { FINAL_STAGE_LABELS } from "../../../../core/event/format";
-import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 
@@ -22,18 +21,33 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
   { label: "Submitted", screens: ["SUBMITTED"] },
 ];
 
-/** Status chip, the final's one countdown and, while the case is on, the step the team is on. */
+/**
+ * A compact sticky bar with the status chip and the final's one countdown, so the timer stays in view while the
+ * page scrolls, then, while the case is on, the step the team is on.
+ */
 @Component({
   selector: "event-final-status",
-  imports: [UiCard, UiCountdown, UiStatusChip],
+  imports: [UiCountdown, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
+    /* The host adds no box, so the bar sticks within the whole page column instead of within its own height. */
+    :host {
+      display: contents;
+    }
     .bar {
+      position: sticky;
+      top: 4px;
+      z-index: var(--z-sticky);
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: var(--space-3);
+      gap: var(--space-2) var(--space-3);
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-surface);
+      border: var(--border-card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
     }
     .bar__left {
       display: flex;
@@ -42,19 +56,32 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
       gap: var(--space-3);
     }
     .bar__timer {
-      display: grid;
-      justify-items: end;
-      gap: 0;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
     }
     .bar__timer-label {
       font-size: var(--font-size-sm);
       color: var(--color-text-muted);
     }
+    .bar ui-countdown.ui-countdown-host--large {
+      padding: 0 var(--space-3);
+      font-size: 1.5rem;
+      border-width: 1.5px;
+    }
+    @media (max-width: 480px) {
+      .bar {
+        padding-inline: var(--space-3);
+      }
+      .bar__clues {
+        display: none;
+      }
+    }
     .steps {
       display: flex;
       flex-wrap: wrap;
       gap: var(--space-2);
-      margin: var(--space-3) 0 0;
+      margin: 0;
       padding: 0;
       list-style: none;
     }
@@ -96,11 +123,10 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
       background: var(--color-primary);
     }
   `,
-  template: `<ui-card>
-    <div class="bar" data-final-bar>
+  template: `<div class="bar" data-final-bar>
       <div class="bar__left">
         <ui-status-chip [variant]="variant()" data-final-status>{{ label() }}</ui-status-chip>
-        <span class="event-muted">{{ final().cluesCollected }} of 4 clues</span>
+        <span class="bar__clues event-muted">{{ final().cluesCollected }} of 4 clues</span>
       </div>
       @if (clock(); as c) {
         <div class="bar__timer" data-final-timer>
@@ -122,8 +148,7 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
           </li>
         }
       </ol>
-    }
-  </ui-card>`,
+    }`,
 })
 export class EventFinalStatus {
   readonly final = input.required<TeamFinal>();

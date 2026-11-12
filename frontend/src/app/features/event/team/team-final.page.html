@@ -14,6 +14,7 @@
   <event-final-status [final]="view" />
   <div class="final-layout">
     <div class="final-main">
+      <event-final-verdicts [entries]="view.notebook" (changed)="reload()" />
       @switch (view.screen) { @case ("LOCKED") {
       <ui-card data-final-screen="LOCKED">
         <div class="final-state">
@@ -52,11 +53,11 @@
       </ui-card>
       }
     </div>
-    <aside class="final-side" aria-label="Notebook and evidence">
+    <aside class="final-side" aria-label="Case notebook and room clues">
       @if (view.notebook.length > 0 || view.screen === "LAYER" || view.screen === "SUSPECTS") {
-      <event-final-notebook [entries]="view.notebook" (changed)="reload()" />
+      <event-final-notebook [entries]="view.notebook" />
       } @if (showsEvidence()) {
-      <event-final-evidence [evidence]="view.evidence" />
+      <event-final-evidence [evidence]="view.evidence" [collapsed]="caseStarted()" />
       }
     </aside>
   </div>

@@ -29,6 +29,8 @@ function textbox(scope: Page | Locator, name: string) {
 
 async function saveKey(page: Page, key: string, editLabel: string, notice: string) {
   const card = page.locator("[data-clue-key-card]");
+  // The card is collapsed once a key is set: open it first.
+  if (!(await button(card, editLabel).isVisible())) await card.locator("summary").click();
   await button(card, editLabel).click();
   await textbox(card, "Clue key").fill(key);
   await button(card, "Save key").click();

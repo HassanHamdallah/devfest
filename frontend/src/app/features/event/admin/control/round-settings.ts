@@ -21,7 +21,8 @@ import { ROUND_OPTIONS } from "./control-view";
   imports: [ReactiveFormsModule, UiButton, UiCard, UiInput, UiSelect],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<ui-card>
-    <h2 ui-card-header>Round settings</h2>
+    <details data-round-settings>
+    <summary><h2>Round settings</h2></summary>
     <div class="round-settings">
       <form aria-label="Set round" (submit)="applyRound($event)">
         <ui-select
@@ -49,11 +50,19 @@ import { ROUND_OPTIONS } from "./control-view";
         >
       </form>
     </div>
+    </details>
   </ui-card>`,
   styles: `
-    h2 {
+    summary {
+      cursor: pointer;
+    }
+    summary h2 {
+      display: inline;
       margin: 0;
       font-size: var(--font-size-lg);
+    }
+    .round-settings {
+      margin-block-start: var(--space-3);
     }
     .round-settings {
       display: grid;

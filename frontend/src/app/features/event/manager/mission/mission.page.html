@@ -6,20 +6,16 @@
 />
 @if (view(); as room) {
 <div class="event-stack mission room-tone--AI">
-  <header class="mission__header">
-    <a class="mission__back" [routerLink]="['/event/room', room.roomId]">← {{ room.roomName }} board</a>
-    <h1>SENTINEL · {{ room.roomName }}</h1>
-    <div class="event-inline">
-      @if (room.hasContent) {
-      <ui-status-chip variant="success">Mission loaded</ui-status-chip>
-      } @else {
-      <ui-status-chip variant="warning">No mission yet</ui-status-chip>
-      }
-      @if (room.workStarted) {
-      <ui-status-chip variant="neutral">Locked: teams have started</ui-status-chip>
-      }
-    </div>
-  </header>
+  <event-room-subpage-header [roomId]="room.roomId" [roomName]="room.roomName" [title]="'SENTINEL · ' + room.roomName">
+    @if (room.hasContent) {
+    <ui-status-chip variant="success">Mission loaded</ui-status-chip>
+    } @else {
+    <ui-status-chip variant="warning">No mission yet</ui-status-chip>
+    }
+    @if (room.workStarted) {
+    <ui-status-chip variant="neutral">Locked: teams have started</ui-status-chip>
+    }
+  </event-room-subpage-header>
 
   @if (notice(); as text) {
   <p class="mission__notice" role="status" data-notice>{{ text }}</p>

@@ -47,7 +47,8 @@ import { TeamsSection } from "./teams/teams-section";
         }
         <app-group-counters [organization]="org" (changed)="reload()" />
         <section aria-labelledby="managers-heading">
-          <h2 id="managers-heading">Room managers</h2>
+          <details data-collapsible>
+          <summary><h2 id="managers-heading">Room managers</h2></summary>
           <div class="event-grid">
             @for (room of org.rooms; track room.id) {
               <app-manager-assignment
@@ -57,14 +58,19 @@ import { TeamsSection } from "./teams/teams-section";
               />
             }
           </div>
+          </details>
         </section>
         <section
           class="event-stack teams-page__accounts"
           aria-labelledby="accounts-heading"
         >
-          <h2 id="accounts-heading">Accounts</h2>
-          <app-account-form (changed)="reload()" />
-          <app-accounts-table [organization]="org" (changed)="reload()" />
+          <details data-collapsible>
+          <summary><h2 id="accounts-heading">Accounts</h2></summary>
+          <div class="event-stack teams-page__accounts">
+            <app-account-form (changed)="reload()" />
+            <app-accounts-table [organization]="org" (changed)="reload()" />
+          </div>
+          </details>
         </section>
         <app-teams-section [organization]="org" (changed)="reload()" />
       </div>
@@ -72,6 +78,15 @@ import { TeamsSection } from "./teams/teams-section";
   styles: `
     h2 {
       margin: 0 0 var(--space-3);
+    }
+    summary {
+      cursor: pointer;
+    }
+    summary h2 {
+      display: inline;
+    }
+    details[open] > summary {
+      margin-block-end: var(--space-3);
     }
     .teams-page__accounts {
       gap: var(--space-4);
