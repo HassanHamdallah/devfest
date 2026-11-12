@@ -7,6 +7,7 @@ import {
 import { RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
 import { Api } from "../api";
 import { User } from "../models";
+import { AppCredit } from "./app-credit";
 import { UiButton } from "../../shared/ui/ui-button/ui-button";
 
 /**
@@ -15,7 +16,7 @@ import { UiButton } from "../../shared/ui/ui-button/ui-button";
  */
 @Component({
   selector: "app-coding-shell",
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, UiButton],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, UiButton, AppCredit],
   changeDetection: ChangeDetectionStrategy.Default,
   host: { style: "display: block" },
   template: `<div class="app-shell">
@@ -43,6 +44,7 @@ import { UiButton } from "../../shared/ui/ui-button/ui-button";
         <span>DevFest competition platform</span>
       </header>
       <div class="page"><router-outlet /></div>
+      <app-credit />
     </main>
   </div>`,
 })

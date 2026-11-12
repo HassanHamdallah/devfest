@@ -14,6 +14,7 @@ import {
 import { Router } from "@angular/router";
 import { Api, message } from "../core/api";
 import { RoleHome } from "../core/role-home";
+import { AppCredit } from "../core/shell/app-credit";
 import { AppLogo } from "../shared/ui/app-logo/app-logo";
 import { BrandBar } from "../shared/ui/brand-bar/brand-bar";
 import { UiInput } from "../shared/ui/ui-input/ui-input";
@@ -21,9 +22,10 @@ import { UiButton } from "../shared/ui/ui-button/ui-button";
 
 /** Sign-in for every role: one centred card on the cream page, with the GDG logo (its own four-colour ring). */
 @Component({
-  imports: [AppLogo, BrandBar, ReactiveFormsModule, UiInput, UiButton],
+  imports: [AppCredit, AppLogo, BrandBar, ReactiveFormsModule, UiInput, UiButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<app-brand-bar class="login__bar" />
+    <div class="login-page">
     <main class="login">
       <section class="login__card" aria-labelledby="login-title">
         <app-logo [size]="132" />
@@ -58,18 +60,25 @@ import { UiButton } from "../shared/ui/ui-button/ui-button";
         </form>
       </section>
       <p class="login__footer">GDG On Campus · Birzeit University</p>
-    </main>`,
+    </main>
+    <app-credit />
+    </div>`,
   styles: `
     .login__bar {
       position: fixed;
       inset: 0 0 auto;
     }
+    .login-page {
+      display: flex;
+      flex-direction: column;
+      min-block-size: 100dvh;
+    }
     .login {
+      flex: 1;
       display: grid;
       place-content: center;
       justify-items: center;
       gap: var(--space-5);
-      min-block-size: 100dvh;
       padding: var(--space-10) var(--space-4);
     }
     .login__card {
