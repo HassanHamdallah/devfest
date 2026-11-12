@@ -1,0 +1,37 @@
+[Unit]
+Description=DevFest backend (Spring Boot)
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+
+[Service]
+Type=simple
+User=devfest
+Group=devfest
+# The backend reads .env from its working directory (spring.config.import=optional:file:.env).
+WorkingDirectory=/srv/devfest/backend
+# Bind to loopback only: nginx is the only way in. These two override anything in .env.
+Environment=PORT=8081
+Environment=SERVER_ADDRESS=127.0.0.1
+# 2 GB machine shared with PostgreSQL (about 300 MB) and nginx: 768 MB heap + metaspace/threads stays under 1.2 GB.
+ExecStart=/usr/bin/java -Xms256m -Xmx768m -XX:MaxMetaspaceSize=192m -XX:+ExitOnOutOfMemoryError -jar /srv/devfest/backend/devfest.jar
+Restart=always
+RestartSec=5
+# Flyway migrations on 1 vCPU can take a while on the first start.
+TimeoutStartSec=180
+TimeoutStopSec=30
+# 143 = normal exit after SIGTERM from the JVM.
+SuccessExitStatus=143
+MemoryMax=1200M
+LimitNOFILE=16384
+
+# Light hardening: the app needs to read its jar and .env and talk to PostgreSQL, nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

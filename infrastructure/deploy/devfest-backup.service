@@ -1,0 +1,8 @@
+[Unit]
+Description=DevFest database backup (pg_dump)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/devfest/bin/backup.sh
+Nice=10
