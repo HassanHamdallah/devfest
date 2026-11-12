@@ -423,11 +423,17 @@ the terminal only helps produce the technical output.
    **Start terminal** downloads the emulator (while the round is Assigned the page already downloads it in the
    background), boots Linux and copies the files into the home directory. **Restart terminal** starts again from the
    room's files (asks first). **Use selection as technical output** copies the selected terminal text into the
-   Technical output field; the team still reviews and submits as usual. Refreshing or leaving the page ends the
-   terminal (the browser asks first while it runs).
-5. **Time's up.** When the round's timer shows Time's up (or the next round starts), the terminal shows "Time is up"
-   and accepts no more input. If the admin adds time, **Restart terminal** works again. Changed files reach a team the
-   next time its terminal starts.
+   Technical output field; the team still reviews and submits as usual. **The terminal is saved in the team's
+   browser** (the whole VM, in IndexedDB, 5 seconds after the last keystroke, at most every 15 seconds, and when the
+   tab goes to the background; one saved terminal per browser, for one team, room, round and package). After a page
+   refresh in a running round the terminal starts by itself and comes back as it was ("Restoring your terminal…");
+   a save that does not match, or cannot be restored, is deleted and Linux boots normally. **Restart terminal**, the
+   end of the round and signing out delete it. If the browser cannot store it, the terminal keeps running with a
+   small notice and a refresh restarts it. The browser still asks before leaving the page while the terminal runs.
+5. **Time's up.** When the round's timer shows Time's up (or the next round starts), the terminal is removed at
+   once, without any click, and its saved copy is deleted; the team sees the normal next-room or waiting screen. If the
+   admin adds time to the same round, the team sees **Start terminal** again and starts a new terminal. Changed files
+   reach a team the next time its terminal starts.
 6. **Server package.** Instead of text files, the room's manager (or the admin) may upload **one ZIP** on the room
    board under **Server package**. Its files are installed from the root of the team's Linux (`srv/rami/logs/a.log`
    becomes `/srv/rami/logs/a.log`) with the owners, groups and modes of an optional `devfest-manifest.csv`

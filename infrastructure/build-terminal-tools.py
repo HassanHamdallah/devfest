@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the Linux room terminal's extra tools archive (frontend/public/terminal/devfest-tools.tgz).
 
-The terminal's Linux image is BusyBox without file, base64, bzip2, zip or a full find. This script assembles them from
+The terminal's Linux image is BusyBox without file, base64, bzip2, zip, a full find, nano or tree. This script assembles them from
 official Alpine Linux x86 (32-bit) packages, which are built against musl, so the archive also carries the musl loader.
 Nothing is compiled and nothing is taken on trust:
 
@@ -21,8 +21,8 @@ Modes:
 Layout inside the archive (extracted from "/" by the terminal's setup; nothing outside /usr/local is touched):
   /usr/local/bin/<tool>                 small sh wrappers (first in PATH, so "find" is GNU find)
   /usr/local/devfest-tools/elf/         the real binaries
-  /usr/local/devfest-tools/lib/         the musl loader and libbz2, libmagic
-  /usr/local/devfest-tools/share/       the compiled magic database for file
+  /usr/local/devfest-tools/lib/         the musl loader and libbz2, libmagic, libncursesw
+  /usr/local/devfest-tools/share/       the compiled magic database for file; terminfo/l/linux for nano (TERM is "linux")
 Each wrapper runs its binary through the musl loader with an explicit library path, so no file in /lib or /etc is
 needed.
 """
@@ -47,7 +47,7 @@ BRANCH, REPOSITORY, ARCH = "v3.24", "main", "x86"
 KEY_NAME = "alpine-devel@lists.alpinelinux.org-61666e3f.rsa.pub"
 KEY_URL = "https://alpinelinux.org/keys/" + KEY_NAME
 KEY_SHA256 = "128d34d4aec39b0daedea8163cd8dc24dff36fd3d848630ab97eeb1d3084bbb3"
-PACKAGES = ["musl", "libbz2", "bzip2", "libmagic", "file", "findutils", "zip", "busybox-static"]
+PACKAGES = ["musl", "libbz2", "bzip2", "libmagic", "file", "findutils", "zip", "busybox-static", "libncursesw", "ncurses-terminfo-base", "nano", "tree"]
 LOCK = ROOT / "infrastructure" / "terminal-tools.lock.json"
 CACHE = ROOT / ".local" / "terminal-tools-cache"
 ARCHIVE = ROOT / "frontend" / "public" / "terminal" / "devfest-tools.tgz"
@@ -64,18 +64,24 @@ FILES = {
     f"{BASE}/lib/ld-musl-i386.so.1": ("musl", "lib/ld-musl-i386.so.1"),
     f"{BASE}/lib/libbz2.so.1.0.8": ("libbz2", "usr/lib/libbz2.so.1.0.8"),
     f"{BASE}/lib/libmagic.so.1.0.0": ("libmagic", "usr/lib/libmagic.so.1.0.0"),
+    f"{BASE}/lib/libncursesw.so.6.6": ("libncursesw", "usr/lib/libncursesw.so.6.6"),
     f"{BASE}/share/magic.mgc": ("libmagic", "usr/share/misc/magic.mgc"),
+    # Only the entry the terminal uses: the guest's TERM is "linux" (checked in the real terminal).
+    f"{BASE}/share/terminfo/l/linux": ("ncurses-terminfo-base", "etc/terminfo/l/linux"),
     f"{BASE}/elf/bzip2": ("bzip2", "usr/bin/bzip2"),
     f"{BASE}/elf/file": ("file", "usr/bin/file"),
     f"{BASE}/elf/find": ("findutils", "usr/bin/find"),
     f"{BASE}/elf/xargs": ("findutils", "usr/bin/xargs"),
     f"{BASE}/elf/zip": ("zip", "usr/bin/zip"),
+    f"{BASE}/elf/nano": ("nano", "usr/bin/nano"),
+    f"{BASE}/elf/tree": ("tree", "usr/bin/tree"),
     f"{BASE}/elf/busybox.static": ("busybox-static", "bin/busybox.static"),
 }
 SYMLINKS = {
     f"{BASE}/lib/libc.musl-x86.so.1": "ld-musl-i386.so.1",
     f"{BASE}/lib/libbz2.so.1": "libbz2.so.1.0.8",
     f"{BASE}/lib/libmagic.so.1": "libmagic.so.1.0.0",
+    f"{BASE}/lib/libncursesw.so.6": "libncursesw.so.6.6",
     f"{BASE}/elf/bunzip2": "bzip2",
     f"{BASE}/elf/bzcat": "bzip2",
 }
@@ -89,14 +95,18 @@ COMMANDS = {
     "bzcat": ("bzcat", "", ""),
     "zip": ("zip", "", ""),
     "base64": ("busybox.static", " base64", ""),
+    # TERMINFO makes ncurses read the one bundled entry, so nothing outside /usr/local is needed.
+    "nano": ("nano", "", f'export TERMINFO=/{BASE}/share/terminfo\n'),
+    "tree": ("tree", "", ""),
 }
 
 #  licenses: key -> (title, url, applies to)
 LICENSE_TEXTS = {
-    "GPL-3.0": ("GNU General Public License, version 3", "https://www.gnu.org/licenses/gpl-3.0.txt", "findutils (GNU find and xargs)"),
-    "GPL-2.0": ("GNU General Public License, version 2", "https://www.gnu.org/licenses/gpl-2.0.txt", "BusyBox (base64)"),
+    "GPL-3.0": ("GNU General Public License, version 3", "https://www.gnu.org/licenses/gpl-3.0.txt", "findutils (GNU find and xargs), nano"),
+    "GPL-2.0": ("GNU General Public License, version 2", "https://www.gnu.org/licenses/gpl-2.0.txt", "BusyBox (base64), tree"),
     "MIT": ("musl libc license (MIT)", "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT", "musl (the loader and libc)"),
     "BSD-2-Clause": ("file and libmagic license (BSD-2-Clause)", "https://raw.githubusercontent.com/file/file/master/COPYING", "file, libmagic"),
+    "X11": ("ncurses license (X11)", "https://raw.githubusercontent.com/mirror/ncurses/master/COPYING", "libncursesw, the terminfo entry"),
     "bzip2": ("bzip2 license", "https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;hb=HEAD", "bzip2, libbz2"),
 }
 INFOZIP_SOURCE = "https://downloads.sourceforge.net/project/infozip/Zip%203.x%20%28latest%29/3.0/zip30.tar.gz"
@@ -238,21 +248,37 @@ def download_locked(package):
     return apk
 
 
+def pinned_download(name, url, expected_sha256):
+    """A file pinned by SHA-256 in the lock: the cached copy if it still matches, else the download (checked, then cached)."""
+    CACHE.mkdir(parents=True, exist_ok=True)
+    cached = CACHE / name
+    if cached.exists() and sha256(cached.read_bytes()) == expected_sha256:
+        return cached.read_bytes()
+    data = fetch(url)
+    if sha256(data) != expected_sha256:
+        raise SystemExit(f"{name}: SHA-256 {sha256(data)} differs from the lock ({expected_sha256}).")
+    cached.write_bytes(data)
+    return data
+
+
 def locked_license_text(key, entry):
-    text = fetch(entry["url"])
-    if sha256(text) != entry["sha256"]:
-        raise SystemExit(f"License text {key}: SHA-256 differs from the lock.")
-    return text.decode("utf-8", "replace")
+    return pinned_download(f"license-{key}.txt", entry["url"], entry["sha256"]).decode("utf-8", "replace")
 
 
-def wrapper(binary, arguments, environment):
-    return (
-        "#!/bin/sh\n"
-        f"{environment}"
-        f'exec {LOADER} --library-path {LIBRARIES} /{BASE}/elf/{binary}{arguments} "$@"\n'
-    ) if binary != "busybox.static" else (
-        "#!/bin/sh\n" f'exec /{BASE}/elf/{binary}{arguments} "$@"\n'
-    )
+#  Full-screen programs run on the terminal's alternate screen, so the team gets back exactly the screen it had
+#  (the Linux console's terminfo has no alternate screen of its own, which would leave the editor's text behind).
+ALTERNATE_SCREEN = {"nano"}
+ALTERNATE_ON = r"printf '\033[?1049h'"
+ALTERNATE_OFF = r"printf '\033[?1049l'"
+
+
+def wrapper(command, binary, arguments, environment):
+    if binary == "busybox.static":
+        return "#!/bin/sh\n" f'exec /{BASE}/elf/{binary}{arguments} "$@"\n'
+    run = f'{LOADER} --library-path {LIBRARIES} /{BASE}/elf/{binary}{arguments} "$@"'
+    if command in ALTERNATE_SCREEN:
+        return f"#!/bin/sh\n{environment}{ALTERNATE_ON}\n{run}\nstatus=$?\n{ALTERNATE_OFF}\nexit $status\n"
+    return f"#!/bin/sh\n{environment}exec {run}\n"
 
 
 def build(lock_data):
@@ -274,7 +300,7 @@ def build(lock_data):
     for name, target in SYMLINKS.items():
         entries.append((name, "link", target, 0o777))
     for command, (binary, arguments, environment) in COMMANDS.items():
-        entries.append((f"usr/local/bin/{command}", "file", wrapper(binary, arguments, environment).encode(), 0o755))
+        entries.append((f"usr/local/bin/{command}", "file", wrapper(command, binary, arguments, environment).encode(), 0o755))
     for directory in (f"{BASE}", f"{BASE}/elf", f"{BASE}/lib", f"{BASE}/share"):
         entries.append((directory, "dir", None, 0o755))
     entries.sort(key=lambda entry: entry[0])
@@ -309,9 +335,7 @@ def build(lock_data):
 
 
 def write_licenses(lock_data):
-    infozip = fetch(lock_data["infoZipSource"]["url"])
-    if sha256(infozip) != lock_data["infoZipSource"]["sha256"]:
-        raise SystemExit("The Info-ZIP source archive differs from the lock.")
+    infozip = pinned_download("zip30.tar.gz", lock_data["infoZipSource"]["url"], lock_data["infoZipSource"]["sha256"])
     zip_license = tarfile.open(fileobj=io.BytesIO(infozip)).extractfile("zip30/LICENSE").read().decode("utf-8", "replace")
     lines = [
         "Third-party tools of the Linux room terminal (devfest-tools.tgz)",

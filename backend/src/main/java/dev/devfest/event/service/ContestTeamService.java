@@ -64,7 +64,7 @@ public class ContestTeamService {
       throw fail(404, NOT_FOUND);
     }
     RoundPhase phase = state.timer().map(timer -> timer.effectivePhase(clock.now())).orElse(RoundPhase.TIME_UP);
-    boolean linkVisible = !team.disqualified() && (phase == RoundPhase.RUNNING || phase == RoundPhase.PAUSED);
+    boolean linkVisible = !team.disqualified() && phase.contestLinkOpen();
     return new ContestTeamView(
       room.id(),
       linkVisible ? contest.link(room.id()).orElse(null) : null,
