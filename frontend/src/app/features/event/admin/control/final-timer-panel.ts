@@ -15,6 +15,7 @@ import { reloadOnRevisionChange } from "../../../../core/event/revision-sync";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
+import { newIdempotencyKey } from "../../../../core/event/pending-request";
 import { ActionState } from "../shared/action-state";
 import { ActionStatus } from "../shared/action-status";
 
@@ -153,7 +154,7 @@ export class FinalTimerPanel {
 
   protected add(minutes: number): void {
     void this.run(
-      () => this.eventApi.addFinalTime(minutes * 60, crypto.randomUUID()),
+      () => this.eventApi.addFinalTime(minutes * 60, newIdempotencyKey()),
       `${minutes} minutes added for every team.`,
     );
   }

@@ -51,7 +51,7 @@ activate_release "$ID"
 log "5/6 Restarting and waiting for health"
 if ! restart_and_check; then
   warn "Release $ID did NOT start. The previous release is still on disk."
-  [ -n "$OLD" ] && warn "Go back with:  sudo $DEVFEST_ROOT/bin/rollback.sh   (see docs/DEPLOYMENT.md section 5)"
+  if [ -n "$OLD" ]; then warn "Go back with:  sudo $DEVFEST_ROOT/bin/rollback.sh   (see docs/DEPLOYMENT.md section 5)"; fi
   exit 1
 fi
 

@@ -14,20 +14,20 @@ export const ROOMS: readonly RoomCode[] = ["AI", "PROBLEM_SOLVING", "LINUX", "HA
 
 /** The plaintexts the server derives from docs/final/crypto-content.json. Test code only: no page ever shows them. */
 export const LAYER_ANSWERS = [52, 17, 8, 17] as const;
-export const RECOVERY_QUESTION = "How many bits are in a byte?";
-export const RECOVERY_ANSWER = "EIGHT BITS";
+/** The Recovery Challenge as the shipped content file has it (read from the file, so the specs follow the real question). */
+const recovery = (JSON.parse(fs.readFileSync(path.resolve("..", "docs", "final", "crypto-content.json"), "utf8")) as {
+  recovery: { question: string; acceptedAnswers: string[] };
+}).recovery;
+export const RECOVERY_QUESTION = recovery.question;
+export const RECOVERY_ANSWER = recovery.acceptedAnswers[0];
 /** Index 1 of the suspects in the content file (the correct one) and the first (a wrong one). */
 export const CORRECT_SUSPECT = "Leila Nasser";
 export const WRONG_SUSPECT = "Kareem Shehab";
 export const SUSPECT_NAMES = ["Kareem Shehab", "Leila Nasser", "Tariq Al-Khatib", "Nadia Murad", "Farid Mansour", "Mazen Haddad"];
 
-/** The shipped content file with the test Recovery Challenge in place of its placeholder. */
+/** The shipped content file, exactly as the admin imports it. */
 export function finalContentJson(): string {
-  const file = path.resolve("..", "docs", "final", "crypto-content.json");
-  return fs
-    .readFileSync(file, "utf8")
-    .replace("PLACEHOLDER - replace this with the real Recovery Challenge question before the event.", RECOVERY_QUESTION)
-    .replace("PLACEHOLDER-REPLACE-ME", RECOVERY_ANSWER);
+  return fs.readFileSync(path.resolve("..", "docs", "final", "crypto-content.json"), "utf8");
 }
 
 /** The group a seeded team (Team 01..16) is in: blocks of four, A to D. */

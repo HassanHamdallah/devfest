@@ -5,6 +5,7 @@ import {
   output,
 } from "@angular/core";
 import { RoundPhase } from "../../../../core/event/event-models";
+import { newIdempotencyKey } from "../../../../core/event/pending-request";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { ControlAction } from "./control-actions";
 
@@ -123,7 +124,7 @@ export class RoundTimerActions {
     this.action.emit({
       kind: "adjustTimer",
       deltaSeconds: seconds,
-      key: crypto.randomUUID(),
+      key: newIdempotencyKey(),
     });
   }
 }
