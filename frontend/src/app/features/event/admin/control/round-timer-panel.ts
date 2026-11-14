@@ -24,6 +24,7 @@ import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { ControlAction } from "./control-actions";
 import { nextRoundBlockReason, nextRoundLabel } from "./control-view";
+import { newIdempotencyKey } from "../../../../core/event/pending-request";
 import { RoundAdjustDialog } from "./round-adjust-dialog";
 import { RoundTimerActions } from "./round-timer-actions";
 
@@ -175,6 +176,6 @@ export class RoundTimerPanel {
 
   protected applyAdjust(deltaSeconds: number): void {
     this.adjusting.set(false);
-    this.emit({ kind: "adjustTimer", deltaSeconds, key: crypto.randomUUID() });
+    this.emit({ kind: "adjustTimer", deltaSeconds, key: newIdempotencyKey() });
   }
 }

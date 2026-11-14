@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
-# First-time (and repeatable) setup of the DevFest server on a fresh Ubuntu LTS VPS. Run as root, from the folder
-# that holds the other deploy files:   cd /root/devfest-deploy && bash setup-server.sh
+# First-time (and repeatable) setup of the DevFest server on a fresh Ubuntu LTS machine (amd64 or arm64, for example a
+# DigitalOcean Droplet or an Oracle Cloud Always Free Ampere A1 instance). Run with root rights, from the folder that holds
+# the other deploy files:
+#     cd ~/devfest-deploy && sudo bash setup-server.sh [--host SITE_ADDRESS] [--firewall auto|oracle|ufw|none]
+#
+#   --host      the public IPv4 address of the server (plain HTTP site, no certificate) or a domain name (HTTPS once a
+#               certificate exists, plain HTTP until then). Also read from DEVFEST_HOST (DEVFEST_DOMAIN still works).
+#               Asked for when missing.
+#   --firewall  auto (default): Oracle Cloud is detected and gets iptables rules, every other host gets ufw.
+#               oracle: iptables-persistent only (never ufw). ufw: ufw only. none: leave the firewall alone.
+#
 # Safe to run again: every step checks what already exists. It never prints or stores a password except into
 # /srv/devfest/backend/.env (chmod 600).
 set -euo pipefail
@@ -13,35 +22,89 @@ say()  { printf '\n==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || die "Run as root (log in as root, or put 'sudo' in front)."
+HOST="${DEVFEST_HOST:-${DEVFEST_DOMAIN:-}}"
+FW_MODE="${DEVFEST_FIREWALL:-auto}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)       [ $# -ge 2 ] || die "--host needs a value."; HOST="$2"; shift 2 ;;
+    --host=*)     HOST="${1#*=}"; shift ;;
+    --firewall)   [ $# -ge 2 ] || die "--firewall needs a value."; FW_MODE="$2"; shift 2 ;;
+    --firewall=*) FW_MODE="${1#*=}"; shift ;;
+    -h|--help)    sed -n '2,15p' "$0"; exit 0 ;;
+    *)            die "Unknown option '$1'. Use --host and --firewall (see the top of this file)." ;;
+  esac
+done
+case "$FW_MODE" in auto|oracle|ufw|none) ;; *) die "--firewall must be auto, oracle, ufw or none (got '$FW_MODE')." ;; esac
+
+[ "$(id -u)" -eq 0 ] || die "Run with root rights: put 'sudo' in front (sudo bash setup-server.sh)."
 for f in common.sh deploy.sh rollback.sh backup.sh restore.sh env.production.example devfest-backend.service \
-         devfest-backup.service devfest-backup.timer nginx-site.conf nginx-site-http-only.conf; do
+         devfest-backup.service devfest-backup.timer nginx-site.conf nginx-site-http-only.conf nginx-app.conf; do
   [ -f "$HERE/$f" ] || die "Missing $HERE/$f. Upload the whole infrastructure/deploy folder."
 done
+
+# --- machine check: apt-based Ubuntu, 64-bit x86 or ARM ---------------------------------------------------------------
+command -v apt-get > /dev/null || die "This script needs an apt-based system (Ubuntu)."
 if ! grep -qi '^ID=ubuntu' /etc/os-release; then warn "This script was written for Ubuntu; this is not Ubuntu. Continuing."; fi
 CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME:-}")"
+UBUNTU_VERSION="$(. /etc/os-release && echo "${VERSION_ID:-?}")"
 [ -n "$CODENAME" ] || die "Cannot read the Ubuntu release name from /etc/os-release."
+ARCH="$(dpkg --print-architecture)"
+case "$ARCH" in
+  amd64|arm64) ;;
+  *) die "Unsupported CPU architecture '$ARCH' (dpkg). This script supports amd64 (x86-64) and arm64 (aarch64)." ;;
+esac
+echo "Machine: Ubuntu $UBUNTU_VERSION ($CODENAME), $ARCH, $(awk '/MemTotal/{printf "%.1f GB RAM", $2/1048576}' /proc/meminfo)."
+
+# True when a package has an installable version in the apt sources configured right now.
+pkg_available() { apt-cache policy "$1" 2> /dev/null | grep -q 'Candidate: [0-9]'; }
+
+is_oracle() {
+  grep -qi 'OracleCloud' /sys/class/dmi/id/chassis_asset_tag 2> /dev/null && return 0
+  grep -qi '^oracle' /sys/class/dmi/id/sys_vendor 2> /dev/null && return 0
+  curl -fsS -m 2 -H 'Authorization: Bearer Oracle' http://169.254.169.254/opc/v2/instance/ > /dev/null 2>&1
+}
+if [ "$FW_MODE" = auto ]; then
+  if is_oracle; then FW_MODE=oracle; else FW_MODE=ufw; fi
+fi
+echo "Firewall mode: $FW_MODE"
 
 # Reads one line from the keyboard even when the script is piped. $1 = prompt, $2 = "secret" to hide typing.
 ask() {
   local reply
+  { : < /dev/tty; } 2> /dev/null || die "No terminal to ask '$1' on. Log in with a normal interactive SSH session, or pass the value as an option/environment variable."
   if [ "${2:-}" = secret ]; then read -r -s -p "$1" reply < /dev/tty; echo > /dev/tty; else read -r -p "$1" reply < /dev/tty; fi
   printf '%s' "$reply"
 }
 
 # ---------------------------------------------------------------------------------------------------------------
-say "0. Domain name"
-DOMAIN="${DEVFEST_DOMAIN:-}"
-if [ -z "$DOMAIN" ] && [ -f "$ROOT/bin/deploy.conf" ]; then
-  # shellcheck disable=SC1091
-  . "$ROOT/bin/deploy.conf"
+say "0. Site address (public IP for plain HTTP, or a domain name)"
+if [ -z "$HOST" ] && [ -f "$ROOT/bin/deploy.conf" ]; then
+  # An earlier run remembered the address; deploy.conf may be an old one that only has DOMAIN=.
+  HOST="$( (SITE_HOST=""; DOMAIN=""; . "$ROOT/bin/deploy.conf"; echo "${SITE_HOST:-$DOMAIN}") )"
 fi
-if [ -z "$DOMAIN" ]; then DOMAIN="$(ask 'Domain of the event site (for example devfest.example.com): ')"; fi
-DOMAIN="$(printf '%s' "$DOMAIN" | tr 'A-Z' 'a-z' | tr -d '[:space:]')"
-printf '%s' "$DOMAIN" | grep -Eq '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$' || die "'$DOMAIN' is not a valid domain name."
-[ "$DOMAIN" != "replace_domain" ] || die "Type your real domain name."
-echo "Using domain: $DOMAIN"
-SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+if [ -z "$HOST" ]; then HOST="$(ask 'Public IPv4 address of this server (or a domain name, for example devfest.example.com): ')"; fi
+HOST="$(printf '%s' "$HOST" | tr 'A-Z' 'a-z' | tr -d '[:space:]')"
+IS_IP=no
+if printf '%s' "$HOST" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+  for octet in ${HOST//./ }; do [ "$octet" -le 255 ] || die "'$HOST' is not a valid IPv4 address."; done
+  IS_IP=yes
+  case "$HOST" in
+    10.*|192.168.*|127.*|169.254.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*)
+      die "'$HOST' is a private address. Give the PUBLIC IP (on Oracle Cloud: Instance details -> Public IP address, not the private IP)." ;;
+  esac
+elif printf '%s' "$HOST" | grep -Eq '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$'; then
+  [ "$HOST" != "replace_domain" ] || die "Type your real domain name."
+else
+  die "'$HOST' is neither an IPv4 address nor a domain name."
+fi
+# HTTPS only with a domain AND a certificate for it; everything else is the plain HTTP site.
+if [ "$IS_IP" = no ] && [ -f "/etc/letsencrypt/live/$HOST/fullchain.pem" ]; then SCHEME=https; else SCHEME=http; fi
+ORIGIN="$SCHEME://$HOST"
+echo "Site address: $ORIGIN"
+if [ "$SCHEME" = http ]; then
+  echo "  (plain HTTP: no certificate. See docs/DEPLOYMENT.md, \"Switching to HTTPS\", for the move to a domain.)"
+fi
+SSH_PORT="$(sshd -T 2> /dev/null | awk '/^port /{print $2; exit}')"
 SSH_PORT="${SSH_PORT:-22}"
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -63,16 +126,29 @@ echo 'vm.swappiness=10' > /etc/sysctl.d/99-devfest.conf
 sysctl -q -p /etc/sysctl.d/99-devfest.conf || true
 
 # ---------------------------------------------------------------------------------------------------------------
-say "2. Base packages (nginx, certbot, ufw, fail2ban, unattended-upgrades)"
+say "2. Base packages (nginx, certbot, fail2ban, unattended-upgrades, firewall tools for mode '$FW_MODE')"
 apt-get update -q
-apt-get install -y -q ca-certificates curl gnupg unzip openssl ufw nginx certbot fail2ban unattended-upgrades postgresql-common
+apt-get install -y -q ca-certificates curl gnupg unzip openssl nginx certbot fail2ban unattended-upgrades postgresql-common
+case "$FW_MODE" in
+  ufw)    apt-get install -y -q ufw ;;
+  oracle)
+    # Do not let the package ask whether to save the current rules (answers are not asked in non-interactive mode).
+    echo 'iptables-persistent iptables-persistent/autosave_v4 boolean false' | debconf-set-selections
+    echo 'iptables-persistent iptables-persistent/autosave_v6 boolean false' | debconf-set-selections
+    apt-get install -y -q iptables iptables-persistent netfilter-persistent ;;
+esac
 
 # ---------------------------------------------------------------------------------------------------------------
-say "3. PostgreSQL 18 (official PGDG repository)"
-# This script ships with postgresql-common and adds the official apt.postgresql.org repository for this release
-# (it does nothing if the repository is already there).
-/usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-apt-cache policy postgresql-18 | grep -q 'Candidate: [0-9]' || die "PostgreSQL 18 is not available for Ubuntu '$CODENAME' on apt.postgresql.org."
+say "3. PostgreSQL 18"
+# Ubuntu's own package first (26.04 ships postgresql-18 for amd64 and arm64); the official PGDG repository only when
+# Ubuntu's archive has no postgresql-18.
+if pkg_available postgresql-18; then
+  echo "Using Ubuntu's own postgresql-18 package."
+else
+  echo "Ubuntu '$CODENAME' has no postgresql-18: adding the official PostgreSQL (PGDG) repository."
+  /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+  pkg_available postgresql-18 || die "PostgreSQL 18 is not available for Ubuntu '$CODENAME' ($ARCH), neither from Ubuntu nor from apt.postgresql.org. Install PostgreSQL 18 by hand, then run this script again."
+fi
 apt-get install -y -q postgresql-18
 PGCONF=/etc/postgresql/18/main/conf.d/devfest.conf
 mkdir -p "$(dirname "$PGCONF")"
@@ -82,7 +158,7 @@ max_connections = 60
 shared_buffers = 256MB
 effective_cache_size = 768MB
 work_mem = 8MB'
-if [ "$(cat "$PGCONF" 2>/dev/null)" != "$PGWANT" ]; then
+if [ "$(cat "$PGCONF" 2> /dev/null)" != "$PGWANT" ]; then
   printf '%s\n' "$PGWANT" > "$PGCONF"
   systemctl restart postgresql
 fi
@@ -99,16 +175,22 @@ java_ok() { command -v java > /dev/null && java -version 2>&1 | head -n1 | grep 
 if java_ok; then
   echo "Java 25 is already installed."
 else
-  if apt-cache policy openjdk-25-jre-headless | grep -q 'Candidate: [0-9]'; then
-    echo "Installing Ubuntu's openjdk-25-jre-headless"
+  if pkg_available openjdk-25-jre-headless; then
+    echo "Installing Ubuntu's openjdk-25-jre-headless ($ARCH)"
     apt-get install -y -q openjdk-25-jre-headless
+    # Another Java may still be the default 'java'; point it at 25.
+    JAVA25="/usr/lib/jvm/java-25-openjdk-$ARCH/bin/java"
+    if ! java_ok && [ -x "$JAVA25" ]; then update-alternatives --set java "$JAVA25" || true; fi
   else
-    echo "Ubuntu '$CODENAME' has no openjdk-25 package: using Eclipse Temurin 25 from packages.adoptium.net"
+    echo "Ubuntu '$CODENAME' has no openjdk-25 package: trying Eclipse Temurin 25 from packages.adoptium.net"
     install -d -m 0755 /etc/apt/keyrings
     curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor --yes -o /etc/apt/keyrings/adoptium.gpg
     echo "deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $CODENAME main" > /etc/apt/sources.list.d/adoptium.list
-    apt-get update -q
-    apt-cache policy temurin-25-jre | grep -q 'Candidate: [0-9]' || die "temurin-25-jre is not offered for '$CODENAME'. Install a Java 25 runtime by hand, then run this script again."
+    if ! apt-get update -q; then
+      rm -f /etc/apt/sources.list.d/adoptium.list
+      die "The Adoptium repository does not serve Ubuntu '$CODENAME'. Install a Java 25 runtime for $ARCH by hand (for example the aarch64/x64 JRE tarball from adoptium.net), then run this script again."
+    fi
+    pkg_available temurin-25-jre || die "temurin-25-jre is not offered for Ubuntu '$CODENAME' ($ARCH). Install a Java 25 runtime by hand, then run this script again."
     apt-get install -y -q temurin-25-jre
   fi
 fi
@@ -122,13 +204,19 @@ install -d -m 0755 -o root -g root "$ROOT" "$ROOT/frontend" "$ROOT/releases" "$R
 install -d -m 0750 -o root -g devfest "$ROOT/backend"          # devfest can read here, not create files
 install -d -m 0750 -o postgres -g postgres "$ROOT/backups"
 install -d -m 0755 /var/www/certbot
+# The person who ran sudo may copy backups to a laptop with scp without sudo: dumps are group-readable by 'postgres'.
+BACKUP_READER="${SUDO_USER:-}"
+if [ -n "$BACKUP_READER" ] && [ "$BACKUP_READER" != root ] && id "$BACKUP_READER" > /dev/null 2>&1; then
+  usermod -aG postgres "$BACKUP_READER"
+  echo "User '$BACKUP_READER' can read $ROOT/backups (group postgres; applies to NEW SSH sessions)."
+fi
 
 # ---------------------------------------------------------------------------------------------------------------
 say "6. Database role, database and $ROOT/backend/.env"
 ENVFILE="$ROOT/backend/.env"
-set_var() {   # set_var FILE KEY VALUE : replaces the line KEY=... (value used verbatim, no shell or sed escaping)
+set_var() {   # set_var FILE KEY VALUE : replaces the line KEY=... or appends it (value used verbatim, no shell or sed escaping)
   local tmp; tmp="$(mktemp)"
-  V="$3" awk -v k="$2" 'BEGIN{FS=OFS="="} $1==k {print k "=" ENVIRON["V"]; next} {print}' "$1" > "$tmp"
+  V="$3" awk -v k="$2" 'BEGIN{FS=OFS="="; f=0} $1==k {print k "=" ENVIRON["V"]; f=1; next} {print} END{if(!f) print k "=" ENVIRON["V"]}' "$1" > "$tmp"
   cat "$tmp" > "$1"; rm -f "$tmp"
 }
 get_var() { sed -n "s/^$2=//p" "$1" | head -n1; }
@@ -183,33 +271,42 @@ if [ ! -f "$ENVFILE" ]; then
   ( umask 077; cp "$HERE/env.production.example" "$ENVFILE" )
   set_var "$ENVFILE" DEVFEST_DB_PASSWORD "$DB_PASSWORD"
   set_var "$ENVFILE" DEVFEST_JWT_SECRET "$(openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | head -c 64)"
-  set_var "$ENVFILE" DEVFEST_ORIGINS "https://$DOMAIN"
+  set_var "$ENVFILE" DEVFEST_ORIGINS "$ORIGIN"
   set_var "$ENVFILE" DEVFEST_ADMIN_EMAIL "$ADMIN_EMAIL"
   set_var "$ENVFILE" DEVFEST_ADMIN_PASSWORD "$ADMIN_PASSWORD"
   echo "Wrote $ENVFILE"
 fi
+# The browser origin must match the address people type (CORS). Keep it in step when the address or scheme changes
+# (for example http://IP -> https://domain). The backend is restarted below when this changes.
+ORIGINS_CHANGED=no
+if ! printf ',%s,' "$(get_var "$ENVFILE" DEVFEST_ORIGINS)" | grep -qF ",$ORIGIN,"; then
+  set_var "$ENVFILE" DEVFEST_ORIGINS "$ORIGIN"
+  ORIGINS_CHANGED=yes
+  echo "DEVFEST_ORIGINS in $ENVFILE is now $ORIGIN"
+fi
 chown devfest:devfest "$ENVFILE"
 chmod 600 "$ENVFILE"
-grep -v '^#' "$ENVFILE" | grep -q 'REPLACE_' && warn "$ENVFILE still contains a REPLACE_ placeholder: edit it (nano $ENVFILE) before the first deploy."
+grep -v '^#' "$ENVFILE" | grep -q 'REPLACE_' && warn "$ENVFILE still contains a REPLACE_ placeholder: edit it (sudo nano $ENVFILE) before the first deploy."
 grep -Eq '^DEVFEST_(SEED|DEVELOPMENT)=true' "$ENVFILE" && warn "$ENVFILE has DEVFEST_SEED or DEVFEST_DEVELOPMENT set to true. Production must have both false."
 
 # ---------------------------------------------------------------------------------------------------------------
 say "7. Scripts, systemd units, nginx site"
 install -m 0755 -o root -g root "$HERE/common.sh" "$HERE/deploy.sh" "$HERE/rollback.sh" "$HERE/backup.sh" "$HERE/restore.sh" "$ROOT/bin/"
-printf 'DOMAIN=%s\n' "$DOMAIN" > "$ROOT/bin/deploy.conf"
+printf 'SITE_HOST=%s\nSITE_SCHEME=%s\n' "$HOST" "$SCHEME" > "$ROOT/bin/deploy.conf"
 install -m 0644 "$HERE/devfest-backend.service" "$HERE/devfest-backup.service" "$HERE/devfest-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable devfest-backend > /dev/null 2>&1          # starts at boot; the first deploy starts it now
 systemctl enable --now devfest-backup.timer > /dev/null 2>&1
 
-install -d /var/log/nginx
+install -d /var/log/nginx /etc/nginx/snippets
+install -m 0644 "$HERE/nginx-app.conf" /etc/nginx/snippets/devfest-app.conf
 rm -f /etc/nginx/sites-enabled/default
-if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-  SITE="$HERE/nginx-site.conf"; echo "Certificate found: installing the full HTTPS site."
+if [ "$SCHEME" = https ]; then
+  SITE="$HERE/nginx-site.conf"; echo "Domain with certificate: installing the full HTTPS site."
 else
-  SITE="$HERE/nginx-site-http-only.conf"; echo "No certificate yet: installing the HTTP-only site (run certbot next, then this script again)."
+  SITE="$HERE/nginx-site-http-only.conf"; echo "Installing the plain HTTP site (no HSTS, no redirect, no port 443)."
 fi
-sed "s/REPLACE_DOMAIN/$DOMAIN/g" "$SITE" > /etc/nginx/sites-available/devfest
+sed "s/REPLACE_HOST/$HOST/g" "$SITE" > /etc/nginx/sites-available/devfest
 ln -sfn /etc/nginx/sites-available/devfest /etc/nginx/sites-enabled/devfest
 nginx -t
 systemctl enable nginx > /dev/null 2>&1
@@ -218,16 +315,60 @@ systemctl reload nginx || systemctl restart nginx
 install -d /etc/letsencrypt/renewal-hooks/deploy
 printf '#!/bin/sh\nsystemctl reload nginx\n' > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 chmod 755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+# New origin in .env: the running backend only reads it at start.
+if [ "$ORIGINS_CHANGED" = yes ] && systemctl is-active --quiet devfest-backend; then
+  systemctl restart devfest-backend
+  echo "Restarted devfest-backend to pick up the new DEVFEST_ORIGINS."
+fi
 
 # ---------------------------------------------------------------------------------------------------------------
-say "8. Firewall (ufw): only SSH ($SSH_PORT), 80 and 443"
-ufw default deny incoming > /dev/null
-ufw default allow outgoing > /dev/null
-ufw allow "$SSH_PORT/tcp" > /dev/null
-ufw allow 80/tcp > /dev/null
-ufw allow 443/tcp > /dev/null
-ufw --force enable > /dev/null
-ufw status | sed 's/^/   /'
+say "8. Firewall (mode: $FW_MODE): only SSH ($SSH_PORT), 80 and 443"
+# Opens one TCP port in the INPUT chain of iptables/ip6tables, just before the REJECT rule that Oracle's images end
+# the chain with (a rule appended after REJECT would never be reached). Does nothing when the port is already open.
+iptables_open() {   # iptables_open iptables|ip6tables PORT
+  local ipt="$1" port="$2" pos
+  command -v "$ipt" > /dev/null || return 0
+  if "$ipt" -C INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT 2> /dev/null; then return 0; fi
+  pos="$("$ipt" -L INPUT -n --line-numbers 2> /dev/null | awk '$2=="REJECT"{print $1; exit}')"
+  if [ -n "$pos" ]; then
+    "$ipt" -I INPUT "$pos" -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
+    echo "   $ipt: opened tcp/$port (before the REJECT rule, position $pos)"
+  elif "$ipt" -S INPUT 2> /dev/null | head -n1 | grep -q -- '-P INPUT DROP'; then
+    "$ipt" -A INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
+    echo "   $ipt: opened tcp/$port (appended; the chain policy is DROP)"
+  fi
+}
+case "$FW_MODE" in
+  ufw)
+    ufw default deny incoming > /dev/null
+    ufw default allow outgoing > /dev/null
+    ufw allow "$SSH_PORT/tcp" > /dev/null
+    ufw allow 80/tcp > /dev/null
+    ufw allow 443/tcp > /dev/null
+    ufw --force enable > /dev/null
+    ufw status | sed 's/^/   /' ;;
+  oracle)
+    if command -v ufw > /dev/null && ufw status 2> /dev/null | grep -qi '^Status: active'; then
+      warn "ufw is active on this Oracle machine. It conflicts with the iptables rules: run 'sudo ufw disable' and this script again."
+    fi
+    for p in "$SSH_PORT" 80 443; do
+      iptables_open iptables "$p"
+      iptables_open ip6tables "$p"
+    done
+    # fail2ban adds its own chains to the live rules; they must not be written into the saved file, so stop it for the
+    # save (step 9 starts it again).
+    systemctl stop fail2ban > /dev/null 2>&1 || true
+    netfilter-persistent save > /dev/null
+    grep -Eq -- '--dport 80 .*-j ACCEPT' /etc/iptables/rules.v4 || warn "Port 80 is not in /etc/iptables/rules.v4 after saving: check 'sudo iptables -S INPUT'."
+    grep -Eq -- '--dport 443 .*-j ACCEPT' /etc/iptables/rules.v4 || warn "Port 443 is not in /etc/iptables/rules.v4 after saving: check 'sudo iptables -S INPUT'."
+    systemctl enable netfilter-persistent > /dev/null 2>&1 || true
+    iptables -S INPUT | sed 's/^/   /' ;;
+  none)
+    echo "Firewall left alone (--firewall none). Ports $SSH_PORT, 80 and 443 must be open by other means." ;;
+esac
+if [ "$FW_MODE" = oracle ]; then
+  echo "   Also needed in the Oracle console: security list / network security group ingress for tcp 80 and 443."
+fi
 
 # ---------------------------------------------------------------------------------------------------------------
 say "9. Automatic security updates and fail2ban"
@@ -264,7 +405,7 @@ KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 EOF
   if sshd -t; then
-    systemctl reload ssh 2>/dev/null || systemctl reload sshd
+    systemctl reload ssh 2> /dev/null || systemctl reload sshd 2> /dev/null || systemctl restart ssh 2> /dev/null || warn "Could not reload the SSH service; the new settings apply after the next reboot."
     echo "Password login is now off (keys only). KEEP THIS WINDOW OPEN and test a second SSH window before closing it."
   else
     rm -f /etc/ssh/sshd_config.d/00-devfest-hardening.conf
@@ -277,9 +418,9 @@ fi
 # ---------------------------------------------------------------------------------------------------------------
 say "Done"
 cat <<EOF
-Domain          : $DOMAIN
+Site address    : $ORIGIN
 Backend config  : $ENVFILE   (chmod 600, owner devfest)
 Scripts         : $ROOT/bin/   (deploy.sh, rollback.sh, backup.sh, restore.sh)
 Backups         : $ROOT/backups   (timer: every 10 minutes)
-Next            : upload a release zip to $ROOT/releases/ and run  $ROOT/bin/deploy.sh <zip>   (guide section 3)
+Next            : upload a release zip to $ROOT/releases/ and run  sudo $ROOT/bin/deploy.sh <zip>   (guide section 3)
 EOF

@@ -102,6 +102,6 @@ try {
 $mb = [math]::Round((Get-Item $Zip).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Release ready: $Zip  ($mb MB, $count frontend files)" -ForegroundColor Green
-Write-Host "Next (replace SERVER_IP):"
-Write-Host "  scp `"$Zip`" root@SERVER_IP:/srv/devfest/releases/"
-Write-Host "  ssh root@SERVER_IP `"/srv/devfest/bin/deploy.sh /srv/devfest/releases/$Name.zip`""
+Write-Host "Next (replace SERVER_IP; the login user is 'ubuntu' on Oracle Cloud, see docs/DEPLOYMENT.md section 3):"
+Write-Host "  scp `"$Zip`" ubuntu@SERVER_IP:/home/ubuntu/"
+Write-Host "  ssh ubuntu@SERVER_IP `"sudo mv /home/ubuntu/$Name.zip /srv/devfest/releases/ && sudo /srv/devfest/bin/deploy.sh /srv/devfest/releases/$Name.zip`""

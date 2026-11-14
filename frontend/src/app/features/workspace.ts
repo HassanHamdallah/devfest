@@ -13,6 +13,7 @@ import {
   pending,
 } from "../core/models";
 import { CodeEditor } from "../shared/monaco";
+import { newIdempotencyKey } from "../core/event/pending-request";
 import { UiButton } from "../shared/ui/ui-button/ui-button";
 import { UiSelect } from "../shared/ui/ui-select/ui-select";
 import { UiTextarea } from "../shared/ui/ui-textarea/ui-textarea";
@@ -278,7 +279,7 @@ export class Workspace implements OnInit, OnDestroy {
     if (this.busy() || !this.ready()) return;
     if (!this.pendingRequest()) {
       const r: PendingRequest = {
-        key: crypto.randomUUID(),
+        key: newIdempotencyKey(),
         kind,
         body: {
           problemId: this.problem()!.id,

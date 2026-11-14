@@ -14,7 +14,7 @@ log()  { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
 warn() { printf '[%s] WARNING: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }
 die()  { printf '[%s] ERROR: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; exit 1; }
 
-need_root() { [ "$(id -u)" -eq 0 ] || die "Run this as root (you are $(id -un)). Log in as root over SSH."; }
+need_root() { [ "$(id -u)" -eq 0 ] || die "Run this as root: put 'sudo' in front (you are $(id -un))."; }
 
 # Runs a command as the postgres OS user (peer authentication on the local socket, no password needed).
 as_postgres() { runuser -u postgres -- "$@"; }
@@ -68,23 +68,35 @@ restart_and_check() {
   return 1
 }
 
-# The public site name, written by setup-server.sh.
-load_domain() {
-  DOMAIN=""
+# The public site address written by setup-server.sh into bin/deploy.conf:
+#   SITE_HOST=<server IP or domain>   SITE_SCHEME=http|https
+# (an older deploy.conf with only DOMAIN=<domain> counts as https).
+load_site() {
+  SITE_HOST=""; SITE_SCHEME=""; DOMAIN=""
   # shellcheck disable=SC1091
   [ -f "$DEVFEST_ROOT/bin/deploy.conf" ] && . "$DEVFEST_ROOT/bin/deploy.conf"
+  [ -n "$SITE_HOST" ] || SITE_HOST="$DOMAIN"
+  [ -n "$SITE_SCHEME" ] || SITE_SCHEME=https
   return 0
 }
 
-# Optional end-to-end check through nginx (needs the certificate to exist).
+# Optional end-to-end check through nginx.
 check_public() {
-  load_domain
-  [ -n "$DOMAIN" ] && [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ] || { log "HTTPS not set up yet: skipping the check through nginx."; return 0; }
-  local body
-  if body="$(curl -fsS --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/v1/health" 2>/dev/null)" && printf '%s' "$body" | grep -q '"UP"'; then
-    log "Through nginx over HTTPS (https://$DOMAIN/api/v1/health): $body"
+  load_site
+  [ -n "$SITE_HOST" ] || { log "No site address recorded in bin/deploy.conf: skipping the check through nginx."; return 0; }
+  local body url
+  if [ "$SITE_SCHEME" = http ]; then
+    url="http://$SITE_HOST/api/v1/health"
+    body="$(curl -fsS --max-time 10 -H "Host: $SITE_HOST" http://127.0.0.1/api/v1/health 2>/dev/null)" || body=""
   else
-    warn "https://$DOMAIN/api/v1/health did not answer UP through nginx. Check: nginx -t ; tail /var/log/nginx/error.log"
+    [ -f "/etc/letsencrypt/live/$SITE_HOST/fullchain.pem" ] || { log "HTTPS not set up yet: skipping the check through nginx."; return 0; }
+    url="https://$SITE_HOST/api/v1/health"
+    body="$(curl -fsS --max-time 10 --resolve "$SITE_HOST:443:127.0.0.1" "$url" 2>/dev/null)" || body=""
+  fi
+  if printf '%s' "$body" | grep -q '"UP"'; then
+    log "Through nginx ($url): $body"
+  else
+    warn "$url did not answer UP through nginx. Check: nginx -t ; tail /var/log/nginx/error.log"
     return 1
   fi
 }

@@ -218,12 +218,16 @@ test("scores: the admin imports the final content, sees every problem at once, a
       await expect(section).toContainText("Not imported");
     });
 
-    await test.step("the shipped file imports, and its placeholder Recovery Challenge is flagged", async () => {
+    await test.step("the shipped file imports, and no placeholder Recovery Challenge is flagged", async () => {
       await section.locator("[data-final-content-file]").setInputFiles({ name: "crypto-content.json", mimeType: "application/json", buffer: good });
       await section.getByRole("button", { name: "Import this file", exact: true }).click();
       await expect(section.locator("[data-final-imported]")).toBeVisible();
       await expect(section).toContainText("Imported");
-      await expect(section.locator("[data-recovery-placeholder]")).toBeVisible();
+      await expect(section.locator("[data-recovery-placeholder]")).toHaveCount(0);
+      await admin.page.goto("/event/admin");
+      await expect(admin.page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
+      await expect(admin.page.locator('[data-alert="RECOVERY_PLACEHOLDER"]')).toHaveCount(0);
+      await admin.page.goto("/event/admin/content");
       await shootBoth(admin.page, "admin-content-import");
     });
 
