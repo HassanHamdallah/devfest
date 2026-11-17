@@ -120,7 +120,7 @@ export class EventTeamRoomWorkspace {
     });
     // Without a running-round terminal the team's saved copy is deleted too.
     effect(() => {
-      if (this.closed()) untracked(() => void terminalSnapshots.clear());
+      if (this.closed()) untracked(() => void terminalSnapshots.clearPlace("room"));
     });
     // After a page refresh in a running round, a team that had a saved terminal gets it back without a click.
     effect(() => {

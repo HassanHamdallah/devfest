@@ -16,33 +16,28 @@ import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../manager/board-loader";
 import { EventRefreshError } from "../manager/refresh-error";
 import { EventFinalEvidence } from "./final-evidence";
-import { EventFinalLayer } from "./final/final-layer";
+import { terminalSnapshots } from "../terminal/terminal-snapshot";
+import { EventFinalCase } from "./final/final-case";
 import { EventFinalMission } from "./final/final-mission";
-import { EventFinalNotebook } from "./final/final-notebook";
 import { EventFinalRecovery } from "./final/final-recovery";
 import { EventFinalStatus } from "./final/final-status";
 import { EventFinalSubmitted } from "./final/final-submitted";
-import { EventFinalSuspects } from "./final/final-suspects";
-import { EventFinalVerdicts } from "./final/final-verdicts";
 import { EventFinalUnlock } from "./final/final-unlock";
 
 /**
- * /event/team/final (a lazy chunk): renders exactly the screen the server reports for this team. The state always
- * comes from the server, so a refresh resumes where the team was. When the final's timer reaches zero the page asks
+ * /event/team/final (a lazy chunk): renders exactly the screen the server reports for this team, in the site's own look.
+ * The state always comes from the server, so a refresh resumes where the team was. When the final's timer reaches zero the page asks
  * the server once more, because the server alone finalises the team.
  */
 @Component({
   imports: [
+    EventFinalCase,
     EventFinalEvidence,
-    EventFinalLayer,
     EventFinalMission,
-    EventFinalNotebook,
     EventFinalRecovery,
     EventFinalStatus,
     EventFinalSubmitted,
-    EventFinalSuspects,
     EventFinalUnlock,
-    EventFinalVerdicts,
     EventRefreshError,
     RouterLink,
     UiCard,
@@ -63,11 +58,6 @@ export class EventTeamFinalPage {
     const status = this.final()?.status;
     return status !== undefined && status !== "LOCKED";
   });
-  /** The team is past the mission screen (layers, suspects or submitted): the room clues start collapsed. */
-  protected readonly caseStarted = computed(() => {
-    const screen = this.final()?.screen;
-    return screen === "LAYER" || screen === "SUSPECTS" || screen === "SUBMITTED";
-  });
   protected readonly cluesLine = computed(
     () => `Your team collected ${this.final()?.cluesCollected ?? 0} of 4 clues.`,
   );
@@ -76,6 +66,11 @@ export class EventTeamFinalPage {
     reloadOnRevisionChange(() => void this.reload());
     void this.reload();
     this.reloadWhenTimeIsUp();
+    // Once the team's final is over its saved case terminal is of no use (a room's saved terminal is left alone).
+    effect(() => {
+      const screen = this.final()?.screen;
+      if (screen === "SUBMITTED" || screen === "NOT_QUALIFIED") void terminalSnapshots.clearPlace("final");
+    });
   }
 
   protected reload(): Promise<void> {

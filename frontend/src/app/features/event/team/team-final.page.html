@@ -1,4 +1,7 @@
-<header class="event-page-header"><h1>Final</h1></header>
+<header class="event-page-header">
+  <h1>Final</h1>
+  <span class="final-header__brand">NOVA TECHNOLOGIES · THE LAST SHIPMENT</span>
+</header>
 <ui-page-state
   [loading]="loader.loading()"
   loadingLabel="Loading the final…"
@@ -12,9 +15,12 @@
   <event-refresh-error [error]="error" (retry)="reload()" />
   }
   <event-final-status [final]="view" />
+  @if (view.screen === "CASE") {
+  <event-final-case [final]="view" (changed)="reload()" />
+  <event-final-evidence [evidence]="view.evidence" [collapsed]="true" />
+  } @else {
   <div class="final-layout">
     <div class="final-main">
-      <event-final-verdicts [entries]="view.notebook" (changed)="reload()" />
       @switch (view.screen) { @case ("LOCKED") {
       <ui-card data-final-screen="LOCKED">
         <div class="final-state">
@@ -38,13 +44,9 @@
       } } @case ("UNLOCK") { @if (view.unlock; as unlock) {
       <event-final-unlock [roomNames]="unlock.roomNames" [waitSeconds]="view.waitSeconds" (changed)="reload()" />
       } } @case ("MISSION") { @if (view.mission; as mission) {
-      <event-final-mission [story]="mission.story" [equipment]="mission.equipment" (changed)="reload()" />
-      } } @case ("LAYER") { @if (view.layer; as layer) {
-      <event-final-layer [layer]="layer" [waitSeconds]="view.waitSeconds" (changed)="reload()" />
-      } } @case ("SUSPECTS") {
-      <event-final-suspects [suspects]="view.suspects" (changed)="reload()" />
-      } @case ("SUBMITTED") { @if (view.submitted; as submitted) {
-      <event-final-submitted [submitted]="submitted" />
+      <event-final-mission [mission]="mission" [cluesCollected]="view.cluesCollected" (changed)="reload()" />
+      } } @case ("SUBMITTED") { @if (view.submission; as submission) {
+      <event-final-submitted [submitted]="submission" />
       } } }
       @if (view.resultsPublished) {
       <ui-card>
@@ -53,13 +55,12 @@
       </ui-card>
       }
     </div>
-    <aside class="final-side" aria-label="Case notebook and room clues">
-      @if (view.notebook.length > 0 || view.screen === "LAYER" || view.screen === "SUSPECTS") {
-      <event-final-notebook [entries]="view.notebook" />
-      } @if (showsEvidence()) {
-      <event-final-evidence [evidence]="view.evidence" [collapsed]="caseStarted()" />
-      }
+    @if (showsEvidence()) {
+    <aside class="final-side" aria-label="Room clues">
+      <event-final-evidence [evidence]="view.evidence" [collapsed]="view.screen === 'SUBMITTED'" />
     </aside>
+    }
   </div>
+  }
 </div>
 }

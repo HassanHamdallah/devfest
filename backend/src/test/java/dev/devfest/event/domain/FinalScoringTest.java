@@ -1,45 +1,54 @@
 package dev.devfest.event.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import dev.devfest.event.domain.FinalScoring.Input;
 import dev.devfest.event.domain.FinalScoring.Score;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 
-/** The final's 40 points: layers and verdicts 2.5 each (max 15), suspect 10, time max 15. */
+/** The final's 40 points: 3.75 per decrypted evidence file (max 15), suspect 10, time max 15. */
 class FinalScoringTest {
 
   private static BigDecimal d(String value) {
     return new BigDecimal(value);
   }
 
-  private static Score score(int layers, int verdicts, Integer activeSeconds, boolean suspectCorrect) {
-    return FinalScoring.score(new Input(layers, verdicts, activeSeconds, suspectCorrect, 25));
+  private static Score score(int clues, Integer activeSeconds, boolean suspectCorrect) {
+    return FinalScoring.score(new Input(clues, activeSeconds, suspectCorrect, 25));
   }
 
   @Test
   void aPerfectFinalScoresForty() {
-    Score s = score(4, 2, 10 * 60, true);
-    assertEquals(d("15.00"), s.crypto());
+    Score s = score(4, 10 * 60, true);
+    assertEquals(d("15.00"), s.clues());
     assertEquals(d("10.00"), s.suspect());
     assertEquals(d("15.00"), s.time());
     assertEquals(d("40.00"), s.total());
   }
 
   @Test
-  void cryptoCountsEachCorrectLayerAndVerdict() {
-    assertEquals(d("2.50"), score(1, 0, null, false).crypto());
-    assertEquals(d("7.50"), score(2, 1, null, false).crypto());
-    assertEquals(d("12.50"), score(4, 1, null, false).crypto());
-    assertEquals(d("15.00"), score(4, 2, null, false).crypto());
+  void eachDecryptedFileIsWorthThreePointSevenFive() {
+    assertEquals(d("0.00"), score(0, null, false).clues());
+    assertEquals(d("3.75"), score(1, null, false).clues());
+    assertEquals(d("7.50"), score(2, null, false).clues());
+    assertEquals(d("11.25"), score(3, null, false).clues());
+    assertEquals(d("15.00"), score(4, null, false).clues());
+    assertEquals(d("11.25"), score(3, null, false).total(), "nothing else without a suspect");
+  }
+
+  @Test
+  void solvedCluesOutsideZeroToFourAreRefused() {
+    assertThrows(IllegalArgumentException.class, () -> score(5, null, false));
+    assertThrows(IllegalArgumentException.class, () -> score(-1, null, false));
   }
 
   @Test
   void theSuspectIsWorthTenOnlyWhenCorrectAndSubmitted() {
-    assertEquals(d("10.00"), score(4, 0, 600, true).suspect());
-    assertEquals(d("0.00"), score(4, 0, 600, false).suspect());
-    assertEquals(d("0.00"), score(4, 0, null, true).suspect());
+    assertEquals(d("10.00"), score(0, 600, true).suspect(), "the suspect does not need the files");
+    assertEquals(d("0.00"), score(4, 600, false).suspect());
+    assertEquals(d("0.00"), score(4, null, true).suspect());
   }
 
   @Test
@@ -68,15 +77,16 @@ class FinalScoringTest {
   }
 
   @Test
-  void noTimePointsWithoutAllFourLayersAndASubmittedSuspect() {
-    assertEquals(d("0.00"), score(3, 2, 300, true).time());
-    assertEquals(d("0.00"), score(0, 0, 300, true).time());
-    assertEquals(d("0.00"), score(4, 2, null, false).time());
-    assertEquals(d("15.00"), score(4, 2, 300, false).time());
+  void timePointsNeedAllFourCluesAndASubmittedSuspect() {
+    for (int clues = 0; clues <= 3; clues++) assertEquals(d("0.00"), score(clues, 300, true).time(), clues + " clues");
+    assertEquals(d("0.00"), score(4, null, false).time(), "no suspect submitted");
+    assertEquals(d("15.00"), score(4, 300, false).time(), "a wrong suspect still counts as submitted");
+    assertEquals(d("21.25"), score(3, 300, true).total(), "3 files + suspect, no time points");
   }
 
   @Test
-  void aWrongSuspectStillEarnsCryptoAndTime() {
-    assertEquals(d("30.00"), score(4, 2, 20 * 60, false).total());
+  void aWrongSuspectStillEarnsCluesAndTime() {
+    assertEquals(d("30.00"), score(4, 20 * 60, false).total());
+    assertEquals(d("25.00"), score(4, 30 * 60, false).total(), "30 active minutes: 10 time points");
   }
 }

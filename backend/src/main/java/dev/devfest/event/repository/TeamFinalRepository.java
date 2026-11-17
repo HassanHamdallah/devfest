@@ -10,15 +10,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * A team's progress in the crypto final: its one team_final row, the unlock and layer attempts, the one-time verdicts.
+ * A team's progress in the final: its one team_final row, the unlock attempts and the passphrase attempts of the four
+ * evidence files.
  * Every "only once" rule is a guarded UPDATE/INSERT (WHERE ... IS NULL, ON CONFLICT DO NOTHING) so a race cannot
  * record anything twice, whatever the service checked first.
  */
@@ -30,7 +31,7 @@ public class TeamFinalRepository {
     long teamId,
     Instant unlockedAt,
     Instant caseStartedAt,
-    Integer suspectId,
+    String suspectId,
     Boolean suspectCorrect,
     Instant submittedAt,
     Integer activeSeconds,
@@ -45,8 +46,6 @@ public class TeamFinalRepository {
   /** Wrong answers since the last correct one, and when the latest attempt was evaluated. */
   public record Streak(int wrongInARow, Instant lastAttemptAt) {}
 
-  public record Verdict(int layer, String verdict, boolean correct) {}
-
   /** The team's clues: how many, and the position-first room it is missing (null at 4). */
   public record ClueFacts(int clues, Long missingRoomId, int recoveryAttempts) {}
 
@@ -56,8 +55,7 @@ public class TeamFinalRepository {
     int clues,
     List<RoomCode> clueRooms,
     Instant unlockedAt,
-    int layersCorrect,
-    int verdictsCorrect,
+    int cluesSolved,
     Integer activeSeconds,
     boolean suspectCorrect,
     Instant submittedAt,
@@ -137,7 +135,7 @@ public class TeamFinalRepository {
    * suspect was already submitted or the team is already finalised, which is what makes a second try or a race with
    * the time-up finalisation harmless.
    */
-  public boolean submitSuspect(long teamId, int suspectId, boolean correct, Instant at, int activeSeconds) {
+  public boolean submitSuspect(long teamId, String suspectId, boolean correct, Instant at, int activeSeconds) {
     return db.update(
       """
       UPDATE team_final
@@ -222,16 +220,19 @@ public class TeamFinalRepository {
     );
   }
 
-  // ---- layer attempts ---------------------------------------------------------------------------
+  // ---- passphrase attempts (one evidence file each) ---------------------------------------------
 
-  public void insertLayerAttempt(UUID id, long teamId, int layer, String value, boolean correct, Instant at, UUID key, String hash) {
+  /** One clue's attempts so far: solved for good once a correct row exists; {@code wrong} counts the wrong rows. */
+  public record ClueAttempts(int clue, boolean solved, int wrong, Instant lastAttemptAt) {}
+
+  public void insertClueAttempt(UUID id, long teamId, int clue, String value, boolean correct, Instant at, UUID key, String hash) {
     db.update(
       """
-      INSERT INTO final_layer_attempt(id, team_id, layer, value, correct, received_at, idempotency_key, request_hash)
+      INSERT INTO final_clue_attempt(id, team_id, clue, value, correct, received_at, idempotency_key, request_hash)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
       id,
       teamId,
-      layer,
+      clue,
       value,
       correct,
       timestamp(at),
@@ -240,57 +241,32 @@ public class TeamFinalRepository {
     );
   }
 
-  public Optional<StoredAttempt> findLayerAttemptByKey(long teamId, UUID key) {
+  public Optional<StoredAttempt> findClueAttemptByKey(long teamId, UUID key) {
     return db.query(
-      "SELECT id, correct, received_at, request_hash FROM final_layer_attempt WHERE team_id = ? AND idempotency_key = ?",
+      "SELECT id, correct, received_at, request_hash FROM final_clue_attempt WHERE team_id = ? AND idempotency_key = ?",
       TeamFinalRepository::mapAttempt,
       teamId,
       key
     ).stream().findFirst();
   }
 
-  /** The layers the team solved, ascending. */
-  public Set<Integer> solvedLayers(long teamId) {
-    return new TreeSet<>(db.queryForList("SELECT layer FROM final_layer_attempt WHERE team_id = ? AND correct", Integer.class, teamId));
-  }
-
-  public Streak layerStreak(long teamId, int layer) {
-    return db.queryForObject(
+  /**
+   * Every clue the team has tried, as ONE statement. Nothing is evaluated after a clue's correct answer, so the wrong
+   * rows of an unsolved clue are its wrong answers in a row.
+   */
+  public Map<Integer, ClueAttempts> clueAttempts(long teamId) {
+    Map<Integer, ClueAttempts> byClue = new TreeMap<>();
+    db.query(
       """
-      SELECT count(*) FILTER (WHERE NOT correct AND received_at > COALESCE(
-               (SELECT max(received_at) FROM final_layer_attempt WHERE team_id = ? AND layer = ? AND correct), '-infinity'::timestamptz)) AS wrong,
-             max(received_at) AS last_at
-      FROM final_layer_attempt WHERE team_id = ? AND layer = ?""",
-      (rs, row) -> new Streak(rs.getInt("wrong"), instant(rs, "last_at")),
-      teamId,
-      layer,
-      teamId,
-      layer
-    );
-  }
-
-  // ---- verdicts ---------------------------------------------------------------------------------
-
-  /** False when the team already gave its verdict for this report (the first one stands). */
-  public boolean insertVerdict(long teamId, int layer, String verdict, boolean correct, Instant at) {
-    return db.update(
-      """
-      INSERT INTO final_verdict(team_id, layer, verdict, correct, submitted_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (team_id, layer) DO NOTHING""",
-      teamId,
-      layer,
-      verdict,
-      correct,
-      timestamp(at)
-    ) == 1;
-  }
-
-  public List<Verdict> verdicts(long teamId) {
-    return db.query(
-      "SELECT layer, verdict, correct FROM final_verdict WHERE team_id = ? ORDER BY layer",
-      (rs, row) -> new Verdict(rs.getInt("layer"), rs.getString("verdict"), rs.getBoolean("correct")),
+      SELECT clue, bool_or(correct) AS solved, count(*) FILTER (WHERE NOT correct) AS wrong, max(received_at) AS last_at
+      FROM final_clue_attempt WHERE team_id = ? GROUP BY clue""",
+      (ResultSet rs) -> {
+        int clue = rs.getInt("clue");
+        byClue.put(clue, new ClueAttempts(clue, rs.getBoolean("solved"), rs.getInt("wrong"), instant(rs, "last_at")));
+      },
       teamId
     );
+    return byClue;
   }
 
   // ---- all teams at once ------------------------------------------------------------------------
@@ -299,8 +275,8 @@ public class TeamFinalRepository {
   public List<Progress> progressOfActiveTeams() {
     return db.query(
       """
-      SELECT t.id AS team_id, COALESCE(cl.n, 0) AS clues, cl.rooms AS clue_rooms, f.unlocked_at, COALESCE(ly.n, 0) AS layers,
-             COALESCE(vd.n, 0) AS verdicts, f.active_seconds, COALESCE(f.suspect_correct, FALSE) AS suspect_correct,
+      SELECT t.id AS team_id, COALESCE(cl.n, 0) AS clues, cl.rooms AS clue_rooms, f.unlocked_at, COALESCE(cs.n, 0) AS clues_solved,
+             f.active_seconds, COALESCE(f.suspect_correct, FALSE) AS suspect_correct,
              f.submitted_at, f.finalised_at, f.finalised_cause
       FROM event_team t
       LEFT JOIN team_final f ON f.team_id = t.id
@@ -308,8 +284,7 @@ public class TeamFinalRepository {
         SELECT c.team_id, count(*) AS n, array_agg(r.code ORDER BY r.position) AS rooms
         FROM collected_clue c JOIN event_room r ON r.id = c.room_id GROUP BY c.team_id
       ) cl ON cl.team_id = t.id
-      LEFT JOIN (SELECT team_id, count(*) AS n FROM final_layer_attempt WHERE correct GROUP BY team_id) ly ON ly.team_id = t.id
-      LEFT JOIN (SELECT team_id, count(*) AS n FROM final_verdict WHERE correct GROUP BY team_id) vd ON vd.team_id = t.id
+      LEFT JOIN (SELECT team_id, count(*) AS n FROM final_clue_attempt WHERE correct GROUP BY team_id) cs ON cs.team_id = t.id
       WHERE t.active
       ORDER BY t.id""",
       (rs, row) ->
@@ -318,8 +293,7 @@ public class TeamFinalRepository {
           rs.getInt("clues"),
           clueRooms(rs),
           instant(rs, "unlocked_at"),
-          rs.getInt("layers"),
-          rs.getInt("verdicts"),
+          rs.getInt("clues_solved"),
           nullableInt(rs, "active_seconds"),
           rs.getBoolean("suspect_correct"),
           instant(rs, "submitted_at"),
@@ -336,20 +310,16 @@ public class TeamFinalRepository {
     boolean unlocked,
     int unlockAttempts,
     int unlockWrong,
-    int layerAttempts,
-    int layerWrong,
+    int clueAttempts,
+    int clueWrong,
     int recoveryAttempts,
-    String verdictE03,
-    Boolean verdictE03Correct,
-    String verdictE04,
-    Boolean verdictE04Correct,
-    Integer suspectId,
+    String suspectId,
     Boolean suspectCorrect,
     Instant caseStartedAt,
     String finalisedCause
   ) {}
 
-  /** Attempts, verdicts and the suspect of every active team, as ONE statement whatever the number of teams. */
+  /** Attempts and the suspect of every active team, as ONE statement whatever the number of teams. */
   public List<AdminCounts> adminCounts() {
     return db.query(
       """
@@ -358,13 +328,9 @@ public class TeamFinalRepository {
              (f.unlocked_at IS NOT NULL) AS unlocked,
              (SELECT count(*) FROM final_unlock_attempt a WHERE a.team_id = t.id) AS unlock_attempts,
              (SELECT count(*) FROM final_unlock_attempt a WHERE a.team_id = t.id AND NOT a.correct) AS unlock_wrong,
-             (SELECT count(*) FROM final_layer_attempt a WHERE a.team_id = t.id) AS layer_attempts,
-             (SELECT count(*) FROM final_layer_attempt a WHERE a.team_id = t.id AND NOT a.correct) AS layer_wrong,
+             (SELECT count(*) FROM final_clue_attempt a WHERE a.team_id = t.id) AS clue_attempts,
+             (SELECT count(*) FROM final_clue_attempt a WHERE a.team_id = t.id AND NOT a.correct) AS clue_wrong,
              (SELECT count(*) FROM recovery_attempt a WHERE a.team_id = t.id) AS recovery_attempts,
-             (SELECT v.verdict FROM final_verdict v WHERE v.team_id = t.id AND v.layer = 3) AS v3,
-             (SELECT v.correct FROM final_verdict v WHERE v.team_id = t.id AND v.layer = 3) AS v3c,
-             (SELECT v.verdict FROM final_verdict v WHERE v.team_id = t.id AND v.layer = 4) AS v4,
-             (SELECT v.correct FROM final_verdict v WHERE v.team_id = t.id AND v.layer = 4) AS v4c,
              f.suspect_id, f.suspect_correct, f.case_started_at, f.finalised_cause
       FROM event_team t LEFT JOIN team_final f ON f.team_id = t.id
       WHERE t.active ORDER BY t.id""",
@@ -375,14 +341,10 @@ public class TeamFinalRepository {
           rs.getBoolean("unlocked"),
           rs.getInt("unlock_attempts"),
           rs.getInt("unlock_wrong"),
-          rs.getInt("layer_attempts"),
-          rs.getInt("layer_wrong"),
+          rs.getInt("clue_attempts"),
+          rs.getInt("clue_wrong"),
           rs.getInt("recovery_attempts"),
-          rs.getString("v3"),
-          rs.getObject("v3c", Boolean.class),
-          rs.getString("v4"),
-          rs.getObject("v4c", Boolean.class),
-          nullableInt(rs, "suspect_id"),
+          rs.getString("suspect_id"),
           rs.getObject("suspect_correct", Boolean.class),
           instant(rs, "case_started_at"),
           rs.getString("finalised_cause")
@@ -415,7 +377,7 @@ public class TeamFinalRepository {
       rs.getLong("team_id"),
       instant(rs, "unlocked_at"),
       instant(rs, "case_started_at"),
-      nullableInt(rs, "suspect_id"),
+      rs.getString("suspect_id"),
       rs.getObject("suspect_correct", Boolean.class),
       instant(rs, "submitted_at"),
       nullableInt(rs, "active_seconds"),

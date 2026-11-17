@@ -13,12 +13,15 @@ import tools.jackson.databind.ObjectMapper;
 @org.springframework.core.annotation.Order(10)
 public class Bootstrap implements CommandLineRunner {
 
+  private static final String DEVELOPMENT_ADMIN_NAME = "Development administrator";
+  private static final String PRODUCTION_ADMIN_NAME = "Event administrator";
+
   private final JdbcTemplate db;
   private final PasswordEncoder passwords;
   private final ContestService contest;
   private final ObjectMapper json;
   private final String email, password;
-  private final boolean seed;
+  private final boolean seed, development;
 
   public Bootstrap(
     JdbcTemplate db,
@@ -27,7 +30,8 @@ public class Bootstrap implements CommandLineRunner {
     ObjectMapper json,
     @Value("${app.bootstrap-email}") String email,
     @Value("${app.bootstrap-password}") String password,
-    @Value("${app.seed}") boolean seed
+    @Value("${app.seed}") boolean seed,
+    @Value("${app.development}") boolean development
   ) {
     this.db = db;
     this.passwords = passwords;
@@ -36,9 +40,18 @@ public class Bootstrap implements CommandLineRunner {
     this.email = email;
     this.password = password;
     this.seed = seed;
+    this.development = development;
   }
 
   public void run(String... args) throws Exception {
+    // An administrator created by an earlier start in production keeps the old development label otherwise.
+    if (!development) {
+      db.update(
+        "UPDATE app_user SET name=? WHERE role='ADMIN' AND name=?",
+        PRODUCTION_ADMIN_NAME,
+        DEVELOPMENT_ADMIN_NAME
+      );
+    }
     if (
       !email.isBlank() &&
       db.queryForObject(
@@ -55,8 +68,9 @@ public class Bootstrap implements CommandLineRunner {
         "Set a unique bootstrap administrator password"
       );
       db.update(
-        "INSERT INTO app_user(email,name,password_hash,role) VALUES(?,'Development administrator',?,'ADMIN')",
+        "INSERT INTO app_user(email,name,password_hash,role) VALUES(?,?,?,'ADMIN')",
         email.toLowerCase(Locale.ROOT),
+        development ? DEVELOPMENT_ADMIN_NAME : PRODUCTION_ADMIN_NAME,
         passwords.encode(password)
       );
     }

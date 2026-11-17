@@ -56,7 +56,9 @@ esac
 echo "Machine: Ubuntu $UBUNTU_VERSION ($CODENAME), $ARCH, $(awk '/MemTotal/{printf "%.1f GB RAM", $2/1048576}' /proc/meminfo)."
 
 # True when a package has an installable version in the apt sources configured right now.
-pkg_available() { apt-cache policy "$1" 2> /dev/null | grep -q 'Candidate: [0-9]'; }
+# (The apt-cache output is read completely first: a pipe into 'grep -q' would hand apt-cache a SIGPIPE, which
+# 'set -o pipefail' turns into a failure.)
+pkg_available() { local out; out="$(apt-cache policy "$1" 2> /dev/null || true)"; grep -q 'Candidate: [0-9]' <<< "$out"; }
 
 is_oracle() {
   grep -qi 'OracleCloud' /sys/class/dmi/id/chassis_asset_tag 2> /dev/null && return 0
@@ -85,14 +87,14 @@ fi
 if [ -z "$HOST" ]; then HOST="$(ask 'Public IPv4 address of this server (or a domain name, for example devfest.example.com): ')"; fi
 HOST="$(printf '%s' "$HOST" | tr 'A-Z' 'a-z' | tr -d '[:space:]')"
 IS_IP=no
-if printf '%s' "$HOST" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+if grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' <<< "$HOST"; then
   for octet in ${HOST//./ }; do [ "$octet" -le 255 ] || die "'$HOST' is not a valid IPv4 address."; done
   IS_IP=yes
   case "$HOST" in
     10.*|192.168.*|127.*|169.254.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*)
       die "'$HOST' is a private address. Give the PUBLIC IP (on Oracle Cloud: Instance details -> Public IP address, not the private IP)." ;;
   esac
-elif printf '%s' "$HOST" | grep -Eq '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$'; then
+elif grep -Eq '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$' <<< "$HOST"; then
   [ "$HOST" != "replace_domain" ] || die "Type your real domain name."
 else
   die "'$HOST' is neither an IPv4 address nor a domain name."
@@ -104,12 +106,12 @@ echo "Site address: $ORIGIN"
 if [ "$SCHEME" = http ]; then
   echo "  (plain HTTP: no certificate. See docs/DEPLOYMENT.md, \"Switching to HTTPS\", for the move to a domain.)"
 fi
-SSH_PORT="$(sshd -T 2> /dev/null | awk '/^port /{print $2; exit}')"
+SSH_PORT="$( (sshd -T 2> /dev/null || true) | awk '/^port /{ if (p == "") p = $2 } END{print p}')"
 SSH_PORT="${SSH_PORT:-22}"
 
 # ---------------------------------------------------------------------------------------------------------------
 say "1. Swap file (2 GB)"
-if swapon --show=NAME --noheadings | grep -q .; then
+if [ -n "$(swapon --show=NAME --noheadings)" ]; then
   echo "Swap already active: $(swapon --show=NAME,SIZE --noheadings | tr '\n' ' ')"
 else
   if [ ! -f /swapfile ]; then
@@ -165,13 +167,17 @@ fi
 systemctl enable --now postgresql > /dev/null
 for _ in $(seq 1 30); do runuser -u postgres -- psql -tAc 'SELECT 1' > /dev/null 2>&1 && break; sleep 1; done
 runuser -u postgres -- psql -tAc 'SELECT 1' > /dev/null || die "PostgreSQL does not answer."
-if ss -ltnH | awk '{print $4}' | grep -E ':5432$' | grep -vqE '^(127\.0\.0\.1|\[::1\]):5432$'; then
+if ss -ltnH | awk '$4 ~ /:5432$/ && $4 !~ /^(127\.0\.0\.1|\[::1\]):5432$/ {f=1} END{exit !f}'; then
   die "PostgreSQL listens on a public address. Check $PGCONF and /etc/postgresql/18/main/postgresql.conf."
 fi
 
 # ---------------------------------------------------------------------------------------------------------------
 say "4. Java 25 runtime"
-java_ok() { command -v java > /dev/null && java -version 2>&1 | head -n1 | grep -Eq '"25(\.|")'; }
+java_ok() {
+  command -v java > /dev/null || return 1
+  local first nl=$'\n'; first="$(java -version 2>&1 || true)"; first="${first%%"$nl"*}"   # first line only, no 'head' pipe
+  grep -Eq '"25(\.|")' <<< "$first"
+}
 if java_ok; then
   echo "Java 25 is already installed."
 else
@@ -219,7 +225,7 @@ set_var() {   # set_var FILE KEY VALUE : replaces the line KEY=... or appends it
   V="$3" awk -v k="$2" 'BEGIN{FS=OFS="="; f=0} $1==k {print k "=" ENVIRON["V"]; f=1; next} {print} END{if(!f) print k "=" ENVIRON["V"]}' "$1" > "$tmp"
   cat "$tmp" > "$1"; rm -f "$tmp"
 }
-get_var() { sed -n "s/^$2=//p" "$1" | head -n1; }
+get_var() { sed -n "/^$2=/{s/^$2=//p;q}" "$1"; }
 
 DB_PASSWORD=""
 if [ -f "$ENVFILE" ]; then
@@ -232,10 +238,10 @@ else
     DB_PASSWORD="$(ask 'Database password (letters and digits only, 16+ characters; press Enter to generate one): ' secret)"
   fi
   if [ -z "$DB_PASSWORD" ]; then
-    DB_PASSWORD="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32)"
+    DB_PASSWORD="$(openssl rand -hex 16)"
     echo "A random 32-character database password was generated and will be stored only in $ENVFILE."
   fi
-  printf '%s' "$DB_PASSWORD" | grep -Eq '^[A-Za-z0-9]{16,}$' || die "The database password must be 16 or more letters and digits only."
+  grep -Eq '^[A-Za-z0-9]{16,}$' <<< "$DB_PASSWORD" || die "The database password must be 16 or more letters and digits only."
 fi
 
 # Role: create it with the password, or (re)set the password when we have just chosen one.
@@ -260,7 +266,7 @@ runuser -u postgres -- psql -q -c 'REVOKE ALL ON DATABASE devfest FROM PUBLIC' >
 if [ ! -f "$ENVFILE" ]; then
   ADMIN_EMAIL="${DEVFEST_ADMIN_EMAIL:-}"
   [ -n "$ADMIN_EMAIL" ] || ADMIN_EMAIL="$(ask 'Email for the first admin account: ')"
-  printf '%s' "$ADMIN_EMAIL" | grep -Eq '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' || die "'$ADMIN_EMAIL' does not look like an email address."
+  grep -Eq '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' <<< "$ADMIN_EMAIL" || die "'$ADMIN_EMAIL' does not look like an email address."
   ADMIN_PASSWORD="${DEVFEST_ADMIN_PASSWORD:-}"
   if [ -z "$ADMIN_PASSWORD" ]; then
     ADMIN_PASSWORD="$(ask 'First admin password (12 to 72 characters, no backslash; you change it after the first sign-in): ' secret)"
@@ -270,7 +276,7 @@ if [ ! -f "$ENVFILE" ]; then
 
   ( umask 077; cp "$HERE/env.production.example" "$ENVFILE" )
   set_var "$ENVFILE" DEVFEST_DB_PASSWORD "$DB_PASSWORD"
-  set_var "$ENVFILE" DEVFEST_JWT_SECRET "$(openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | head -c 64)"
+  set_var "$ENVFILE" DEVFEST_JWT_SECRET "$(openssl rand -hex 32)"
   set_var "$ENVFILE" DEVFEST_ORIGINS "$ORIGIN"
   set_var "$ENVFILE" DEVFEST_ADMIN_EMAIL "$ADMIN_EMAIL"
   set_var "$ENVFILE" DEVFEST_ADMIN_PASSWORD "$ADMIN_PASSWORD"
@@ -279,14 +285,14 @@ fi
 # The browser origin must match the address people type (CORS). Keep it in step when the address or scheme changes
 # (for example http://IP -> https://domain). The backend is restarted below when this changes.
 ORIGINS_CHANGED=no
-if ! printf ',%s,' "$(get_var "$ENVFILE" DEVFEST_ORIGINS)" | grep -qF ",$ORIGIN,"; then
+if ! grep -qF ",$ORIGIN," <<< ",$(get_var "$ENVFILE" DEVFEST_ORIGINS),"; then
   set_var "$ENVFILE" DEVFEST_ORIGINS "$ORIGIN"
   ORIGINS_CHANGED=yes
   echo "DEVFEST_ORIGINS in $ENVFILE is now $ORIGIN"
 fi
 chown devfest:devfest "$ENVFILE"
 chmod 600 "$ENVFILE"
-grep -v '^#' "$ENVFILE" | grep -q 'REPLACE_' && warn "$ENVFILE still contains a REPLACE_ placeholder: edit it (sudo nano $ENVFILE) before the first deploy."
+grep -q '^[^#].*REPLACE_' "$ENVFILE" && warn "$ENVFILE still contains a REPLACE_ placeholder: edit it (sudo nano $ENVFILE) before the first deploy."
 grep -Eq '^DEVFEST_(SEED|DEVELOPMENT)=true' "$ENVFILE" && warn "$ENVFILE has DEVFEST_SEED or DEVFEST_DEVELOPMENT set to true. Production must have both false."
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -329,11 +335,11 @@ iptables_open() {   # iptables_open iptables|ip6tables PORT
   local ipt="$1" port="$2" pos
   command -v "$ipt" > /dev/null || return 0
   if "$ipt" -C INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT 2> /dev/null; then return 0; fi
-  pos="$("$ipt" -L INPUT -n --line-numbers 2> /dev/null | awk '$2=="REJECT"{print $1; exit}')"
+  pos="$( ("$ipt" -L INPUT -n --line-numbers 2> /dev/null || true) | awk '$2=="REJECT" && p == "" {p=$1} END{print p}')"
   if [ -n "$pos" ]; then
     "$ipt" -I INPUT "$pos" -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
     echo "   $ipt: opened tcp/$port (before the REJECT rule, position $pos)"
-  elif "$ipt" -S INPUT 2> /dev/null | head -n1 | grep -q -- '-P INPUT DROP'; then
+  elif [ "$( ("$ipt" -S INPUT 2> /dev/null || true) | awk '$1=="-P" && $2=="INPUT" {print $3}')" = DROP ]; then
     "$ipt" -A INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
     echo "   $ipt: opened tcp/$port (appended; the chain policy is DROP)"
   fi
@@ -348,7 +354,7 @@ case "$FW_MODE" in
     ufw --force enable > /dev/null
     ufw status | sed 's/^/   /' ;;
   oracle)
-    if command -v ufw > /dev/null && ufw status 2> /dev/null | grep -qi '^Status: active'; then
+    if command -v ufw > /dev/null && grep -qi '^Status: active' <<< "$(ufw status 2> /dev/null || true)"; then
       warn "ufw is active on this Oracle machine. It conflicts with the iptables rules: run 'sudo ufw disable' and this script again."
     fi
     for p in "$SSH_PORT" 80 443; do

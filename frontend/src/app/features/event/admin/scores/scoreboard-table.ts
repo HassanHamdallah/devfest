@@ -24,8 +24,8 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
           <th scope="col">Linux</th>
           <th scope="col">Hardware</th>
           <th scope="col">Rooms / 60</th>
-          <th scope="col">Layers</th>
-          <th scope="col">Verdicts</th>
+          <th scope="col">Clues</th>
+          <th scope="col">Crypto</th>
           <th scope="col">Suspect</th>
           <th scope="col">Time</th>
           <th scope="col">Final / 40</th>
@@ -58,8 +58,8 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
               </td>
             }
             <td class="event-num">{{ points(row.scores.roomsTotal) }}</td>
-            <td class="event-num">{{ points(row.scores.finalScore.layers) }}</td>
-            <td class="event-num">{{ points(row.scores.finalScore.verdicts) }}</td>
+            <td class="event-num" data-clues-solved>{{ row.scores.finalScore.cluesSolved }} of 4</td>
+            <td class="event-num">{{ points(row.scores.finalScore.clues) }}</td>
             <td class="event-num">{{ points(row.scores.finalScore.suspect) }}</td>
             <td class="event-num">{{ points(row.scores.finalScore.time) }}</td>
             <td class="event-num">{{ points(row.scores.finalScore.total) }}</td>

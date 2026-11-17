@@ -2,10 +2,9 @@ package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
 import dev.devfest.event.dto.FinalActionResult;
-import dev.devfest.event.dto.LayerAnswerRequest;
+import dev.devfest.event.dto.PassphraseRequest;
 import dev.devfest.event.dto.SuspectChoiceRequest;
 import dev.devfest.event.dto.UnlockRequest;
-import dev.devfest.event.dto.VerdictRequest;
 import dev.devfest.event.dto.Receipt;
 import dev.devfest.event.dto.RecoveryRequest;
 import dev.devfest.event.dto.RecoveryResult;
@@ -101,23 +100,15 @@ public class EventTeamController {
     return finals.startCase(principal);
   }
 
-  @PostMapping("/final/layers/{layer}")
-  FinalActionResult answerLayer(
-    @PathVariable int layer,
+  /** One evidence file's passphrase (clues 1 to 4, any order). */
+  @PostMapping("/final/clues/{clue}/passphrase")
+  FinalActionResult submitPassphrase(
+    @PathVariable int clue,
     @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
-    @Valid @RequestBody LayerAnswerRequest request,
+    @Valid @RequestBody PassphraseRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return finals.answerLayer(principal, layer, idempotencyKey, request);
-  }
-
-  @PostMapping("/final/verdicts/{layer}")
-  FinalActionResult giveVerdict(
-    @PathVariable int layer,
-    @Valid @RequestBody VerdictRequest request,
-    @AuthenticationPrincipal AuthService.Principal principal
-  ) {
-    return finals.giveVerdict(principal, layer, request);
+    return finals.submitPassphrase(principal, clue, idempotencyKey, request);
   }
 
   @PostMapping("/final/suspect")

@@ -92,7 +92,7 @@ class EventAuthorizationTest extends EventIntegrationTest {
 
   /**
    * D3: a member receives a room's clue key only for a finished room whose clue its own team collected; never a
-   * recovery answer, a plaintext, the correct suspect or another team's key. (collectClues answers with the key itself, so the
+   * recovery answer, a passphrase or its hash, the correct suspect or another team's key. (collectClues answers with the key itself, so the
    * key texts of the collected rooms are the team's own answers too.)
    */
   @Test
@@ -123,12 +123,10 @@ class EventAuthorizationTest extends EventIntegrationTest {
     after.add(expectOk(get("/team/final", member.token())).body());
     after.add(expectOk(startCase(member)).body());
     for (int n = 1; n <= 4; n++) {
-      after.add(expectOk(layer(member, n, Long.toString(LAYER_ANSWERS[n - 1]))).body());
+      after.add(expectOk(passphrase(member, n, PASSPHRASES.get(n - 1))).body());
       after.add(expectOk(get("/team/final", member.token())).body());
     }
-    after.add(expectOk(verdict(member, 3, "YES")).body());
-    after.add(expectOk(verdict(member, 4, "YES")).body());
-    after.add(expectOk(suspect(member, 4)).body());
+    after.add(expectOk(suspect(member, WRONG_SUSPECT)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
     after.add(expectOk(get("/team/board", member.token())).body());
     expectOk(put("/admin/publication", admin, "{\"published\":true}"));
@@ -167,7 +165,7 @@ class EventAuthorizationTest extends EventIntegrationTest {
       if (!allowedKeys.contains(room)) assertFalse(body.contains(key), room + " clue key leaked: " + body);
     });
     assertFalse(body.contains(RECOVERY_ANSWER), "recovery answer leaked: " + body);
-    for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect", "acceptedAnswers", "privateExponent", "plaintext")) {
+    for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect", "acceptedAnswers", "passphraseSha256", "suspectCorrect")) {
       assertFalse(body.contains(field), field + " leaked: " + body);
     }
   }

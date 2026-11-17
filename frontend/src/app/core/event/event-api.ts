@@ -9,9 +9,10 @@ import {
   FinalActionResult,
   FinalBoardRow,
   FinalContentView,
+  FinalTerminalBundleView,
   FinalTimerView,
   HintRequest,
-  LayerAnswerRequest,
+  PassphraseRequest,
   ManualScoreView,
   RankingRow,
   UnlockRequest,
@@ -78,7 +79,7 @@ export const roomSubmissionPath = (roomId: number) =>
   `${EVENT}/team/rooms/${roomId}/submissions`;
 export const RECOVERY_PATH = `${EVENT}/team/final/recovery`;
 export const UNLOCK_PATH = `${EVENT}/team/final/unlock`;
-export const layerPath = (layer: number) => `${EVENT}/team/final/layers/${layer}`;
+export const passphrasePath = (clue: number) => `${EVENT}/team/final/clues/${clue}/passphrase`;
 
 /** One typed method per /api/v1/event endpoint (EVENT-CONTRACT §3). */
 @Injectable({ providedIn: "root" })
@@ -126,12 +127,8 @@ export class EventApi {
   startCase() {
     return this.send<FinalActionResult>("POST", "/team/final/start", {});
   }
-  /** One time only; the answer is the same whether or not the verdict was right. */
-  giveVerdict(layer: number, verdict: "YES" | "NO") {
-    return this.send<FinalActionResult>("POST", `/team/final/verdicts/${layer}`, { verdict });
-  }
   /** One time only; the answer never says whether the suspect was right. */
-  submitSuspect(suspectId: number) {
+  submitSuspect(suspectId: string) {
     return this.send<FinalActionResult>("POST", "/team/final/suspect", { suspectId });
   }
   /** 404 unless the team is assigned to the room this round and the round is not over (rules §18). */
@@ -310,6 +307,10 @@ export class EventApi {
    * The room's package as gzip bytes. The server answers with an ETag and "no-cache", so the browser revalidates
    * and a restarted terminal gets a 304 instead of the bytes.
    */
+  /** The final's own terminal package as gzip bytes (only while the team's final shows the case); ETag like a room's. */
+  finalTerminalBundle(): Promise<ArrayBuffer> {
+    return firstValueFrom(this.http.get(`${BASE}${EVENT}/team/final/terminal-bundle`, { responseType: "arraybuffer" }));
+  }
   terminalBundle(roomId: number, scope: "team" | "manager"): Promise<ArrayBuffer> {
     const path = scope === "team" ? `/team/rooms/${roomId}/terminal-bundle` : `/rooms/${roomId}/terminal-bundle`;
     return firstValueFrom(this.http.get(`${BASE}${EVENT}${path}`, { responseType: "arraybuffer" }));
@@ -459,9 +460,21 @@ export class EventApi {
   finalContent() {
     return this.get<FinalContentView>("/admin/final/content");
   }
-  /** The whole crypto content file as JSON text; refused whole with every problem listed. */
+  /** The whole final content file (format 2) as JSON text; refused whole with every problem listed. */
   importFinalContent(json: string) {
     return this.api.request<FinalContentView>("PUT", EVENT + "/admin/final/content", json, { "Content-Type": "application/json" });
+  }
+  /** The final's own terminal package (admin only): summary, upload (multipart ZIP), removal. */
+  finalTerminalPackage() {
+    return this.get<FinalTerminalBundleView>("/admin/final/terminal-bundle");
+  }
+  uploadFinalTerminalPackage(zip: File) {
+    const form = new FormData();
+    form.append("file", zip, zip.name);
+    return this.send<FinalTerminalBundleView>("PUT", "/admin/final/terminal-bundle", form);
+  }
+  deleteFinalTerminalPackage() {
+    return this.send<FinalTerminalBundleView>("DELETE", "/admin/final/terminal-bundle");
   }
   finalTimer() {
     return this.get<FinalTimerView>("/admin/final/timer");

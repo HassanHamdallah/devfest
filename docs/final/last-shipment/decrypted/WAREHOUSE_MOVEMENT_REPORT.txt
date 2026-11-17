@@ -1,0 +1,58 @@
+NOVA TECHNOLOGIES
+Warehouse Movement Report
+CLASSIFICATION: INTERNAL INVESTIGATION
+
+FILE 03 · WAREHOUSE_MOVEMENT_REPORT
+
+Warehouse Activity Log — Evening Extract
+
+Time: 8:15 PM
+Source: Dock A Receiving
+Event: Inbound pallet batch 12 received and scanned
+
+Time: 8:30 PM
+Source: Dock Scheduling Terminal
+Event: Transport slot confirmed for the 10:00 PM outbound pickup
+
+Time: 8:48 PM
+Source: Logistics Yard
+Event: Forklift FL-3 battery swap completed
+
+Time: 9:00 PM
+Source: Packing Station 2
+Event: Final outgoing equipment shipment packed and sealed
+
+Time: 9:08 PM
+Source: Vendor Coordination Terminal
+Event: A routing change was submitted for the final outgoing equipment shipment.
+
+Time: 9:11 PM
+Source: Dock Door 3
+Event: Pre-departure door check completed
+
+Time: 9:18 PM
+Source: Old Storage Room
+Event: The final shipment entered the Old Storage Room.
+
+Time: 9:21 PM
+Source: Wearable Telemetry
+Event: Noor's emergency wearable transmitted its final recorded signal from the Old Storage Room. No additional signal from Noor's device was recorded after 9:21 PM.
+
+Time: 9:26 PM
+Source: Rack C4
+Event: Inbound pallet batch 12 moved to storage
+
+Routing Change Detail — 9:08 PM
+
+Original Destination: Equipment Inspection Room
+New Destination: Old Storage Room
+Request Source: Vendor Coordination Terminal
+
+Employees Authorized to Use the Vendor Coordination Terminal
+• S01 — Yazan Al-Haddad
+• S05 — Sara Awad
+• S11 — Samer Murad
+• S16 — Karam Fawzi
+• S19 — Hiba Qasem
+
+END OF FILE

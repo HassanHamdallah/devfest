@@ -4,44 +4,44 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 /**
- * The final's 40 points. Crypto (max 15): each correct layer 2.5 and each correct verdict 2.5 (four layers, two
- * verdicts). Suspect: 10 for the correct one. Time (max 15): t = active minutes from the final's start to the suspect
- * submission; t <= fullUntil gives 15, otherwise MAX(0, 40 - t), rounded to 2 decimals. Time points need all four
- * layers solved and a submitted suspect, otherwise they are 0. Pure; computed on every read.
+ * The final's 40 points. Clues (max 15): 3.75 for each of the four evidence files the team decrypted. Suspect: 10 for
+ * the correct one. Time (max 15): t = active minutes from the final's start to the suspect submission; t <= fullUntil
+ * gives 15, otherwise MAX(0, 40 - t), rounded to 2 decimals. Time points need all four clues solved AND a submitted
+ * suspect, otherwise they are 0. Pure; computed on every read.
  */
 public final class FinalScoring {
 
-  public static final BigDecimal LAYER_POINTS = new BigDecimal("2.5");
-  public static final BigDecimal VERDICT_POINTS = new BigDecimal("2.5");
+  public static final BigDecimal CLUE_POINTS = new BigDecimal("3.75");
   public static final BigDecimal SUSPECT_POINTS = new BigDecimal("10");
   public static final BigDecimal TIME_MAX = new BigDecimal("15");
   public static final BigDecimal FINAL_MAX = new BigDecimal("40");
   public static final int FINAL_MINUTES = 40;
 
   /**
+   * @param cluesSolved 0..4
    * @param activeSeconds the active seconds at the suspect submission; null when no suspect was submitted
    * @param suspectCorrect only meaningful when {@code activeSeconds} is not null
    */
-  public record Input(int layersCorrect, int verdictsCorrect, Integer activeSeconds, boolean suspectCorrect, int fullUntilMinutes) {}
+  public record Input(int cluesSolved, Integer activeSeconds, boolean suspectCorrect, int fullUntilMinutes) {}
 
-  public record Score(BigDecimal layers, BigDecimal verdicts, BigDecimal crypto, BigDecimal suspect, BigDecimal time, BigDecimal total) {}
+  public record Score(BigDecimal clues, BigDecimal suspect, BigDecimal time, BigDecimal total) {}
 
   private FinalScoring() {}
 
   public static Score score(Input in) {
-    BigDecimal layers = LAYER_POINTS.multiply(BigDecimal.valueOf(in.layersCorrect()));
-    BigDecimal verdicts = VERDICT_POINTS.multiply(BigDecimal.valueOf(in.verdictsCorrect()));
-    BigDecimal suspect = in.activeSeconds() != null && in.suspectCorrect() ? SUSPECT_POINTS : BigDecimal.ZERO;
-    boolean timed = in.activeSeconds() != null && in.layersCorrect() >= CryptoContent.LAYER_COUNT;
+    if (in.cluesSolved() < 0 || in.cluesSolved() > ShipmentContent.CLUE_COUNT) {
+      throw new IllegalArgumentException("Solved clues must be 0..4, was " + in.cluesSolved());
+    }
+    BigDecimal clues = CLUE_POINTS.multiply(BigDecimal.valueOf(in.cluesSolved()));
+    boolean submitted = in.activeSeconds() != null;
+    BigDecimal suspect = submitted && in.suspectCorrect() ? SUSPECT_POINTS : BigDecimal.ZERO;
+    boolean timed = submitted && in.cluesSolved() == ShipmentContent.CLUE_COUNT;
     BigDecimal time = timed ? timePoints(in.activeSeconds(), in.fullUntilMinutes()) : BigDecimal.ZERO;
-    BigDecimal crypto = layers.add(verdicts);
     return new Score(
-      RoomScoring.round(layers),
-      RoomScoring.round(verdicts),
-      RoomScoring.round(crypto),
+      RoomScoring.round(clues),
       RoomScoring.round(suspect),
       RoomScoring.round(time),
-      RoomScoring.round(crypto.add(suspect).add(time))
+      RoomScoring.round(clues.add(suspect).add(time))
     );
   }
 

@@ -8,9 +8,11 @@ import java.util.List;
 
 /**
  * The team's final, always built from the server's state (a refresh resumes exactly here). Parts that belong to one
- * screen are null (or empty) elsewhere. It never carries a plaintext M, a private exponent, p, q, a verdict's
- * correctness, the correct suspect, a score or another team's data. {@code evidence} is the per-room clue list of the
- * team board (rules section 17), {@code notebook} the crypto evidence revealed so far.
+ * screen are null (or empty) elsewhere: {@code mission} on MISSION and CASE; {@code clues}, {@code keyIndex},
+ * {@code suspects} and {@code terminal} on CASE only. It never carries a report of an unsolved clue, a passphrase or its
+ * hash, the correct suspect, a score or another team's data. {@code waitSeconds} is the unlock's wait; each clue has its
+ * own. {@code submitted}: the team's suspect is recorded. {@code evidence} is the per-room clue list of the team board
+ * (rules section 17).
  */
 public record TeamFinal(
   FinalStage status,
@@ -24,10 +26,12 @@ public record TeamFinal(
   Unlock unlock,
   RecoveryChallenge recovery,
   Mission mission,
-  LayerPrompt layer,
-  List<NotebookEntry> notebook,
-  List<FinalSuspect> suspects,
-  Submitted submitted,
+  List<CaseClue> clues,
+  List<KeyIndexEntry> keyIndex,
+  List<CaseSuspect> suspects,
+  TerminalBundleInfo terminal,
+  boolean submitted,
+  Submission submission,
   boolean resultsPublished,
   List<RoomEvidence> evidence
 ) {
@@ -36,25 +40,24 @@ public record TeamFinal(
 
   public record RecoveryChallenge(String question, int attempts) {}
 
-  public record Mission(String story, String equipment) {}
+  public record Mission(String title, String intro, String phase1, String phase2) {}
 
-  /** Only the ciphertext C and the modulus n. */
-  public record LayerPrompt(int layer, long c, long n, int solvedLayers) {}
-
-  /** {@code signature} and {@code verdict*} exist only for the signed reports E03 and E04. */
-  public record NotebookEntry(
-    String id,
-    String text,
-    String claimedSigner,
-    Signature signature,
-    boolean verdictOpen,
-    String yourVerdict
+  /** One evidence file; {@code report} is present only once the team solved it. */
+  public record CaseClue(
+    int number,
+    String title,
+    String encFile,
+    String rsaFile,
+    String keyReference,
+    boolean solved,
+    int waitSeconds,
+    String report
   ) {}
 
-  public record Signature(long s, long e, long n, long h) {}
+  public record KeyIndexEntry(String reference, String key) {}
 
-  public record FinalSuspect(int id, String name) {}
+  public record CaseSuspect(String id, String name, String position, String statement) {}
 
   /** The last screen: team, status and time; never whether anything was correct. */
-  public record Submitted(String teamName, FinalStage status, Instant at, String message) {}
+  public record Submission(String teamName, FinalStage status, Instant at, String message) {}
 }

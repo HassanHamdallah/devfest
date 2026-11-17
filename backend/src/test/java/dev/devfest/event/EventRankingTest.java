@@ -48,11 +48,11 @@ class EventRankingTest extends EventIntegrationTest {
   void equalTotalsAreSeparatedByTheFinalScore() {
     TestTeam withFinal = team("WithFinal", GroupCode.A);
     TestTeam roomsOnly = team("RoomsOnly", GroupCode.B);
-    // 10 points from the final's four layers against 10 points from the Hardware room.
-    manual(roomsOnly, "10");
-    layers(withFinal, 4);
-    assertEquals(new BigDecimal("10.00"), total("WithFinal"));
-    assertEquals(new BigDecimal("10.00"), total("RoomsOnly"));
+    // 15 points from the final's four decrypted files against 15 points from the Hardware room.
+    manual(roomsOnly, "15");
+    cluesSolved(withFinal, 4);
+    assertEquals(new BigDecimal("15.00"), total("WithFinal"));
+    assertEquals(new BigDecimal("15.00"), total("RoomsOnly"));
     assertEquals(List.of("WithFinal", "RoomsOnly"), names());
     assertEquals(List.of(1, 2), ranks());
   }
@@ -61,8 +61,8 @@ class EventRankingTest extends EventIntegrationTest {
   void equalTotalAndFinalScoreAreSeparatedByTheEarlierFinish() {
     TestTeam late = team("Late", GroupCode.A);
     TestTeam early = team("Early", GroupCode.B);
-    layers(late, 4);
-    layers(early, 4);
+    cluesSolved(late, 4);
+    cluesSolved(early, 4);
     submitted(late, T0.plusSeconds(90), 600, false);
     submitted(early, T0.plusSeconds(30), 600, false);
     assertEquals(total("Late"), total("Early"));
@@ -150,7 +150,7 @@ class EventRankingTest extends EventIntegrationTest {
     Response csv = expectOk(get("/admin/export.csv", admin));
     String[] lines = csv.body().split("\r\n");
     assertEquals(
-      "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,layers,verdicts,suspect,time,finalScore,total,finishedAt",
+      "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,cluesSolved,cluePoints,suspect,time,finalScore,total,finishedAt",
       lines[0]
     );
     assertEquals(3, lines.length);
@@ -167,15 +167,15 @@ class EventRankingTest extends EventIntegrationTest {
     expectOk(put("/rooms/" + rooms.get(RoomCode.HARDWARE) + "/manual-scores/" + team.id(), managers.get(RoomCode.HARDWARE), "{\"score\":" + score + "}"));
   }
 
-  /** {@code count} correct layers, recorded directly (the layers themselves are tested with the final). */
-  private void layers(TestTeam team, int count) {
-    for (int layer = 1; layer <= count; layer++) {
+  /** {@code count} decrypted evidence files, recorded directly (the passphrases themselves are tested with the final). */
+  private void cluesSolved(TestTeam team, int count) {
+    for (int clue = 1; clue <= count; clue++) {
       db.update(
-        "INSERT INTO final_layer_attempt(id, team_id, layer, value, correct, received_at, idempotency_key, request_hash) VALUES (?, ?, ?, ?, TRUE, ?, ?, 'x')",
+        "INSERT INTO final_clue_attempt(id, team_id, clue, value, correct, received_at, idempotency_key, request_hash) VALUES (?, ?, ?, ?, TRUE, ?, ?, 'x')",
         UUID.randomUUID(),
         team.id(),
-        layer,
-        Long.toString(LAYER_ANSWERS[layer - 1]),
+        clue,
+        PASSPHRASES.get(clue - 1),
         java.sql.Timestamp.from(T0),
         UUID.randomUUID()
       );
@@ -186,7 +186,7 @@ class EventRankingTest extends EventIntegrationTest {
     db.update(
       """
       INSERT INTO team_final(team_id, unlocked_at, case_started_at, suspect_id, suspect_correct, submitted_at, active_seconds, finalised_at, finalised_cause)
-      VALUES (?, ?, ?, 2, ?, ?, ?, ?, 'SUBMITTED')""",
+      VALUES (?, ?, ?, 'S05', ?, ?, ?, ?, 'SUBMITTED')""",
       team.id(),
       java.sql.Timestamp.from(T0),
       java.sql.Timestamp.from(T0),

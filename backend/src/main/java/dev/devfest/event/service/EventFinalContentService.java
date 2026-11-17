@@ -4,7 +4,7 @@ import static dev.devfest.api.Errors.fail;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
-import dev.devfest.event.domain.CryptoContent;
+import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.dto.FinalContentView;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
@@ -14,10 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The admin's import of the crypto final's content file (docs/final/crypto-content.json). The whole file is validated
- * first (every problem is listed, nothing is saved when there is one); it can be replaced until the final opens and is
- * read-only after that, like all event content. The private values (p, q, d, S) live only here and in the stored file;
- * a member never receives them.
+ * The admin's import of the final's content file (format 2, docs/final/last-shipment-content.json). The whole file is
+ * validated first (every problem is listed, nothing is saved when there is one); it can be replaced until the final
+ * opens and is read-only after that, like all event content. The private values (passphrase hashes, the reports, the
+ * correct suspect, the accepted recovery answers) live only here and in the stored file; a member receives a report
+ * only once the team has solved its clue.
  */
 @Service
 public class EventFinalContentService {
@@ -54,7 +55,7 @@ public class EventFinalContentService {
   @Transactional
   public FinalContentView importContent(Principal principal, String body) {
     access.requireAdmin(principal);
-    CryptoContent content = reader.parseAndValidate(body);
+    ShipmentContent content = reader.parseAndValidate(body);
     EventStateRecord state = states.lockForUpdate();
     EventContentService.requireContentEditable(state);
     repository.save(body, content.fullUntilMinutes(), principal.id(), clock.now());
@@ -66,13 +67,13 @@ public class EventFinalContentService {
 
   private FinalContentView view(EventStateRecord state) {
     Optional<FinalContentRepository.Stored> stored = repository.find();
-    Optional<CryptoContent> content = stored.map(s -> reader.parseAndValidate(s.json()));
+    Optional<ShipmentContent> content = stored.map(s -> reader.parseAndValidate(s.json()));
     return new FinalContentView(
       stored.isPresent(),
       state.finalEverOpened(),
       stored.map(FinalContentRepository.Stored::importedAt).orElse(null),
       stored.map(FinalContentRepository.Stored::fullUntilMinutes).orElse(null),
-      content.map(CryptoContent::recoveryIsPlaceholder).orElse(false),
+      content.map(ShipmentContent::recoveryIsPlaceholder).orElse(false),
       stored.map(FinalContentRepository.Stored::json).orElse(null)
     );
   }

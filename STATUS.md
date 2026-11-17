@@ -6,9 +6,9 @@
   and room) are point deductions in an append-only log with cancellation, replacing the minute penalties, adjusted time,
   the per-room recovery challenges and the accusation final (migration V20; the old tables were dropped, audit entries
   kept). A manager-typed 0–15 score covers a room without an automatic score.
-- The crypto final: unlock, mission, four layers, one-time verdicts and suspect, one Recovery Challenge for the 3-clue
+- The final "The Last Shipment": unlock, mission, four evidence files opened by passphrase (any order) and one suspect, its own terminal package, one Recovery Challenge for the 3-clue
   teams, one 40-minute timer for everyone (admin pause, resume and added time), time points from active minutes, exactly-once
-  finalisation at time up. Content is `docs/final/crypto-content.json`, imported and validated by the admin.
+  finalisation at time up. Content is `docs/final/last-shipment-content.json` (format 2), imported and validated by the admin.
 - UI: the team's final screens (a lazy chunk), the manager's deduction actions on each current team card, the admin's
   Scores page (scoreboard, live final table, penalty log), content import and the final timer controls.
 - `infrastructure/test-backend.ps1`: `Tests run: 511, Failures: 0, Errors: 0, Skipped: 0`, BUILD SUCCESS (also after the cleanups below).

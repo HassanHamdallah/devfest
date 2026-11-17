@@ -1,14 +1,11 @@
 package dev.devfest.event.web;
 
 import dev.devfest.auth.AuthService;
-import dev.devfest.event.domain.TerminalBundleEtag;
-import dev.devfest.event.dto.TerminalBundleDelivery;
 import dev.devfest.event.dto.TerminalClockRequest;
 import dev.devfest.event.dto.TerminalFileList;
 import dev.devfest.event.service.EventTerminalBundleService;
 import java.io.IOException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,8 +27,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/v1/event")
 public class EventTerminalBundleController {
-
-  private static final MediaType GZIP = MediaType.parseMediaType("application/gzip");
 
   private final EventTerminalBundleService bundles;
 
@@ -68,7 +63,7 @@ public class EventTerminalBundleController {
     @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return respond(bundles.managerBundle(principal, roomId, ifNoneMatch));
+    return TerminalBundleResponses.respond(bundles.managerBundle(principal, roomId, ifNoneMatch));
   }
 
   @GetMapping("/team/rooms/{roomId}/terminal-bundle")
@@ -77,16 +72,6 @@ public class EventTerminalBundleController {
     @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return respond(bundles.teamBundle(principal, roomId, ifNoneMatch));
-  }
-
-  /** 304 without a body when the caller's ETag is current; otherwise the bytes. Always private and revalidated. */
-  private static ResponseEntity<byte[]> respond(TerminalBundleDelivery delivery) {
-    ResponseEntity.BodyBuilder response = ResponseEntity
-      .status(delivery.notModified() ? HttpStatus.NOT_MODIFIED : HttpStatus.OK)
-      .header(HttpHeaders.CACHE_CONTROL, "private, no-cache")
-      .eTag(TerminalBundleEtag.of(delivery.sha256()));
-    if (delivery.notModified()) return response.build();
-    return response.contentType(GZIP).contentLength(delivery.archive().length).body(delivery.archive());
+    return TerminalBundleResponses.respond(bundles.teamBundle(principal, roomId, ifNoneMatch));
   }
 }

@@ -13,8 +13,7 @@ export type FinalScreen =
   | "RECOVERY"
   | "UNLOCK"
   | "MISSION"
-  | "LAYER"
-  | "SUSPECTS"
+  | "CASE"
   | "SUBMITTED";
 /** The only two point deductions of the event: a hint (-2) and a cheating violation (-7.5). */
 export type DeductionKind = "HINT" | "CHEATING";
@@ -165,21 +164,36 @@ export interface RoomSubmissionRequest {
   clueAnswer: string;
 }
 
-export interface FinalNotebookEntry {
-  id: string;
-  text: string;
-  claimedSigner: string | null;
-  /** S, e, n and H of a signed report (E03, E04); null for the other evidence. */
-  signature: { s: number; e: number; n: number; h: number } | null;
-  /** The team may still give its one verdict on this report. */
-  verdictOpen: boolean;
-  /** The team's own YES / NO, once given; never whether it was right. */
-  yourVerdict: "YES" | "NO" | null;
+/** One of the four encrypted evidence files of the case; `report` is sent only once the team decrypted it. */
+export interface FinalCaseClue {
+  number: number;
+  title: string;
+  encFile: string;
+  rsaFile: string;
+  keyReference: string;
+  solved: boolean;
+  /** Seconds to wait before the next passphrase for this file (five wrong in a row). */
+  waitSeconds: number;
+  report: string | null;
+}
+
+export interface FinalKeyIndexEntry {
+  reference: string;
+  key: string;
 }
 
 export interface FinalSuspect {
-  id: number;
+  id: string;
   name: string;
+  position: string;
+  statement: string;
+}
+
+export interface FinalMission {
+  title: string;
+  intro: string;
+  phase1: string;
+  phase2: string;
 }
 
 /** The team's final, always built from the server's state; parts of other screens are null or empty. */
@@ -191,22 +205,27 @@ export interface TeamFinal {
   timerPhase: RoundPhase | null;
   remainingSeconds: number | null;
   cluesCollected: number;
-  /** Seconds to wait before the next try after five wrong answers in a row. */
+  /** Seconds to wait before the next unlock try after five wrong answers in a row. */
   waitSeconds: number;
   unlock: { roomNames: string[] } | null;
   recovery: { question: string; attempts: number } | null;
-  mission: { story: string; equipment: string } | null;
-  /** Only the ciphertext and the modulus of the layer being solved. */
-  layer: { layer: number; c: number; n: number; solvedLayers: number } | null;
-  notebook: FinalNotebookEntry[];
+  /** On the mission and case screens. */
+  mission: FinalMission | null;
+  /** The case screen only: the four files, the key index, the suspects and the final's terminal package. */
+  clues: FinalCaseClue[];
+  keyIndex: FinalKeyIndexEntry[];
   suspects: FinalSuspect[];
-  submitted: { teamName: string; status: FinalStage; at: string; message: string } | null;
+  /** Null while the organizer has not uploaded the final's terminal package. */
+  terminal: TerminalBundleInfo | null;
+  /** The team's suspect is recorded. */
+  submitted: boolean;
+  submission: { teamName: string; status: FinalStage; at: string; message: string } | null;
   resultsPublished: boolean;
   /** The same per-room evidence as on the team board. */
   evidence: RoomEvidence[];
 }
 
-/** The answer to an unlock, layer, verdict, start or suspect step (never carries the value or a correctness). */
+/** The answer to an unlock, passphrase, start or suspect step (never carries the value or a correctness). */
 export interface FinalActionResult {
   accepted: boolean;
   message: string;
@@ -219,8 +238,8 @@ export interface UnlockRequest {
   codes: string[];
 }
 
-export interface LayerAnswerRequest {
-  value: string;
+export interface PassphraseRequest {
+  passphrase: string;
 }
 
 export interface RecoveryRequest {
@@ -810,11 +829,10 @@ export interface RoomScoreLine {
 
 export interface FinalScoreLine {
   status: FinalStage;
-  layersCorrect: number;
-  verdictsCorrect: number;
-  layers: number;
-  verdicts: number;
-  crypto: number;
+  /** Evidence files decrypted, 0 to 4. */
+  cluesSolved: number;
+  /** Their points: 3.75 each. */
+  clues: number;
   suspectSubmitted: boolean;
   suspectCorrect: boolean;
   suspect: number;
@@ -854,23 +872,19 @@ export interface FinalBoardRow {
   status: FinalStage;
   stage: string;
   clues: number;
-  layersSolved: number;
+  /** Evidence files decrypted, 0 to 4. */
+  cluesSolved: number;
   unlockAttempts: number;
   unlockWrong: number;
-  layerAttempts: number;
-  layerWrong: number;
+  passphraseAttempts: number;
+  passphraseWrong: number;
   recoveryAttempts: number;
-  verdictE03: "YES" | "NO" | null;
-  verdictE03Correct: boolean | null;
-  verdictE04: "YES" | "NO" | null;
-  verdictE04Correct: boolean | null;
   suspect: string | null;
   suspectCorrect: boolean | null;
   activeSeconds: number | null;
   finishedAt: string | null;
   finishedBy: string | null;
-  layersPoints: number;
-  verdictsPoints: number;
+  cluePoints: number;
   suspectPoints: number;
   timePoints: number;
   finalScore: number;
@@ -882,6 +896,19 @@ export interface FinalTimerView {
   remainingSeconds: number | null;
   durationSeconds: number | null;
   serverNow: string;
+}
+
+/** The admin's summary of the final's own terminal package (kept apart from every room's package). */
+export interface FinalTerminalBundleView {
+  uploaded: boolean;
+  readOnly: boolean;
+  sha256: string | null;
+  fileCount: number | null;
+  unpackedBytes: number | null;
+  archiveBytes: number | null;
+  owners: string[];
+  uploadedBy: string | null;
+  uploadedAt: string | null;
 }
 
 export interface FinalContentView {

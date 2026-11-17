@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 /**
- * The wait after repeated wrong answers (unlock, and each layer on its own): every fifth wrong answer in a row starts a
+ * The wait after repeated wrong answers (unlock, and each evidence file's passphrase on its own): every fifth wrong answer in a row starts a
  * 30-second wait counted from that answer; a correct answer ends the streak. Answers refused during a wait are not
  * evaluated, so they are not attempts and do not extend the streak. Pure.
  */

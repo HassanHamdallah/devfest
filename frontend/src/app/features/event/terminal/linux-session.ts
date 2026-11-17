@@ -50,16 +50,24 @@ const PASSWD_FILE = "devfest-passwd";
 const GROUP_FILE = "devfest-group";
 const TOOLS_FILE = "devfest-tools.tgz";
 const CLOCK_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
+/**
+ * The guest's kernel (4.16) has no credited entropy source, so the first program that needs random bytes (an OpenSSL
+ * RSA decryption) waits about 100 s for getrandom(). haveged (from the tools archive) credits the pool once, in the
+ * foreground, so the kernel's random generator is ready before the shell is handed over; it passes its own online
+ * tests first and then exits. It costs about 2 s of setup, so only terminals that need it (the final's) run it. A
+ * failure is not fatal: the shell still starts, only the first RSA decryption is slow again.
+ */
+const SEED_ENTROPY = " haveged -F --once -b 16 -v 0 >/dev/null 2>&1;";
 
 /**
  * Typed into the shell once, invisibly, for a room with a server package. This BusyBox tar has no -z flag, so
  * gzip unpacks into the pipe. In order: the package from the root of the file system, the owners appended to
  * /etc/passwd and /etc/group, the extra tools (into /usr/local, which then leads the PATH so that "find" is GNU
  * find), the room's terminal clock if it has one (date -s; the guest runs on UTC), the removal of the setup files
- * from the share and the move to the home directory. A failing package step ends in the failure mark, a failing
+ * from the share, with `seedEntropy` the kernel's random pool (see SEED_ENTROPY), and the move to the home directory. A failing package step ends in the failure mark, a failing
  * tools step in its own mark; only a complete setup ends in the ready mark.
  */
-export function bundleSetup(clock: string | null): string {
+export function bundleSetup(clock: string | null, seedEntropy = false): string {
   const match = clock ? CLOCK_PATTERN.exec(clock) : null;
   const setClock = match ? ` date -s "${match[1]} ${match[2]}" >/dev/null;` : "";
   return (
@@ -68,7 +76,7 @@ export function bundleSetup(clock: string | null): string {
     ` cat /mnt/${GROUP_FILE} >> /etc/group; then` +
     ` if gzip -dc /mnt/${TOOLS_FILE} | tar -xf - -C /; then` +
     ` rm -f /mnt/${BUNDLE_FILE} /mnt/${PASSWD_FILE} /mnt/${GROUP_FILE} /mnt/${TOOLS_FILE};` +
-    ` export PATH=/usr/local/bin:$PATH;${setClock} cd ~; echo __DEVFEST""_READY__;` +
+    ` export PATH=/usr/local/bin:$PATH;${seedEntropy ? SEED_ENTROPY : ""}${setClock} cd ~; echo __DEVFEST""_READY__;` +
     ` else echo __DEVFEST""_TOOLS_FAILED__; fi;` +
     ` else echo __DEVFEST""_FAILED__; fi\n`
   );
@@ -112,11 +120,12 @@ export class LinuxSession {
     bundle: TerminalBundle | null,
     banner: string,
     onOutput: (byte: number) => void,
+    options: { seedEntropy?: boolean } = {},
   ): Promise<LinuxSession> {
     const emulator = new Emulator(emulatorOptions(buffers, bundle !== null));
     const session = new LinuxSession(emulator, onOutput);
     try {
-      await session.start(files, bundle, new TextEncoder().encode(banner));
+      await session.start(files, bundle, new TextEncoder().encode(banner), options.seedEntropy === true);
     } catch (error) {
       await session.destroy();
       throw error;
@@ -178,7 +187,7 @@ export class LinuxSession {
     await this.emulator.run();
   }
 
-  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array): Promise<void> {
+  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array, seedEntropy: boolean): Promise<void> {
     let text = "";
     // `matched` runs synchronously inside the output listener, before the next byte arrives.
     let waiter: { test: (text: string) => boolean; matched: () => void } | null = null;
@@ -216,7 +225,7 @@ export class LinuxSession {
     );
     if (bundle) {
       await this.placeBundle(bundle);
-      this.send(bundleSetup(bundle.info.clock));
+      this.send(bundleSetup(bundle.info.clock, seedEntropy));
     } else {
       await this.placeFiles(files);
       this.send(SETUP);

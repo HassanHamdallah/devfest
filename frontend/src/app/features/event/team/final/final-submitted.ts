@@ -42,7 +42,7 @@ import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
   </ui-card>`,
 })
 export class EventFinalSubmitted {
-  readonly submitted = input.required<NonNullable<TeamFinal["submitted"]>>();
+  readonly submitted = input.required<NonNullable<TeamFinal["submission"]>>();
 
   protected readonly status = computed(() => FINAL_STAGE_LABELS[this.submitted().status]);
   protected readonly time = computed(() => formatTime(this.submitted().at));

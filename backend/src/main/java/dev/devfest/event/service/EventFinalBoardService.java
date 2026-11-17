@@ -1,7 +1,7 @@
 package dev.devfest.event.service;
 
 import dev.devfest.auth.AuthService.Principal;
-import dev.devfest.event.domain.CryptoContent;
+import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.dto.FinalBoardRow;
 import dev.devfest.event.dto.RankingRow;
@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The admin's two score views: the overall scoreboard (rank and the full breakdown of every team) and the live final
- * table (status, stage, attempts, answers and the parts of the final score). Both read only, a fixed number of
+ * table (status, stage, attempts, clues solved, the suspect and the parts of the final score). Both read only, a fixed number of
  * statements whatever the number of teams.
  */
 @Service
@@ -47,7 +47,7 @@ public class EventFinalBoardService {
   public List<FinalBoardRow> finalTable(Principal principal) {
     access.requireAdmin(principal);
     Map<Long, AdminCounts> counts = finals.adminCounts().stream().collect(Collectors.toMap(AdminCounts::teamId, Function.identity()));
-    Optional<CryptoContent> file = content.content();
+    Optional<ShipmentContent> file = content.content();
     return scores
       .all()
       .stream()
@@ -55,9 +55,11 @@ public class EventFinalBoardService {
       .toList();
   }
 
-  private static FinalBoardRow row(TeamScoreBreakdown b, AdminCounts c, CryptoContent file) {
+  private static FinalBoardRow row(TeamScoreBreakdown b, AdminCounts c, ShipmentContent file) {
     TeamScoreBreakdown.FinalScoreLine f = b.finalScore();
-    String suspect = c.suspectId() != null && file != null && c.suspectId() <= file.suspects().size() ? file.suspects().get(c.suspectId() - 1) : null;
+    String suspect = c.suspectId() == null
+      ? null
+      : file == null ? c.suspectId() : file.suspect(c.suspectId()).map(ShipmentContent.Suspect::name).orElse(c.suspectId());
     return new FinalBoardRow(
       b.teamId(),
       b.teamName(),
@@ -66,23 +68,18 @@ public class EventFinalBoardService {
       f.status(),
       stage(f, c),
       c.clues(),
-      f.layersCorrect(),
+      f.cluesSolved(),
       c.unlockAttempts(),
       c.unlockWrong(),
-      c.layerAttempts(),
-      c.layerWrong(),
+      c.clueAttempts(),
+      c.clueWrong(),
       c.recoveryAttempts(),
-      c.verdictE03(),
-      c.verdictE03Correct(),
-      c.verdictE04(),
-      c.verdictE04Correct(),
       suspect,
       c.suspectCorrect(),
       f.activeSeconds(),
       f.finishedAt(),
       c.finalisedCause(),
-      f.layers(),
-      f.verdicts(),
+      f.clues(),
       f.suspect(),
       f.time(),
       f.total()
@@ -98,8 +95,7 @@ public class EventFinalBoardService {
       case RECOVERY -> "Recovery";
       case COMPLETED -> "SUBMITTED".equals(c.finalisedCause()) ? "Submitted" : "Time up";
       case IN_FINAL -> {
-        if (f.layersCorrect() >= CryptoContent.LAYER_COUNT) yield "Suspects";
-        if (c.caseStartedAt() != null) yield "Layer " + (f.layersCorrect() + 1);
+        if (c.caseStartedAt() != null) yield "Case";
         yield c.unlocked() ? "Mission" : "Unlock";
       }
     };

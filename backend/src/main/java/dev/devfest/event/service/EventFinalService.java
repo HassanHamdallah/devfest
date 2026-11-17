@@ -8,28 +8,27 @@ import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.AnswerNormalizer;
 import dev.devfest.event.domain.AttemptThrottle;
-import dev.devfest.event.domain.CryptoContent;
 import dev.devfest.event.domain.FinalScreen;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.domain.FinalStageResolver;
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
+import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.dto.FinalActionResult;
-import dev.devfest.event.dto.LayerAnswerRequest;
+import dev.devfest.event.dto.PassphraseRequest;
 import dev.devfest.event.dto.RecoveryRequest;
 import dev.devfest.event.dto.RecoveryResult;
 import dev.devfest.event.dto.SuspectChoiceRequest;
 import dev.devfest.event.dto.TeamFinal;
-import dev.devfest.event.dto.TeamFinal.FinalSuspect;
-import dev.devfest.event.dto.TeamFinal.LayerPrompt;
+import dev.devfest.event.dto.TeamFinal.CaseClue;
+import dev.devfest.event.dto.TeamFinal.CaseSuspect;
+import dev.devfest.event.dto.TeamFinal.KeyIndexEntry;
 import dev.devfest.event.dto.TeamFinal.Mission;
-import dev.devfest.event.dto.TeamFinal.NotebookEntry;
 import dev.devfest.event.dto.TeamFinal.RecoveryChallenge;
-import dev.devfest.event.dto.TeamFinal.Signature;
-import dev.devfest.event.dto.TeamFinal.Submitted;
+import dev.devfest.event.dto.TeamFinal.Submission;
 import dev.devfest.event.dto.TeamFinal.Unlock;
+import dev.devfest.event.dto.TerminalBundleInfo;
 import dev.devfest.event.dto.UnlockRequest;
-import dev.devfest.event.dto.VerdictRequest;
 import dev.devfest.event.repository.CollectedClueRepository;
 import dev.devfest.event.repository.EventBoardRepository;
 import dev.devfest.event.repository.EventRoomRecord;
@@ -37,32 +36,31 @@ import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
+import dev.devfest.event.repository.FinalTerminalBundleRepository;
 import dev.devfest.event.repository.RecoveryAttemptRecord;
 import dev.devfest.event.repository.RecoveryAttemptRepository;
 import dev.devfest.event.repository.TeamFinalRepository;
+import dev.devfest.event.repository.TeamFinalRepository.ClueAttempts;
 import dev.devfest.event.repository.TeamFinalRepository.ClueFacts;
 import dev.devfest.event.repository.TeamFinalRepository.Row;
 import dev.devfest.event.repository.TeamFinalRepository.Streak;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.service.TeamWriteGate.TeamWrite;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * The team's final: qualification, the one Recovery Challenge and the crypto case (unlock, mission, four layers, two
- * one-time verdicts, one suspect). Every rule is enforced here on the server and the screen is always derived from
- * stored facts, so a refresh resumes exactly where the team was. Nothing returned to a member holds a plaintext, a
- * private exponent, p, q, a verdict's correctness, the correct suspect or a score.
+ * The team's final: qualification, the one Recovery Challenge and the case "The Last Shipment" (unlock, mission, then the
+ * case: four evidence files opened by their passphrases in any order, and one suspect). Every rule is enforced here on
+ * the server and the screen is always derived from stored facts, so a refresh resumes exactly where the team was.
+ * Nothing returned to a member holds a report of an unsolved clue, a passphrase hash, the correct suspect or a score.
  *
  * <p>All writes take the event_state lock first (TeamWriteGate), so the final's single timer, a team's submission and
  * the time-up finalisation are serialized: whichever comes first wins and a team's final is finalised exactly once.
@@ -72,16 +70,15 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class EventFinalService {
 
-  static final String MISSION_STORY =
-    "Rami left four encrypted evidence layers. Solve RSA on paper, examine the clues, and verify the signed reports.";
-  static final String EQUIPMENT = "Printed dossiers and four shuffled key cards. A plain calculator is allowed.";
   static final String UNLOCK_WRONG = "These room outputs do not open the case.";
-  static final String LAYER_WRONG = "That number does not open this layer.";
-  static final String VERDICT_RECORDED = "Your verdict is recorded.";
+  static final String PASSPHRASE_WRONG = "That passphrase does not open this clue.";
+  static final String PASSPHRASE_RIGHT = "The evidence file is decrypted.";
   static final String SUBMITTED_MESSAGE = "Your final answer is recorded. The result stays confidential until judging.";
   static final String TIME_UP_MESSAGE = "Time is up. The final is over for your team.";
   static final String NOT_QUALIFIED = "You did not qualify for the final";
-  private static final Pattern INTEGER = Pattern.compile("[0-9]{1,12}");
+  /** At most this many UTF-8 bytes of a typed passphrase (the attempt row's limit). */
+  static final int MAX_PASSPHRASE_BYTES = 400;
+  private static final Set<FinalScreen> CONTENT_SCREENS = Set.of(FinalScreen.RECOVERY, FinalScreen.MISSION, FinalScreen.CASE);
 
   /** The final's time ran out; thrown after the team was finalised, so the finalisation commits with the refusal. */
   public static final class FinalTimeUp extends Errors.ApiException {
@@ -99,6 +96,7 @@ public class EventFinalService {
   private final CollectedClueRepository clues;
   private final RecoveryAttemptRepository recoveries;
   private final FinalContentReader contents;
+  private final FinalTerminalBundleRepository terminalBundle;
   private final EventBoardRepository boards;
   private final TeamRoomExceptionRepository exceptions;
   private final AuditLog audit;
@@ -114,6 +112,7 @@ public class EventFinalService {
     CollectedClueRepository clues,
     RecoveryAttemptRepository recoveries,
     FinalContentReader contents,
+    FinalTerminalBundleRepository terminalBundle,
     EventBoardRepository boards,
     TeamRoomExceptionRepository exceptions,
     AuditLog audit,
@@ -128,6 +127,7 @@ public class EventFinalService {
     this.clues = clues;
     this.recoveries = recoveries;
     this.contents = contents;
+    this.terminalBundle = terminalBundle;
     this.boards = boards;
     this.exceptions = exceptions;
     this.audit = audit;
@@ -137,67 +137,72 @@ public class EventFinalService {
 
   // ---- the screen -------------------------------------------------------------------------------
 
-  /**
-   * A constant number of SQL statements whatever the number of teams: team, event state, clue facts, the team's
-   * final row, the content, solved layers, verdicts, the rooms, the team's evidence (rooms + exceptions) and, on an
-   * answer screen, that screen's wrong-answer streak.
-   */
-  public TeamFinal view(Principal principal) {
-    EventTeamRecord team = access.requireTeamOf(principal);
+  /** What a team's screen is derived from, read without locks. */
+  private record Situation(EventStateRecord state, Instant now, ClueFacts facts, Row row, FinalStage status, FinalScreen screen) {}
+
+  private Situation situation(EventTeamRecord team) {
     EventStateRecord state = states.state();
     Instant now = clock.now();
     ClueFacts facts = finals.clueFacts(team.id());
-    Optional<Row> row = finals.find(team.id());
-    boolean timeUp = FinalClock.timeUp(state, now);
-    boolean finalised = row.map(Row::finalised).orElse(false) || (timeUp && facts.clues() >= 3);
+    Row row = finals.find(team.id()).orElse(null);
+    boolean finalised = (row != null && row.finalised()) || (FinalClock.timeUp(state, now) && facts.clues() >= 3);
     FinalStage status = FinalStageResolver.resolve(state.finalEverOpened(), facts.clues(), finalised);
+    return new Situation(state, now, facts, row, status, screenOf(status, row));
+  }
+
+  /** The screen the team's final shows now (the final's terminal package is served only on CASE). */
+  public FinalScreen screen(EventTeamRecord team) {
+    return situation(team).screen();
+  }
+
+  /**
+   * A constant number of SQL statements whatever the number of teams: team, event state, clue facts, the team's final
+   * row, the rooms, the team's evidence (rooms + exceptions), the content (recovery, mission and case screens), the
+   * unlock streak (unlock screen) and, on the case screen, the team's passphrase attempts and the final's terminal
+   * package summary.
+   */
+  public TeamFinal view(Principal principal) {
+    EventTeamRecord team = access.requireTeamOf(principal);
+    Situation at = situation(team);
+    EventStateRecord state = at.state();
+    Instant now = at.now();
+    FinalScreen screen = at.screen();
     Optional<RoundTimer> timer = state.finalTimer();
     List<EventRoomRecord> roomList = rooms.findAll();
     var evidence = EventViews.evidence(team, state, boards.teamRooms(team.id()), exceptions.findForTeam(team.id()), now);
-    FinalScreen screen = screenOf(status, row.orElse(null), Set.of());
-    Set<Integer> solved = Set.of();
-    List<TeamFinalRepository.Verdict> verdicts = List.of();
-    Optional<CryptoContent> content = Optional.empty();
-    if (status == FinalStage.IN_FINAL || status == FinalStage.RECOVERY || status == FinalStage.COMPLETED) {
-      content = contents.content();
-    }
-    if (status == FinalStage.IN_FINAL || status == FinalStage.COMPLETED) {
-      solved = finals.solvedLayers(team.id());
-      verdicts = finals.verdicts(team.id());
-      screen = screenOf(status, row.orElse(null), solved);
-    }
+    Optional<ShipmentContent> content = CONTENT_SCREENS.contains(screen) ? contents.content() : Optional.empty();
     int wait = 0;
     if (screen == FinalScreen.UNLOCK) {
       Streak streak = finals.unlockStreak(team.id());
       wait = AttemptThrottle.waitSeconds(streak.wrongInARow(), streak.lastAttemptAt(), now);
-    } else if (screen == FinalScreen.LAYER) {
-      Streak streak = finals.layerStreak(team.id(), solved.size() + 1);
-      wait = AttemptThrottle.waitSeconds(streak.wrongInARow(), streak.lastAttemptAt(), now);
     }
+    ShipmentContent caseFile = screen == FinalScreen.CASE ? content.orElse(null) : null;
     return new TeamFinal(
-      status,
+      at.status(),
       screen,
       now,
       state.finalStartedAt(),
       timer.map(t -> t.effectivePhase(now)).orElse(null),
       timer.map(t -> t.remainingSeconds(now)).orElse(null),
-      facts.clues(),
+      at.facts().clues(),
       wait,
       screen == FinalScreen.UNLOCK ? new Unlock(roomList.stream().map(EventRoomRecord::name).toList()) : null,
       screen == FinalScreen.RECOVERY && content.isPresent()
-        ? new RecoveryChallenge(content.get().recovery().question(), facts.recoveryAttempts())
+        ? new RecoveryChallenge(content.get().recovery().question(), at.facts().recoveryAttempts())
         : null,
-      screen == FinalScreen.MISSION ? new Mission(MISSION_STORY, EQUIPMENT) : null,
-      screen == FinalScreen.LAYER && content.isPresent() ? layerPrompt(content.get(), solved) : null,
-      content.isPresent() && status != FinalStage.RECOVERY ? notebook(content.get(), solved, verdicts, finalised) : List.of(),
-      screen == FinalScreen.SUSPECTS && content.isPresent() ? suspects(content.get()) : List.of(),
-      screen == FinalScreen.SUBMITTED ? submitted(team, status, row.orElse(null), now) : null,
+      (screen == FinalScreen.MISSION || screen == FinalScreen.CASE) ? content.map(EventFinalService::mission).orElse(null) : null,
+      caseFile == null ? List.of() : caseClues(caseFile, finals.clueAttempts(team.id()), now),
+      caseFile == null ? List.of() : caseFile.keyIndex().stream().map(k -> new KeyIndexEntry(k.reference(), k.key())).toList(),
+      caseFile == null ? List.of() : caseFile.suspects().stream().map(s -> new CaseSuspect(s.id(), s.name(), s.position(), s.statement())).toList(),
+      caseFile == null ? null : terminalInfo(),
+      at.row() != null && at.row().suspectId() != null,
+      screen == FinalScreen.SUBMITTED ? submission(team, at.status(), at.row(), now) : null,
       state.resultsPublished(),
       evidence
     );
   }
 
-  private static FinalScreen screenOf(FinalStage status, Row row, Set<Integer> solved) {
+  private static FinalScreen screenOf(FinalStage status, Row row) {
     return switch (status) {
       case LOCKED -> FinalScreen.LOCKED;
       case NOT_QUALIFIED -> FinalScreen.NOT_QUALIFIED;
@@ -205,50 +210,48 @@ public class EventFinalService {
       case COMPLETED -> FinalScreen.SUBMITTED;
       case IN_FINAL -> {
         if (row == null || row.unlockedAt() == null) yield FinalScreen.UNLOCK;
-        if (row.caseStartedAt() == null) yield FinalScreen.MISSION;
-        yield solved.size() >= CryptoContent.LAYER_COUNT ? FinalScreen.SUSPECTS : FinalScreen.LAYER;
+        yield row.caseStartedAt() == null ? FinalScreen.MISSION : FinalScreen.CASE;
       }
     };
   }
 
-  private static LayerPrompt layerPrompt(CryptoContent content, Set<Integer> solved) {
-    int layer = solved.size() + 1;
-    CryptoContent.Layer l = content.layers().get(layer - 1);
-    return new LayerPrompt(layer, l.c(), l.n(), solved.size());
+  private static Mission mission(ShipmentContent content) {
+    ShipmentContent.Mission m = content.mission();
+    return new Mission(m.title(), m.intro(), m.phase1(), m.phase2());
   }
 
-  /** The evidence revealed so far: E0k opens when layer k is solved. */
-  private static List<NotebookEntry> notebook(
-    CryptoContent content,
-    Set<Integer> solved,
-    List<TeamFinalRepository.Verdict> verdicts,
-    boolean finalised
-  ) {
-    Map<Integer, String> given = verdicts.stream().collect(Collectors.toMap(TeamFinalRepository.Verdict::layer, TeamFinalRepository.Verdict::verdict));
-    List<NotebookEntry> entries = new ArrayList<>();
-    for (int layer = 1; layer <= CryptoContent.LAYER_COUNT; layer++) {
-      if (!solved.contains(layer)) continue;
-      CryptoContent.Evidence evidence = content.evidenceOf(layer);
-      boolean signed = CryptoContent.SIGNED_EVIDENCE.contains(evidence.id());
-      Signature signature = signed
-        ? new Signature(content.report(evidence.id()).orElseThrow().s(), content.signatures().e(), content.signatures().n(), content.signatures().h())
-        : null;
-      String yours = given.get(layer);
-      entries.add(new NotebookEntry(evidence.id(), evidence.text(), evidence.claimedSigner(), signature, signed && yours == null && !finalised, yours));
-    }
-    return entries;
+  /** The four evidence files; a report is included only for a file the team has decrypted. */
+  private static List<CaseClue> caseClues(ShipmentContent content, Map<Integer, ClueAttempts> attempts, Instant now) {
+    return content
+      .clues()
+      .stream()
+      .map(clue -> {
+        ClueAttempts tried = attempts.get(clue.number());
+        boolean solved = tried != null && tried.solved();
+        int wait = tried == null || solved ? 0 : AttemptThrottle.waitSeconds(tried.wrong(), tried.lastAttemptAt(), now);
+        return new CaseClue(
+          clue.number(),
+          clue.title(),
+          clue.encFile(),
+          clue.rsaFile(),
+          clue.keyReference(),
+          solved,
+          wait,
+          solved ? clue.report() : null
+        );
+      })
+      .toList();
   }
 
-  private static List<FinalSuspect> suspects(CryptoContent content) {
-    List<FinalSuspect> list = new ArrayList<>();
-    for (int i = 0; i < content.suspects().size(); i++) list.add(new FinalSuspect(i + 1, content.suspects().get(i)));
-    return list;
+  /** What the case terminal needs before it downloads the final's package (null while none is uploaded). */
+  private TerminalBundleInfo terminalInfo() {
+    return terminalBundle.find().map(b -> new TerminalBundleInfo(b.sha256(), b.archiveBytes(), b.etcPasswd(), b.etcGroup(), null)).orElse(null);
   }
 
-  private static Submitted submitted(EventTeamRecord team, FinalStage status, Row row, Instant now) {
+  private static Submission submission(EventTeamRecord team, FinalStage status, Row row, Instant now) {
     boolean timeUp = row == null || !"SUBMITTED".equals(row.finalisedCause());
     Instant at = row != null && row.finalisedAt() != null ? row.finalisedAt() : now;
-    return new Submitted(team.name(), status, at, timeUp ? TIME_UP_MESSAGE : SUBMITTED_MESSAGE);
+    return new Submission(team.name(), status, at, timeUp ? TIME_UP_MESSAGE : SUBMITTED_MESSAGE);
   }
 
   // ---- unlock -----------------------------------------------------------------------------------
@@ -308,94 +311,73 @@ public class EventFinalService {
     TeamWriteGate.requireNotDisqualified(write);
     Guard guard = guard(write);
     if (guard.row() == null || guard.row().unlockedAt() == null) throw fail(409, "Open the case first.");
-    if (guard.row().caseStartedAt() != null) return result(true, "The case is started.", 0, write, FinalScreen.LAYER);
+    if (guard.row().caseStartedAt() != null) return result(true, "The case is started.", 0, write, FinalScreen.CASE);
     finals.markCaseStarted(write.team().id(), guard.now());
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_FINAL_CASE_STARTED", "team:" + write.team().id());
-    return result(true, "The case is started.", 0, write, FinalScreen.LAYER);
+    return result(true, "The case is started.", 0, write, FinalScreen.CASE);
   }
 
-  // ---- layers -----------------------------------------------------------------------------------
+  // ---- passphrases ------------------------------------------------------------------------------
 
+  /**
+   * One evidence file's passphrase, in any order: surrounding whitespace and case do not matter (see Passphrase). A
+   * correct one decrypts the file for good; a wrong one says only that it does not open the file. Five wrong in a row
+   * on one file start a 30-second wait for that file only; an answer refused during the wait is not an attempt.
+   */
   @Transactional(noRollbackFor = FinalTimeUp.class)
-  public FinalActionResult answerLayer(Principal principal, int layer, UUID idempotencyKey, LayerAnswerRequest request) {
-    TeamWrite write = gate.open(principal, "final-layer:" + layer, request);
+  public FinalActionResult submitPassphrase(Principal principal, int clue, UUID idempotencyKey, PassphraseRequest request) {
+    TeamWrite write = gate.open(principal, "final-clue:" + clue, request);
     long teamId = write.team().id();
-    Optional<TeamFinalRepository.StoredAttempt> previous = finals.findLayerAttemptByKey(teamId, idempotencyKey);
+    Optional<TeamFinalRepository.StoredAttempt> previous = finals.findClueAttemptByKey(teamId, idempotencyKey);
     if (previous.isPresent()) {
       TeamWriteGate.requireSameRequest(previous.get().requestHash(), write);
-      return replay(write, previous.get().correct(), LAYER_WRONG, FinalScreen.LAYER);
+      return replay(write, previous.get().correct(), PASSPHRASE_WRONG, FinalScreen.CASE);
     }
     TeamWriteGate.requireNotDisqualified(write);
-    if (layer < 1 || layer > CryptoContent.LAYER_COUNT) throw fail(404, "Layer not found.");
-    String value = request.value().strip();
-    if (!INTEGER.matcher(value).matches()) throw fail(400, "Enter a whole number.");
+    if (clue < 1 || clue > ShipmentContent.CLUE_COUNT) throw fail(404, "Clue not found.");
+    requireMaxBytes(request.passphrase(), MAX_PASSPHRASE_BYTES, "Passphrase");
     Guard guard = guard(write);
     requireCaseStarted(guard);
-    Set<Integer> solved = finals.solvedLayers(teamId);
-    if (solved.contains(layer)) throw fail(409, "This layer is already solved.");
-    if (solved.size() != layer - 1) throw fail(409, "Solve the earlier layers first.");
-    Streak streak = finals.layerStreak(teamId, layer);
-    requireNoWait(AttemptThrottle.waitSeconds(streak.wrongInARow(), streak.lastAttemptAt(), guard.now()));
-    CryptoContent content = requireContent();
-    boolean correct = Long.parseLong(value) == content.plaintext(layer);
-    finals.insertLayerAttempt(UUID.randomUUID(), teamId, layer, value, correct, guard.now(), idempotencyKey, write.requestHash());
+    ClueAttempts tried = finals.clueAttempts(teamId).get(clue);
+    if (tried != null && tried.solved()) throw fail(409, "This evidence file is already decrypted.");
+    int wrongInARow = tried == null ? 0 : tried.wrong();
+    requireNoWait(AttemptThrottle.waitSeconds(wrongInARow, tried == null ? null : tried.lastAttemptAt(), guard.now()));
+    boolean correct = requireContent().opens(clue, request.passphrase());
+    finals.insertClueAttempt(UUID.randomUUID(), teamId, clue, request.passphrase(), correct, guard.now(), idempotencyKey, write.requestHash());
     if (correct) {
       states.bumpRevision();
-      audit.record(principal.id(), "EVENT_FINAL_LAYER_SOLVED", "team:" + teamId + " layer:" + layer);
-      return result(true, "The layer opens.", 0, write, layer == CryptoContent.LAYER_COUNT ? FinalScreen.SUSPECTS : FinalScreen.LAYER);
+      audit.record(principal.id(), "EVENT_FINAL_CLUE_SOLVED", "team:" + teamId + " clue:" + clue);
+      return result(true, PASSPHRASE_RIGHT, 0, write, FinalScreen.CASE);
     }
-    int wait = AttemptThrottle.waitSeconds(streak.wrongInARow() + 1, guard.now(), guard.now());
-    return result(false, LAYER_WRONG, wait, write, FinalScreen.LAYER);
-  }
-
-  // ---- verdicts ---------------------------------------------------------------------------------
-
-  /** One time only; the answer is identical whether or not the verdict was right, and a wrong one blocks nothing. */
-  @Transactional(noRollbackFor = FinalTimeUp.class)
-  public FinalActionResult giveVerdict(Principal principal, int layer, VerdictRequest request) {
-    TeamWrite write = gate.open(principal, "final-verdict:" + layer, request);
-    TeamWriteGate.requireNotDisqualified(write);
-    if (layer < 3 || layer > 4) throw fail(404, "Verdict not found.");
-    long teamId = write.team().id();
-    Optional<TeamFinalRepository.Verdict> given = finals.verdicts(teamId).stream().filter(v -> v.layer() == layer).findFirst();
-    if (given.isPresent()) {
-      if (!given.get().verdict().equals(request.verdict())) throw fail(409, "Your verdict for this report is already recorded.");
-      return result(true, VERDICT_RECORDED, 0, write, null);
-    }
-    Guard guard = guard(write);
-    requireCaseStarted(guard);
-    if (!finals.solvedLayers(teamId).contains(layer)) throw fail(409, "Solve the layer first.");
-    boolean correct = "YES".equals(request.verdict()) == requireContent().verdictYes(layer);
-    finals.insertVerdict(teamId, layer, request.verdict(), correct, guard.now());
-    states.bumpRevision();
-    audit.record(principal.id(), "EVENT_FINAL_VERDICT", "team:" + teamId + " layer:" + layer);
-    return result(true, VERDICT_RECORDED, 0, write, null);
+    int wait = AttemptThrottle.waitSeconds(wrongInARow + 1, guard.now(), guard.now());
+    return result(false, PASSPHRASE_WRONG, wait, write, FinalScreen.CASE);
   }
 
   // ---- the suspect ------------------------------------------------------------------------------
 
   /**
-   * One time only. Records the choice, the active seconds of the final's timer at this moment (pauses excluded) and
-   * finalises the team in the same guarded statement; it never reveals whether the suspect is right.
+   * One time only, on the case screen. Records the choice, the active seconds of the final's timer at this moment
+   * (pauses excluded) and finalises the team in the same guarded statement; it never reveals whether the suspect is
+   * right. It does not need the four files; the time points do (FinalScoring).
    */
   @Transactional(noRollbackFor = FinalTimeUp.class)
   public FinalActionResult submitSuspect(Principal principal, SuspectChoiceRequest request) {
     TeamWrite write = gate.open(principal, "final-suspect", request);
     TeamWriteGate.requireNotDisqualified(write);
     long teamId = write.team().id();
-    int choice = request.suspectId();
-    if (choice < 1 || choice > CryptoContent.SUSPECT_COUNT) throw fail(400, "Choose one of the listed suspects.");
+    String choice = request.suspectId().strip();
     Optional<Row> existing = finals.find(teamId);
     if (existing.isPresent() && existing.get().suspectId() != null) {
-      if (existing.get().suspectId() != choice) throw fail(409, "Your final answer is already recorded.");
+      if (!existing.get().suspectId().equals(choice)) throw fail(409, "Your final answer is already recorded.");
       return result(true, SUBMITTED_MESSAGE, 0, write, FinalScreen.SUBMITTED);
     }
     Guard guard = guard(write);
     requireCaseStarted(guard);
-    if (finals.solvedLayers(teamId).size() < CryptoContent.LAYER_COUNT) throw fail(409, "Solve all four layers first.");
+    ShipmentContent content = requireContent();
+    if (content.suspect(choice).isEmpty()) throw fail(400, "Choose one of the listed suspects.");
     int active = FinalClock.activeSeconds(guard.timer(), guard.now());
-    boolean correct = requireContent().isCorrectSuspect(choice);
+    boolean correct = content.isCorrectSuspect(choice);
     if (!finals.submitSuspect(teamId, choice, correct, guard.now(), active)) throw fail(409, "Your final answer is already recorded.");
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_FINAL_SUBMITTED", "team:" + teamId);
@@ -465,6 +447,7 @@ public class EventFinalService {
     return new Guard(state, facts, row, timer, now);
   }
 
+  /** The case screen: 4 clues, unlocked and started (a finalised team was already refused by the guard). */
   private static void requireCaseStarted(Guard guard) {
     if (guard.facts().clues() < FinalStageResolver.REQUIRED_CLUES) throw fail(409, "Solve the Recovery Challenge first.");
     if (guard.row() == null || guard.row().unlockedAt() == null) throw fail(409, "Open the case first.");
@@ -475,7 +458,7 @@ public class EventFinalService {
     if (waitSeconds > 0) throw fail(429, "Too many wrong answers. Wait " + waitSeconds + " seconds and try again.");
   }
 
-  private CryptoContent requireContent() {
+  private ShipmentContent requireContent() {
     return contents.content().orElseThrow(() -> fail(409, "The final content is not ready."));
   }
 

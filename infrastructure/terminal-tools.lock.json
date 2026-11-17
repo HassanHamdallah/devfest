@@ -5,7 +5,7 @@
     "arch": "x86",
     "keyName": "alpine-devel@lists.alpinelinux.org-61666e3f.rsa.pub",
     "keySha256": "128d34d4aec39b0daedea8163cd8dc24dff36fd3d848630ab97eeb1d3084bbb3",
-    "indexSha256": "95f85a1b80ba06428498b447ca757511b5bd1b1e703d7c0516bcbc15f51d3f34"
+    "indexSha256": "355e0b532823a83e1ad84b1d6596f081eacfea0bda4632b85157c89946e3ab6d"
   },
   "packages": [
     {
@@ -139,6 +139,51 @@
       "license": "GPL-2.0-or-later",
       "upstream": "https://oldmanprogrammer.net/source.php?dir=projects/tree",
       "origin": "tree"
+    },
+    {
+      "name": "libcrypto3",
+      "version": "3.5.9-r0",
+      "file": "libcrypto3-3.5.9-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libcrypto3-3.5.9-r0.apk",
+      "sha256": "fefdfbd558fb994eb32d1f20fdad9791efd9021312f5183163e29b8d9fc940b2",
+      "bytes": 1788677,
+      "license": "Apache-2.0",
+      "upstream": "https://www.openssl.org/",
+      "origin": "openssl"
+    },
+    {
+      "name": "libssl3",
+      "version": "3.5.9-r0",
+      "file": "libssl3-3.5.9-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libssl3-3.5.9-r0.apk",
+      "sha256": "07371c13c19e5c7cdcc5b6e9476dab3f26d565ca8e3dc5d598b2ee3411e81d2f",
+      "bytes": 400752,
+      "license": "Apache-2.0",
+      "upstream": "https://www.openssl.org/",
+      "origin": "openssl"
+    },
+    {
+      "name": "openssl",
+      "version": "3.5.9-r0",
+      "file": "openssl-3.5.9-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/openssl-3.5.9-r0.apk",
+      "sha256": "dc73b57886cd6565ca1753c6fc23bafab12e93d9c2cbd518265e68c195e398a9",
+      "bytes": 337097,
+      "license": "Apache-2.0",
+      "upstream": "https://www.openssl.org/",
+      "origin": "openssl"
+    },
+    {
+      "name": "haveged",
+      "version": "1.9.21-r0",
+      "file": "haveged-1.9.21-r0.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/haveged-1.9.21-r0.apk",
+      "sha256": "f1f4c2a11c22df8f9d8965e686e618faae04861e744d8bfeedbca691e44751ee",
+      "bytes": 31925,
+      "license": "GPL-3.0-or-later",
+      "upstream": "https://www.issihosts.com/haveged/",
+      "origin": "haveged",
+      "addedFromIndexSha256": "355e0b532823a83e1ad84b1d6596f081eacfea0bda4632b85157c89946e3ab6d"
     }
   ],
   "licenses": {
@@ -161,6 +206,10 @@
     "X11": {
       "url": "https://raw.githubusercontent.com/mirror/ncurses/master/COPYING",
       "sha256": "0413b2f4ea863194c174673032f0fca84f1ea1ed4eed6476baea68c075a631ce"
+    },
+    "Apache-2.0": {
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     "bzip2": {
       "url": "https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;hb=HEAD",

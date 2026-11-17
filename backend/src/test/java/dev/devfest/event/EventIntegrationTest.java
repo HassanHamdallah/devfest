@@ -52,20 +52,14 @@ public abstract class EventIntegrationTest {
     RoomCode.LINUX, "WEST TOWER",
     RoomCode.HARDWARE, "+970-59-881"
   );
-  /** The Recovery Challenge of the content the tests import (the shipped file has an obvious placeholder). */
+  /** The Recovery Challenge of the content the tests import (in place of the shipped file's own). */
   protected static final String RECOVERY_QUESTION = "How many bits are in a byte?";
   protected static final String RECOVERY_ANSWER = "EIGHT BITS";
-  protected static final List<String> SUSPECTS = List.of(
-    "Kareem Shehab",
-    "Leila Nasser",
-    "Tariq Al-Khatib",
-    "Nadia Murad",
-    "Farid Mansour",
-    "Mazen Haddad"
-  );
-  protected static final String CORRECT_SUSPECT = "Leila Nasser";
-  /** The layers' plaintexts the server derives from the shipped content, and the verdicts it derives. */
-  protected static final long[] LAYER_ANSWERS = { 52, 17, 8, 17 };
+  /** The shipped case's correct suspect and a wrong one. */
+  protected static final String CORRECT_SUSPECT = "S11";
+  protected static final String WRONG_SUSPECT = "S05";
+  /** The four evidence files' passphrases, exactly as the organizers' key files hold them (with their line ending). */
+  protected static final List<String> PASSPHRASES = passphrases();
 
   /** A test team with its member account's access token. */
   protected record TestTeam(long id, String name, GroupCode group, long accountId, String token) {}
@@ -108,8 +102,8 @@ public abstract class EventIntegrationTest {
       """
       TRUNCATE audit_event, auth_session, refresh_token, rate_bucket, app_user, event_team, room_submission,
                room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score,
-               recovery_attempt, team_final, final_unlock_attempt, final_layer_attempt, final_verdict, final_content,
-               final_time_adjustment, sentinel_content
+               recovery_attempt, team_final, final_unlock_attempt, final_clue_attempt, final_content,
+               final_terminal_bundle, final_time_adjustment, sentinel_content
       RESTART IDENTITY CASCADE"""
     );
     db.update(
@@ -190,8 +184,8 @@ public abstract class EventIntegrationTest {
 
   /**
    * Complete event content: each room's manager sets the clue key through the API (no key exists in production code),
-   * then the admin imports the final's content file (the shipped docs/final/crypto-content.json with a real Recovery
-   * Challenge in place of its placeholder).
+   * then the admin imports the final's content file (the shipped docs/final/last-shipment-content.json with the tests'
+   * Recovery Challenge).
    */
   protected void loadContent() {
     for (RoomCode code : RoomCode.values()) expectOk(setClueKey(code, CLUE_KEYS.get(code)));
@@ -201,13 +195,30 @@ public abstract class EventIntegrationTest {
   /** The shipped content file, with the Recovery Challenge the tests use. */
   protected static String finalContentJson() {
     try {
-      String shipped = java.nio.file.Files.readString(java.nio.file.Path.of("..", "docs", "final", "crypto-content.json"), StandardCharsets.UTF_8);
-      return shipped
-        .replace("PLACEHOLDER - replace this with the real Recovery Challenge question before the event.", RECOVERY_QUESTION)
-        .replace("PLACEHOLDER-REPLACE-ME", RECOVERY_ANSWER);
+      String shipped = java.nio.file.Files.readString(java.nio.file.Path.of("..", "docs", "final", "last-shipment-content.json"), StandardCharsets.UTF_8);
+      tools.jackson.databind.ObjectMapper json = tools.jackson.databind.json.JsonMapper.builder().build();
+      tools.jackson.databind.node.ObjectNode tree = (tools.jackson.databind.node.ObjectNode) json.readTree(shipped);
+      tools.jackson.databind.node.ObjectNode recovery = tree.putObject("recovery");
+      recovery.put("question", RECOVERY_QUESTION);
+      recovery.putArray("acceptedAnswers").add(RECOVERY_ANSWER);
+      return json.writeValueAsString(tree);
     } catch (java.io.IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  /** keys/clueN_secret.txt of the shipped case, unchanged (each ends with a line ending). */
+  private static List<String> passphrases() {
+    List<String> secrets = new ArrayList<>();
+    for (int n = 1; n <= 4; n++) {
+      java.nio.file.Path file = java.nio.file.Path.of("..", "docs", "final", "last-shipment", "keys", "clue" + n + "_secret.txt");
+      try {
+        secrets.add(java.nio.file.Files.readString(file, StandardCharsets.US_ASCII));
+      } catch (java.io.IOException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    return List.copyOf(secrets);
   }
 
   protected Response importFinalContent(String json) {
@@ -309,23 +320,20 @@ public abstract class EventIntegrationTest {
     return teamPost(team, "/team/final/start", UUID.randomUUID(), null);
   }
 
-  protected Response layer(TestTeam team, int layer, String value) {
-    return teamPost(team, "/team/final/layers/" + layer, UUID.randomUUID(), "{\"value\":" + quote(value) + "}");
+  /** One evidence file's passphrase. */
+  protected Response passphrase(TestTeam team, int clue, String value) {
+    return teamPost(team, "/team/final/clues/" + clue + "/passphrase", UUID.randomUUID(), "{\"passphrase\":" + quote(value) + "}");
   }
 
-  protected Response verdict(TestTeam team, int layer, String verdict) {
-    return teamPost(team, "/team/final/verdicts/" + layer, UUID.randomUUID(), "{\"verdict\":" + quote(verdict) + "}");
+  protected Response suspect(TestTeam team, String suspectId) {
+    return teamPost(team, "/team/final/suspect", UUID.randomUUID(), "{\"suspectId\":" + quote(suspectId) + "}");
   }
 
-  protected Response suspect(TestTeam team, int suspectId) {
-    return teamPost(team, "/team/final/suspect", UUID.randomUUID(), "{\"suspectId\":" + suspectId + "}");
-  }
-
-  /** Unlocks, starts the case and solves the first {@code layers} layers with the right integers. */
-  protected void playTo(TestTeam team, int layers) {
+  /** Unlocks, starts the case and decrypts the first {@code clues} evidence files with their real passphrases. */
+  protected void playTo(TestTeam team, int clues) {
     expectOk(unlockWithKeys(team));
     expectOk(startCase(team));
-    for (int n = 1; n <= layers; n++) expectOk(layer(team, n, Long.toString(LAYER_ANSWERS[n - 1])));
+    for (int n = 1; n <= clues; n++) assertEquals(true, expectOk(passphrase(team, n, PASSPHRASES.get(n - 1))).json("$.accepted"));
   }
 
   protected Response teamPost(TestTeam team, String path, UUID key, String body) {
@@ -385,6 +393,6 @@ public abstract class EventIntegrationTest {
   }
 
   protected static String quote(String text) {
-    return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t") + "\"";
   }
 }

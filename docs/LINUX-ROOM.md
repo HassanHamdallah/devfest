@@ -116,7 +116,7 @@ For the curious (and for debugging a package that "works on my machine"):
 
 1. The page downloads the package from the server (`GET .../terminal-bundle`, sent with an ETag, so a restart asks
    "has it changed?" and usually receives `304 Not Modified` instead of the bytes).
-2. It also downloads the **tools archive** (`/terminal/devfest-tools.tgz`, about 1.9 MB, the same file for every room;
+2. It also downloads the **tools archive** (`/terminal/devfest-tools.tgz`, about 4.7 MB, the same file for every room;
    section 5). It is a static file of the site, not part of your package and not counted in its 20 MB.
 3. After Linux has booted, the page puts the package, its accounts and the tools on the 9p share (`/mnt`) and types
    **one invisible command**: `gzip -dc /mnt/devfest-bundle.tgz | tar -xf - -C /` (this BusyBox `tar` has no `-z`),
@@ -161,6 +161,7 @@ starts, and `/usr/local/bin` comes first in the `PATH`, so **`find` is GNU find*
 | `zip` | Info-ZIP zip 3.0 (BusyBox's `unzip` reads what it writes) |
 | `nano` | GNU nano 9.3: a full-screen editor (`nano file`; **Ctrl+O** saves, **Ctrl+X** exits, arrow keys move). It runs on the terminal's alternate screen, so the team gets back exactly the screen it had |
 | `tree` | tree 2.3.2: draws a folder as a tree (`tree -L 2 /srv`, `-a`, `-d`, `-u`, `-p`) |
+| `openssl` | OpenSSL 3.5.9, the original command: `openssl enc -d -aes-256-cbc -pbkdf2 -in f.enc -out f.txt -pass file:secret.txt`, `openssl pkeyutl -decrypt -inkey key.pem -in f.rsa -out secret.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256`, `openssl dgst`, `openssl rand`, `openssl genrsa`, `openssl version`. Alpine's stock configuration (default provider only, no legacy algorithms such as MD4 or RC4). A `-pass file:` reads the **first line**, and a CR from a Windows-made file stays in the passphrase, so write secrets with a single LF. **The first random bytes:** the guest's kernel (4.16) has no credited entropy source (it predates `random.trust_cpu`, so the emulated RDRAND is not counted), so `getrandom()` blocks until the pool is credited: in a room terminal the **first** command that needs random bytes (an RSA decryption, `rand`, `genrsa`) waits about 100 to 115 s after the terminal started; after that it takes about a second. `openssl enc -d` with a given passphrase does not need it. **The final's terminal seeds the pool during its setup** (`haveged -F --once`, below), so there the first RSA decryption takes under a second. A terminal restored after a page refresh is already past it |
 
 They are 32-bit x86 programs built against musl; each command is a small wrapper that starts the real program through
 the musl loader, so nothing in `/lib` or `/etc` is touched. `nano` also needs a terminal description: its wrapper points
@@ -191,7 +192,7 @@ section 10.
 `time` `watch` `mount` `umount` `ifconfig` `ip` `netstat` (there is no network device, so these show nothing useful)
 
 **Not available** (a challenge must not rely on them): `stat`, `whereis`, `locate`, `tac`, `rev`, `comm`,
-`expand`, and in a room **without** a package also `file`, `base64`, `bzip2`, `zip`, `nano` and `tree`. Alternatives: `ls -l --full-time`
+`expand`, and in a room **without** a package also `file`, `base64`, `bzip2`, `zip`, `nano`, `tree` and `openssl`. Alternatives: `ls -l --full-time`
 or `find -printf` instead of `stat`; `ls -lnR` for numeric owners; `xxd`, `hexdump` or `od` to look inside a file.
 
 Do not rebuild the Linux image for a challenge; design with the commands above. If a command is truly needed, ask the
@@ -275,8 +276,8 @@ whole listing with `ls -lnR` once through **Test terminal** before the event.
 
 Official **Alpine Linux v3.24 x86** packages (32-bit, musl), unmodified, taken from `https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/`.
 Nothing is compiled. `infrastructure/build-terminal-tools.py` builds `frontend/public/terminal/devfest-tools.tgz`
-(2,236,342 bytes gzip, 13.2 MB unpacked, SHA-256
-`82aa6cd7b8e657fcbceb59b0483624ddcbe2810ee43aed1d65e71a70e7bcaf8c`, the same bytes on every rebuild).
+(4,723,997 bytes gzip, 18.5 MB unpacked, SHA-256
+`3b9e1bf9cf249bddc3825b8b6062bf95e90e05d49a2599fea0444119e0f322d2`, the same bytes on every rebuild).
 
 | Package | Version | License | SHA-256 of the package file | Download |
 |---|---|---|---|---|
@@ -292,6 +293,10 @@ Nothing is compiled. `infrastructure/build-terminal-tools.py` builds `frontend/p
 | ncurses-terminfo-base | 6.6_p20260516-r0 | X11 | `dbb8268b7a8c9e98b109dc6bd1a989f846bd49b71a186308a2224f3195620501` | [ncurses-terminfo-base-6.6_p20260516-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/ncurses-terminfo-base-6.6_p20260516-r0.apk) |
 | nano | 9.3-r0 | GPL-3.0-or-later | `22f9e80f856b64073dd9a77b30016e2bbd6c3f79ab956f1701cd0294ce6bf737` | [nano-9.3-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/nano-9.3-r0.apk) |
 | tree | 2.3.2-r0 | GPL-2.0-or-later | `0259e3aa65fd275f0a681ceef37e212af1d34c59f877f8af6d6737d17901ea49` | [tree-2.3.2-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/tree-2.3.2-r0.apk) |
+| libcrypto3 | 3.5.9-r0 | Apache-2.0 | `fefdfbd558fb994eb32d1f20fdad9791efd9021312f5183163e29b8d9fc940b2` | [libcrypto3-3.5.9-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libcrypto3-3.5.9-r0.apk) |
+| libssl3 | 3.5.9-r0 | Apache-2.0 | `07371c13c19e5c7cdcc5b6e9476dab3f26d565ca8e3dc5d598b2ee3411e81d2f` | [libssl3-3.5.9-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/libssl3-3.5.9-r0.apk) |
+| openssl | 3.5.9-r0 | Apache-2.0 | `dc73b57886cd6565ca1753c6fc23bafab12e93d9c2cbd518265e68c195e398a9` | [openssl-3.5.9-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/openssl-3.5.9-r0.apk) |
+| haveged | 1.9.21-r0 | GPL-3.0-or-later | `f1f4c2a11c22df8f9d8965e686e618faae04861e744d8bfeedbca691e44751ee` | [haveged-1.9.21-r0.apk](https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86/haveged-1.9.21-r0.apk) |
 
 How the downloads are treated as untrusted until verified (`python infrastructure/build-terminal-tools.py --lock` does
 it, and a normal build repeats the checks):
@@ -306,18 +311,36 @@ it, and a normal build repeats the checks):
    deliberate `--lock` run followed by a build and a test.
 
 `file` and `libmagic` (BSD-2-Clause), `bzip2` and `libbz2` (the bzip2 license), `musl` (MIT), `zip` (Info-ZIP license),
-and `libncursesw` with its terminfo entry (the ncurses X11 license) are permissively licensed. **GNU findutils and GNU nano
+and `libncursesw` with its terminfo entry (the ncurses X11 license) and OpenSSL 3 (`openssl`, `libcrypto3`, `libssl3`: Apache-2.0) are permissively licensed. **GNU findutils and GNU nano
 (GPL-3.0-or-later), tree (GPL-2.0-or-later) and BusyBox (GPL-2.0-only)** come with their source: the
 exact source archives are the ones Alpine builds from (`https://gitlab.alpinelinux.org/alpine/aports`, branch
 `3.24-stable`, `main/findutils`, `main/nano`, `main/tree` and `main/busybox`, which name the upstream tarballs and their checksums), and the
 programs run only inside the visitor's browser. The full license texts, each from its project's own site and pinned by
 SHA-256, are in `frontend/public/terminal/TOOLS-LICENSES.txt`, next to `V86-LICENSE`.
 
+OpenSSL: the wrapper sets `OPENSSL_CONF=/usr/local/devfest-tools/share/openssl.cnf`, Alpine's stock `/etc/ssl/openssl.cnf`
+(default provider only), because the image has no `/etc/ssl`. Alpine's legacy module and engines are not in the archive.
+Adding OpenSSL (`openssl`, `libcrypto3`, `libssl3`) grew the archive by 2,458,805 bytes gzip (2,236,342 to 4,695,147) and the
+unpacked size by 5.4 MB (13.9 to 19.3 MB); the build added no other change to the 12 earlier packages (same versions and SHA-256).
+Boot time of the Linux room (test terminal, 301-file package, headless Edge, one warm-up boot then three measured): before 5.5, 5.4, 5.4 s
+(mean 5.43 s); after 5.6, 5.9, 6.0 s (mean 5.83 s), so OpenSSL costs about 0.4 s. Free memory in the 80 MB guest after installing the
+tools with a small package: 36 MB.
+
+haveged (the final's entropy seed): the final's setup runs `haveged -F --once -b 16` after the tools are installed and before
+the ready mark. haveged runs its own online tests (AIS-31 A and B, both passed in the guest), credits 4 KB to the kernel with
+RNDADDENTROPY ("crng init done" follows) and exits; nothing keeps running. Added with `--add haveged`, which verifies one package
+against the signed index and leaves the 15 locked ones as they were; it grew the archive by 28,850 bytes gzip (haveged and
+libhavege.so.2). Measured with the real image in v86 (Node, the final package, 3 boots each): **before** "ready" 5.3, 5.1, 5.0 s and
+the first `openssl pkeyutl -decrypt` 113.7, 115.8, 115.8 s; **after** "ready" 6.4, 6.6, 6.6 s and the first RSA decryption 0.7, 0.6,
+0.7 s. It costs about 1.4 s of setup (a smaller buffer, `-b 4`, did not make it cheaper: most of it is haveged's start-up and
+tests), more than the 1 s a Linux room may spend, so only the final's terminal runs it (`seedEntropy` on the terminal component).
+A failing haveged is not fatal: the shell still starts and only the first RSA decryption is slow again.
+
 Terminfo: only `l/linux` is bundled, because the guest's `TERM` is `linux` (checked in the real terminal); the wrapper sets
 `TERMINFO=/usr/local/devfest-tools/share/terminfo`. Adding `nano`, `tree`, libncursesw and that entry grew the archive by
 350,071 bytes gzip (1,886,271 to 2,236,342) and the unpacked size by about 0.7 MB.
 
-Limits: archive 2.2 MB gzip (limit 6 MB, kept); free memory with a 20 MB package is 21 to 22 MB (limit 10 MB, kept;
+Limits: archive 4.7 MB gzip with OpenSSL (limit 6 MB, kept; it was 2.2 MB before); free memory with a 20 MB package is 16 MB with OpenSSL (21 to 22 MB before; limit 10 MB, kept;
 this needed the 80 MB guest described in section 4, because with 64 MB only 6 MB were left). Boot growth (limit 2 s):
 on the idle laptop the tools added about 1.0 to 1.4 s (one 301-file run, 4.4 to 4.8 s before, 5.8 s after); that was not
 re-measured against a no-tools build under the later, loaded conditions, so treat the 2 s limit as met on an idle laptop

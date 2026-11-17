@@ -22,8 +22,7 @@ public class EventResetRepository {
     "DELETE FROM sentinel_evaluation WHERE %s",
     "DELETE FROM sentinel_submission WHERE %s",
     "DELETE FROM sentinel_run WHERE %s",
-    "DELETE FROM final_verdict WHERE %s",
-    "DELETE FROM final_layer_attempt WHERE %s",
+    "DELETE FROM final_clue_attempt WHERE %s",
     "DELETE FROM final_unlock_attempt WHERE %s",
     "DELETE FROM team_final WHERE %s",
     "DELETE FROM recovery_attempt WHERE %s",
@@ -52,10 +51,9 @@ public class EventResetRepository {
     db.queryForObject("SELECT set_config('devfest.allow_reset', 'on', true)", String.class);
   }
 
-  /** All final-phase progress: team finals, unlock and layer attempts, verdicts, recovery attempts, RECOVERY clues, added time. */
+  /** All final-phase progress: team finals, unlock and passphrase attempts, recovery attempts, RECOVERY clues, added time. */
   public void deleteFinalProgress() {
-    db.update("DELETE FROM final_verdict");
-    db.update("DELETE FROM final_layer_attempt");
+    db.update("DELETE FROM final_clue_attempt");
     db.update("DELETE FROM final_unlock_attempt");
     db.update("DELETE FROM team_final");
     db.update("DELETE FROM recovery_attempt");

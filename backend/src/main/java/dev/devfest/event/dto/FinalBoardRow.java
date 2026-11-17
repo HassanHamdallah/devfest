@@ -6,9 +6,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * One active team on the admin's live final table: its status, the stage it is on, how many attempts it made, what it
- * answered and the parts of its final score. Admin only: it carries the verdicts' and the suspect's correctness.
- * {@code verdictE03} / {@code verdictE04} are the team's own YES / NO (null while not given).
+ * One active team on the admin's live final table: its status, the stage it is on, how many attempts it made, the
+ * evidence files it decrypted (0 to 4), its suspect and the parts of its final score. Admin only: it carries the
+ * suspect's correctness.
  */
 public record FinalBoardRow(
   long teamId,
@@ -18,23 +18,18 @@ public record FinalBoardRow(
   FinalStage status,
   String stage,
   int clues,
-  int layersSolved,
+  int cluesSolved,
   int unlockAttempts,
   int unlockWrong,
-  int layerAttempts,
-  int layerWrong,
+  int passphraseAttempts,
+  int passphraseWrong,
   int recoveryAttempts,
-  String verdictE03,
-  Boolean verdictE03Correct,
-  String verdictE04,
-  Boolean verdictE04Correct,
   String suspect,
   Boolean suspectCorrect,
   Integer activeSeconds,
   Instant finishedAt,
   String finishedBy,
-  BigDecimal layersPoints,
-  BigDecimal verdictsPoints,
+  BigDecimal cluePoints,
   BigDecimal suspectPoints,
   BigDecimal timePoints,
   BigDecimal finalScore

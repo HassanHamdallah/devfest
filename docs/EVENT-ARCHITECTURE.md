@@ -11,9 +11,9 @@ components, signals, OnPush). No ORM, no sockets. Frontend runtime dependencies 
 |---|---|---|
 | `web` | Thin controllers: `@Valid` request record, principal, one service call, typed DTO | `EventSharedController` (revision, home, results), `EventTeamController`, `EventManagerController`, `EventAdminController` (board, rooms, rounds, final, publication, CSV), `EventSetupController` (accounts, teams, managers, room content), `EventOperationsController` (`GET /api/v1/health`), `EventStreamController` (stream ticket, SSE revision stream) |
 | `service` | Rules, authorization, transactions, audit, revision bumps — no SQL | `EventAccessPolicy`, `EventControlService`, `EventTeamBoardService`, `EventSubmissionService`, `EventFinalService`, `EventRoomBoardService`, `EventJudgingService`, `EventDeductionService` (hints, cheating), `EventManualScoreService`, `EventFinalContentService`, `EventFinalTimerService`, `EventFinalBoardService`, `ScoreBreakdownService` (the one score and ranking read), `TerminalScoreService`, `EventContentService`, `EventOrganizationService`, `EventAdminBoardService`, `EventResultsService`, `EventExportService`, `EventSharedService`, `EventHealthService`, `StreamTicketService`, `EventStreamRegistry` + `RevisionBroadcaster` (revision push); helpers `TeamWriteGate` (rate limit → locks → request hash for team POSTs), `EventClock` (server time truncated to µs), `EventText` (UTF-8 byte limits), `EventViews` (record → DTO), `EventContentGaps` (shared by alerts and the open-final check) |
-| `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `DeductionRepository`, `ManualScoreRepository`, `FinalContentRepository`, `FinalAdjustmentRepository`, `RecoveryAttemptRepository`, `TeamFinalRepository` (the final row, attempts, verdicts), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
-| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `FinalActionResult`, `RecoveryResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a plaintext, a private exponent, a verdict's correctness, a recovery answer, the correct suspect, a deduction or another team's data; the only clue key a member can receive is `RoomEvidence.clueValue`, set only for a finished room whose clue the team collected (`EvidenceVisibility`, rules §17) | |
-| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `DeductionKind`, `FinalStage`, `FinalScreen`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `RoomScoring`, `FinalScoring`, `EventRanking`, `AttemptThrottle`, `CryptoContent` + `CryptoContentRules` (the content file and its validation), `EvidenceVisibility` (room finished for a team; when its clue key may be shown), `EventRuleException` |
+| `repository` | SQL only (`JdbcTemplate`, text blocks, private row mappers); returns records/`Optional`/`List` | `EventStateRepository`, `EventRoomRepository`, `EventTeamRepository`, `RoomSubmissionRepository`, `RoomJudgementRepository`, `CollectedClueRepository`, `DeductionRepository`, `ManualScoreRepository`, `FinalContentRepository`, `FinalAdjustmentRepository`, `RecoveryAttemptRepository`, `TeamFinalRepository` (the final row, unlock and passphrase attempts), `FinalTerminalBundleRepository` (the final's own terminal package), `EventAccountRepository`, `EventBoardRepository` (aggregated board reads), `EventHealthRepository`, plus `*Record` row types |
+| `dto` | Request and response records with Jakarta validation. Member-facing types (`TeamBoard`, `TeamRoomCard`, `Receipt`, `TeamFinal`, `FinalActionResult`, `RecoveryResult`, `ResultsView`, `PublicRankingRow`) have no field that could hold a passphrase or its hash, an unsolved file's report, a recovery answer, the correct suspect, a deduction or another team's data; the only clue key a member can receive is `RoomEvidence.clueValue`, set only for a finished room whose clue the team collected (`EvidenceVisibility`, rules §17) | |
+| `domain` | Pure Java | `RoomCode`, `GroupCode`, `JudgeStatus`, `TeamRoomStatus`, `DeductionKind`, `FinalStage`, `FinalScreen`, `Rotation`, `AnswerNormalizer`, `FinalStageResolver`, `RoomScoring`, `FinalScoring`, `EventRanking`, `AttemptThrottle`, `ShipmentContent` + `ShipmentContentRules` (the content file, format 2, and its validation), `Passphrase` (trim, lower-case, SHA-256 compare), `EvidenceVisibility` (room finished for a team; when its clue key may be shown), `EventRuleException` |
 | `seed` | Development data only | `EventDevelopmentSeed` (requires `DEVFEST_EVENT_SEED_PASSWORD` **and** `DEVFEST_DEVELOPMENT=true`; refuses to start otherwise; idempotent) |
 
 Shared pieces reused: `dev.devfest.audit.AuditLog` (also used by `ContestService.audit`), `auth.RateLimit`
@@ -39,8 +39,7 @@ erDiagram
   event_team ||--o{ room_manual_score : "typed score"
   event_team ||--o{ recovery_attempt : attempts
   event_team ||--o{ final_unlock_attempt : "unlock tries"
-  event_team ||--o{ final_layer_attempt : "layer tries"
-  event_team ||--o{ final_verdict : "one per report"
+  event_team ||--o{ final_clue_attempt : "passphrase tries"
   event_team ||--o| team_final : "progress in the final"
   event_state {
     int id PK "always 1"
@@ -88,8 +87,8 @@ erDiagram
 
 Integrity rules in the database: CHECK constraints for every enum and every text limit (`octet_length` matching
 the DTO limits, which services also enforce in bytes); `UNIQUE(team_id, idempotency_key)` on `room_submission`,
-`recovery_attempt` and the unlock and layer attempts; one correct attempt per team and layer and one active cheating
-violation per team and room (partial unique indexes); triggers make submissions, the final's attempts and verdicts and
+`recovery_attempt` and the unlock and passphrase attempts; one correct attempt per team and clue and one active cheating
+violation per team and room (partial unique indexes); triggers make submissions, the final's attempts and
 judgement history append-only and allow a deduction only a single cancellation (never a delete). All timestamps are `TIMESTAMPTZ`. Indexes exist on every
 foreign key used in joins/filters and on `room_submission(room_id, received_at DESC)` and
 `room_submission(team_id, room_id, received_at DESC)` (latest submission lookups).
@@ -174,6 +173,11 @@ and its accusations (tables `penalty`, `suspect`, `accusation`, the old `team_fi
 `score_deduction`, `room_manual_score`, `final_content`, the final's timer columns on `event_state`,
 `final_time_adjustment`, the new `team_final`, `final_unlock_attempt`, `final_layer_attempt`, `final_verdict` and the
 new `recovery_attempt`.
+
+V22 replaces the crypto case with "The Last Shipment" (rules §10): it drops `final_layer_attempt` and `final_verdict`,
+turns `team_final.suspect_id` into the content file's suspect id (text), removes the format-1 content row, and adds
+`final_clue_attempt` (append-only passphrase attempts, one correct row per team and clue) and `final_terminal_bundle`
+(the final's own terminal package, one row, never shared with `room_terminal_bundle`).
 
 - **One score read.** `ScoreBreakdownService` computes every team's four room scores and its final in a fixed number of
   statements: the AI mission's total (× 0.15), the Linux terminal's and the contest's /15 scores, or the typed score,

@@ -1,0 +1,84 @@
+NOVA TECHNOLOGIES
+Staff Activity Audit
+CLASSIFICATION: CONFIDENTIAL — INVESTIGATION USE ONLY
+
+FILE 04 · STAFF_ACTIVITY_AUDIT
+
+============================================================
+Security System Information
+============================================================
+Temporary Shipping Access Cards require approval from an authorized Security Officer.
+The Security Account displayed in an access log identifies the officer who approved the temporary access.
+
+It does not necessarily identify the employee physically carrying the card.
+
+Personal authentication: the Secure Procurement Room, the Secure Procurement Workstation and the Gate B Employee Exit Turnstile each require a personal smart badge plus fingerprint verification. A badge alone is not accepted.
+
+============================================================
+Staff Record — S05 Sara Awad (Procurement Analyst)
+============================================================
+Statement: “I was in the Procurement Department reviewing invoices.”
+
+Time:   9:12 PM
+System: Secure Procurement Room door
+Record: Entry — S05 Sara Awad (smart badge + fingerprint)
+
+Time:   9:14 PM – 9:22 PM
+System: Secure Procurement Workstation
+Record: Continuous authenticated activity — S05 Sara Awad (smart-badge + fingerprint login; session locks if the badge is removed)
+
+Time:   9:17 PM
+System: Secure Procurement Workstation
+Record: Fingerprint re-verification recorded — S05 Sara Awad
+
+Time:   9:25 PM
+System: Secure Procurement Room door
+Record: Exit — S05 Sara Awad (no other door event recorded for this room since 9:12 PM)
+
+Walking time between the Secure Procurement Room and the Shipping Corridor: approximately 6 minutes.
+
+============================================================
+Staff Record — S11 Samer Murad (Vendor Relations Officer)
+============================================================
+Statement: “I left the building at 9:00 PM.”
+
+Gate B Employee Exit Turnstile — extract
+
+Time:     8:12 PM
+Employee: Badge E-4412 (Day Shift)
+Record:   Exit — smart badge + fingerprint
+
+Time:     8:47 PM
+Employee: Badge E-3178 (Day Shift)
+Record:   Exit — smart badge + fingerprint
+
+Time:     9:31 PM
+Employee: S11 — Samer Murad
+Record:   Exit — smart badge + fingerprint
+
+Time:     9:38 PM
+Employee: Badge E-4890 (Evening Shift)
+Record:   Exit — smart badge + fingerprint
+
+No exit event for Samer Murad was recorded at or before 9:00 PM.
+
+============================================================
+Additional Staff Records
+============================================================
+Available records for the following employees do not provide enough information to confirm or eliminate their presence near the Shipping Corridor during the critical period:
+• S01 — Yazan Al-Haddad
+• S19 — Hiba Qasem
+• S20 — Mazen Al-Dweik
+
+============================================================
+Other Routine Staff Records
+============================================================
+Time:   9:05 PM
+System: IoT Monitoring Console
+Record: Sensor heartbeat check completed — S17 Jana Zaidan
+
+Time:   9:20 PM
+System: Shift Supervisor Terminal
+Record: Evening handover report submitted — S13 Jad Younes
+
+END OF FILE

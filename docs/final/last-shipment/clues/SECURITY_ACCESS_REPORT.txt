@@ -1,0 +1,57 @@
+NOVA TECHNOLOGIES
+Security Access Report
+CLASSIFICATION: RESTRICTED
+
+FILE 02 · SECURITY_ACCESS_REPORT
+
+Security Event Log — Evening Extract
+
+Time: 8:30 PM
+System: Main Lobby
+Event: Visitor badge V-221 issued (routine)
+
+Time: 8:52 PM
+System: Main Lobby
+Event: Visitor badge V-221 returned
+
+Time: 9:02 PM
+System: Level 2
+Event: East fire-door test completed — Facilities
+
+Time: 9:10 PM
+System: Network Room door
+Event: Badge-in — S04 Adam Hijazi
+
+Time: 9:15 PM – 9:20 PM
+System: Shipping Corridor CCTV
+Event: Camera feed unavailable. Status: Scheduled Maintenance
+
+Time: 9:17 PM
+System: Shipping Corridor door
+Event: A temporary shipping access card was used to enter the Shipping Corridor.
+
+Time: 9:20 PM
+System: Shipping Corridor CCTV
+Event: Camera feed restored — maintenance window closed
+
+Time: 9:25 PM
+System: Elevator 2
+Event: Routine maintenance ping
+
+Recorded Security Information — 9:17 PM Event
+
+Security Account: Rami Al-Khatib — S02
+Access Type: Temporary Shipping Access
+Camera Verification: Unavailable
+
+No visual identification of the person entering the corridor is available.
+
+Employees Authorized for Temporary Shipping Access That Evening
+• S02 — Rami Al-Khatib
+• S05 — Sara Awad
+• S11 — Samer Murad
+• S15 — Nader Shaheen
+• S19 — Hiba Qasem
+• S20 — Mazen Al-Dweik
+
+END OF FILE

@@ -12,12 +12,11 @@ const STATUS_VARIANTS: Record<FinalStage, UiStatusChipVariant> = {
   COMPLETED: "success",
 };
 
-/** The case's five steps, as the screens the server reports them. */
+/** The case's four steps, as the screens the server reports them. */
 const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
   { label: "Unlock", screens: ["UNLOCK"] },
   { label: "Mission", screens: ["MISSION"] },
-  { label: "Layers", screens: ["LAYER"] },
-  { label: "Suspects", screens: ["SUSPECTS"] },
+  { label: "Case", screens: ["CASE"] },
   { label: "Submitted", screens: ["SUBMITTED"] },
 ];
 
