@@ -192,6 +192,14 @@ public abstract class EventIntegrationTest {
     expectOk(importFinalContent(finalContentJson()));
   }
 
+  /**
+   * Moves the final's timer forward by the shipped decryption phase (15 minutes of active time), so the investigation
+   * phase is open: suspects are offered and accepted, passphrases and the terminal are refused. Works with any clock.
+   */
+  protected void openInvestigationPhase() {
+    db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 900");
+  }
+
   /** The shipped content file, with the Recovery Challenge the tests use. */
   protected static String finalContentJson() {
     try {

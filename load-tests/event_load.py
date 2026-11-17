@@ -30,7 +30,8 @@ Mode "final": the 100-point scoring and the final "The Last Shipment". The four 
 cancelled hint and one hint beyond the two allowed (refused with 409). The admin imports the content
 (docs/final/last-shipment-content.json) and opens the final, then all 16 teams start together: unlock (with wrong
 tries), the four evidence files' passphrases (the organizers' keys/clueN_secret.txt as they are, line ending included;
-some teams send wrong ones first, some solve the files in another order) and the suspect, two teams through the
+some teams send wrong ones first, some solve the files in another order) and, once the investigation phase has opened
+(the content's phase1Minutes is 1 here, the suspects wait for it), the suspect, two teams through the
 Recovery Challenge, a share of the writes retried with the same Idempotency-Key, repeats of the one-time answers
 refused. The admin keeps the live final table and the scoreboard open (a GET every 5 s). Two teams never submit a
 suspect: the admin's close finalises them. Every team must be finalised exactly once (the finish time of a team that
@@ -1143,6 +1144,10 @@ def linux_run(args, api, config):
 
 # ---- Final mode ("The Last Shipment") -----------------------------------------------------------------------
 
+# The final's decryption phase in this run (minutes); the suspects wait for the investigation phase after it.
+FINAL_PHASE1_MINUTES = 1
+# The most writes one team makes before its suspect (recovery, unlock tries, start, wrong and right passphrases, repeats).
+FINAL_DECRYPTION_WRITES = 12
 FINAL_CONTENT = ROOT / "docs/final/last-shipment-content.json"
 # The four passphrases exactly as the organizers' key files hold them (the server trims the line ending).
 FINAL_PASSPHRASES = tuple((ROOT / f"docs/final/last-shipment/keys/clue{n}_secret.txt").read_text(encoding="ascii")
@@ -1336,6 +1341,11 @@ class FinalTeamClient(Client):
         self.refetch_board()
         self.leak_check(self.board)
         kind, arg, expect = self.steps.pop(0)
+        phase = self.board or {}
+        if kind == "suspect" and phase.get("phase") == "DECRYPTION":
+            # The suspects are offered, and accepted, only once the investigation phase has opened: wait for it.
+            self.steps.insert(0, (kind, arg, expect))
+            return time.monotonic() + (phase.get("phase1EndsInSeconds") or 0) + 1
         key = str(uuid.uuid4())
         base = "/event/team/final"
         if kind == "recovery":
@@ -1386,6 +1396,7 @@ def final_run(args, api, config):
     set_clue_keys(api, managers_list)
     content = json.loads(FINAL_CONTENT.read_text(encoding="utf-8"))
     content["recovery"] = {"question": "How many bits are in a byte?", "acceptedAnswers": [FINAL_RECOVERY_ANSWER]}
+    content["phase1Minutes"] = FINAL_PHASE1_MINUTES  # a short decryption phase, so the run reaches the investigation phase
     api.setup("PUT", "/event/admin/final/content", admin, content)
     board = api.setup("GET", "/event/admin/board", admin)
     room_ids = {room["code"]: room["id"] for room in board["rooms"]}
@@ -1413,8 +1424,9 @@ def final_run(args, api, config):
         api.setup("POST", f"/event/admin/rooms/{room_id}/close", admin)
     api.setup("POST", "/event/admin/final/open", admin)
 
-    # Every team starts together; about 15 writes per team spread over about 70% of the run.
-    gap = args.seconds * 0.7 / 16
+    # Every team starts together; about 15 writes per team spread over about 70% of the run, but the decryption writes
+    # (everything before the suspect) all fit in the decryption phase (the files are refused after it).
+    gap = min(args.seconds * 0.7 / 16, FINAL_PHASE1_MINUTES * 60 * 0.6 / FINAL_DECRYPTION_WRITES / 1.4)
     start_at = time.monotonic() + 1
     run.begin(args.seconds)
     clients = [Client(run, admin, "/event/admin/board"), FinalAdminClient(run, admin, "/event/admin/final/board")]

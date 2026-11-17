@@ -150,7 +150,7 @@ class EventRankingTest extends EventIntegrationTest {
     Response csv = expectOk(get("/admin/export.csv", admin));
     String[] lines = csv.body().split("\r\n");
     assertEquals(
-      "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,cluesSolved,cluePoints,suspect,time,finalScore,total,finishedAt",
+      "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,cluesSolved,cluePoints,suspect,time,finalScore,total,finishedAt,evidence1,evidence2,evidence3,evidence4,explanation",
       lines[0]
     );
     assertEquals(3, lines.length);

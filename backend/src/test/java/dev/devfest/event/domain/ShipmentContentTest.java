@@ -46,11 +46,25 @@ class ShipmentContentTest {
     assertEquals(2, content.format());
     assertEquals(25, content.fullUntilMinutes());
     assertEquals("THE LAST SHIPMENT", content.mission().title());
-    assertEquals(12, content.suspects().size());
+    assertEquals(20, content.suspects().size());
     assertEquals("S11", content.correctSuspect());
     assertEquals("Samer Murad", content.suspect("S11").orElseThrow().name());
     assertEquals("Vendor Relations Officer", content.suspect("S11").orElseThrow().position());
     assertEquals("Procurement Analyst", content.suspect("S05").orElseThrow().position());
+  }
+
+  @Test
+  void phase1MinutesIsOptionalAndMustBeFromOneToThirtyNine() throws Exception {
+    assertEquals(15, parse(shipped()).phase1Minutes(), "the shipped file says 15");
+    assertEquals(List.of(), problemsAfter(tree -> tree.remove("phase1Minutes")));
+    ObjectNode without = (ObjectNode) JSON.readTree(shipped());
+    without.remove("phase1Minutes");
+    assertEquals(15, JSON.treeToValue(without, ShipmentContent.class).phase1OrDefault());
+    String message = "phase1Minutes: must be a whole number from 1 to 39 (15 when left out).";
+    assertEquals(List.of(message), problemsAfter(tree -> tree.put("phase1Minutes", 0)));
+    assertEquals(List.of(message), problemsAfter(tree -> tree.put("phase1Minutes", 40)));
+    assertEquals(List.of(), problemsAfter(tree -> tree.put("phase1Minutes", 1)));
+    assertEquals(List.of(), problemsAfter(tree -> tree.put("phase1Minutes", 39)));
   }
 
   @Test

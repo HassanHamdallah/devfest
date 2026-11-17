@@ -38,6 +38,12 @@ public final class ShipmentContentRules {
     if (content.fullUntilMinutes() == null || content.fullUntilMinutes() < 1 || content.fullUntilMinutes() > 40) {
       problems.add("fullUntilMinutes: must be a whole number from 1 to 40.");
     }
+    Integer phase1 = content.phase1Minutes();
+    if (phase1 != null && (phase1 < FinalPhase.MIN_PHASE1_MINUTES || phase1 > FinalPhase.MAX_PHASE1_MINUTES)) {
+      problems.add(
+        "phase1Minutes: must be a whole number from " + FinalPhase.MIN_PHASE1_MINUTES + " to " + FinalPhase.MAX_PHASE1_MINUTES + " (15 when left out)."
+      );
+    }
     mission(content.mission(), problems);
     Set<String> references = clues(content.clues(), problems);
     keyIndex(content.keyIndex(), references, problems);

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, input } from "@angular/core";
-import { FinalBoardRow } from "../../../../core/event/event-models";
+import { FinalBoardRow, FinalPhase } from "../../../../core/event/event-models";
 import { FINAL_STAGE_LABELS, formatAdjustedSeconds, formatPoints, formatTime } from "../../../../core/event/format";
 import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
 
@@ -43,7 +43,7 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
               </button>
             </th>
             <td data-status>{{ statusLabel(row) }}</td>
-            <td data-stage-cell>{{ row.stage }}</td>
+            <td data-stage-cell>{{ row.stage }}@if (row.phase) { · {{ phaseLabel(row.phase) }}}</td>
             <td class="event-num">{{ row.clues }}</td>
             <td class="event-num" data-clues-solved>{{ row.cluesSolved }}</td>
             <td class="event-num">{{ row.unlockAttempts }} ({{ row.unlockWrong }} wrong)</td>
@@ -87,6 +87,10 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
 export class FinalTable {
   protected readonly drawer = inject(TeamDrawerService);
   readonly rows = input.required<readonly FinalBoardRow[]>();
+
+  protected phaseLabel(phase: FinalPhase): string {
+    return phase === "DECRYPTION" ? "Decryption" : "Investigation";
+  }
 
   protected statusLabel(row: FinalBoardRow): string {
     return FINAL_STAGE_LABELS[row.status] + (row.disqualified ? " (disqualified)" : "");

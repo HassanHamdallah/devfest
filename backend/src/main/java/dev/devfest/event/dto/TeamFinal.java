@@ -1,5 +1,7 @@
 package dev.devfest.event.dto;
 
+import dev.devfest.event.domain.FinalPhase;
+import dev.devfest.event.domain.FinalReport;
 import dev.devfest.event.domain.FinalScreen;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.domain.RoundPhase;
@@ -9,7 +11,9 @@ import java.util.List;
 /**
  * The team's final, always built from the server's state (a refresh resumes exactly here). Parts that belong to one
  * screen are null (or empty) elsewhere: {@code mission} on MISSION and CASE; {@code clues}, {@code keyIndex},
- * {@code suspects} and {@code terminal} on CASE only. It never carries a report of an unsolved clue, a passphrase or its
+ * {@code suspects} and {@code terminal} on CASE only; {@code suspects} only in the INVESTIGATION phase and
+ * {@code terminal} only in the DECRYPTION phase. {@code phase} (MISSION and CASE) and {@code phase1Minutes} (the decryption phase's length) and {@code phase1EndsInSeconds} (active
+ * seconds until INVESTIGATION opens, null after) come from the final's one timer. It never carries a report of an unsolved clue, a passphrase or its
  * hash, the correct suspect, a score or another team's data. {@code waitSeconds} is the unlock's wait; each clue has its
  * own. {@code submitted}: the team's suspect is recorded. {@code evidence} is the per-room clue list of the team board
  * (rules section 17).
@@ -21,6 +25,9 @@ public record TeamFinal(
   Instant finalStartedAt,
   RoundPhase timerPhase,
   Integer remainingSeconds,
+  FinalPhase phase,
+  Integer phase1Minutes,
+  Integer phase1EndsInSeconds,
   int cluesCollected,
   int waitSeconds,
   Unlock unlock,
@@ -58,6 +65,17 @@ public record TeamFinal(
 
   public record CaseSuspect(String id, String name, String position, String statement) {}
 
-  /** The last screen: team, status and time; never whether anything was correct. */
-  public record Submission(String teamName, FinalStage status, Instant at, String message) {}
+  /**
+   * The last screen: team, status and time; never whether anything was correct. {@code suspectId}, {@code suspectName}
+   * and {@code report} are the team's own submitted answer and report (null when it submitted none, e.g. time up).
+   */
+  public record Submission(
+    String teamName,
+    FinalStage status,
+    Instant at,
+    String message,
+    String suspectId,
+    String suspectName,
+    FinalReport report
+  ) {}
 }

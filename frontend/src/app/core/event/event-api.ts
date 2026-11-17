@@ -8,6 +8,8 @@ import {
   DeductionView,
   FinalActionResult,
   FinalBoardRow,
+  FinalReport,
+  FinalReportRow,
   FinalContentView,
   FinalTerminalBundleView,
   FinalTimerView,
@@ -128,8 +130,8 @@ export class EventApi {
     return this.send<FinalActionResult>("POST", "/team/final/start", {});
   }
   /** One time only; the answer never says whether the suspect was right. */
-  submitSuspect(suspectId: string) {
-    return this.send<FinalActionResult>("POST", "/team/final/suspect", { suspectId });
+  submitSuspect(suspectId: string, report: Partial<Record<keyof FinalReport, string>> = {}) {
+    return this.send<FinalActionResult>("POST", "/team/final/suspect", { suspectId, ...report });
   }
   /** 404 unless the team is assigned to the room this round and the round is not over (rules §18). */
   teamTerminalFiles(roomId: number) {
@@ -493,6 +495,10 @@ export class EventApi {
   }
   finalBoard() {
     return this.get<FinalBoardRow[]>("/admin/final/board");
+  }
+  /** The Final Investigation Reports of every team (organizers only). */
+  finalReports() {
+    return this.get<FinalReportRow[]>("/admin/final/reports");
   }
   adminDeductions() {
     return this.get<DeductionView[]>("/admin/deductions");
