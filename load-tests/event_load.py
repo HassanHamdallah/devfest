@@ -25,16 +25,19 @@ dashboard open (a GET every 5 s). Every team must end with exactly one submissio
 answers predict and its clue iff its final clue was right; the backend heap is sampled during the downloads. The
 bundle download is measured on its own and excluded from the 300 ms p95 limit. Results go to docs/event-load-linux.json.
 
-Mode "final": the 100-point scoring and the crypto final. The four room rounds first run through the API: 16 teams
-collect their clues while the 4 managers type room scores and record hints (-2), cheating (-7.5), one cancelled hint
-and one hint beyond the two allowed (refused with 409). The admin imports the content and opens the final, then all 16
-teams start together: unlock (with wrong tries), the four layers, the one-time verdicts and the suspect, two teams
-through the Recovery Challenge, a share of the writes retried with the same Idempotency-Key, repeats of the one-time
-answers refused. The admin keeps the live final table and the scoreboard open (a GET every 5 s). Two teams never submit
-a suspect: the admin's close finalises them. Every team must be finalised exactly once (the finish time of a team that
+Mode "final": the 100-point scoring and the final "The Last Shipment". The four room rounds first run through the API:
+16 teams collect their clues while the 4 managers type room scores and record hints (-2), cheating (-7.5), one
+cancelled hint and one hint beyond the two allowed (refused with 409). The admin imports the content
+(docs/final/last-shipment-content.json) and opens the final, then all 16 teams start together: unlock (with wrong
+tries), the four evidence files' passphrases (the organizers' keys/clueN_secret.txt as they are, line ending included;
+some teams send wrong ones first, some solve the files in another order) and the suspect, two teams through the
+Recovery Challenge, a share of the writes retried with the same Idempotency-Key, repeats of the one-time answers
+refused. The admin keeps the live final table and the scoreboard open (a GET every 5 s). Two teams never submit a
+suspect: the admin's close finalises them. Every team must be finalised exactly once (the finish time of a team that
 submitted does not move at the close, closing twice changes nothing), the final parts, the room scores with their
-deductions and the totals must be the ones the plans predict, no member response may carry a verdict, deduction or
-score, and no endpoint may reach a p95 of 300 ms. Results go to docs/event-load-final.json.
+deductions and the totals must be the ones the plans predict, no member response may carry a passphrase hash, the
+correct suspect, a deduction or a score, and no endpoint may reach a p95 of 300 ms. Results go to
+docs/event-load-final.json.
 """
 import argparse
 import datetime as dt
@@ -1138,17 +1141,19 @@ def linux_run(args, api, config):
     print(f"Linux load check passed; report in {output}")
 
 
-# ---- Crypto final mode --------------------------------------------------------------------------------------
+# ---- Final mode ("The Last Shipment") -----------------------------------------------------------------------
 
-FINAL_CONTENT = ROOT / "docs/final/crypto-content.json"
-FINAL_LAYER_ANSWERS = (52, 17, 8, 17)
+FINAL_CONTENT = ROOT / "docs/final/last-shipment-content.json"
+# The four passphrases exactly as the organizers' key files hold them (the server trims the line ending).
+FINAL_PASSPHRASES = tuple((ROOT / f"docs/final/last-shipment/keys/clue{n}_secret.txt").read_text(encoding="ascii")
+                          for n in range(1, 5))
 FINAL_RECOVERY_ANSWER = "EIGHT BITS"
-FINAL_RIGHT_SUSPECT, FINAL_WRONG_SUSPECT = 2, 1
+FINAL_RIGHT_SUSPECT, FINAL_WRONG_SUSPECT = "S11", "S05"
 ROOM_ORDER = ("AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE")
-# A member's final screens never carry one of these keys, at any depth (no verdict, deduction, score or plaintext).
-FINAL_FORBIDDEN_KEYS = {"cheating", "deduction", "deductions", "score", "scores", "total", "points", "verdictCorrect",
-                        "suspectCorrect", "yourVerdictCorrect", "correctSuspect", "plaintext", "privateExponent",
-                        "acceptedAnswers", "answer", "hintDeduction"}
+# A member's final screens never carry one of these keys, at any depth (no hash, correctness, deduction or score).
+FINAL_FORBIDDEN_KEYS = {"cheating", "deduction", "deductions", "score", "scores", "total", "points", "cluePoints",
+                        "suspectCorrect", "correctSuspect", "passphraseSha256", "acceptedAnswers", "answer",
+                        "hintDeduction"}
 # Hints and cheating recorded by the managers while the rooms run: {(team, round)}.
 FINAL_HINTS = {(t, 1) for t in range(1, 9)} | {(t, 2) for t in range(1, 5)}
 FINAL_CHEATING = {(3, 2), (10, 2), (10, 3)}
@@ -1159,29 +1164,34 @@ FINAL_REFUSED_HINTS = {(1, 3)}
 
 def final_plan(team):
     """What each of the 16 teams does in the final. Teams 12 and 16 never submit a suspect: the close finalises them."""
-    plan = {"clues": 4, "wrongUnlock": 0, "wrongLayers": 0, "verdict3": "NO", "suspect": FINAL_RIGHT_SUSPECT,
-            "stopAfterLayer": None}
+    plan = {"clues": 4, "wrongUnlock": 0, "wrongPassphrases": 0, "order": (1, 2, 3, 4), "suspect": FINAL_RIGHT_SUSPECT,
+            "stopAfterFiles": None}
+    if team % 2 == 1:
+        plan["order"] = (4, 3, 2, 1)
+    if team in (2, 5, 9):
+        plan["wrongPassphrases"] = 1
+    if team == 11:
+        plan["stopAfterFiles"] = 3  # submits a suspect with three files: no time points
     if team == 12:
         plan["suspect"] = None
     if team == 13:
-        plan.update(suspect=FINAL_WRONG_SUSPECT, wrongLayers=2)
+        plan.update(suspect=FINAL_WRONG_SUSPECT, wrongPassphrases=2)
     if team == 14:
-        plan.update(verdict3="YES", wrongUnlock=2)
+        plan.update(wrongUnlock=2, order=(2, 4, 1, 3))
     if team in (15, 16):
         plan["clues"] = 3
     if team == 16:
-        plan.update(stopAfterLayer=2, suspect=None)
+        plan.update(stopAfterFiles=2, suspect=None)
     return plan
 
 
 def final_expected(plan):
     """The final score parts the plan must produce (as the API rounds them)."""
-    layers = plan["stopAfterLayer"] or 4
-    verdicts = 0 if layers < 4 else (plan["verdict3"] == "NO") + 1
+    files = plan["stopAfterFiles"] or 4
     suspect = 10 if plan["suspect"] == FINAL_RIGHT_SUSPECT else 0
-    time_points = 15 if plan["suspect"] is not None and layers == 4 else 0
-    return {"layers": 2.5 * layers, "verdicts": 2.5 * verdicts, "suspect": suspect, "time": time_points,
-            "total": 2.5 * layers + 2.5 * verdicts + suspect + time_points}
+    time_points = 15 if plan["suspect"] is not None and files == 4 else 0
+    return {"cluesSolved": files, "clues": 3.75 * files, "suspect": suspect, "time": time_points,
+            "total": 3.75 * files + suspect + time_points}
 
 
 def typed_score(team, rnd):
@@ -1291,15 +1301,11 @@ class FinalTeamClient(Client):
         if plan["clues"] == 3:
             self.steps += [("recovery", "WRONG ANSWER", False), ("recovery", FINAL_RECOVERY_ANSWER, True)]
         self.steps += [("unlock", None, False)] * plan["wrongUnlock"] + [("unlock", None, True), ("start", None, True)]
-        last = plan["stopAfterLayer"] or 4
-        for layer in range(1, last + 1):
-            if layer == 1:
-                self.steps += [("layer", (1, "99999"), False)] * plan["wrongLayers"]
-            self.steps.append(("layer", (layer, str(FINAL_LAYER_ANSWERS[layer - 1])), True))
-        if last == 4:
-            self.steps += [("verdict", (3, plan["verdict3"]), True), ("verdict", (4, "YES"), True)]
-            if plan["suspect"] is not None:
-                self.steps.append(("suspect", plan["suspect"], True))
+        files = plan["order"][:plan["stopAfterFiles"] or 4]
+        self.steps += [("passphrase", (files[0], f"not-the-passphrase-{n}"), False) for n in range(plan["wrongPassphrases"])]
+        self.steps += [("passphrase", (clue, FINAL_PASSPHRASES[clue - 1]), True) for clue in files]
+        if plan["suspect"] is not None:
+            self.steps.append(("suspect", plan["suspect"], True))
 
     def first_action(self):
         return self.start_at + random.uniform(0, 0.3)
@@ -1318,9 +1324,9 @@ class FinalTeamClient(Client):
                 self.run_state.final.replay(data, again, f"team {self.team} {path}")
         return status, data
 
-    def repeat(self, path, body):
-        """A verdict and a suspect are final: asking again is refused and changes nothing."""
-        status, data = self.request("POST", path, body, None, conflict_expected=True)
+    def repeat(self, path, body, key=None):
+        """A decrypted file and a suspect are final: asking again is refused and changes nothing."""
+        status, data = self.request("POST", path, body, key, conflict_expected=True)
         self.run_state.final.refusal(status == 409 or (status == 200 and data.get("accepted") is False),
                                      f"team {self.team} {path}", status, data)
 
@@ -1344,19 +1350,18 @@ class FinalTeamClient(Client):
         elif kind == "start":
             status, data = self.write(f"{base}/start", {}, None)
             ok = status == 200
-        elif kind == "layer":
-            layer, value = arg
-            status, data = self.write(f"{base}/layers/{layer}", {"value": value}, key)
+        elif kind == "passphrase":
+            clue, value = arg
+            path = f"{base}/clues/{clue}/passphrase"
+            status, data = self.write(path, {"passphrase": value}, key)
             ok = status == 200 and data.get("accepted") is expect
-        elif kind == "verdict":
-            layer, value = arg
-            status, data = self.write(f"{base}/verdicts/{layer}", {"verdict": value}, None)
-            ok = status == 200 and data.get("accepted") is True
-            self.repeat(f"{base}/verdicts/{layer}", {"verdict": "YES" if value == "NO" else "NO"})
+            if ok and expect:
+                self.repeat(path, {"passphrase": value}, str(uuid.uuid4()))  # an already decrypted file
         else:
             status, data = self.write(f"{base}/suspect", {"suspectId": arg}, None)
             ok = status == 200 and data.get("accepted") is True
-            self.repeat(f"{base}/suspect", {"suspectId": arg % 6 + 1})  # another suspect than the one chosen
+            other = FINAL_WRONG_SUSPECT if arg == FINAL_RIGHT_SUSPECT else FINAL_RIGHT_SUSPECT
+            self.repeat(f"{base}/suspect", {"suspectId": other})  # another suspect than the one chosen
         if not ok:
             self.run_state.metrics.error(f"team {self.team}: step {kind} {arg} answered {status} {data}")
         self.refetch_board()
@@ -1379,10 +1384,9 @@ def final_run(args, api, config):
     admin, managers_list, teams = sign_in_everyone(api, config)
     managers = dict(zip(config["managers"], managers_list))
     set_clue_keys(api, managers_list)
-    content = FINAL_CONTENT.read_text(encoding="utf-8")
-    content = content.replace("PLACEHOLDER - replace this with the real Recovery Challenge question before the event.",
-                              "How many bits are in a byte?").replace("PLACEHOLDER-REPLACE-ME", FINAL_RECOVERY_ANSWER)
-    api.setup("PUT", "/event/admin/final/content", admin, json.loads(content))
+    content = json.loads(FINAL_CONTENT.read_text(encoding="utf-8"))
+    content["recovery"] = {"question": "How many bits are in a byte?", "acceptedAnswers": [FINAL_RECOVERY_ANSWER]}
+    api.setup("PUT", "/event/admin/final/content", admin, content)
     board = api.setup("GET", "/event/admin/board", admin)
     room_ids = {room["code"]: room["id"] for room in board["rooms"]}
     for room_id in room_ids.values():
@@ -1409,7 +1413,7 @@ def final_run(args, api, config):
         api.setup("POST", f"/event/admin/rooms/{room_id}/close", admin)
     api.setup("POST", "/event/admin/final/open", admin)
 
-    # Every team starts together; about 14 writes per team spread over about 70% of the run.
+    # Every team starts together; about 15 writes per team spread over about 70% of the run.
     gap = args.seconds * 0.7 / 16
     start_at = time.monotonic() + 1
     run.begin(args.seconds)
@@ -1439,7 +1443,7 @@ def final_run(args, api, config):
         name = team_names[number]
         row, before = rows.get(name, {}), rows_before.get(name, {})
         plan, want = plans[number], final_expected(plans[number])
-        got = {"layers": row.get("layersPoints"), "verdicts": row.get("verdictsPoints"), "suspect": row.get("suspectPoints"),
+        got = {"cluesSolved": row.get("cluesSolved"), "clues": row.get("cluePoints"), "suspect": row.get("suspectPoints"),
                "time": row.get("timePoints"), "total": row.get("finalScore")}
         submitted = plan["suspect"] is not None
         problems = []

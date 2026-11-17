@@ -23,7 +23,7 @@ as_postgres() { runuser -u postgres -- "$@"; }
 wait_for_health() {
   local limit="${1:-120}" waited=0 body=""
   while [ "$waited" -lt "$limit" ]; do
-    if body="$(curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null)" && printf '%s' "$body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'; then
+    if body="$(curl -fsS --max-time 3 "$HEALTH_URL" 2>/dev/null)" && grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"' <<< "$body"; then
       HEALTH_BODY="$body"
       return 0
     fi
@@ -93,7 +93,7 @@ check_public() {
     url="https://$SITE_HOST/api/v1/health"
     body="$(curl -fsS --max-time 10 --resolve "$SITE_HOST:443:127.0.0.1" "$url" 2>/dev/null)" || body=""
   fi
-  if printf '%s' "$body" | grep -q '"UP"'; then
+  if grep -q '"UP"' <<< "$body"; then
     log "Through nginx ($url): $body"
   else
     warn "$url did not answer UP through nginx. Check: nginx -t ; tail /var/log/nginx/error.log"

@@ -29,9 +29,10 @@ import { SnapshotScope, packageKey, terminalSnapshots } from "./terminal-snapsho
 type TerminalState = "downloading" | "booting" | "ready" | "ended" | "failed";
 
 const BANNER = "\x1b[1mYour files are in ~/logs. There is no internet in this terminal.\x1b[0m\r\n";
-const SERVER_BANNER = "\x1b[1mRami's server is mounted. There is no internet in this terminal.\x1b[0m\r\n";
 const TIME_UP = "\r\n\x1b[1;31mTime is up.\x1b[0m The terminal no longer accepts input.\r\n";
 const MB = 1024 * 1024;
+/** Ctrl-E (end of line) then Ctrl-U (delete to the start of the line). */
+const CLEAR_LINE = String.fromCharCode(5, 21);
 const NEWLINE = String.fromCharCode(13, 10);
 const NOT_SAVABLE = "Your terminal cannot be saved in this browser. A page refresh will restart it.";
 const NOT_RESTORED = "Your saved terminal could not be restored, so a new one was started.";
@@ -65,6 +66,10 @@ export class EventLinuxTerminal {
    * a page refresh. Null (the manager's test terminal) saves nothing.
    */
   readonly snapshotScope = input<SnapshotScope | null>(null);
+  /** The line shown before the first prompt when a server package is installed (the final has its own). */
+  readonly packageBanner = input("Rami's server is mounted. There is no internet in this terminal.");
+  /** Seed the kernel's random pool during setup (about 2 s), so the first OpenSSL RSA decryption does not wait. */
+  readonly seedEntropy = input(false);
 
   protected readonly state = signal<TerminalState>("downloading");
   protected readonly error = signal<string | null>(null);
@@ -123,6 +128,18 @@ export class EventLinuxTerminal {
       this.terminal?.dispose();
       this.terminal = null;
     });
+  }
+
+  /**
+   * Types `text` at the shell prompt as if the team had typed it (no Enter, so they review it and press Enter
+   * themselves); whatever was half typed on the line is cleared first. False while the terminal is not running.
+   */
+  type(text: string): boolean {
+    if (this.state() !== "ready" || !this.session) return false;
+    this.session.send(CLEAR_LINE + text);
+    this.scheduler?.touch();
+    this.terminal?.focus();
+    return true;
   }
 
   protected async restart(): Promise<void> {
@@ -196,7 +213,9 @@ export class EventLinuxTerminal {
         this.restoring.set(false);
         const bundle = await this.downloadBundle(files);
         if (!current() || this.ended()) return;
-        session = await LinuxSession.boot(Emulator, buffers, files, bundle, bundle ? SERVER_BANNER : BANNER, (byte) => this.write(byte));
+        session = await LinuxSession.boot(Emulator, buffers, files, bundle, bundle ? `\x1b[1m${this.packageBanner()}\x1b[0m\r\n` : BANNER, (byte) => this.write(byte), {
+          seedEntropy: this.seedEntropy(),
+        });
         if (!current() || this.ended()) {
           await session.destroy();
           return;

@@ -21,6 +21,7 @@ import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.EventTeamRepository;
+import dev.devfest.event.repository.FinalTerminalBundleRepository;
 import dev.devfest.event.repository.GroupSizeRecord;
 import dev.devfest.event.repository.RoomArrivalRecord;
 import dev.devfest.event.repository.OverrideAuditRepository;
@@ -58,6 +59,7 @@ public class EventAdminBoardService {
   private final OverrideAuditRepository overrideAudit;
   private final SentinelContentRepository missionContent;
   private final TerminalAnswerKeyRepository answerKeys;
+  private final FinalTerminalBundleRepository finalPackage;
   private final EventClock clock;
 
   public EventAdminBoardService(
@@ -72,6 +74,7 @@ public class EventAdminBoardService {
     OverrideAuditRepository overrideAudit,
     SentinelContentRepository missionContent,
     TerminalAnswerKeyRepository answerKeys,
+    FinalTerminalBundleRepository finalPackage,
     EventClock clock
   ) {
     this.access = access;
@@ -85,12 +88,13 @@ public class EventAdminBoardService {
     this.overrideAudit = overrideAudit;
     this.missionContent = missionContent;
     this.answerKeys = answerKeys;
+    this.finalPackage = finalPackage;
     this.clock = clock;
   }
 
   /**
    * A fixed number of SQL statements whatever the number of teams: event state, room stats, active teams, the ranking
-   * (the score breakdown reads), the final content, AI mission content stats, Linux terminal answer keys, group sizes,
+   * (the score breakdown reads), the final content, the final's terminal package, AI mission content stats, Linux terminal answer keys, group sizes,
    * team override flags, recent overrides, and (rounds 1..4 only) the round's arrivals and room exceptions.
    */
   public AdminBoard board(Principal principal) {
@@ -99,14 +103,18 @@ public class EventAdminBoardService {
     List<AdminRoomStatsRecord> rooms = boards.adminRooms();
     List<EventTeamRecord> activeTeams = teams.findActive();
     List<RankingRow> rows = scores.ranking().stream().map(r -> new RankingRow(r.rank(), r.breakdown())).toList();
-    Optional<dev.devfest.event.domain.CryptoContent> finalFile = finalContent.content();
+    Optional<dev.devfest.event.domain.ShipmentContent> finalFile = finalContent.content();
     List<AdminAlert> alerts = alerts(rooms, state.plannedTeamCount(), teams.activeGroupSizes());
     EventContentGaps.find(finalFile.isPresent(), rooms).forEach(gap ->
       alerts.add(new AdminAlert(gap.code(), gap.message(), CONTENT_PAGE))
     );
-    finalFile.filter(dev.devfest.event.domain.CryptoContent::recoveryIsPlaceholder).ifPresent(file ->
+    finalFile.filter(dev.devfest.event.domain.ShipmentContent::recoveryIsPlaceholder).ifPresent(file ->
       alerts.add(new AdminAlert("RECOVERY_PLACEHOLDER", "The Recovery Challenge is still the placeholder text.", CONTENT_PAGE))
     );
+    // Non-blocking: the final opens without it, but teams then see "The terminal package is not ready yet".
+    if (finalPackage.find().isEmpty()) {
+      alerts.add(new AdminAlert("MISSING_FINAL_TERMINAL_PACKAGE", "The final terminal package is not uploaded yet.", CONTENT_PAGE));
+    }
     List<AiRoomStartCheck.Blocker> blockers = AiRoomStartCheck.blockers(missionContent.stats());
     blockers.forEach(blocker -> alerts.add(new AdminAlert(blocker.code(), blocker.message(), missionEditor(blocker.roomId()), true)));
     // A form room whose answer keys are empty cannot score those items automatically (non-blocking).

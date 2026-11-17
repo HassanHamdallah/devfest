@@ -15,7 +15,7 @@ public class EventExportService {
 
   static final String HEADER =
     "rank,team,group,status,aiRoom,problemSolvingRoom,linuxRoom,hardwareRoom,hintsUsed,cheatingRooms,roomsTotal,"
-      + "layers,verdicts,suspect,time,finalScore,total,finishedAt\r\n";
+      + "cluesSolved,cluePoints,suspect,time,finalScore,total,finishedAt\r\n";
 
   private final EventAccessPolicy access;
   private final ScoreBreakdownService scores;
@@ -39,8 +39,8 @@ public class EventExportService {
       csv.append(b.rooms().stream().mapToInt(RoomScoreLine::hints).sum()).append(',');
       csv.append(b.rooms().stream().filter(RoomScoreLine::cheating).count()).append(',');
       csv.append(b.roomsTotal().toPlainString()).append(',');
-      csv.append(b.finalScore().layers().toPlainString()).append(',');
-      csv.append(b.finalScore().verdicts().toPlainString()).append(',');
+      csv.append(b.finalScore().cluesSolved()).append(',');
+      csv.append(b.finalScore().clues().toPlainString()).append(',');
       csv.append(b.finalScore().suspect().toPlainString()).append(',');
       csv.append(b.finalScore().time().toPlainString()).append(',');
       csv.append(b.finalScore().total().toPlainString()).append(',');

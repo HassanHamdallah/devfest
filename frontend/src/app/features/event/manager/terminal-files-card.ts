@@ -27,6 +27,7 @@ import { UiProgress } from "../../../shared/ui/ui-progress/ui-progress";
 import { UiTextarea } from "../../../shared/ui/ui-textarea/ui-textarea";
 import { EventLinuxTerminal } from "../terminal/linux-terminal";
 import { BoardLoader } from "./board-loader";
+import { EventPackageUpload, formatBytes } from "./package-upload";
 
 /** Same rules as the server (TerminalFiles.pathProblem); the server has the final word. */
 const PATH_CHARACTERS = /^[A-Za-z0-9._/-]+$/;
@@ -47,11 +48,7 @@ function problemsOf(error: unknown): string[] {
   return Array.isArray(problems) ? problems.filter((problem): problem is string => typeof problem === "string") : [];
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-}
+export { formatBytes };
 
 export function terminalPathProblem(path: string): string | null {
   if (!path) return "Enter a file path, for example logs/lock.log.";
@@ -73,6 +70,7 @@ export function terminalPathProblem(path: string): string | null {
   selector: "event-terminal-files-card",
   imports: [
     EventLinuxTerminal,
+    EventPackageUpload,
     FormsModule,
     UiAlert,
     UiButton,
@@ -209,10 +207,7 @@ export class EventTerminalFilesCard {
   }
 
   /** Sends the chosen ZIP as the room's server package; a rejected package lists every problem at once. */
-  protected async uploadPackage(event: Event): Promise<void> {
-    const picker = event.target as HTMLInputElement;
-    const file = picker.files?.[0];
-    picker.value = "";
+  protected async uploadPackage(file: File): Promise<void> {
     const list = this.list();
     if (!file || !list || this.busy()) return;
     this.problems.set([]);

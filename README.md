@@ -34,7 +34,7 @@ Seeded development accounts (all use the seed password; nothing secret is in the
 | Room managers | `manager.ai@event.test`, `manager.ps@event.test`, `manager.linux@event.test`, `manager.hw@event.test` |
 | Teams (MEMBER) | `team01@event.test` … `teamNN@event.test` (NN = `DEVFEST_EVENT_SEED_TEAMS`) in balanced consecutive blocks; with 16: Team 01–04 group A, 05–08 B, 09–12 C, 13–16 D |
 
-The seed sets **no clue keys** and no final content: the admin imports `docs/final/crypto-content.json` (with the real Recovery Challenge written in) on the Content page before the event.
+The seed sets **no clue keys** and no final content: the admin imports `docs/final/last-shipment-content.json` (with the real Recovery Challenge and key references written in) on the Content page before the event.
 
 ### Event-day round procedure (admin)
 

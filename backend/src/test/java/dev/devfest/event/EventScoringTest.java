@@ -146,13 +146,12 @@ class EventScoringTest extends EventIntegrationTest {
 
   @Test
   void theTeamEndpointsOfTheFinalAreForTeamsOnly() {
-    List<String> posts = List.of("/team/final/unlock", "/team/final/start", "/team/final/layers/1", "/team/final/verdicts/3", "/team/final/suspect", "/team/final/recovery");
+    List<String> posts = List.of("/team/final/unlock", "/team/final/start", "/team/final/clues/1/passphrase", "/team/final/suspect", "/team/final/recovery");
     for (String path : posts) {
       String body = switch (path) {
         case "/team/final/unlock" -> "{\"codes\":[\"a\",\"b\",\"c\",\"d\"]}";
-        case "/team/final/layers/1" -> "{\"value\":\"1\"}";
-        case "/team/final/verdicts/3" -> "{\"verdict\":\"YES\"}";
-        case "/team/final/suspect" -> "{\"suspectId\":1}";
+        case "/team/final/clues/1/passphrase" -> "{\"passphrase\":\"x\"}";
+        case "/team/final/suspect" -> "{\"suspectId\":\"S01\"}";
         case "/team/final/recovery" -> "{\"answer\":\"x\"}";
         default -> null;
       };
@@ -176,22 +175,21 @@ class EventScoringTest extends EventIntegrationTest {
     openFinal();
     expectOk(unlock(alpha, "a", "b", "c", "d"));
     playTo(alpha, 3);
-    expectOk(layer(alpha, 4, "1"));
-    expectOk(verdict(alpha, 3, "YES"));
+    expectOk(passphrase(alpha, 4, "not the passphrase"));
     String statuses = "$[?(@.teamName == 'Alpha')]";
 
     Response board = expectOk(get("/admin/final/board", admin));
     assertEquals(List.of("IN_FINAL"), board.json(statuses + ".status"));
-    assertEquals(List.of("Layer 4"), board.json(statuses + ".stage"));
+    assertEquals(List.of("Case"), board.json(statuses + ".stage"));
     assertEquals(List.of(4), board.json(statuses + ".clues"));
-    assertEquals(List.of(3), board.json(statuses + ".layersSolved"));
+    assertEquals(List.of(3), board.json(statuses + ".cluesSolved"));
     assertEquals(List.of(2), board.json(statuses + ".unlockAttempts"));
     assertEquals(List.of(1), board.json(statuses + ".unlockWrong"));
-    assertEquals(List.of(4), board.json(statuses + ".layerAttempts"));
-    assertEquals(List.of(1), board.json(statuses + ".layerWrong"));
-    assertEquals(List.of("YES"), board.json(statuses + ".verdictE03"));
-    assertEquals(List.of(false), board.json(statuses + ".verdictE03Correct"));
-    assertNull(((List<?>) board.json(statuses + ".verdictE04")).get(0), "no verdict given for E04 yet");
+    assertEquals(List.of(4), board.json(statuses + ".passphraseAttempts"));
+    assertEquals(List.of(1), board.json(statuses + ".passphraseWrong"));
+    assertEquals(List.of(11.25), board.json(statuses + ".cluePoints"));
+    assertNull(((List<?>) board.json(statuses + ".suspect")).get(0), "no suspect yet");
+    assertNull(((List<?>) board.json(statuses + ".suspectCorrect")).get(0));
     assertEquals(List.of("NOT_QUALIFIED"), board.json("$[?(@.teamName == 'Bravo')].status"));
     assertEquals(List.of("Not qualified"), board.json("$[?(@.teamName == 'Bravo')].stage"));
 
@@ -205,12 +203,14 @@ class EventScoringTest extends EventIntegrationTest {
       assertEquals(401, get(path, null).status(), path);
     }
     // After the suspect is submitted the table names it, with its correctness, the active time and the finish time.
-    expectOk(layer(alpha, 4, "17"));
-    expectOk(suspect(alpha, 2));
+    expectOk(passphrase(alpha, 4, PASSPHRASES.get(3)));
+    expectOk(suspect(alpha, CORRECT_SUSPECT));
     Response done = expectOk(get("/admin/final/board", admin));
     assertEquals(List.of("Submitted"), done.json(statuses + ".stage"));
-    assertEquals(List.of("Leila Nasser"), done.json(statuses + ".suspect"));
+    assertEquals(List.of(4), done.json(statuses + ".cluesSolved"));
+    assertEquals(List.of("Samer Murad"), done.json(statuses + ".suspect"));
     assertEquals(List.of(true), done.json(statuses + ".suspectCorrect"));
+    assertEquals(List.of(40.0), done.json(statuses + ".finalScore"));
     assertEquals(List.of("SUBMITTED"), done.json(statuses + ".finishedBy"));
   }
 
@@ -234,7 +234,7 @@ class EventScoringTest extends EventIntegrationTest {
     String reason = "{\"reason\":\"Resetting one team for the test\"}";
     Response reset = expectOk(post("/admin/reset/team/" + alpha.id(), admin, reason));
     long snapshot = ((Number) reset.json("$.snapshotId")).longValue();
-    for (String table : List.of("score_deduction", "room_manual_score", "team_final", "final_layer_attempt", "final_unlock_attempt")) {
+    for (String table : List.of("score_deduction", "room_manual_score", "team_final", "final_clue_attempt", "final_unlock_attempt")) {
       assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE team_id = " + alpha.id()), table);
     }
     assertEquals(1, count("SELECT count(*) FROM score_deduction WHERE team_id = " + bravo.id()), "the other team keeps its deductions");
@@ -242,12 +242,12 @@ class EventScoringTest extends EventIntegrationTest {
     assertEquals(2, snapshotRows(snapshot, "score_deduction"));
     assertEquals(1, snapshotRows(snapshot, "room_manual_score"));
     assertEquals(1, snapshotRows(snapshot, "team_final"));
-    assertEquals(2, snapshotRows(snapshot, "final_layer_attempt"));
+    assertEquals(2, snapshotRows(snapshot, "final_clue_attempt"));
     assertEquals(1, snapshotRows(snapshot, "final_unlock_attempt"));
 
     String eventReset = "{\"confirmText\":\"RESET\",\"password\":\"%s\",\"reason\":\"Resetting the event for the test\"}".formatted(PASSWORD);
     long eventSnapshot = ((Number) expectOk(post("/admin/reset/event", admin, eventReset)).json("$.snapshotId")).longValue();
-    for (String table : List.of("score_deduction", "room_manual_score", "team_final", "final_layer_attempt", "final_unlock_attempt", "final_verdict", "final_time_adjustment")) {
+    for (String table : List.of("score_deduction", "room_manual_score", "team_final", "final_clue_attempt", "final_unlock_attempt", "final_time_adjustment")) {
       assertEquals(0, count("SELECT count(*) FROM " + table), table);
     }
     assertEquals(1, snapshotRows(eventSnapshot, "score_deduction"));
@@ -261,13 +261,18 @@ class EventScoringTest extends EventIntegrationTest {
   private void assertThrowsOnDelete() {
     boolean refused = false;
     try {
-      db.update("INSERT INTO final_verdict(team_id, layer, verdict, correct, submitted_at) VALUES (?, 3, 'NO', TRUE, now())", alpha.id());
-      db.update("DELETE FROM final_verdict");
+      db.update(
+        "INSERT INTO final_clue_attempt(id, team_id, clue, value, correct, received_at, idempotency_key, request_hash) VALUES (?, ?, 1, 'x', FALSE, now(), ?, 'x')",
+        UUID.randomUUID(),
+        alpha.id(),
+        UUID.randomUUID()
+      );
+      db.update("DELETE FROM final_clue_attempt");
     } catch (DataAccessException e) {
       refused = true;
     }
     assertTrue(refused, "the final's records are append-only outside a reset");
-    assertFalse(count("SELECT count(*) FROM final_verdict") == 0);
+    assertFalse(count("SELECT count(*) FROM final_clue_attempt") == 0);
   }
 
   // ---- helpers ----------------------------------------------------------------------------------

@@ -4,9 +4,12 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "-c",
+      "--config",
       "playwright.event.config.ts",
-      "event-scores.spec.ts"
+      "--list",
+      "event-final.spec.ts",
+      "event-scores.spec.ts",
+      "event-terminal"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
     "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -19,18 +22,14 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "",
         "name": "",
         "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -66,9 +65,7 @@
         "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "name": "",
         "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
@@ -134,6 +131,74 @@
   },
   "suites": [
     {
+      "title": "event-final.spec.ts",
+      "file": "event-final.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the rest, investigates and submits S11",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-e76ab03b7c0b56907942",
+          "file": "event-final.spec.ts",
+          "line": 111,
+          "column": 5
+        },
+        {
+          "title": "final: a 3-clue team passes the Recovery Challenge and reaches the mission; a 2-clue team is refused",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-08c8757e12f9e707a355",
+          "file": "event-final.spec.ts",
+          "line": 271,
+          "column": 5
+        },
+        {
+          "title": "final: on the phone the mission and both phases fit 390 px; without a package the terminal says it is not ready",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-4702803e5abb0840474c",
+          "file": "event-final.spec.ts",
+          "line": 322,
+          "column": 5
+        }
+      ]
+    },
+    {
       "title": "event-scores.spec.ts",
       "file": "event-scores.spec.ts",
       "column": 0,
@@ -145,73 +210,13 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 900000,
+              "timeout": 300000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 16469,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "the manager types the room score; the admin scoreboard follows",
-                      "duration": 1109
-                    },
-                    {
-                      "title": "Hint given (-2): the card says Hints: 1 of 2 and the total drops by 2",
-                      "duration": 307
-                    },
-                    {
-                      "title": "Cheating (-7.5) needs a confirmation and a reason; the total drops by 7.5",
-                      "duration": 229
-                    },
-                    {
-                      "title": "the team sees only Hints used: 1 of 2, never the cheating record, a deduction or a score",
-                      "duration": 1248
-                    },
-                    {
-                      "title": "cancelling the hint and then the cheating restores the points",
-                      "duration": 369
-                    },
-                    {
-                      "title": "a team has two hints in total; the third is refused",
-                      "duration": 278
-                    },
-                    {
-                      "title": "the admin scoreboard, final table and penalty log show it all",
-                      "duration": 777
-                    },
-                    {
-                      "title": "the admin gives a hint to any team in any room from the team panel",
-                      "duration": 531
-                    },
-                    {
-                      "title": "the CSV download follows the scoreboard",
-                      "duration": 394
-                    },
-                    {
-                      "title": "after publication the team's ranking shows scores but no deduction or cheating",
-                      "duration": 331
-                    }
-                  ],
-                  "startTime": "2026-11-12T18:57:50.917Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
+              "results": [],
+              "status": "skipped"
             }
           ],
           "id": "bf7957fccd6b5d51bca5-2558ff8b22d54f5ae1b8",
@@ -225,49 +230,13 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 900000,
+              "timeout": 300000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 9635,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "a broken file is refused whole, with every problem listed",
-                      "duration": 123
-                    },
-                    {
-                      "title": "the shipped file imports, and its placeholder Recovery Challenge is flagged",
-                      "duration": 376
-                    },
-                    {
-                      "title": "with the real Recovery Challenge the final opens, and the timer controls apply to everyone",
-                      "duration": 1699
-                    },
-                    {
-                      "title": "the content is read-only once the final has opened",
-                      "duration": 277
-                    }
-                  ],
-                  "startTime": "2026-11-12T18:58:07.660Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
+              "results": [],
+              "status": "skipped"
             }
           ],
           "id": "bf7957fccd6b5d51bca5-4fa37575b0474cea40f6",
@@ -276,14 +245,318 @@
           "column": 5
         }
       ]
+    },
+    {
+      "title": "event-terminal-bundle.spec.ts",
+      "file": "event-terminal-bundle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "server package: the manager uploads a ZIP and the terminal installs 300 files with their owners",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1a548edbbfd9c6d1411d-ed970335f56a0bd4d71b",
+          "file": "event-terminal-bundle.spec.ts",
+          "line": 45,
+          "column": 5
+        },
+        {
+          "title": "server package: the assigned team installs it, a restart revalidates it, and a broken download shows a clear error",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1a548edbbfd9c6d1411d-019702c0d74e24deeec1",
+          "file": "event-terminal-bundle.spec.ts",
+          "line": 156,
+          "column": 5
+        },
+        {
+          "title": "server package: a 20 MB package boots in time and leaves the guest enough memory",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "1a548edbbfd9c6d1411d-a066dc29b6e378b2b25f",
+          "file": "event-terminal-bundle.spec.ts",
+          "line": 230,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-commands.spec.ts",
+      "file": "event-terminal-commands.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "terminal commands: nano edits and saves a file, and tree, less, strings, diff and which run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "90aa32fa3cce55369de4-6146db1c56b74d493edb",
+          "file": "event-terminal-commands.spec.ts",
+          "line": 28,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-dashboard.spec.ts",
+      "file": "event-terminal-dashboard.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "linux dashboard: keys, partial credit, overrides, export and the access rules",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d20026424f141faef9bd-f538acfd4f55fa1ff9ed",
+          "file": "event-terminal-dashboard.spec.ts",
+          "line": 51,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-form.spec.ts",
+      "file": "event-terminal-form.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "ce5c442fc1bc94ffc468-3da69dc0b898f718ba9e",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-requests.spec.ts",
+      "file": "event-terminal-requests.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "terminal requests: the nginx site caches the versioned terminal files for a year, and the page versions every one of them",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d2663b19cc159fe7ffef-af0a47cad866dc8fc6fd",
+          "file": "event-terminal-requests.spec.ts",
+          "line": 63,
+          "column": 5
+        },
+        {
+          "title": "terminal requests: nothing while the team types, one request per Save and Submit, the cache for Restart and refresh",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "d2663b19cc159fe7ffef-fdb4054717359347b57c",
+          "file": "event-terminal-requests.spec.ts",
+          "line": 77,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-resume.spec.ts",
+      "file": "event-terminal-resume.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "terminal resume: a file made in the terminal is still there after a page refresh, with no click",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "bc0777ea2dfb0d0d1709-82cd85ba77f8c59a6b20",
+          "file": "event-terminal-resume.spec.ts",
+          "line": 82,
+          "column": 5
+        },
+        {
+          "title": "terminal resume: when the browser cannot store the terminal the team keeps working and sees one small notice",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "bc0777ea2dfb0d0d1709-453c4ff5d09b216ce56c",
+          "file": "event-terminal-resume.spec.ts",
+          "line": 157,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-tools.spec.ts",
+      "file": "event-terminal-tools.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "terminal tools: file, base64, bzip2, zip and GNU find in a 2000-file package, exact dates and owners, no manifest, the terminal clock",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "fad9589c029bf4515920-0392cc29aed39abbdc5c",
+          "file": "event-terminal-tools.spec.ts",
+          "line": 46,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal.spec.ts",
+      "file": "event-terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "terminal: the Linux team boots Linux in the browser, greps the room's file and submits the line",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [],
+              "status": "skipped"
+            }
+          ],
+          "id": "e14b51c5eae7eeb59d9e-d5505ccd0184865e9860",
+          "file": "event-terminal.spec.ts",
+          "line": 67,
+          "column": 5
+        }
+      ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-12T18:57:50.432Z",
-    "duration": 27203.4,
-    "expected": 2,
-    "skipped": 0,
+    "startTime": "2026-11-17T12:42:39.720Z",
+    "duration": 344.7349999999999,
+    "expected": 0,
+    "skipped": 17,
     "unexpected": 0,
     "flaky": 0
   }

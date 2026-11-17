@@ -11,10 +11,13 @@
  * terminal-assets.ts it holds no event data of its own and loads no emulator code, so the shell may import it.
  */
 
-/** Which terminal a snapshot belongs to: the team's login, the room and the round. */
+/** The place of the final's terminal: never a room id, so a room's snapshot is never restored there or the reverse. */
+export const FINAL_SNAPSHOT_PLACE = "final";
+
+/** Which terminal a snapshot belongs to: the team's login, the room (or the final) and the round. */
 export interface SnapshotScope {
   teamId: number;
-  roomId: number;
+  roomId: number | typeof FINAL_SNAPSHOT_PLACE;
   round: number;
 }
 
@@ -112,6 +115,21 @@ export class TerminalSnapshots {
     return this.enqueue(async () => {
       this.warm = null;
       await this.removeQuietly();
+    });
+  }
+
+  /**
+   * Deletes the snapshot only when it belongs to a room terminal ("room") or to the final's terminal ("final"), so
+   * the room page and the final page never delete each other's saved terminal; never throws.
+   */
+  clearPlace(place: "room" | "final"): Promise<void> {
+    this.epoch++;
+    return this.enqueue(async () => {
+      this.warm = null;
+      const record = await this.readQuietly();
+      if (!record) return;
+      const isFinal = record.roomId === FINAL_SNAPSHOT_PLACE;
+      if (isFinal === (place === "final")) await this.removeQuietly();
     });
   }
 

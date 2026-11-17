@@ -59,7 +59,7 @@ log "6/6 Checking the site through nginx and tidying old releases"
 check_public || true
 # Keep the current release, the previous one and the two newest others.
 keep="$ID $OLD"
-for d in $(ls -1dt "$RELEASES"/*/ 2>/dev/null | xargs -r -n1 basename | head -n 4); do keep="$keep $d"; done
+for d in $(ls -1dt "$RELEASES"/*/ 2>/dev/null | xargs -r -n1 basename | sed -n '1,4p'); do keep="$keep $d"; done
 for d in "$RELEASES"/*/; do
   name="$(basename "$d")"
   case " $keep " in *" $name "*) ;; *) log "    removing old release $name"; rm -rf "${RELEASES:?}/$name"; rm -f "$RELEASES/$name.zip" ;; esac

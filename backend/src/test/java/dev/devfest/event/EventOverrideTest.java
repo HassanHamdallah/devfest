@@ -162,7 +162,7 @@ class EventOverrideTest extends EventIntegrationTest {
     openRoom(RoomCode.AI);
     String disqualified = "Your team has been disqualified. Contact the organizer.";
     expectError(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "x"), 409, disqualified);
-    expectError(suspect(alpha, 2), 409, disqualified);
+    expectError(suspect(alpha, CORRECT_SUSPECT), 409, disqualified);
     expectError(unlockWithKeys(alpha), 409, disqualified);
     Response board = expectOk(get("/admin/board", admin));
     assertEquals("Alpha", board.json("$.ranking[3].scores.teamName"));
@@ -182,20 +182,18 @@ class EventOverrideTest extends EventIntegrationTest {
     setRound(5);
     openFinal();
     playTo(alpha, 4);
-    expectOk(verdict(alpha, 4, "YES"));
-    expectOk(suspect(alpha, 2));
+    expectOk(suspect(alpha, WRONG_SUSPECT));
     int submissions = count("room_submission");
 
     Response reset = expectOk(post("/admin/reset/final", admin, "{" + REASON + "}"));
     long snapshot = ((Number) reset.json("$.snapshotId")).longValue();
-    assertEquals(0, count("team_final") + count("final_layer_attempt") + count("final_unlock_attempt") + count("final_verdict"));
+    assertEquals(0, count("team_final") + count("final_clue_attempt") + count("final_unlock_attempt"));
     assertEquals(0, count("final_time_adjustment"));
     assertEquals(submissions, count("room_submission"));
     assertEquals(4, count("collected_clue"));
     assertEquals(1, count("score_deduction"), "deductions belong to the rooms, not to the final");
     assertEquals(1, snapshotRows(snapshot, "team_final"));
-    assertEquals(4, snapshotRows(snapshot, "final_layer_attempt"));
-    assertEquals(1, snapshotRows(snapshot, "final_verdict"));
+    assertEquals(4, snapshotRows(snapshot, "final_clue_attempt"));
     assertEquals(1, snapshotRows(snapshot, "final_unlock_attempt"));
     assertNull(db.queryForObject("SELECT final_phase FROM event_state", String.class), "the final timer is cleared with the final");
 
@@ -244,7 +242,7 @@ class EventOverrideTest extends EventIntegrationTest {
     assertEquals(0, (int) state.json("$.state.currentRound"));
     assertNull(state.json("$.state.phase"));
     assertEquals(List.of(false, false, false, false), state.json("$.rooms[*].open"));
-    for (String table : List.of("room_submission", "collected_clue", "submission_clue_verdict", "score_deduction", "room_manual_score", "team_final", "final_layer_attempt", "room_arrival")) {
+    for (String table : List.of("room_submission", "collected_clue", "submission_clue_verdict", "score_deduction", "room_manual_score", "team_final", "final_clue_attempt", "room_arrival")) {
       assertEquals(0, count(table), table);
     }
     assertEquals(accounts, count("app_user"));

@@ -9,7 +9,7 @@ import {
   resetRehearsal,
   setPracticeKeys,
 } from "./event-api-helper";
-import { ROOMS, ScoreRow, finalContentJson, teamName } from "./event-final-helper";
+import { ROOMS, ScoreRow, finalContentJson, finalPackageZip, teamName } from "./event-final-helper";
 import { PHONE, expectFitsPhone, openRolePage, saveScreenshot, screenshotPhone, signIn } from "./event-ui-helper";
 
 const WIDE = { width: 1440, height: 900 };
@@ -206,29 +206,51 @@ test("scores: the admin imports the final content, sees every problem at once, a
     await admin.page.goto("/event/admin/content");
     const section = admin.page.locator("[data-final-content]");
     await expect(section).toContainText("Not imported");
-    const good = fs.readFileSync(path.resolve("..", "docs", "final", "crypto-content.json"));
+    const good = fs.readFileSync(path.resolve("..", "docs", "final", "last-shipment-content.json"));
 
     await test.step("a broken file is refused whole, with every problem listed", async () => {
-      const broken = good.toString("utf8").replace('"n": 91', '"n": 92').replace('"correctSuspect": "Leila Nasser"', '"correctSuspect": "Nobody"');
+      const broken = good.toString("utf8").replace('"format": 2', '"format": 1').replace('"correctSuspect": "S11"', '"correctSuspect": "S99"');
       await section.locator("[data-final-content-file]").setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from(broken) });
       await section.getByRole("button", { name: "Import this file", exact: true }).click();
       const problems = section.locator("[data-final-problems]");
-      await expect(problems).toContainText("Layer 1: n must equal p x q.");
-      await expect(problems).toContainText("correctSuspect: must be one of the six suspects.");
+      await expect(problems).toContainText("format: must be 2.");
+      await expect(problems).toContainText("correctSuspect: must be the id of one of the suspects.");
       await expect(section).toContainText("Not imported");
     });
 
     await test.step("the shipped file imports, and no placeholder Recovery Challenge is flagged", async () => {
-      await section.locator("[data-final-content-file]").setInputFiles({ name: "crypto-content.json", mimeType: "application/json", buffer: good });
+      await section.locator("[data-final-content-file]").setInputFiles({ name: "last-shipment-content.json", mimeType: "application/json", buffer: good });
       await section.getByRole("button", { name: "Import this file", exact: true }).click();
       await expect(section.locator("[data-final-imported]")).toBeVisible();
       await expect(section).toContainText("Imported");
+      await expect(section.locator("[data-final-content-counts]")).toHaveText("Format 2 · 4 clues · 12 suspects");
       await expect(section.locator("[data-recovery-placeholder]")).toHaveCount(0);
       await admin.page.goto("/event/admin");
       await expect(admin.page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
       await expect(admin.page.locator('[data-alert="RECOVERY_PLACEHOLDER"]')).toHaveCount(0);
       await admin.page.goto("/event/admin/content");
       await shootBoth(admin.page, "admin-content-import");
+    });
+
+    await test.step("the final terminal package is uploaded on its own card and its alert goes away", async () => {
+      await admin.page.goto("/event/admin");
+      await expect(admin.page.locator('[data-alert="MISSING_FINAL_TERMINAL_PACKAGE"]')).toHaveCount(1);
+      await admin.page.goto("/event/admin/content");
+      const card = admin.page.locator("[data-final-package]");
+      await expect(card).toContainText("Not uploaded");
+      await card.locator('input[type="file"][accept^=".zip"]').setInputFiles({
+        name: "final-package.zip",
+        mimeType: "application/zip",
+        buffer: finalPackageZip(),
+      });
+      await expect(card.locator("[data-final-package-notice]")).toContainText("Uploaded the final terminal package (final-package.zip).");
+      await expect(card.locator(".terminal-files__summary")).toContainText("12 · ");
+      await expect(card.locator("[data-final-package-file]")).toHaveText("File: final-package.zip");
+      await expect(card.locator("[data-package-sha]")).toHaveText(/^[0-9a-f]{12}$/);
+      await shootBoth(admin.page, "admin-final-package");
+      await admin.page.goto("/event/admin");
+      await expect(admin.page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();
+      await expect(admin.page.locator('[data-alert="MISSING_FINAL_TERMINAL_PACKAGE"]')).toHaveCount(0);
     });
 
     await test.step("with the real Recovery Challenge the final opens, and the timer controls apply to everyone", async () => {
@@ -254,6 +276,8 @@ test("scores: the admin imports the final content, sees every problem at once, a
       await admin.page.goto("/event/admin/content");
       await expect(admin.page.locator("[data-final-content]")).toContainText("Event content is read-only after the final opens.");
       await expect(admin.page.locator("[data-final-content-file]")).toHaveCount(0);
+      await expect(admin.page.locator("[data-final-package]")).toContainText("Event content is read-only after the final opens.");
+      await expect(admin.page.locator('[data-final-package] input[type="file"]')).toHaveCount(0);
     });
   } finally {
     await adminApi.dispose();

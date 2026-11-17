@@ -40,13 +40,14 @@ public record TeamScoreBreakdown(
     BigDecimal score
   ) {}
 
+  /**
+   * {@code cluesSolved}: evidence files decrypted (0 to 4); {@code clues}: their points (3.75 each); {@code suspect},
+   * {@code time}, {@code total}: the other parts of the final's 40 points.
+   */
   public record FinalScoreLine(
     FinalStage status,
-    int layersCorrect,
-    int verdictsCorrect,
-    BigDecimal layers,
-    BigDecimal verdicts,
-    BigDecimal crypto,
+    int cluesSolved,
+    BigDecimal clues,
     boolean suspectSubmitted,
     boolean suspectCorrect,
     BigDecimal suspect,

@@ -12,22 +12,44 @@ import {
 /** Rooms in position order; group g visits position (g + round - 1) mod 4 in round `round`. */
 export const ROOMS: readonly RoomCode[] = ["AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE"];
 
-/** The plaintexts the server derives from docs/final/crypto-content.json. Test code only: no page ever shows them. */
-export const LAYER_ANSWERS = [52, 17, 8, 17] as const;
-/** The Recovery Challenge as the shipped content file has it (read from the file, so the specs follow the real question). */
-const recovery = (JSON.parse(fs.readFileSync(path.resolve("..", "docs", "final", "crypto-content.json"), "utf8")) as {
-  recovery: { question: string; acceptedAnswers: string[] };
-}).recovery;
-export const RECOVERY_QUESTION = recovery.question;
-export const RECOVERY_ANSWER = recovery.acceptedAnswers[0];
-/** Index 1 of the suspects in the content file (the correct one) and the first (a wrong one). */
-export const CORRECT_SUSPECT = "Leila Nasser";
-export const WRONG_SUSPECT = "Kareem Shehab";
-export const SUSPECT_NAMES = ["Kareem Shehab", "Leila Nasser", "Tariq Al-Khatib", "Nadia Murad", "Farid Mansour", "Mazen Haddad"];
+const SHIPMENT = path.resolve("..", "docs", "final", "last-shipment");
+const CONTENT_FILE = path.resolve("..", "docs", "final", "last-shipment-content.json");
 
-/** The shipped content file, exactly as the admin imports it. */
+interface ShipmentFile {
+  mission: { title: string; intro: string; phase1: string; phase2: string };
+  clues: { number: number; title: string; encFile: string; rsaFile: string; keyReference: string; report: string }[];
+  keyIndex: { reference: string; key: string }[];
+  suspects: { id: string; name: string; position: string; statement: string }[];
+  correctSuspect: string;
+  recovery: { question: string; acceptedAnswers: string[] };
+}
+
+/** The shipped content file, as the admin imports it (texts and answers of the specs come from it). */
+export const SHIPMENT_CONTENT = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf8")) as ShipmentFile;
+export const RECOVERY_QUESTION = SHIPMENT_CONTENT.recovery.question;
+export const RECOVERY_ANSWER = SHIPMENT_CONTENT.recovery.acceptedAnswers[0];
+export const CORRECT_SUSPECT = SHIPMENT_CONTENT.correctSuspect;
+export const WRONG_SUSPECT = SHIPMENT_CONTENT.suspects.find((s) => s.id !== CORRECT_SUSPECT)!.id;
+export const suspectName = (id: string) => SHIPMENT_CONTENT.suspects.find((s) => s.id === id)!.name;
+
+/** keys/clueN_secret.txt exactly as the organizers have them (with their line ending). Test code only. */
+export const PASSPHRASES: readonly string[] = [1, 2, 3, 4].map((n) =>
+  fs.readFileSync(path.join(SHIPMENT, "keys", `clue${n}_secret.txt`), "ascii"),
+);
+
+/** The key letter (A to D) the content's key index gives clue n. */
+export function keyLetter(n: number): string {
+  const reference = SHIPMENT_CONTENT.clues[n - 1].keyReference;
+  return SHIPMENT_CONTENT.keyIndex.find((entry) => entry.reference === reference)!.key;
+}
+
+/** The final terminal package the organizers build (docs/final/last-shipment/final-package.zip). */
+export function finalPackageZip(): Buffer {
+  return fs.readFileSync(path.join(SHIPMENT, "final-package.zip"));
+}
+
 export function finalContentJson(): string {
-  return fs.readFileSync(path.resolve("..", "docs", "final", "crypto-content.json"), "utf8");
+  return fs.readFileSync(CONTENT_FILE, "utf8");
 }
 
 /** The group a seeded team (Team 01..16) is in: blocks of four, A to D. */
@@ -94,30 +116,24 @@ export class FinalShortcuts {
     return this.team.send<FinalAnswer>("POST", "/event/team/final/start", {});
   }
 
-  layer(layer: number, value: string) {
-    return this.team.send<FinalAnswer>("POST", `/event/team/final/layers/${layer}`, { value }, this.newKey());
+  passphrase(clue: number, passphrase: string) {
+    return this.team.send<FinalAnswer>("POST", `/event/team/final/clues/${clue}/passphrase`, { passphrase }, this.newKey());
   }
 
   recover(answer: string) {
     return this.team.send<{ correct: boolean }>("POST", "/event/team/final/recovery", { answer }, this.newKey());
   }
 
-  verdict(layer: number, verdict: "YES" | "NO") {
-    return this.team.send<FinalAnswer>("POST", `/event/team/final/verdicts/${layer}`, { verdict });
-  }
-
-  suspect(suspectId: number) {
+  suspect(suspectId: string) {
     return this.team.send<FinalAnswer>("POST", "/event/team/final/suspect", { suspectId });
   }
 
-  /** Unlock, start, the four layers, both right verdicts and the right suspect. */
+  /** Unlock, start, the four right passphrases and the right suspect. */
   async playAll() {
     await this.unlock();
     await this.start();
-    for (let layer = 1; layer <= 4; layer++) await this.layer(layer, String(LAYER_ANSWERS[layer - 1]));
-    await this.verdict(3, "NO");
-    await this.verdict(4, "YES");
-    await this.suspect(SUSPECT_NAMES.indexOf(CORRECT_SUSPECT) + 1);
+    for (let clue = 1; clue <= 4; clue++) await this.passphrase(clue, PASSPHRASES[clue - 1]);
+    await this.suspect(CORRECT_SUSPECT);
   }
 }
 
@@ -136,7 +152,9 @@ export interface FinalView {
   timerPhase: string | null;
   cluesCollected: number;
   waitSeconds: number;
-  notebook: { id: string }[];
+  clues: { number: number; solved: boolean; waitSeconds: number; report: string | null }[];
+  terminal: { sha256: string } | null;
+  submitted: boolean;
 }
 
 /** One team's row of the admin's scoreboard, as the API returns it. */
@@ -147,6 +165,6 @@ export interface ScoreRow {
     total: number;
     roomsTotal: number;
     rooms: { code: string; base: number; score: number; hintDeduction: number; cheatingDeduction: number }[];
-    finalScore: { status: string; layers: number; verdicts: number; suspect: number; time: number; total: number };
+    finalScore: { status: string; cluesSolved: number; clues: number; suspect: number; time: number; total: number };
   };
 }

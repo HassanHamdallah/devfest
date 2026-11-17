@@ -192,7 +192,7 @@ read from what the rooms and the final recorded; no total is stored. Every score
 ## 9. The final (qualification, recovery, timer)
 
 - The admin opens the final **once**, for all teams at the same moment; it cannot be reopened (the admin's *Reset final*
-  override, rule 16.7, is the only way back). It opens only when the content is complete: the validated crypto content
+  override, rule 16.7, is the only way back). It opens only when the content is complete: the validated final content
   file (rule 10) and a clue key for every room.
 - **One server-side 40-minute timer** starts at that moment for everyone. The admin's emergency **pause / resume** and
   **added time** (1 second to 60 minutes, with an Idempotency-Key) apply to every team at once and are audited; the timer is
@@ -212,38 +212,57 @@ read from what the rooms and the final recorded; no total is stored. Every score
 - Every rule is enforced on the server: a disqualified team, a not-open final, a paused final and a team that did not
   qualify are all refused.
 
-## 10. The crypto case
+## 10. The final case: "The Last Shipment"
 
 State always comes from the server; a refresh resumes where the team was. Screens, in order:
 
 1. **Unlock**: four inputs labelled with the real room names (in room order). Each must match **that room's clue key**
    (rule 5.4) **and** the team must hold that room's clue. A wrong try says only "These room outputs do not open the case."
    (never which field); **5 wrong in a row = a 30-second wait**.
-2. **Mission**: "Rami left four encrypted evidence layers. Solve RSA on paper, examine the clues, and verify the signed
-   reports." Equipment: printed dossiers and four shuffled key cards; a plain calculator is allowed. **Start case**.
-3. **Layers 1–4**: each shows only the ciphertext C and the modulus n and takes one integer. A correct integer opens that
-   layer's evidence (E01…E04); layers open in order. A wrong one says only "That number does not open this layer." and never
-   the value; **5 wrong in a row on a layer = a 30-second wait** (per layer). Every evaluated attempt is stored; an answer
-   refused during a wait is not an attempt.
-4. **Verdicts** (E03 and E04): YES or NO, **one time only**, never revealing correctness; a wrong verdict never blocks
-   progress. The team sees S, e, n, H and the claimed signer.
-5. **Notebook**: the evidence revealed so far stays reviewable, with no hint about the culprit.
-6. **Suspects**: choose **one** of the six; confirmation; **one time only**; no free text.
-7. **Submitted**: "Your final answer is recorded. The result stays confidential until judging." with team, status and
+2. **Mission**: the mission's title, introduction and two phases from the content file ("Decrypt all four evidence files",
+   "Analyze the evidence and identify the kidnapper"). **Start** opens the case.
+3. **Case** (until the suspect is submitted or the team is finalised): the four encrypted evidence files (title, `.enc`
+   file, `.rsa` key file and key reference), the **key index** (which private key, A to D, each reference names), the
+   **suspects sheet** (id, name, position, initial statement) and the final's terminal (its package below).
+   - **Passphrases**, in **any order**: `POST /team/final/clues/{n}/passphrase` with an Idempotency-Key. The server removes
+     surrounding whitespace (a copied line ending included), lower-cases the rest, hashes it with SHA-256 and compares it
+     with the content's hash. A right passphrase decrypts that file **for good** and its report appears; a wrong one says
+     only "That passphrase does not open this clue." (never how close it was). **5 wrong in a row on one file = a
+     30-second wait for that file only.** Every evaluated attempt is stored (append-only); a passphrase refused during a
+     wait is not an attempt. A report is never sent before the team has decrypted its file.
+   - **Suspect**: choose **one** of the listed suspects by its id; confirmation; **one time only**; no free text. It can
+     be submitted on the case screen at any time (it does not need the four files; the time points do).
+4. **Submitted**: "Your final answer is recorded. The result stays confidential until judging." with team, status and
    time; never whether anything was right.
 
-**Content** is one validated JSON file imported by the admin (`PUT /admin/final/content`, shipped as
-`docs/final/crypto-content.json`) and read-only once the final opens. The server **derives** every plaintext
-M = C^d mod n and every verdict (S^e mod n = H) and validates n = p × q and that each next C equals the previous M; all
-problems are listed at once and nothing is saved when there is one. The file also holds the evidence texts, the six
-suspects, the correct suspect, the Recovery Challenge (question and accepted answers; the shipped file keeps an obvious
-placeholder, and the admin board warns while it is still there) and the "full points until" minutes (default 25). A member
-never receives M, d, p, q, a verdict, the correct suspect, a score or another team's data.
+**Content** is one validated JSON file, format 2, imported by the admin (`PUT /admin/final/content`, shipped as
+`docs/final/last-shipment-content.json`) and read-only once the final opens. It holds the "full points until" minutes
+(default 25), the mission texts, exactly **four clues numbered 1 to 4** (title, `encFile`, `rsaFile`, `keyReference`,
+`passphraseSha256` = lower-case hex SHA-256 of the passphrase without any line ending, and the report), the **key index**
+(one entry per clue reference; each key A to D used exactly once), **2 to 30 suspects** with unique ids, the correct
+suspect (one of their ids) and the Recovery Challenge (question and accepted answers; the admin board warns while the
+question is still a placeholder). Every problem is listed at once and nothing is saved when there is one. A member never
+receives a passphrase hash, the report of an unsolved file, the correct suspect, a score or another team's data.
 
-**Final score (40)**: each correct layer 2.5 and each correct verdict 2.5 (crypto, at most 15); the correct suspect 10;
-**time points (at most 15)** from t = the **active** minutes from the final's start to the suspect submission (pauses are
-not counted), for everyone including recovery teams: t ≤ the full-until minutes → 15, otherwise MAX(0, 40 − t). Time points
-need all four layers solved and a submitted suspect, otherwise 0.
+**The final's terminal package** is stored apart from every room's package (rule 18): the admin uploads, replaces or
+deletes one ZIP (`PUT/GET/DELETE /admin/final/terminal-bundle`, multipart, at most 25 MB, validated and built exactly like a
+room's package, read-only once the final opens; it never touches a room's package or its ETag). A team downloads the built
+bundle (`GET /team/final/terminal-bundle`, ETag / 304 like a room's) **only while its final shows the case**; anyone else
+gets 404. While no package is uploaded the admin board shows the non-blocking alert *The final terminal package is not
+uploaded yet.* and the case screen says "The terminal package is not ready yet. Ask the organizer." The case terminal's
+saved copy (page refresh) is filed under the place *final*, never a room id, so a room's saved terminal is never restored
+in the final or the reverse.
+
+**Case screen layout**: two tabs, *Phase 1 — Decryption* (open first) and *Phase 2 — Investigation*, switchable at any time
+(suggested 15 and 25 minutes; the one 40-minute timer stays in the sticky bar). Phase 1: the key index, the RSA key files,
+the quick guide (the OpenSSL commands, each copyable), the four encrypted files with a passphrase box each, the terminal and
+the decrypted files (View opens a report). Phase 2: the recovered evidence, the suspects sheet and *Who kidnapped Noor?*
+(one suspect, a confirmation, one time only). The final pages use their own dark theme.
+
+**Final score (40)**: each decrypted evidence file **3.75** (at most 15); the correct suspect **10**; **time points (at
+most 15)** from t = the **active** minutes from the final's start to the suspect submission (pauses are not counted), for
+everyone including recovery teams: t ≤ the full-until minutes → 15, otherwise MAX(0, 40 − t). Time points need **all four
+files decrypted and a submitted suspect**, otherwise 0.
 
 **Time up**: input stops, unanswered parts score 0, and the team's final is finalised **exactly once**, inside the same
 transaction as whatever first notices it (a team's write finds no time left, or the admin closes the final); there is no
@@ -262,9 +281,10 @@ breakdown (`GET /admin/scores`, `GET /admin/scoreboard`, the admin board, the ex
 "Hint given (−2)", "Cheating (−7.5)", "Hints: n of 2" and the room's deduction list with cancel; a room without an
 automatic score also has a 0 to 15 score input. The admin's **Scores** page (`/event/admin/scores`) has the overall
 scoreboard (four room lines with base and deductions, the final's parts, the total out of 100, the rank; CSV), the live
-final table (`GET /admin/final/board`: status, stage, attempts, verdicts, suspect, active time, finish time, score parts)
-and the full penalty log. The Content page imports the crypto content file; the Control page has the final timer's
-pause, resume and added time.
+final table (`GET /admin/final/board`: status, stage, unlock and passphrase attempts, files decrypted 0 to 4, suspect and
+whether it is correct, active time, finish time, score parts) and the full penalty log. The CSV export's final columns are
+cluesSolved, cluePoints, suspect, time, finalScore. The Content page imports the final content file and the final's
+terminal package; the Control page has the final timer's pause, resume and added time.
 
 ## 12. Publication
 
@@ -275,8 +295,8 @@ pause, resume and added time.
 
 ## 13. Content editing lock
 
-- Before the final opens, the admin can edit all content (clue keys, terminal files, AI mission content, the crypto
-  content file of rule 10). A room manager can edit only their own room's
+- Before the final opens, the admin can edit all content (clue keys, terminal files, AI mission content, the final
+  content file and the final's terminal package of rule 10). A room manager can edit only their own room's
   clue key, terminal files and server package (rule 18) and AI mission (rule 19). The AI mission is also
   locked as soon as a team has run or saved anything.
 - **Once the final has opened, all content is read-only** ("Event content is read-only after the final opens."),
@@ -341,7 +361,7 @@ once in a single transaction.
 5. **Disqualify / reinstate**: a disqualified team stays signed in and keeps its records, but cannot submit
    anything ("Your team has been disqualified. Contact the organizer.") and is listed last in the ranking, marked
    *Disqualified*, without a rank and outside the rank numbering. Reinstating restores normal play.
-6. **Reset final**: all final progress is deleted (unlock and layer attempts, verdicts, suspect submissions, recovery
+6. **Reset final**: all final progress is deleted (unlock and passphrase attempts, suspect submissions, recovery
    attempts and recovery clues, added time); the final closes, its timer is cleared, it may be opened again, and content
    becomes editable again. Hints, cheating records and room scores are room-phase data and stay.
 7. **Reset one team**: all of the team's progress is deleted; the team, its account and its group stay, and its
@@ -464,7 +484,7 @@ the terminal only helps produce the technical output.
    - **Extra tools.** A room with a package also gets `file`, `base64`, `bzip2`, `bunzip2`, `bzcat`, `zip` and **GNU
      find** (and xargs): official Alpine Linux x86 (musl) packages verified against Alpine's signed index and pinned by
      SHA-256 (`infrastructure/build-terminal-tools.py`, sources and licenses in LINUX-ROOM.md section 10), shipped as one
-     static file of the site (`/terminal/devfest-tools.tgz`, under 2 MB, not part of the package and not counted in its
+     static file of the site (`/terminal/devfest-tools.tgz`, under 5 MB, not part of the package and not counted in its
      20 MB), unpacked into `/usr/local` whose `bin` leads the shell's `PATH`. A download or installation failure shows a
      clear error and no shell. A room with a package uses an 80 MB guest (others keep 64 MB); rooms without a package are
      unchanged.
@@ -478,7 +498,7 @@ the terminal only helps produce the technical output.
 7. **Team form (rooms with the `LINUX_TERMINAL` activity).** On the same page as the terminal the team sees five
    fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN** and **Final clue** (each at most 500 bytes, blanks
    allowed). There is no separate encrypted message: the target file holds one encrypted clue, and the team enters its
-   decryption as the Final clue (V17 removed the former message field; the crypto final of rule 10 is a different thing).
+   decryption as the Final clue (V17 removed the former message field; the final case of rule 10 is a different thing).
    - **Save** stores the current values, as often as the team likes (each request carries an Idempotency-Key: a retry
      of the same request is answered again, a different request with the same key is refused with 409, and a stale
      retry never overwrites a newer save). **Final submit** asks first ("This cannot be undone"), carries the current

@@ -1,7 +1,7 @@
 package dev.devfest.event.service;
 
 import dev.devfest.auth.AuthService.Principal;
-import dev.devfest.event.domain.CryptoContent;
+import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.domain.EventRanking;
 import dev.devfest.event.domain.FinalScoring;
 import dev.devfest.event.domain.FinalStage;
@@ -197,18 +197,14 @@ public class ScoreBreakdownService {
     int clues = p == null ? 0 : p.clues();
     boolean finalised = p != null && (p.finalised() || (timeUp && clues >= 3));
     FinalStage status = FinalStageResolver.resolve(state.finalEverOpened(), clues, finalised);
-    int layers = p == null ? 0 : p.layersCorrect();
-    int verdicts = p == null ? 0 : p.verdictsCorrect();
+    int solved = p == null ? 0 : p.cluesSolved();
     Integer active = p == null ? null : p.activeSeconds();
     boolean suspectCorrect = p != null && p.suspectCorrect();
-    FinalScoring.Score score = FinalScoring.score(new FinalScoring.Input(layers, verdicts, active, suspectCorrect, fullUntil));
+    FinalScoring.Score score = FinalScoring.score(new FinalScoring.Input(solved, active, suspectCorrect, fullUntil));
     return new FinalScoreLine(
       status,
-      layers,
-      verdicts,
-      score.layers(),
-      score.verdicts(),
-      score.crypto(),
+      solved,
+      score.clues(),
       active != null,
       active != null && suspectCorrect,
       score.suspect(),
@@ -242,7 +238,7 @@ public class ScoreBreakdownService {
   }
 
   /** Content for tests and the placeholder alert: parsed content, or null when none is imported. */
-  CryptoContent content() {
+  ShipmentContent content() {
     return contentReader.content().orElse(null);
   }
 }

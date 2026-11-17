@@ -85,8 +85,9 @@ class EventOrganizationTest extends EventIntegrationTest {
     assertTrue(codes.containsAll(List.of("TEAM_COUNT", "MISSING_CLUE_KEY", "MISSING_FINAL_CONTENT")), codes.toString());
     loadContent();
     List<String> after = expectOk(get("/admin/board", admin)).json("$.alerts[*].code");
-    // The Linux room has the terminal on by default and no terminal files yet (rules section 18).
-    assertEquals(List.of("TERMINAL_WITHOUT_FILES", "TEAM_COUNT"), after);
+    // The Linux room has the terminal on by default and no terminal files yet (rules section 18); the final's own
+    // terminal package is not uploaded either.
+    assertEquals(List.of("TERMINAL_WITHOUT_FILES", "TEAM_COUNT", "MISSING_FINAL_TERMINAL_PACKAGE"), after);
   }
 
   @Test

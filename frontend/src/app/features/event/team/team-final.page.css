@@ -1,4 +1,13 @@
+/* The final uses the site's own look (light page, shared cards, buttons and chips); only its terminal is dark. */
+.final-header__brand {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  color: var(--color-primary-text);
+}
+
 .final {
+  min-inline-size: 0;
   gap: var(--space-4);
 }
 

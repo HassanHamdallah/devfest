@@ -1,0 +1,36 @@
+NOVA TECHNOLOGIES
+Internal Shipment Notification
+CLASSIFICATION: CONFIDENTIAL
+
+FILE 01 · ORION_SHIPMENT_NOTICE
+
+Notice ID: SHP-NTC-0412 · Issued: 8:42 PM · Distribution: Restricted
+Subject: Final ORION Shipment — Inspection Schedule Update
+
+The security inspection for the final outgoing equipment shipment has been rescheduled.
+
+Original Inspection Time: 9:30 PM
+Updated Inspection Time: 9:15 PM
+
+Reason for Change:
+Urgent security inspection requested by Noor.
+
+Due to the sensitive nature of the shipment, the updated inspection time was shared only with personnel directly
+involved in shipment processing.
+
+Notification Recipients — Updated Inspection Time
+• S01 — Yazan Al-Haddad
+• S05 — Sara Awad
+• S11 — Samer Murad
+• S20 — Mazen Al-Dweik
+
+Recovered Note — Noor
+“The shipment was redirected after the inspection time changed. Whoever did it knew I was coming early.”
+
+Standard Shipment Notices — Same Evening (no schedule change)
+Time       Notice                                                  Recipient
+7:50 PM    Pallet count confirmed — outbound batch 14               S13 — Jad Younes
+8:20 PM    Dock Door 3 reserved for the 10:00 PM outbound transport   S08 — Fares Salim
+8:35 PM    Sensor-tag check scheduled for outbound crates            S17 — Jana Zaidan
+
+END OF FILE

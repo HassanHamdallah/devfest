@@ -1,0 +1,195 @@
+{
+  "format": 2,
+  "fullUntilMinutes": 25,
+  "mission": {
+    "title": "THE LAST SHIPMENT",
+    "intro": "You've successfully collected all four encrypted clues. Now it's time to decrypt them, uncover the hidden evidence, and discover who kidnapped Noor.",
+    "phase1": "Decrypt all four evidence files (15 minutes)",
+    "phase2": "Analyze the evidence and identify the kidnapper (25 minutes)"
+  },
+  "clues": [
+    {
+      "number": 1,
+      "title": "ORION_SHIPMENT_NOTICE",
+      "encFile": "ORION_SHIPMENT_NOTICE.enc",
+      "rsaFile": "clue1_key.rsa",
+      "keyReference": "NV-REF-1",
+      "passphraseSha256": "bd9bde06878a5b29a8b1b0ebb2453f7fbf8758a0994cb89e81692f27f9da310e",
+      "report": "NOVA TECHNOLOGIES\nInternal Shipment Notification\nCLASSIFICATION: CONFIDENTIAL\n\nFILE 01 · ORION_SHIPMENT_NOTICE\n\nNotice ID: SHP-NTC-0412 · Issued: 8:42 PM · Distribution: Restricted\nSubject: Final ORION Shipment — Inspection Schedule Update\n\nThe security inspection for the final outgoing equipment shipment has been rescheduled.\n\nOriginal Inspection Time: 9:30 PM\nUpdated Inspection Time: 9:15 PM\n\nReason for Change:\nUrgent security inspection requested by Noor.\n\nDue to the sensitive nature of the shipment, the updated inspection time was shared only with personnel directly\ninvolved in shipment processing.\n\nNotification Recipients — Updated Inspection Time\n• S01 — Yazan Al-Haddad\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S20 — Mazen Al-Dweik\n\nRecovered Note — Noor\n“The shipment was redirected after the inspection time changed. Whoever did it knew I was coming early.”\n\nStandard Shipment Notices — Same Evening (no schedule change)\nTime       Notice                                                  Recipient\n7:50 PM    Pallet count confirmed — outbound batch 14               S13 — Jad Younes\n8:20 PM    Dock Door 3 reserved for the 10:00 PM outbound transport   S08 — Fares Salim\n8:35 PM    Sensor-tag check scheduled for outbound crates            S17 — Jana Zaidan\n\nEND OF FILE"
+    },
+    {
+      "number": 2,
+      "title": "SECURITY_ACCESS_REPORT",
+      "encFile": "SECURITY_ACCESS_REPORT.enc",
+      "rsaFile": "clue2_key.rsa",
+      "keyReference": "NV-REF-2",
+      "passphraseSha256": "98924134ab2dfa26d48de2eb7964d3980a035d483be7ecc786f285600fddf53f",
+      "report": "NOVA TECHNOLOGIES\nSecurity Access Report\nCLASSIFICATION: RESTRICTED\n\nFILE 02 · SECURITY_ACCESS_REPORT\n\nSecurity Event Log — Evening Extract\n\nTime: 8:30 PM\nSystem: Main Lobby\nEvent: Visitor badge V-221 issued (routine)\n\nTime: 8:52 PM\nSystem: Main Lobby\nEvent: Visitor badge V-221 returned\n\nTime: 9:02 PM\nSystem: Level 2\nEvent: East fire-door test completed — Facilities\n\nTime: 9:10 PM\nSystem: Network Room door\nEvent: Badge-in — S04 Adam Hijazi\n\nTime: 9:15 PM – 9:20 PM\nSystem: Shipping Corridor CCTV\nEvent: Camera feed unavailable. Status: Scheduled Maintenance\n\nTime: 9:17 PM\nSystem: Shipping Corridor door\nEvent: A temporary shipping access card was used to enter the Shipping Corridor.\n\nTime: 9:20 PM\nSystem: Shipping Corridor CCTV\nEvent: Camera feed restored — maintenance window closed\n\nTime: 9:25 PM\nSystem: Elevator 2\nEvent: Routine maintenance ping\n\nRecorded Security Information — 9:17 PM Event\n\nSecurity Account: Rami Al-Khatib — S02\nAccess Type: Temporary Shipping Access\nCamera Verification: Unavailable\n\nNo visual identification of the person entering the corridor is available.\n\nEmployees Authorized for Temporary Shipping Access That Evening\n• S02 — Rami Al-Khatib\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S15 — Nader Shaheen\n• S19 — Hiba Qasem\n• S20 — Mazen Al-Dweik\n\nEND OF FILE"
+    },
+    {
+      "number": 3,
+      "title": "WAREHOUSE_MOVEMENT_REPORT",
+      "encFile": "WAREHOUSE_MOVEMENT_REPORT.enc",
+      "rsaFile": "clue3_key.rsa",
+      "keyReference": "NV-REF-3",
+      "passphraseSha256": "5128010a6d6d7c069a21e23e5762a478414dbd0b1d0bff020a385ef8fbd592d5",
+      "report": "NOVA TECHNOLOGIES\nWarehouse Movement Report\nCLASSIFICATION: INTERNAL INVESTIGATION\n\nFILE 03 · WAREHOUSE_MOVEMENT_REPORT\n\nWarehouse Activity Log — Evening Extract\n\nTime: 8:15 PM\nSource: Dock A Receiving\nEvent: Inbound pallet batch 12 received and scanned\n\nTime: 8:30 PM\nSource: Dock Scheduling Terminal\nEvent: Transport slot confirmed for the 10:00 PM outbound pickup\n\nTime: 8:48 PM\nSource: Logistics Yard\nEvent: Forklift FL-3 battery swap completed\n\nTime: 9:00 PM\nSource: Packing Station 2\nEvent: Final outgoing equipment shipment packed and sealed\n\nTime: 9:08 PM\nSource: Vendor Coordination Terminal\nEvent: A routing change was submitted for the final outgoing equipment shipment.\n\nTime: 9:11 PM\nSource: Dock Door 3\nEvent: Pre-departure door check completed\n\nTime: 9:18 PM\nSource: Old Storage Room\nEvent: The final shipment entered the Old Storage Room.\n\nTime: 9:21 PM\nSource: Wearable Telemetry\nEvent: Noor's emergency wearable transmitted its final recorded signal from the Old Storage Room. No additional signal from Noor's device was recorded after 9:21 PM.\n\nTime: 9:26 PM\nSource: Rack C4\nEvent: Inbound pallet batch 12 moved to storage\n\nRouting Change Detail — 9:08 PM\n\nOriginal Destination: Equipment Inspection Room\nNew Destination: Old Storage Room\nRequest Source: Vendor Coordination Terminal\n\nEmployees Authorized to Use the Vendor Coordination Terminal\n• S01 — Yazan Al-Haddad\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S16 — Karam Fawzi\n• S19 — Hiba Qasem\n\nEND OF FILE"
+    },
+    {
+      "number": 4,
+      "title": "STAFF_ACTIVITY_AUDIT",
+      "encFile": "STAFF_ACTIVITY_AUDIT.enc",
+      "rsaFile": "clue4_key.rsa",
+      "keyReference": "NV-REF-4",
+      "passphraseSha256": "405b22a81884caef6a9eafb07752c35931a8a0699f88783d0b35254c8a85bbfa",
+      "report": "NOVA TECHNOLOGIES\nStaff Activity Audit\nCLASSIFICATION: CONFIDENTIAL — INVESTIGATION USE ONLY\n\nFILE 04 · STAFF_ACTIVITY_AUDIT\n\n============================================================\nSecurity System Information\n============================================================\nTemporary Shipping Access Cards require approval from an authorized Security Officer.\nThe Security Account displayed in an access log identifies the officer who approved the temporary access.\n\nIt does not necessarily identify the employee physically carrying the card.\n\nPersonal authentication: the Secure Procurement Room, the Secure Procurement Workstation and the Gate B Employee Exit Turnstile each require a personal smart badge plus fingerprint verification. A badge alone is not accepted.\n\n============================================================\nStaff Record — S05 Sara Awad (Procurement Analyst)\n============================================================\nStatement: “I was in the Procurement Department reviewing invoices.”\n\nTime:   9:12 PM\nSystem: Secure Procurement Room door\nRecord: Entry — S05 Sara Awad (smart badge + fingerprint)\n\nTime:   9:14 PM – 9:22 PM\nSystem: Secure Procurement Workstation\nRecord: Continuous authenticated activity — S05 Sara Awad (smart-badge + fingerprint login; session locks if the badge is removed)\n\nTime:   9:17 PM\nSystem: Secure Procurement Workstation\nRecord: Fingerprint re-verification recorded — S05 Sara Awad\n\nTime:   9:25 PM\nSystem: Secure Procurement Room door\nRecord: Exit — S05 Sara Awad (no other door event recorded for this room since 9:12 PM)\n\nWalking time between the Secure Procurement Room and the Shipping Corridor: approximately 6 minutes.\n\n============================================================\nStaff Record — S11 Samer Murad (Vendor Relations Officer)\n============================================================\nStatement: “I left the building at 9:00 PM.”\n\nGate B Employee Exit Turnstile — extract\n\nTime:     8:12 PM\nEmployee: Badge E-4412 (Day Shift)\nRecord:   Exit — smart badge + fingerprint\n\nTime:     8:47 PM\nEmployee: Badge E-3178 (Day Shift)\nRecord:   Exit — smart badge + fingerprint\n\nTime:     9:31 PM\nEmployee: S11 — Samer Murad\nRecord:   Exit — smart badge + fingerprint\n\nTime:     9:38 PM\nEmployee: Badge E-4890 (Evening Shift)\nRecord:   Exit — smart badge + fingerprint\n\nNo exit event for Samer Murad was recorded at or before 9:00 PM.\n\n============================================================\nAdditional Staff Records\n============================================================\nAvailable records for the following employees do not provide enough information to confirm or eliminate their presence near the Shipping Corridor during the critical period:\n• S01 — Yazan Al-Haddad\n• S19 — Hiba Qasem\n• S20 — Mazen Al-Dweik\n\n============================================================\nOther Routine Staff Records\n============================================================\nTime:   9:05 PM\nSystem: IoT Monitoring Console\nRecord: Sensor heartbeat check completed — S17 Jana Zaidan\n\nTime:   9:20 PM\nSystem: Shift Supervisor Terminal\nRecord: Evening handover report submitted — S13 Jad Younes\n\nEND OF FILE"
+    }
+  ],
+  "keyIndex": [
+    {
+      "reference": "NV-REF-3",
+      "key": "C"
+    },
+    {
+      "reference": "NV-REF-1",
+      "key": "A"
+    },
+    {
+      "reference": "NV-REF-4",
+      "key": "D"
+    },
+    {
+      "reference": "NV-REF-2",
+      "key": "B"
+    }
+  ],
+  "suspects": [
+    {
+      "id": "S01",
+      "name": "Yazan Al-Haddad",
+      "position": "Operations Manager",
+      "statement": "I was in my office going over the shipment schedule."
+    },
+    {
+      "id": "S02",
+      "name": "Rami Al-Khatib",
+      "position": "Security Officer",
+      "statement": "I approved the temporary shipping cards for the evening crew. I never went to the corridor."
+    },
+    {
+      "id": "S03",
+      "name": "Rania Khoury",
+      "position": "HR Coordinator",
+      "statement": "I was preparing the new staff contracts in the HR office."
+    },
+    {
+      "id": "S04",
+      "name": "Adam Hijazi",
+      "position": "Network Engineer",
+      "statement": "I was in the network room fixing a switch from about 9:10."
+    },
+    {
+      "id": "S05",
+      "name": "Sara Awad",
+      "position": "Procurement Analyst",
+      "statement": "I was in the Procurement Department reviewing invoices."
+    },
+    {
+      "id": "S06",
+      "name": "Tamer Odeh",
+      "position": "IT Support Technician",
+      "statement": "I was resetting passwords for the night shift at the IT help desk."
+    },
+    {
+      "id": "S07",
+      "name": "Dana Sabbah",
+      "position": "Finance Officer",
+      "statement": "I was closing the month's accounts in the finance office."
+    },
+    {
+      "id": "S08",
+      "name": "Fares Salim",
+      "position": "Dock Supervisor",
+      "statement": "I reserved Dock Door 3 for the 10:00 PM transport and stayed near the docks."
+    },
+    {
+      "id": "S09",
+      "name": "Bilal Hamdan",
+      "position": "Forklift Operator",
+      "statement": "I swapped the battery on forklift FL-3 and then moved pallets in the yard."
+    },
+    {
+      "id": "S10",
+      "name": "Reem Jaber",
+      "position": "Quality Inspector",
+      "statement": "I was getting the Equipment Inspection Room ready for the 9:30 inspection."
+    },
+    {
+      "id": "S11",
+      "name": "Samer Murad",
+      "position": "Vendor Relations Officer",
+      "statement": "I left the building at 9:00 PM."
+    },
+    {
+      "id": "S12",
+      "name": "Yousef Darwish",
+      "position": "Facilities Technician",
+      "statement": "I ran the east fire-door test on Level 2 at about 9:00."
+    },
+    {
+      "id": "S13",
+      "name": "Jad Younes",
+      "position": "Shift Supervisor",
+      "statement": "I was writing the evening handover report."
+    },
+    {
+      "id": "S14",
+      "name": "Lama Qawasmi",
+      "position": "Receptionist",
+      "statement": "I issued a visitor badge at 8:30 and stayed at the main lobby desk."
+    },
+    {
+      "id": "S15",
+      "name": "Nader Shaheen",
+      "position": "Logistics Coordinator",
+      "statement": "I was checking pallet labels in the packing area."
+    },
+    {
+      "id": "S16",
+      "name": "Karam Fawzi",
+      "position": "Vendor Coordinator",
+      "statement": "I updated vendor contacts at my desk earlier in the evening."
+    },
+    {
+      "id": "S17",
+      "name": "Jana Zaidan",
+      "position": "IoT Systems Technician",
+      "statement": "I ran the sensor heartbeat check and stayed at the monitoring console."
+    },
+    {
+      "id": "S18",
+      "name": "Ziad Kanaan",
+      "position": "Marketing Specialist",
+      "statement": "I was working late on the product launch slides in the marketing office."
+    },
+    {
+      "id": "S19",
+      "name": "Hiba Qasem",
+      "position": "Warehouse Specialist",
+      "statement": "I was counting stock in the north aisle of the warehouse."
+    },
+    {
+      "id": "S20",
+      "name": "Mazen Al-Dweik",
+      "position": "Shipping Supervisor",
+      "statement": "I was on the phone with the transport company about the 10:00 PM pickup."
+    }
+  ],
+  "correctSuspect": "S11",
+  "recovery": {
+    "question": "TEST QUESTION (replace before the event). Rami hid one word in his last note with a Caesar cipher: every letter was moved 3 places forward in the alphabet (A became D, B became E). The note says ZDUHKRXVH. Decrypt it and enter the word.",
+    "acceptedAnswers": [
+      "WAREHOUSE"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from "@angular/common/http";
-import { ChangeDetectionStrategy, Component, inject, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from "@angular/core";
 import { message } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import { FinalContentView } from "../../../../core/event/event-models";
@@ -10,6 +10,17 @@ import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { RemoteData } from "../shared/remote-data";
 
+/** What the imported file says about itself: its format and how many clues and suspects it has. */
+function countsOf(json: string | null): { format: number | null; clues: number; suspects: number } | null {
+  if (!json) return null;
+  try {
+    const file = JSON.parse(json) as { format?: number; clues?: unknown[]; suspects?: unknown[] };
+    return { format: file.format ?? null, clues: file.clues?.length ?? 0, suspects: file.suspects?.length ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
 /** The server's reasons for a refused file (400 with `problems`), or none. */
 function problemsOf(error: unknown): string[] {
   const problems: unknown = error instanceof HttpErrorResponse ? error.error?.problems : null;
@@ -17,8 +28,8 @@ function problemsOf(error: unknown): string[] {
 }
 
 /**
- * The crypto final's content file (docs/final/crypto-content.json): choose it, import it, and see why it was
- * refused, every problem at once. The file is read-only once the final opens. The page never shows the private
+ * The final's content file, format 2 (docs/final/last-shipment-content.json): choose it, import it, and see why it
+ * was refused, every problem at once. The file is read-only once the final opens. The page never shows the private
  * values; it shows only what the file says about itself.
  */
 @Component({
@@ -58,6 +69,11 @@ function problemsOf(error: unknown): string[] {
           <p>
             Imported {{ importedAt() }}. Full time points until {{ v.fullUntilMinutes }} active minutes.
           </p>
+          @if (counts(); as c) {
+            <p data-final-content-counts>
+              Format {{ c.format }} · {{ c.clues }} clues · {{ c.suspects }} suspects
+            </p>
+          }
           @if (v.recoveryIsPlaceholder) {
             <ui-alert variant="warning" data-recovery-placeholder
               >The Recovery Challenge is still the placeholder text. Replace it in the file and import it again before the
@@ -66,8 +82,9 @@ function problemsOf(error: unknown): string[] {
           }
         } @else {
           <p class="event-muted">
-            Import the validated JSON file (docs/final/crypto-content.json) with the layers, the signed reports, the
-            evidence, the six suspects and the Recovery Challenge. The final cannot open without it.
+            Import the validated JSON file, format 2 (docs/final/last-shipment-content.json), with the mission, the four
+            clues and their reports, the key index, the suspects and the Recovery Challenge. The final cannot open
+            without it.
           </p>
         }
         @if (!v.readOnly) {
@@ -111,6 +128,7 @@ export class FinalContentSection {
 
   protected readonly data = new RemoteData(() => this.eventApi.finalContent());
   protected readonly view = this.data.data;
+  protected readonly counts = computed(() => countsOf(this.view()?.content ?? null));
   protected readonly chosen = signal<{ name: string; text: string } | null>(null);
   protected readonly sending = signal(false);
   protected readonly problems = signal<string[]>([]);

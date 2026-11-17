@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Builds the Linux room terminal's extra tools archive (frontend/public/terminal/devfest-tools.tgz).
 
-The terminal's Linux image is BusyBox without file, base64, bzip2, zip, a full find, nano or tree. This script assembles them from
+The terminal's Linux image is BusyBox without file, base64, bzip2, zip, a full find, nano, tree or openssl (nor haveged, which
+the final's terminal runs once at setup to seed the kernel's random pool). This script assembles them from
 official Alpine Linux x86 (32-bit) packages, which are built against musl, so the archive also carries the musl loader.
 Nothing is compiled and nothing is taken on trust:
 
@@ -15,14 +16,17 @@ Modes:
   python infrastructure/build-terminal-tools.py --lock    resolve the packages from the live index, verify them and
                                                           write infrastructure/terminal-tools.lock.json (do this when
                                                           deliberately moving to newer versions)
+  python infrastructure/build-terminal-tools.py --add N  verify one more package N against the live signed index and add it
+                                                          to the lock, leaving every locked package as it is
   python infrastructure/build-terminal-tools.py           rebuild the archive from the lock (exact versions, verified
                                                           again); the result is byte-identical for the same inputs
 
 Layout inside the archive (extracted from "/" by the terminal's setup; nothing outside /usr/local is touched):
   /usr/local/bin/<tool>                 small sh wrappers (first in PATH, so "find" is GNU find)
   /usr/local/devfest-tools/elf/         the real binaries
-  /usr/local/devfest-tools/lib/         the musl loader and libbz2, libmagic, libncursesw
-  /usr/local/devfest-tools/share/       the compiled magic database for file; terminfo/l/linux for nano (TERM is "linux")
+  /usr/local/devfest-tools/lib/         the musl loader and libbz2, libmagic, libncursesw, libcrypto, libssl, libhavege
+  /usr/local/devfest-tools/share/       the compiled magic database for file; terminfo/l/linux for nano (TERM is "linux");
+                                        openssl.cnf for OpenSSL (the wrapper sets OPENSSL_CONF)
 Each wrapper runs its binary through the musl loader with an explicit library path, so no file in /lib or /etc is
 needed.
 """
@@ -47,7 +51,7 @@ BRANCH, REPOSITORY, ARCH = "v3.24", "main", "x86"
 KEY_NAME = "alpine-devel@lists.alpinelinux.org-61666e3f.rsa.pub"
 KEY_URL = "https://alpinelinux.org/keys/" + KEY_NAME
 KEY_SHA256 = "128d34d4aec39b0daedea8163cd8dc24dff36fd3d848630ab97eeb1d3084bbb3"
-PACKAGES = ["musl", "libbz2", "bzip2", "libmagic", "file", "findutils", "zip", "busybox-static", "libncursesw", "ncurses-terminfo-base", "nano", "tree"]
+PACKAGES = ["musl", "libbz2", "bzip2", "libmagic", "file", "findutils", "zip", "busybox-static", "libncursesw", "ncurses-terminfo-base", "nano", "tree", "libcrypto3", "libssl3", "openssl", "haveged"]
 LOCK = ROOT / "infrastructure" / "terminal-tools.lock.json"
 CACHE = ROOT / ".local" / "terminal-tools-cache"
 ARCHIVE = ROOT / "frontend" / "public" / "terminal" / "devfest-tools.tgz"
@@ -65,6 +69,11 @@ FILES = {
     f"{BASE}/lib/libbz2.so.1.0.8": ("libbz2", "usr/lib/libbz2.so.1.0.8"),
     f"{BASE}/lib/libmagic.so.1.0.0": ("libmagic", "usr/lib/libmagic.so.1.0.0"),
     f"{BASE}/lib/libncursesw.so.6.6": ("libncursesw", "usr/lib/libncursesw.so.6.6"),
+    f"{BASE}/lib/libcrypto.so.3": ("libcrypto3", "usr/lib/libcrypto.so.3"),
+    f"{BASE}/lib/libssl.so.3": ("libssl3", "usr/lib/libssl.so.3"),
+    f"{BASE}/lib/libhavege.so.2": ("haveged", "usr/lib/libhavege.so.2.0.0"),
+    # Alpine's stock configuration (it only loads the default provider); the legacy module and the engines are left out.
+    f"{BASE}/share/openssl.cnf": ("libcrypto3", "etc/ssl/openssl.cnf"),
     f"{BASE}/share/magic.mgc": ("libmagic", "usr/share/misc/magic.mgc"),
     # Only the entry the terminal uses: the guest's TERM is "linux" (checked in the real terminal).
     f"{BASE}/share/terminfo/l/linux": ("ncurses-terminfo-base", "etc/terminfo/l/linux"),
@@ -75,6 +84,10 @@ FILES = {
     f"{BASE}/elf/zip": ("zip", "usr/bin/zip"),
     f"{BASE}/elf/nano": ("nano", "usr/bin/nano"),
     f"{BASE}/elf/tree": ("tree", "usr/bin/tree"),
+    f"{BASE}/elf/openssl": ("openssl", "usr/bin/openssl"),
+    # The guest's kernel (4.16) has no credited entropy source, so getrandom() blocks for about 100 s after boot; the
+    # final's setup runs "haveged -F --once" to credit the pool before the shell is handed over.
+    f"{BASE}/elf/haveged": ("haveged", "usr/sbin/haveged"),
     f"{BASE}/elf/busybox.static": ("busybox-static", "bin/busybox.static"),
 }
 SYMLINKS = {
@@ -98,15 +111,19 @@ COMMANDS = {
     # TERMINFO makes ncurses read the one bundled entry, so nothing outside /usr/local is needed.
     "nano": ("nano", "", f'export TERMINFO=/{BASE}/share/terminfo\n'),
     "tree": ("tree", "", ""),
+    # OPENSSL_CONF makes OpenSSL read the one bundled configuration instead of /etc/ssl, which the image does not have.
+    "openssl": ("openssl", "", f'export OPENSSL_CONF=/{BASE}/share/openssl.cnf\n'),
+    "haveged": ("haveged", "", ""),
 }
 
 #  licenses: key -> (title, url, applies to)
 LICENSE_TEXTS = {
-    "GPL-3.0": ("GNU General Public License, version 3", "https://www.gnu.org/licenses/gpl-3.0.txt", "findutils (GNU find and xargs), nano"),
+    "GPL-3.0": ("GNU General Public License, version 3", "https://www.gnu.org/licenses/gpl-3.0.txt", "findutils (GNU find and xargs), nano, haveged"),
     "GPL-2.0": ("GNU General Public License, version 2", "https://www.gnu.org/licenses/gpl-2.0.txt", "BusyBox (base64), tree"),
     "MIT": ("musl libc license (MIT)", "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT", "musl (the loader and libc)"),
     "BSD-2-Clause": ("file and libmagic license (BSD-2-Clause)", "https://raw.githubusercontent.com/file/file/master/COPYING", "file, libmagic"),
     "X11": ("ncurses license (X11)", "https://raw.githubusercontent.com/mirror/ncurses/master/COPYING", "libncursesw, the terminfo entry"),
+    "Apache-2.0": ("Apache License, version 2.0 (OpenSSL 3)", "https://www.apache.org/licenses/LICENSE-2.0.txt", "openssl, libcrypto, libssl"),
     "bzip2": ("bzip2 license", "https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;hb=HEAD", "bzip2, libbz2"),
 }
 INFOZIP_SOURCE = "https://downloads.sourceforge.net/project/infozip/Zip%203.x%20%28latest%29/3.0/zip30.tar.gz"
@@ -232,6 +249,40 @@ def lock():
     }
     LOCK.write_text(json.dumps(lock_data, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {LOCK.relative_to(ROOT)}")
+    return lock_data
+
+
+def add(name):
+    """Verifies one more package against the live signed index and appends it to the lock; the rest stays as locked."""
+    lock_data = json.loads(LOCK.read_text(encoding="utf-8"))
+    if any(package["name"] == name for package in lock_data["packages"]):
+        raise SystemExit(f"{name} is already in the lock.")
+    if name not in PACKAGES:
+        raise SystemExit(f"{name} is not in PACKAGES; add it there (and to FILES) first.")
+    key = fetch(KEY_URL)
+    if sha256(key) != KEY_SHA256:
+        raise SystemExit("The Alpine signing key does not match the pinned SHA-256; refusing to continue.")
+    index_bytes = fetch(f"{MIRROR}/{BRANCH}/{REPOSITORY}/{ARCH}/APKINDEX.tar.gz")
+    entry = verify_index(index_bytes, key)[name]
+    filename = f"{name}-{entry['V']}.apk"
+    apk = fetch(package_url(filename))
+    verified_package(name, apk, entry)
+    package = {
+        "name": name,
+        "version": entry["V"],
+        "file": filename,
+        "url": package_url(filename),
+        "sha256": sha256(apk),
+        "bytes": len(apk),
+        "license": entry.get("L", ""),
+        "upstream": entry.get("U", ""),
+        "origin": entry.get("o", name),
+        "addedFromIndexSha256": sha256(index_bytes),
+    }
+    order = {n: i for i, n in enumerate(PACKAGES)}
+    lock_data["packages"] = sorted(lock_data["packages"] + [package], key=lambda p: order.get(p["name"], len(order)))
+    LOCK.write_text(json.dumps(lock_data, indent=2) + "\n", encoding="utf-8")
+    print(f"verified {filename}  sha256 {sha256(apk)}; wrote {LOCK.relative_to(ROOT)}")
     return lock_data
 
 
@@ -364,8 +415,14 @@ def write_licenses(lock_data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--lock", action="store_true", help="resolve and verify the newest packages of the branch and rewrite the lock file")
+    parser.add_argument("--add", metavar="NAME", help="verify one more package and add it to the lock, keeping the others")
     args = parser.parse_args()
-    lock_data = lock() if args.lock else json.loads(LOCK.read_text(encoding="utf-8"))
+    if args.lock:
+        lock_data = lock()
+    elif args.add:
+        lock_data = add(args.add)
+    else:
+        lock_data = json.loads(LOCK.read_text(encoding="utf-8"))
     build(lock_data)
 
 

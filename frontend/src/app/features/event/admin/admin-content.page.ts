@@ -5,6 +5,7 @@ import { UiAlert } from "../../../shared/ui/ui-alert/ui-alert";
 import { UiPageState } from "../../../shared/ui/ui-page-state/ui-page-state";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { FinalContentSection } from "./content/final-content-section";
+import { FinalPackageSection } from "./content/final-package-section";
 import { READ_ONLY_REASON } from "./content/content-view";
 import { RoomContentForm } from "./content/room-content-form";
 import { RemoteData } from "./shared/remote-data";
@@ -13,6 +14,7 @@ import { RemoteData } from "./shared/remote-data";
 @Component({
   imports: [
     FinalContentSection,
+    FinalPackageSection,
     RoomContentForm,
     UiAlert,
     UiPageState,
@@ -51,6 +53,7 @@ import { RemoteData } from "./shared/remote-data";
           >
         }
         <app-final-content-section />
+        <app-final-package-section />
         <section aria-labelledby="room-content-heading">
           <h2 id="room-content-heading">Room clues</h2>
           <div class="event-grid">

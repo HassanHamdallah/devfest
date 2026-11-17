@@ -4,7 +4,8 @@ import { HttpErrorResponse } from "@angular/common/http";
  * Submission reliability (EVENT-CONTRACT §5): an attempt is persisted BEFORE it is sent, so a network
  * failure or a reload can resend the same Idempotency-Key and body and the server replays the original receipt.
  */
-export type PendingKind = "submission" | "recovery" | "unlock" | "layer";
+/** One stored attempt per kind; each evidence file of the final has its own ("clue-1" .. "clue-4"). */
+export type PendingKind = "submission" | "recovery" | "unlock" | `clue-${1 | 2 | 3 | 4}`;
 
 export interface PendingRequest<B> {
   key: string;
