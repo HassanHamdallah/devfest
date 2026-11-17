@@ -244,9 +244,9 @@ class EventFinalTest extends EventIntegrationTest {
     Response mission = view(alpha);
     assertEquals("MISSION", mission.json("$.screen"));
     assertEquals("THE LAST SHIPMENT", mission.json("$.mission.title"));
-    assertTrue(((String) mission.json("$.mission.intro")).contains("discover who kidnapped Noor"));
-    assertEquals("Decrypt all four evidence files (15 minutes)", mission.json("$.mission.phase1"));
-    assertEquals("Analyze the evidence and identify the kidnapper (25 minutes)", mission.json("$.mission.phase2"));
+    assertTrue(((String) mission.json("$.mission.intro")).contains("NOOR DISAPPEARED."));
+    assertEquals("Decrypt all four files (15 minutes).", mission.json("$.mission.phase1"));
+    assertEquals("Analyze the decrypted information and compare it with the Suspects Sheet (25 minutes).", mission.json("$.mission.phase2"));
     assertEquals(0, (int) mission.json("$.clues.length()"), "the files come with the case");
     assertEquals(0, (int) mission.json("$.suspects.length()"));
     expectError(passphrase(alpha, 1, PASSPHRASES.get(0)), 409, "Start the case first.");
@@ -271,12 +271,20 @@ class EventFinalTest extends EventIntegrationTest {
     assertEquals(List.of(false, false, false, false), started.json("$.clues[*].solved"));
     assertEquals(4, (int) started.json("$.keyIndex.length()"));
     assertEquals(Set.of("A", "B", "C", "D"), Set.copyOf(started.<List<String>>json("$.keyIndex[*].key")));
-    assertEquals(12, (int) started.json("$.suspects.length()"));
-    assertEquals(Set.of("id", "name", "position", "statement"), ((Map<?, ?>) started.json("$.suspects[0]")).keySet());
-    assertEquals(List.of("Samer Murad"), started.json("$.suspects[?(@.id == 'S11')].name"));
-    assertEquals(List.of("Vendor Relations Officer"), started.json("$.suspects[?(@.id == 'S11')].position"));
+    assertEquals("DECRYPTION", started.json("$.phase"));
+    assertEquals(15, (int) started.json("$.phase1Minutes"));
+    assertEquals(900, (int) started.json("$.phase1EndsInSeconds"));
+    assertEquals(0, (int) started.json("$.suspects.length()"), "no suspects while the decryption phase runs");
     assertEquals(false, started.json("$.submitted"));
     assertNull(started.json("$.terminal"), "no final terminal package uploaded");
+    openInvestigationPhase();
+    Response investigating = view(alpha);
+    assertEquals("INVESTIGATION", investigating.json("$.phase"));
+    assertNull(investigating.json("$.phase1EndsInSeconds"));
+    assertEquals(20, (int) investigating.json("$.suspects.length()"));
+    assertEquals(Set.of("id", "name", "position", "statement"), ((Map<?, ?>) investigating.json("$.suspects[0]")).keySet());
+    assertEquals(List.of("Samer Murad"), investigating.json("$.suspects[?(@.id == 'S11')].name"));
+    assertEquals(List.of("Vendor Relations Officer"), investigating.json("$.suspects[?(@.id == 'S11')].position"));
   }
 
   @Test
@@ -375,6 +383,7 @@ class EventFinalTest extends EventIntegrationTest {
     openFinal();
     playTo(alpha, 1);
     playTo(echo, 4);
+    openInvestigationPhase();
     expectError(suspect(alpha, "S99"), 400, "Choose one of the listed suspects.");
     expectError(suspect(alpha, ""), 400, "Please check the form fields.");
     Response right = expectOk(suspect(alpha, CORRECT_SUSPECT));
@@ -401,10 +410,191 @@ class EventFinalTest extends EventIntegrationTest {
     assertEquals(false, db.queryForObject("SELECT suspect_correct FROM team_final WHERE team_id = ?", Boolean.class, echo.id()));
   }
 
+  // ---- the two phases ---------------------------------------------------------------------------
+
+  @Test
+  void suspectsAreRefusedAndHiddenInTheDecryptionPhaseAndPassphrasesAreRefusedInTheInvestigationPhase() {
+    // A shorter decryption phase (the content's phase1Minutes) is named in the refusal.
+    expectOk(importFinalContent(finalContentJson().replace("\"phase1Minutes\":15", "\"phase1Minutes\":10")));
+    openFinal();
+    playTo(alpha, 2);
+    expectError(suspect(alpha, CORRECT_SUSPECT), 409, "The investigation phase starts at 10:00.");
+    assertEquals(0, count("SELECT count(*) FROM team_final WHERE team_id = " + alpha.id() + " AND suspect_id IS NOT NULL"));
+    clock.advance(Duration.ofMinutes(9).plusSeconds(59));
+    Response last = view(alpha);
+    assertEquals("DECRYPTION", last.json("$.phase"));
+    assertEquals(1, (int) last.json("$.phase1EndsInSeconds"));
+    assertEquals(0, (int) last.json("$.suspects.length()"));
+    expectOk(passphrase(alpha, 3, PASSPHRASES.get(2)));
+    clock.advance(Duration.ofSeconds(1));
+
+    Response now = view(alpha);
+    assertEquals("INVESTIGATION", now.json("$.phase"));
+    assertNull(now.json("$.phase1EndsInSeconds"));
+    assertEquals(20, (int) now.json("$.suspects.length()"));
+    assertNull(now.json("$.terminal"));
+    assertEquals(List.of(true, true, true, false), now.json("$.clues[*].solved"), "what was decrypted in time stays");
+    assertNull(now.json("$.clues[3].report"), "an unsolved report is never sent");
+    int attempts = count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id());
+    expectError(passphrase(alpha, 4, PASSPHRASES.get(3)), 409, "The decryption phase is over.");
+    expectError(passphrase(alpha, 4, "wrong"), 409, "The decryption phase is over.");
+    assertEquals(attempts, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id()), "a refused passphrase is not an attempt");
+    assertEquals(0, (int) view(alpha).json("$.clues[3].waitSeconds"), "and starts no wait");
+    expectOk(suspect(alpha, CORRECT_SUSPECT));
+  }
+
+  @Test
+  void pausedMinutesDoNotCountTowardsTheDecryptionPhaseAndALateRecoveryFollowsTheSameClock() {
+    openFinal();
+    playTo(alpha, 1);
+    clock.advance(Duration.ofMinutes(10));
+    admin = adminToken();
+    expectOk(post("/admin/final/timer/pause", admin, null));
+    clock.advance(Duration.ofMinutes(20));
+    Response paused = view(fresh(alpha));
+    assertEquals("DECRYPTION", paused.json("$.phase"));
+    assertEquals(300, (int) paused.json("$.phase1EndsInSeconds"), "the pause is not counted");
+    admin = adminToken();
+    expectOk(post("/admin/final/timer/resume", admin, null));
+    // Bravo gets in late through the Recovery Challenge: no extra time, the same phase and the same seconds left.
+    TestTeam late = fresh(bravo);
+    expectOk(recover(late, UUID.randomUUID(), "  eight   bits "));
+    playTo(late, 0);
+    clock.advance(Duration.ofMinutes(2));
+    Response lateView = view(fresh(bravo));
+    assertEquals("DECRYPTION", lateView.json("$.phase"));
+    assertEquals(180, (int) lateView.json("$.phase1EndsInSeconds"));
+    assertEquals(180, (int) view(fresh(alpha)).json("$.phase1EndsInSeconds"));
+    clock.advance(Duration.ofMinutes(3));
+    assertEquals("INVESTIGATION", view(fresh(bravo)).json("$.phase"));
+    assertEquals("INVESTIGATION", view(fresh(alpha)).json("$.phase"));
+  }
+
+  @Test
+  void theAdminSeesThePhaseOfTheFinalAndOfEveryTeamOnTheCase() {
+    openFinal();
+    playTo(alpha, 1);
+    admin = adminToken();
+    Response timer = expectOk(get("/admin/final/timer", admin));
+    assertEquals("DECRYPTION", timer.json("$.finalPhase"));
+    assertEquals(15, (int) timer.json("$.phase1Minutes"));
+    assertEquals(900, (int) timer.json("$.phase1EndsInSeconds"));
+    assertEquals(List.of("DECRYPTION"), expectOk(get("/admin/final/board", admin)).json("$[?(@.teamName == 'Alpha')].phase"));
+    clock.advance(Duration.ofMinutes(15));
+    admin = adminToken();
+    assertEquals("INVESTIGATION", expectOk(get("/admin/final/timer", admin)).json("$.finalPhase"));
+    assertEquals(List.of("INVESTIGATION"), expectOk(get("/admin/final/board", admin)).json("$[?(@.teamName == 'Alpha')].phase"));
+  }
+
+  // ---- the Final Investigation Report -----------------------------------------------------------
+
+  /** The suspect request with a report: {@code report} is the JSON of the extra fields (e.g. "evidence1":"x"). */
+  private Response suspectWithReport(TestTeam team, String suspectId, String report) {
+    return teamPost(team, "/team/final/suspect", UUID.randomUUID(), "{\"suspectId\":" + quote(suspectId) + (report.isEmpty() ? "" : "," + report) + "}");
+  }
+
+  @Test
+  void theReportIsStoredOnceWithTheSuspectShownBackToItsTeamOnlyAndNeverLogged() {
+    openFinal();
+    playTo(alpha, 4);
+    openInvestigationPhase();
+    String report = "\"evidence1\":\"  Badge log 9:17 PM  \",\"evidence2\":\"S11 left at 9:31, not 9:00\",\"evidence3\":\"\",\"explanation\":\"Line one\\nLine two\"";
+    Response submitted = expectOk(suspectWithReport(alpha, CORRECT_SUSPECT, report));
+    assertEquals("SUBMITTED", submitted.json("$.screen"));
+    assertFalse(submitted.body().contains("Badge log"), "the answer never echoes the report");
+    Response done = view(alpha);
+    assertEquals("Samer Murad", done.json("$.submission.suspectName"));
+    assertEquals("S11", done.json("$.submission.suspectId"));
+    assertEquals("Badge log 9:17 PM", done.json("$.submission.report.evidence1"), "trimmed");
+    assertEquals("S11 left at 9:31, not 9:00", done.json("$.submission.report.evidence2"));
+    assertNull(done.json("$.submission.report.evidence3"), "a blank box is none");
+    assertNull(done.json("$.submission.report.evidence4"));
+    assertEquals("Line one\nLine two", done.json("$.submission.report.explanation"));
+    // The same suspect again is the same answer and the report cannot be changed; another team never sees it.
+    expectOk(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"Changed\""));
+    assertEquals("Badge log 9:17 PM", view(alpha).json("$.submission.report.evidence1"));
+    assertEquals("Badge log 9:17 PM", db.queryForObject("SELECT evidence1 FROM team_final WHERE team_id = ?", String.class, alpha.id()));
+    assertFalse(view(bravo).body().contains("Badge log"), "another team's view never carries it");
+    assertEquals(0, count("SELECT count(*) FROM audit_event WHERE action = 'EVENT_FINAL_SUBMITTED' AND (target LIKE '%Badge%' OR target LIKE '%Line one%')"));
+  }
+
+  @Test
+  void theReportIsRefusedWithTheSuspectInTheDecryptionPhaseAndStoresNothing() {
+    openFinal();
+    playTo(alpha, 4);
+    expectError(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"too early\""), 409, "The investigation phase starts at 15:00.");
+    assertNull(db.queryForObject("SELECT evidence1 FROM team_final WHERE team_id = ?", String.class, alpha.id()));
+    assertNull(db.queryForObject("SELECT suspect_id FROM team_final WHERE team_id = ?", String.class, alpha.id()));
+  }
+
+  @Test
+  void everyTooLongOrControlCharacterFieldIsListedAndNothingIsStored() {
+    openFinal();
+    playTo(alpha, 4);
+    openInvestigationPhase();
+    String longText = "x".repeat(601);
+    Response refused = suspectWithReport(
+      alpha,
+      CORRECT_SUSPECT,
+      "\"evidence1\":\"" + longText + "\",\"evidence3\":\"bell\\u0007\",\"explanation\":\"" + longText + "\""
+    );
+    assertEquals(400, refused.status());
+    Map<?, ?> errors = refused.json("$.errors");
+    assertEquals(Set.of("evidence1", "evidence3", "explanation"), errors.keySet(), "every field is listed at once");
+    assertNull(db.queryForObject("SELECT suspect_id FROM team_final WHERE team_id = ?", String.class, alpha.id()));
+    String exactly600 = "y".repeat(600);
+    expectOk(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"" + exactly600 + "\""));
+    assertEquals(exactly600, view(alpha).json("$.submission.report.evidence1"));
+  }
+
+  @Test
+  void theScoreIsTheSameWithAndWithoutAReport() {
+    TestTeam echo = team("Echo", GroupCode.C);
+    clues(echo, RoomCode.values());
+    openFinal();
+    playTo(alpha, 4);
+    playTo(echo, 4);
+    openInvestigationPhase();
+    expectOk(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"Badge log\",\"explanation\":\"Because.\""));
+    expectOk(suspectWithReport(echo, CORRECT_SUSPECT, ""));
+    for (String part : List.of("clues", "suspect", "time", "total")) {
+      assertEquals(finalPart("Echo", part), finalPart("Alpha", part), part);
+    }
+    assertEquals(new BigDecimal("40.00"), finalPart("Alpha", "total"));
+  }
+
+  @Test
+  void theOrganizersListAndTheSpreadsheetCarryEveryReportAndNoTeamMemberCanReadThem() {
+    TestTeam echo = team("Echo", GroupCode.C);
+    clues(echo, RoomCode.values());
+    openFinal();
+    playTo(alpha, 4);
+    playTo(echo, 4);
+    openInvestigationPhase();
+    expectOk(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"Badge, \\\"log\\\"\",\"explanation\":\"Line one\\nLine two\""));
+    expectOk(suspectWithReport(echo, WRONG_SUSPECT, ""));
+    assertEquals(403, get("/admin/final/reports", alpha.token()).status());
+    assertEquals(401, get("/admin/final/reports", null).status());
+    admin = adminToken();
+    Response reports = expectOk(get("/admin/final/reports", admin));
+    assertEquals(List.of(true), reports.json("$[?(@.teamName == 'Alpha')].submitted"));
+    assertEquals(List.of("Samer Murad"), reports.json("$[?(@.teamName == 'Alpha')].suspectName"));
+    assertEquals(List.of(true), reports.json("$[?(@.teamName == 'Alpha')].correct"));
+    assertEquals(List.of(false), reports.json("$[?(@.teamName == 'Echo')].correct"));
+    assertEquals(List.of("Badge, \"log\""), reports.json("$[?(@.teamName == 'Alpha')].evidence1"));
+    assertEquals(List.of(false), reports.json("$[?(@.teamName == 'Bravo')].submitted"), "a team that did not submit is listed too");
+    assertNull(reports.<List<String>>json("$[?(@.teamName == 'Bravo')].suspectId").get(0));
+    String csv = expectOk(get("/admin/export.csv", admin)).body();
+    assertTrue(csv.startsWith("rank,team,group,status,"), csv);
+    assertTrue(csv.contains(",evidence1,evidence2,evidence3,evidence4,explanation\r\n"), csv);
+    assertTrue(csv.contains("\"Badge, \"\"log\"\"\",\"\",\"\",\"\",\"Line one\nLine two\"\r\n"), "quoted, new line kept inside the quotes: " + csv);
+  }
+
   @Test
   void concurrentSuspectSubmissionsRecordExactlyOne() throws Exception {
     openFinal();
     playTo(alpha, 4);
+    openInvestigationPhase();
     List<Callable<Integer>> calls = new ArrayList<>();
     for (String id : List.of("S01", "S02", "S04", "S05", "S08", "S11")) calls.add(() -> suspect(alpha, id).status());
     List<Integer> statuses = runTogether(calls);
@@ -466,13 +656,14 @@ class EventFinalTest extends EventIntegrationTest {
       assertEquals(n, (int) expectOk(get("/admin/scores", admin)).<List<Integer>>json("$[?(@.teamName == 'Alpha')].finalScore.cluesSolved").get(0));
     }
     // Three files and the right suspect: no time points.
+    playTo(echo, 4);
+    openInvestigationPhase();
     expectOk(suspect(alpha, CORRECT_SUSPECT));
     assertEquals(new BigDecimal("11.25"), finalPart("Alpha", "clues"));
     assertEquals(new BigDecimal("10.00"), finalPart("Alpha", "suspect"));
     assertEquals(new BigDecimal("0.00"), finalPart("Alpha", "time"));
     assertEquals(new BigDecimal("21.25"), finalPart("Alpha", "total"));
     // All four files, then time up before a suspect: no suspect and no time points.
-    playTo(echo, 4);
     clock.advance(Duration.ofMinutes(41));
     admin = adminToken();
     assertEquals(new BigDecimal("15.00"), finalPart("Echo", "clues"));
@@ -700,6 +891,7 @@ class EventFinalTest extends EventIntegrationTest {
       bodies.add(expectOk(passphrase(alpha, n, PASSPHRASES.get(n - 1))).body());
       snapshot.run();
     }
+    openInvestigationPhase();
     bodies.add(expectOk(suspect(alpha, CORRECT_SUSPECT)).body());
     snapshot.run();
     expectOk(put("/admin/publication", admin, "{\"published\":true}"));

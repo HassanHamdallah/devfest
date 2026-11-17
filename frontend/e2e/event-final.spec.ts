@@ -46,6 +46,13 @@ test.beforeEach(() => resetRehearsal());
 
 const keyFor = () => randomUUID();
 
+/** The report the main spec writes. It avoids the words the SUBMITTED screen must never say (correct, right, score...). */
+const EVIDENCE_1 = "Security log: temporary card used at 9:17 PM";
+const EVIDENCE_2 = "Exit record: S11 left at 9:31 PM, not at 9:00 PM";
+
+/** The main spec decrypts in the terminal, so its decryption phase is long enough for that; the others use 1 minute. */
+const MAIN_PHASE1_MINUTES = 3;
+
 /** Team plans: Team 01 and 04 hold 4 clues, Team 02 holds 3 (no Hardware), Team 03 holds 2. */
 const PLANS = [
   { number: 1, rooms: ROOMS },
@@ -54,12 +61,15 @@ const PLANS = [
   { number: 4, rooms: ROOMS },
 ];
 
-/** Content, the final's terminal package (unless `withPackage` is false), the clues, then the final opens. */
-async function prepareFinal(admin: EventApiSession, withPackage = true) {
+/**
+ * Content (with the given decryption phase length in minutes, or the file's own), the final's terminal package (unless
+ * `withPackage` is false), the clues, then the final opens.
+ */
+async function prepareFinal(admin: EventApiSession, withPackage = true, phase1Minutes?: number) {
   const control = new EventAdminShortcuts(admin);
   await control.setRoomActivity("AI", null);
   await setPracticeKeys(accounts, ROOMS);
-  await admin.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson()));
+  await admin.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson(phase1Minutes)));
   if (withPackage) await admin.upload("/event/admin/final/terminal-bundle", "final-package.zip", finalPackageZip());
   await collectClues(accounts, admin, PLANS);
   await control.openFinal();
@@ -116,7 +126,7 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
   const first = await openRolePage(browser, "team 01", WIDE);
   let firstApi: EventApiSession | null = null;
   try {
-    await prepareFinal(admin);
+    await prepareFinal(admin, true, MAIN_PHASE1_MINUTES);
 
     await test.step("unlock: a wrong output gets one generic message; the right ones open the mission", async () => {
       await signIn(first.page, accounts.members[0], accounts.seedPassword);
@@ -140,7 +150,21 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(mission).toContainText("MISSION UNLOCKED");
       await expect(mission.locator("[data-mission-title]")).toHaveText(SHIPMENT_CONTENT.mission.title);
       await expect(mission).toContainText("Congratulations, Investigators");
-      await expect(mission.locator("[data-mission-intro]")).toHaveText(SHIPMENT_CONTENT.mission.intro);
+      // The briefing is the content's intro, one paragraph per blank line, with the sentence about Noor emphasised.
+      const briefing = mission.locator("[data-mission-intro]");
+      const paragraphs = SHIPMENT_CONTENT.mission.intro.split("\n\n");
+      await expect(briefing.locator("p")).toHaveCount(paragraphs.length);
+      for (const paragraph of paragraphs) await expect(briefing).toContainText(paragraph);
+      await expect(briefing.locator("strong")).toHaveText("NOOR DISAPPEARED.");
+      await expect(mission.locator("[data-mission-compare] li")).toHaveText([
+        "Times",
+        "Access permissions",
+        "Statements",
+        "System records",
+        "Information across all four files",
+      ]);
+      await expect(mission).toContainText("Trust the evidence. Question your assumptions.");
+      await expect(mission).toContainText("Good luck, investigators.");
       await expect(mission).toContainText("40:00");
       await expect(mission).toContainText("Encrypted clues");
       await expect(mission.locator('[data-mission-phase="1"]')).toContainText(SHIPMENT_CONTENT.mission.phase1);
@@ -152,7 +176,17 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await first.page.getByRole("button", { name: "START FINAL INVESTIGATION", exact: true }).click();
       await expect(screen(first.page, "CASE")).toBeVisible();
       await expect(first.page.getByRole("tab", { name: "Phase 1 — Decryption" })).toHaveAttribute("aria-selected", "true");
-      await expect(first.page.getByText("Suggested: Phase 1 about 15 minutes, Phase 2 about 25 minutes.")).toBeVisible();
+      // Phase 2 is locked with a live countdown; the sticky bar names the phase.
+      const tab2 = first.page.getByRole("tab", { name: "Phase 2 — Investigation" });
+      await expect(tab2).toHaveAttribute("aria-disabled", "true");
+      await expect(first.page.locator("[data-phase-locked]")).toContainText(`Opens at ${MAIN_PHASE1_MINUTES}:00 · `);
+      await expect(first.page.locator("[data-phase-locked]")).toContainText(/\d\d:\d\d left/);
+      await tab2.click({ force: true });
+      await expect(first.page.getByRole("tab", { name: "Phase 1 — Decryption" })).toHaveAttribute("aria-selected", "true");
+      await expect(first.page.locator("[data-final-phase-label]")).toContainText("Phase 1 — Decryption · ends in ");
+      await expect(first.page.locator("[data-phase-hint]")).toHaveText(
+        `Decrypt all four files. Phase 2 opens at ${MAIN_PHASE1_MINUTES}:00 of the final's time.`,
+      );
       for (let n = 1; n <= 4; n++) {
         const clue = SHIPMENT_CONTENT.clues[n - 1];
         await expect(clueRow(first.page, n)).toContainText(clue.encFile);
@@ -270,6 +304,29 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(first.page.locator(`[data-final-phase="1"] [data-decrypted-count]`)).toHaveText("4 / 4");
     });
 
+    await test.step("the investigation opens by itself: the page moves to Phase 2 and Phase 1 turns read-only", async () => {
+      const api = await EventApiSession.fromPage(first.page);
+      try {
+        await expect(new FinalShortcuts(api, keyFor).suspect(CORRECT_SUSPECT)).rejects.toThrow(
+          new RegExp(`409.*The investigation phase starts at ${MAIN_PHASE1_MINUTES}:00\\.`),
+        );
+      } finally {
+        await api.dispose();
+      }
+      await expect(first.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-selected", "true", {
+        timeout: 240000,
+      });
+      await expect(first.page.locator("[data-final-phase-label]")).toHaveText("Phase 2 — Investigation");
+      await expect(first.page.locator("[data-phase-locked]")).toHaveCount(0);
+      await first.page.getByRole("tab", { name: "Phase 1 — Decryption" }).click();
+      const one = first.page.locator('[data-final-phase="1"]');
+      await expect(one.locator("[data-phase-over]")).toHaveText("The decryption phase is over.");
+      await expect(one.locator("[data-final-terminal]")).toHaveCount(0);
+      await expect(one.getByRole("textbox")).toHaveCount(0);
+      await expect(clueRow(first.page, 3).locator("[data-view-report]")).toBeVisible();
+      await shootBoth(first.page, "phase1-over");
+    });
+
     await test.step("Phase 2: recovered evidence, the suspects sheet, and one suspect after a confirmation", async () => {
       await first.page.getByRole("tab", { name: "Phase 2 — Investigation" }).click();
       const phase2 = first.page.locator('[data-final-phase="2"]');
@@ -279,12 +336,21 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(rows).toHaveCount(SHIPMENT_CONTENT.suspects.length);
       await expect(phase2.locator('[data-suspect="S11"]')).toContainText("Vendor Relations Officer");
       await expect(phase2.locator('[data-suspect="S11"]')).toContainText("S11");
-      // Search by name or ID.
+      // Every row shows the initial statement in quotes under the name.
+      await expect(phase2.locator('[data-suspect="S11"]')).toContainText("“I left the building at 9:00 PM.”");
+      await expect(phase2.locator('[data-suspect="S09"]')).toContainText("“I didn't know there was an incident until Noor disappeared.”");
+      // Search by name, ID, position or statement.
       const search = phase2.getByRole("searchbox", { name: "Search suspects" });
       await search.fill("samer");
       await expect(rows).toHaveCount(1);
-      await search.fill("s1");
-      await expect(rows).toHaveCount(10);
+      await search.fill("s11");
+      await expect(rows).toHaveCount(1);
+      await search.fill("cctv");
+      await expect(rows).toHaveCount(1);
+      await expect(phase2.locator('[data-suspect="S15"]')).toBeVisible();
+      await search.fill("invoices");
+      await expect(rows).toHaveCount(1);
+      await expect(phase2.locator('[data-suspect="S05"]')).toBeVisible();
       await search.fill("nobody-by-this-name");
       await expect(phase2.locator("[data-suspects-empty]")).toContainText("No suspect matches");
       await phase2.getByRole("button", { name: "Clear search", exact: true }).click();
@@ -303,17 +369,73 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
         ),
       ).toEqual(["Samer left at 9:00"]);
       await expect(phase2.locator("[data-time-points-note]")).toHaveCount(0);
-      await phase2.getByRole("combobox", { name: "Select one suspect" }).selectOption(CORRECT_SUSPECT);
       await shootBoth(first.page, "phase2");
+      // A row opens the full card; Close leaves the form untouched.
+      const select = phase2.getByRole("combobox", { name: "Select one suspect" });
+      await phase2.locator(`[data-suspect="${CORRECT_SUSPECT}"] button`).click();
+      const card = first.page.locator("[data-suspect-detail]");
+      await expect(card).toBeVisible();
+      await expect(card.locator("[data-detail-id]")).toHaveText(CORRECT_SUSPECT);
+      await expect(card.locator("[data-detail-name]")).toHaveText(suspectName(CORRECT_SUSPECT));
+      await expect(card.locator("[data-detail-position]")).toHaveText("Vendor Relations Officer");
+      await expect(card.locator("[data-detail-statement]")).toHaveText("“I left the building at 9:00 PM.”");
+      await shootBoth(first.page, "suspect-detail");
+      await card.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(card).toBeHidden();
+      await expect(select).toHaveValue("");
+      // Escape closes it too; "Select as the kidnapper" only fills the select (Submit and its confirmation follow).
+      await phase2.locator(`[data-suspect="${CORRECT_SUSPECT}"] button`).press("Enter");
+      await expect(card).toBeVisible();
+      await first.page.keyboard.press("Escape");
+      await expect(card).toBeHidden();
+      await phase2.locator(`[data-suspect="${CORRECT_SUSPECT}"] button`).click();
+      await card.getByRole("button", { name: "Select as the kidnapper", exact: true }).click();
+      await expect(card).toBeHidden();
+      await expect(select).toHaveValue(CORRECT_SUSPECT);
+      await expect(phase2.locator(`[data-suspect="${CORRECT_SUSPECT}"] [data-suspect-chosen]`)).toHaveText("Selected");
+      await expect(phase2.getByRole("button", { name: "Submit", exact: true })).toBeEnabled();
+      // The Final Investigation Report: two evidence boxes with counters, kept on this device across a refresh.
+      const evidence1 = phase2.getByRole("textbox", { name: "Evidence 1", exact: true });
+      const evidence2 = phase2.getByRole("textbox", { name: "Evidence 2", exact: true });
+      await expect(phase2.locator("[data-report-form]")).toContainText(
+        "Your answer must include a brief explanation of the evidence supporting your conclusion.",
+      );
+      await expect(evidence1).toHaveAttribute("placeholder", "Which record, time or contradiction supports your answer?");
+      await expect(phase2.getByRole("textbox", { name: "Evidence 4", exact: true })).toBeVisible();
+      await expect(phase2.getByRole("textbox", { name: "Explanation (optional)", exact: true })).toBeVisible();
+      await expect(phase2.locator("[data-report-form]")).toContainText("0 / 600");
+      await evidence1.fill(EVIDENCE_1);
+      await evidence2.fill(EVIDENCE_2);
+      await expect(phase2.locator("[data-report-form]")).toContainText(`${EVIDENCE_1.length} / 600`);
+      await expect(phase2.locator("[data-report-note]")).toHaveText("Saved on this device until you submit.");
+      await shootBoth(first.page, "phase2-report");
+      await first.page.reload();
+      const afterReload = first.page.locator('[data-final-phase="2"]');
+      await expect(afterReload.getByRole("textbox", { name: "Evidence 1", exact: true })).toHaveValue(EVIDENCE_1);
+      await expect(afterReload.getByRole("textbox", { name: "Evidence 2", exact: true })).toHaveValue(EVIDENCE_2);
+      await afterReload.locator(`[data-suspect="${CORRECT_SUSPECT}"] button`).click();
+      await first.page
+        .locator("[data-suspect-detail]")
+        .getByRole("button", { name: "Select as the kidnapper", exact: true })
+        .click();
       await phase2.getByRole("button", { name: "Submit", exact: true }).click();
       const dialog = first.page.getByRole("dialog");
       await expect(dialog).toContainText(`Submit ${suspectName(CORRECT_SUSPECT)} as the kidnapper? This cannot be changed.`);
+      await expect(dialog).not.toContainText("Your report is empty.");
       await dialog.getByRole("button", { name: "Submit", exact: true }).click();
       const submitted = screen(first.page, "SUBMITTED");
       await expect(submitted).toContainText("Your final answer is recorded. The result stays confidential until judging.");
       await expect(submitted).toContainText(teamName(1));
       await expect(status(first.page)).toHaveText("Completed");
       await expect(submitted).not.toContainText(/correct|right|wrong|score|points/i);
+      // The chosen suspect and the report come back read-only; the draft is gone from this device.
+      await expect(submitted.locator("[data-submitted-suspect]")).toHaveText(`${CORRECT_SUSPECT} — ${suspectName(CORRECT_SUSPECT)}`);
+      await expect(submitted.locator("[data-submitted-report]")).toContainText(EVIDENCE_1);
+      await expect(submitted.locator("[data-submitted-report]")).toContainText(EVIDENCE_2);
+      await expect(submitted.getByRole("textbox")).toHaveCount(0);
+      expect(
+        await first.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("devfest.final.report"))),
+      ).toEqual([]);
       await shootBoth(first.page, "submitted");
     });
 
@@ -321,6 +443,33 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       const row = (await scores(admin)).get(teamName(1))!;
       expect(row.finalScore).toMatchObject({ cluesSolved: 4, clues: 15, suspect: 10, time: 15, total: 40 });
       expect(row.finalScore.status).toBe("COMPLETED");
+    });
+
+    await test.step("the organizer's Final reports page shows the suspect, Correct and the written report", async () => {
+      const organizer = await openRolePage(browser, "admin reports", WIDE);
+      try {
+        await signIn(organizer.page, accounts.adminEmail, accounts.adminPassword);
+        await organizer.page.getByRole("link", { name: "Final reports", exact: true }).click();
+        await expect(organizer.page.getByRole("heading", { name: "Final reports", exact: true })).toBeVisible();
+        const card = organizer.page.locator(`[data-team="${teamName(1)}"]`);
+        await expect(card.locator("[data-verdict]")).toHaveText("Correct");
+        await expect(card.locator("[data-suspect]")).toHaveText(`${CORRECT_SUSPECT} — ${suspectName(CORRECT_SUSPECT)}`);
+        await expect(card.locator("[data-submitted-at]")).toContainText("Submitted at minute");
+        await expect(card.locator("[data-evidence]")).toHaveCount(2);
+        await expect(card).toContainText(EVIDENCE_1);
+        await expect(card).toContainText(EVIDENCE_2);
+        // The others have not submitted: the filters tell them apart.
+        await organizer.page.locator('[data-filter="NOT_SUBMITTED"]').click();
+        await expect(organizer.page.locator(`[data-team="${teamName(1)}"]`)).toHaveCount(0);
+        await expect(organizer.page.locator(`[data-team="${teamName(2)}"]`)).toBeVisible();
+        await organizer.page.locator('[data-filter="WRONG"]').click();
+        await expect(organizer.page.locator("[data-no-reports]")).toBeVisible();
+        await organizer.page.locator('[data-filter="CORRECT"]').click();
+        await expect(organizer.page.locator("[data-final-reports] [data-team]")).toHaveCount(1);
+        await saveScreenshot(organizer.page, shot("admin-reports-1440"));
+      } finally {
+        await organizer.page.context().close();
+      }
     });
   } finally {
     await Promise.all([admin.dispose(), firstApi?.dispose()]);
@@ -387,7 +536,7 @@ test("final: on the phone the mission and both phases fit 390 px; without a pack
   const admin = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
   const phone = await openRolePage(browser, "team 01 phone", PHONE);
   try {
-    await prepareFinal(admin, false);
+    await prepareFinal(admin, false, 1);
     await signIn(phone.page, accounts.members[0], accounts.seedPassword);
     await phone.page.goto("/event/team/final");
     await expect(screen(phone.page, "UNLOCK")).toBeVisible();
@@ -406,7 +555,12 @@ test("final: on the phone the mission and both phases fit 390 px; without a pack
     );
     await expectFitsPhone(phone.page);
     await saveScreenshot(phone.page, shot("phase1-390-no-package"));
-    await phone.page.getByRole("tab", { name: "Phase 2 — Investigation" }).click();
+    await expect(phone.page.locator("[data-phase-locked]")).toContainText("Opens at 1:00 · ");
+    await expectFitsPhone(phone.page);
+    await saveScreenshot(phone.page, shot("phase2-locked-390"));
+    await expect(phone.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-selected", "true", {
+      timeout: 120000,
+    });
     await expect(phone.page.locator("[data-time-points-note]")).toHaveText(
       "You can still submit; time points need all four clues decrypted.",
     );
@@ -416,4 +570,79 @@ test("final: on the phone the mission and both phases fit 390 px; without a pack
     await phone.page.context().close();
   }
   expect(phone.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
+});
+
+test("final: Phase 2 stays locked during the decryption phase; after it Phase 1 is read-only and the suspect is submitted", async ({
+  browser,
+}) => {
+  test.setTimeout(600000);
+  const admin = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
+  const team = await openRolePage(browser, "team 01 phases", WIDE);
+  let api: EventApiSession | null = null;
+  try {
+    await prepareFinal(admin, true, 1);
+    await signIn(team.page, accounts.members[0], accounts.seedPassword);
+    await team.page.goto("/event/team/final");
+    api = await EventApiSession.fromPage(team.page);
+    const final = new FinalShortcuts(api, keyFor);
+    await final.unlock();
+    await final.start();
+    await team.page.reload();
+    await expect(screen(team.page, "CASE")).toBeVisible();
+
+    await test.step("during decryption: Phase 2 is locked, the suspects are hidden and refused", async () => {
+      await expect(team.page.locator("[data-phase-locked]")).toContainText("Opens at 1:00 · ");
+      await expect(team.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-disabled", "true");
+      await expect(team.page.locator('[data-final-phase="2"]')).toHaveCount(0);
+      await expect(team.page.locator("[data-final-terminal]")).toBeVisible();
+      await shootBoth(team.page, "phase2-locked");
+      const view = await final.view();
+      expect(view).toMatchObject({ phase: "DECRYPTION", phase1Minutes: 1, suspects: [] });
+      await expect(final.suspect(CORRECT_SUSPECT)).rejects.toThrow(/409.*The investigation phase starts at 1:00\./);
+      await final.passphrase(1, PASSPHRASES[0]);
+      await team.page.reload();
+      await expect(clueRow(team.page, 1).locator("[data-clue-status]")).toHaveText("Decrypted", { timeout: 20000 });
+    });
+
+    await test.step("the page moves to Phase 2 by itself; Phase 1 is read-only with the terminal gone", async () => {
+      await expect(team.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-selected", "true", {
+        timeout: 120000,
+      });
+      await expect(team.page.locator("[data-final-phase-label]")).toHaveText("Phase 2 — Investigation");
+      await team.page.getByRole("tab", { name: "Phase 1 — Decryption" }).click();
+      const one = team.page.locator('[data-final-phase="1"]');
+      await expect(one.locator("[data-phase-over]")).toHaveText("The decryption phase is over.");
+      await expect(one.locator("[data-final-terminal]")).toHaveCount(0);
+      await expect(one.getByRole("textbox")).toHaveCount(0);
+      await expect(clueRow(team.page, 1).locator("[data-view-report]")).toBeVisible();
+      await expect(clueRow(team.page, 2).locator("[data-clue-status]")).toHaveText("Not decrypted in time");
+      await expect(clueRow(team.page, 2).locator("li.step")).toHaveCount(0);
+      await shootBoth(team.page, "phase1-over-unsolved");
+    });
+
+    await test.step("after it: passphrases are refused (no attempt, no wait), the suspects are sent and S11 is submitted", async () => {
+      await expect(final.passphrase(2, PASSPHRASES[1])).rejects.toThrow(/409.*The decryption phase is over\./);
+      expect(await api.status("/event/team/final/terminal-bundle")).toBe(409);
+      const view = await final.view();
+      expect(view).toMatchObject({ phase: "INVESTIGATION", phase1EndsInSeconds: null, terminal: null });
+      expect(view.suspects).toHaveLength(SHIPMENT_CONTENT.suspects.length);
+      expect(view.clues[1]).toMatchObject({ solved: false, waitSeconds: 0, report: null });
+      await team.page.getByRole("tab", { name: "Phase 2 — Investigation" }).click();
+      const phase2 = team.page.locator('[data-final-phase="2"]');
+      await phase2.locator(`[data-suspect="${CORRECT_SUSPECT}"] button`).click();
+      await team.page.locator("[data-suspect-detail]").getByRole("button", { name: "Select as the kidnapper", exact: true }).click();
+      await phase2.getByRole("button", { name: "Submit", exact: true }).click();
+      await expect(team.page.getByRole("dialog")).toContainText(
+        "Your report is empty. Organizers use it to judge your reasoning.",
+      );
+      await team.page.getByRole("dialog").getByRole("button", { name: "Submit", exact: true }).click();
+      await expect(screen(team.page, "SUBMITTED")).toContainText("Your final answer is recorded.");
+      await expect(screen(team.page, "SUBMITTED").locator("[data-report-empty]")).toHaveText("No report was submitted.");
+    });
+  } finally {
+    await api?.dispose();
+    await admin.dispose();
+    await team.page.context().close();
+  }
+  expect(team.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
 });

@@ -48,8 +48,10 @@ export function finalPackageZip(): Buffer {
   return fs.readFileSync(path.join(SHIPMENT, "final-package.zip"));
 }
 
-export function finalContentJson(): string {
-  return fs.readFileSync(CONTENT_FILE, "utf8");
+/** The content file; `phase1Minutes` replaces the decryption phase's length (a spec that waits for the switch uses 1 to 3). */
+export function finalContentJson(phase1Minutes?: number): string {
+  const raw = fs.readFileSync(CONTENT_FILE, "utf8");
+  return phase1Minutes === undefined ? raw : JSON.stringify({ ...JSON.parse(raw), phase1Minutes });
 }
 
 /** The group a seeded team (Team 01..16) is in: blocks of four, A to D. */
@@ -128,11 +130,21 @@ export class FinalShortcuts {
     return this.team.send<FinalAnswer>("POST", "/event/team/final/suspect", { suspectId });
   }
 
-  /** Unlock, start, the four right passphrases and the right suspect. */
+  /** Waits (polling the view) until the final's investigation phase has opened; the suspects can be submitted from then on. */
+  async waitForInvestigation(timeoutMs = 240000) {
+    const deadline = Date.now() + timeoutMs;
+    while ((await this.view()).phase !== "INVESTIGATION") {
+      if (Date.now() > deadline) throw new Error("The investigation phase did not open in time.");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+
+  /** Unlock, start, the four right passphrases, then (once the investigation phase opens) the right suspect. */
   async playAll() {
     await this.unlock();
     await this.start();
     for (let clue = 1; clue <= 4; clue++) await this.passphrase(clue, PASSPHRASES[clue - 1]);
+    await this.waitForInvestigation();
     await this.suspect(CORRECT_SUSPECT);
   }
 }
@@ -150,9 +162,13 @@ export interface FinalView {
   screen: string;
   remainingSeconds: number | null;
   timerPhase: string | null;
+  phase: string | null;
+  phase1Minutes: number | null;
+  phase1EndsInSeconds: number | null;
   cluesCollected: number;
   waitSeconds: number;
   clues: { number: number; solved: boolean; waitSeconds: number; report: string | null }[];
+  suspects: { id: string }[];
   terminal: { sha256: string } | null;
   submitted: boolean;
 }

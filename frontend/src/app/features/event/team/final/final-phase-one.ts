@@ -6,6 +6,7 @@ import {
   PassphraseRequest,
   TerminalBundleInfo,
 } from "../../../../core/event/event-models";
+import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { PendingAttempt } from "../pending-attempt";
 import { EventFinalClueCard } from "./final-clue-card";
@@ -20,11 +21,12 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
 /**
  * Phase 1 — Decryption. Left: the first step, the progress, the Key Index and one card per clue with its steps (and a
  * collapsed "How it works"). Right: the terminal, which stays in view on a laptop while the cards scroll. Stacked on
- * phones.
+ * phones. When the decryption phase is over the page is read-only: the terminal is gone (its VM is destroyed with it)
+ * and each clue is either a solved report or "Not decrypted in time".
  */
 @Component({
   selector: "event-final-phase-one",
-  imports: [EventFinalClueCard, EventFinalCommand, EventFinalGuide, EventFinalTerminal, UiCard],
+  imports: [EventFinalClueCard, EventFinalCommand, EventFinalGuide, EventFinalTerminal, UiAlert, UiCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -145,13 +147,17 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
     }
   `,
   template: `<div class="column">
-      <ui-card data-first-step>
-        <h2 ui-card-header>Start here</h2>
-        <div class="first">
-          <p>Open the case folder and make a folder for your work. Do this once.</p>
-          <event-final-command [command]="firstStep" [send]="send" />
-        </div>
-      </ui-card>
+      @if (readOnly()) {
+        <ui-alert variant="info" data-phase-over>The decryption phase is over.</ui-alert>
+      } @else {
+        <ui-card data-first-step>
+          <h2 ui-card-header>Start here</h2>
+          <div class="first">
+            <p>Open the case folder and make a folder for your work. Do this once.</p>
+            <event-final-command [command]="firstStep" [send]="send" />
+          </div>
+        </ui-card>
+      }
       <div class="progress" data-decrypted-progress>
         <span>Decrypted <span class="progress__count" data-decrypted-count>{{ solved() }} / 4</span></span>
         <ul class="dots" aria-hidden="true">
@@ -160,6 +166,7 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
           }
         </ul>
       </div>
+      @if (!readOnly()) {
       <ui-card>
         <h2 ui-card-header>Key Index</h2>
         <div class="keys">
@@ -181,32 +188,40 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
           </ul>
         </div>
       </ui-card>
+      }
       <div class="clues">
         @for (clue of clues(); track clue.number) {
           <event-final-clue-card
             [clue]="clue"
             [attempt]="attempts[clue.number - 1]"
             [send]="send"
+            [readOnly]="readOnly()"
             (changed)="changed.emit()"
           />
         }
       </div>
-      <ui-card>
-        <details data-how-it-works>
-          <summary>How it works</summary>
-          <event-final-guide />
-        </details>
-      </ui-card>
+      @if (!readOnly()) {
+        <ui-card>
+          <details data-how-it-works>
+            <summary>How it works</summary>
+            <event-final-guide />
+          </details>
+        </ui-card>
+      }
     </div>
-    <div class="column column--terminal">
-      <event-final-terminal [bundle]="terminal()" [ended]="ended()" />
-    </div>`,
+    @if (!readOnly()) {
+      <div class="column column--terminal">
+        <event-final-terminal [bundle]="terminal()" [ended]="ended()" />
+      </div>
+    }`,
 })
 export class EventFinalPhaseOne {
   readonly clues = input.required<readonly FinalCaseClue[]>();
   readonly keyIndex = input.required<readonly FinalKeyIndexEntry[]>();
   readonly terminal = input<TerminalBundleInfo | null>(null);
   readonly ended = input(false);
+  /** The decryption phase is over: no terminal, no inputs; solved clues keep their reports. */
+  readonly readOnly = input(false);
   readonly changed = output<void>();
 
   protected readonly firstStep = FIRST_STEP;

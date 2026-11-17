@@ -40,6 +40,7 @@ export const ADMIN_PAGES: readonly EventNavLink[] = [
   { path: "/event/admin/content", label: "Content", exact: true, icon: "content" },
   { path: "/event/admin/overrides", label: "Overrides", exact: true, icon: "overrides" },
   { path: "/event/admin/scores", label: "Scores", exact: true, icon: "scores" },
+  { path: "/event/admin/final-reports", label: "Final reports", exact: true, icon: "content" },
   { path: "/event/results", label: "Results", exact: true, icon: "results" },
 ];
 

@@ -8,6 +8,7 @@ import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.AnswerNormalizer;
 import dev.devfest.event.domain.AttemptThrottle;
+import dev.devfest.event.domain.FinalPhase;
 import dev.devfest.event.domain.FinalScreen;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.domain.FinalStageResolver;
@@ -75,6 +76,7 @@ public class EventFinalService {
   static final String PASSPHRASE_RIGHT = "The evidence file is decrypted.";
   static final String SUBMITTED_MESSAGE = "Your final answer is recorded. The result stays confidential until judging.";
   static final String TIME_UP_MESSAGE = "Time is up. The final is over for your team.";
+  static final String DECRYPTION_OVER = "The decryption phase is over.";
   static final String NOT_QUALIFIED = "You did not qualify for the final";
   /** At most this many UTF-8 bytes of a typed passphrase (the attempt row's limit). */
   static final int MAX_PASSPHRASE_BYTES = 400;
@@ -150,6 +152,15 @@ public class EventFinalService {
     return new Situation(state, now, facts, row, status, screenOf(status, row));
   }
 
+  /**
+   * True once the decryption phase is over for this team's case: the final's terminal is then no longer offered. False
+   * while it is still open or when there is no content yet.
+   */
+  public boolean decryptionOver(EventTeamRecord team) {
+    EventStateRecord state = states.state();
+    return contents.content().map(c -> FinalClock.phase(state, c.phase1OrDefault(), clock.now()) == FinalPhase.INVESTIGATION).orElse(false);
+  }
+
   /** The screen the team's final shows now (the final's terminal package is served only on CASE). */
   public FinalScreen screen(EventTeamRecord team) {
     return situation(team).screen();
@@ -170,13 +181,17 @@ public class EventFinalService {
     Optional<RoundTimer> timer = state.finalTimer();
     List<EventRoomRecord> roomList = rooms.findAll();
     var evidence = EventViews.evidence(team, state, boards.teamRooms(team.id()), exceptions.findForTeam(team.id()), now);
-    Optional<ShipmentContent> content = CONTENT_SCREENS.contains(screen) ? contents.content() : Optional.empty();
+    Optional<ShipmentContent> content = CONTENT_SCREENS.contains(screen) || screen == FinalScreen.SUBMITTED ? contents.content() : Optional.empty();
     int wait = 0;
     if (screen == FinalScreen.UNLOCK) {
       Streak streak = finals.unlockStreak(team.id());
       wait = AttemptThrottle.waitSeconds(streak.wrongInARow(), streak.lastAttemptAt(), now);
     }
     ShipmentContent caseFile = screen == FinalScreen.CASE ? content.orElse(null) : null;
+    boolean inCase = screen == FinalScreen.MISSION || screen == FinalScreen.CASE;
+    int phase1 = content.map(ShipmentContent::phase1OrDefault).orElse(FinalPhase.DEFAULT_PHASE1_MINUTES);
+    FinalPhase phase = inCase && content.isPresent() ? FinalClock.phase(state, phase1, now) : null;
+    boolean investigating = phase == FinalPhase.INVESTIGATION;
     return new TeamFinal(
       at.status(),
       screen,
@@ -184,6 +199,9 @@ public class EventFinalService {
       state.finalStartedAt(),
       timer.map(t -> t.effectivePhase(now)).orElse(null),
       timer.map(t -> t.remainingSeconds(now)).orElse(null),
+      phase,
+      phase == null ? null : phase1,
+      phase == null ? null : FinalClock.phase1EndsInSeconds(state, phase1, now),
       at.facts().clues(),
       wait,
       screen == FinalScreen.UNLOCK ? new Unlock(roomList.stream().map(EventRoomRecord::name).toList()) : null,
@@ -191,12 +209,12 @@ public class EventFinalService {
         ? new RecoveryChallenge(content.get().recovery().question(), at.facts().recoveryAttempts())
         : null,
       (screen == FinalScreen.MISSION || screen == FinalScreen.CASE) ? content.map(EventFinalService::mission).orElse(null) : null,
-      caseFile == null ? List.of() : caseClues(caseFile, finals.clueAttempts(team.id()), now),
+      caseFile == null ? List.of() : caseClues(caseFile, finals.clueAttempts(team.id()), now, investigating),
       caseFile == null ? List.of() : caseFile.keyIndex().stream().map(k -> new KeyIndexEntry(k.reference(), k.key())).toList(),
-      caseFile == null ? List.of() : caseFile.suspects().stream().map(s -> new CaseSuspect(s.id(), s.name(), s.position(), s.statement())).toList(),
-      caseFile == null ? null : terminalInfo(),
+      caseFile == null || !investigating ? List.of() : caseFile.suspects().stream().map(s -> new CaseSuspect(s.id(), s.name(), s.position(), s.statement())).toList(),
+      caseFile == null || investigating ? null : terminalInfo(),
       at.row() != null && at.row().suspectId() != null,
-      screen == FinalScreen.SUBMITTED ? submission(team, at.status(), at.row(), now) : null,
+      screen == FinalScreen.SUBMITTED ? submission(team, at.status(), at.row(), content.orElse(null), now) : null,
       state.resultsPublished(),
       evidence
     );
@@ -221,14 +239,14 @@ public class EventFinalService {
   }
 
   /** The four evidence files; a report is included only for a file the team has decrypted. */
-  private static List<CaseClue> caseClues(ShipmentContent content, Map<Integer, ClueAttempts> attempts, Instant now) {
+  private static List<CaseClue> caseClues(ShipmentContent content, Map<Integer, ClueAttempts> attempts, Instant now, boolean investigating) {
     return content
       .clues()
       .stream()
       .map(clue -> {
         ClueAttempts tried = attempts.get(clue.number());
         boolean solved = tried != null && tried.solved();
-        int wait = tried == null || solved ? 0 : AttemptThrottle.waitSeconds(tried.wrong(), tried.lastAttemptAt(), now);
+        int wait = tried == null || solved || investigating ? 0 : AttemptThrottle.waitSeconds(tried.wrong(), tried.lastAttemptAt(), now);
         return new CaseClue(
           clue.number(),
           clue.title(),
@@ -248,10 +266,22 @@ public class EventFinalService {
     return terminalBundle.find().map(b -> new TerminalBundleInfo(b.sha256(), b.archiveBytes(), b.etcPasswd(), b.etcGroup(), null)).orElse(null);
   }
 
-  private static Submission submission(EventTeamRecord team, FinalStage status, Row row, Instant now) {
+  private static Submission submission(EventTeamRecord team, FinalStage status, Row row, ShipmentContent content, Instant now) {
     boolean timeUp = row == null || !"SUBMITTED".equals(row.finalisedCause());
     Instant at = row != null && row.finalisedAt() != null ? row.finalisedAt() : now;
-    return new Submission(team.name(), status, at, timeUp ? TIME_UP_MESSAGE : SUBMITTED_MESSAGE);
+    String suspectId = timeUp ? null : row.suspectId();
+    String suspectName = suspectId == null || content == null
+      ? null
+      : content.suspect(suspectId).map(ShipmentContent.Suspect::name).orElse(null);
+    return new Submission(
+      team.name(),
+      status,
+      at,
+      timeUp ? TIME_UP_MESSAGE : SUBMITTED_MESSAGE,
+      suspectId,
+      suspectName,
+      suspectId == null ? null : row.report()
+    );
   }
 
   // ---- unlock -----------------------------------------------------------------------------------
@@ -339,11 +369,13 @@ public class EventFinalService {
     requireMaxBytes(request.passphrase(), MAX_PASSPHRASE_BYTES, "Passphrase");
     Guard guard = guard(write);
     requireCaseStarted(guard);
+    ShipmentContent content = requireContent();
+    if (phaseOf(guard, content) == FinalPhase.INVESTIGATION) throw fail(409, DECRYPTION_OVER);
     ClueAttempts tried = finals.clueAttempts(teamId).get(clue);
     if (tried != null && tried.solved()) throw fail(409, "This evidence file is already decrypted.");
     int wrongInARow = tried == null ? 0 : tried.wrong();
     requireNoWait(AttemptThrottle.waitSeconds(wrongInARow, tried == null ? null : tried.lastAttemptAt(), guard.now()));
-    boolean correct = requireContent().opens(clue, request.passphrase());
+    boolean correct = content.opens(clue, request.passphrase());
     finals.insertClueAttempt(UUID.randomUUID(), teamId, clue, request.passphrase(), correct, guard.now(), idempotencyKey, write.requestHash());
     if (correct) {
       states.bumpRevision();
@@ -359,7 +391,9 @@ public class EventFinalService {
   /**
    * One time only, on the case screen. Records the choice, the active seconds of the final's timer at this moment
    * (pauses excluded) and finalises the team in the same guarded statement; it never reveals whether the suspect is
-   * right. It does not need the four files; the time points do (FinalScoring).
+   * right. The optional Final Investigation Report of the request is stored in the same statement, so it is recorded
+   * once and never changes; it never affects a score and the audit entry never carries its text. It does not need the
+   * four files; the time points do (FinalScoring).
    */
   @Transactional(noRollbackFor = FinalTimeUp.class)
   public FinalActionResult submitSuspect(Principal principal, SuspectChoiceRequest request) {
@@ -375,10 +409,13 @@ public class EventFinalService {
     Guard guard = guard(write);
     requireCaseStarted(guard);
     ShipmentContent content = requireContent();
+    if (phaseOf(guard, content) == FinalPhase.DECRYPTION) {
+      throw fail(409, "The investigation phase starts at " + content.phase1OrDefault() + ":00.");
+    }
     if (content.suspect(choice).isEmpty()) throw fail(400, "Choose one of the listed suspects.");
     int active = FinalClock.activeSeconds(guard.timer(), guard.now());
     boolean correct = content.isCorrectSuspect(choice);
-    if (!finals.submitSuspect(teamId, choice, correct, guard.now(), active)) throw fail(409, "Your final answer is already recorded.");
+    if (!finals.submitSuspect(teamId, choice, correct, guard.now(), active, request.report())) throw fail(409, "Your final answer is already recorded.");
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_FINAL_SUBMITTED", "team:" + teamId);
     return result(true, SUBMITTED_MESSAGE, 0, write, FinalScreen.SUBMITTED);
@@ -452,6 +489,10 @@ public class EventFinalService {
     if (guard.facts().clues() < FinalStageResolver.REQUIRED_CLUES) throw fail(409, "Solve the Recovery Challenge first.");
     if (guard.row() == null || guard.row().unlockedAt() == null) throw fail(409, "Open the case first.");
     if (guard.row().caseStartedAt() == null) throw fail(409, "Start the case first.");
+  }
+
+  private static FinalPhase phaseOf(Guard guard, ShipmentContent content) {
+    return FinalClock.phase(guard.state(), content.phase1OrDefault(), guard.now());
   }
 
   private static void requireNoWait(int waitSeconds) {

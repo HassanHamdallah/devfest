@@ -1,11 +1,17 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from "@angular/core";
 import { message } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import { FinalMission } from "../../../../core/event/event-models";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 
-/** The mission screen of "The Last Shipment": the content's title, intro and two phases. Start opens the case. */
+const EMPHASIS = "NOOR DISAPPEARED.";
+const COMPARE = ["Times", "Access permissions", "Statements", "System records", "Information across all four files"];
+
+/**
+ * The mission screen of "The Last Shipment": the content's title, the case briefing (paragraphs; the sentence about
+ * Noor stands out), the two phases and what to compare. Start opens the case.
+ */
 @Component({
   selector: "event-final-mission",
   imports: [UiAlert, UiButton],
@@ -68,10 +74,52 @@ import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
       margin: 0;
       font-weight: var(--font-weight-bold);
     }
-    .mission__intro {
-      max-inline-size: 60ch;
+    .briefing {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      text-align: start;
+      background: var(--color-surface-subtle);
+      border-radius: var(--radius-md);
+    }
+    .briefing h3 {
       margin: 0;
-      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      letter-spacing: 0.06em;
+      color: var(--color-primary-text);
+    }
+    .briefing p {
+      max-inline-size: 70ch;
+      margin: 0;
+      line-height: 1.6;
+    }
+    .briefing strong {
+      color: var(--color-error);
+      letter-spacing: 0.02em;
+    }
+    .mission__compare {
+      display: grid;
+      gap: var(--space-2);
+      margin: 0;
+    }
+    .mission__compare ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .mission__compare li {
+      padding: 2px var(--space-3);
+      font-size: var(--font-size-sm);
+      background: var(--color-surface-subtle);
+      border: var(--border-card);
+      border-radius: var(--radius-full);
+    }
+    .mission__closing {
+      margin: 0;
+      font-weight: var(--font-weight-semibold);
     }
     .mission__tiles {
       display: grid;
@@ -135,7 +183,20 @@ import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
       <h2 id="mission-heading">MISSION UNLOCKED</h2>
       <p class="mission__title" data-mission-title>{{ mission().title }}</p>
       <p class="mission__congrats">Congratulations, Investigators!</p>
-      <p class="mission__intro" data-mission-intro>{{ mission().intro }}</p>
+    </div>
+    <div class="briefing" data-mission-intro>
+      <h3>CASE BRIEFING</h3>
+      @for (paragraph of paragraphs(); track $index) {
+        <p>
+          @for (part of paragraph; track $index) {
+            @if (part.strong) {
+              <strong>{{ part.text }}</strong>
+            } @else {
+              {{ part.text }}
+            }
+          }
+        </p>
+      }
     </div>
     <div class="mission__tiles">
       <div class="mission__tile"><strong>40:00</strong><span>Total challenge time</span></div>
@@ -147,6 +208,16 @@ import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
         <li data-mission-phase="1">Phase 1 — {{ mission().phase1 }}</li>
         <li data-mission-phase="2">Phase 2 — {{ mission().phase2 }}</li>
       </ol>
+      <div class="mission__compare" data-mission-compare>
+        <span>Compare:</span>
+        <ul>
+          @for (item of compare; track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      </div>
+      <p class="mission__closing">Trust the evidence. Question your assumptions.</p>
+      <p class="mission__closing">Good luck, investigators.</p>
     </div>
     @if (error(); as text) {
       <ui-alert variant="error">{{ text }}</ui-alert>
@@ -161,6 +232,20 @@ export class EventFinalMission {
   readonly cluesCollected = input(4);
   readonly changed = output<void>();
 
+  protected readonly compare = COMPARE;
+  /** The intro's paragraphs (separated by blank lines), each cut so the sentence about Noor can be emphasised. */
+  protected readonly paragraphs = computed(() =>
+    this.mission()
+      .intro.split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0)
+      .map((paragraph) =>
+        paragraph
+          .split(EMPHASIS)
+          .flatMap((text, i) => (i === 0 ? [{ text, strong: false }] : [{ text: EMPHASIS, strong: true }, { text, strong: false }]))
+          .filter((part) => part.text.trim().length > 0),
+      ),
+  );
   protected readonly sending = signal(false);
   protected readonly error = signal<string | null>(null);
 

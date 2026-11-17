@@ -6,6 +6,7 @@ import static dev.devfest.event.domain.TerminalTestPackages.zip;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
@@ -148,6 +149,9 @@ class EventFinalTerminalBundleTest extends EventIntegrationTest {
     assertEquals(first.getContentAsByteArray().length, (int) view.json("$.terminal.archiveBytes"));
 
     assertEquals(403, download(TEAM_BUNDLE, admin, null).getStatus(), "a team endpoint");
+    openInvestigationPhase();
+    assertEquals(409, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "the decryption phase is over: the terminal is not offered");
+    assertNull(expectOk(get("/team/final", alpha.token())).json("$.terminal"));
     expectOk(suspect(alpha, CORRECT_SUSPECT));
     assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "submitted");
   }

@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -50,6 +52,7 @@ import { EventFinalUnlock } from "./final/final-unlock";
 })
 export class EventTeamFinalPage {
   private readonly eventApi = inject(EventApi);
+  private readonly injector = inject(Injector);
 
   protected readonly loader = new BoardLoader<TeamFinal>(() => this.eventApi.teamFinal());
   protected readonly final = this.loader.data;
@@ -65,11 +68,17 @@ export class EventTeamFinalPage {
   constructor() {
     reloadOnRevisionChange(() => void this.reload());
     void this.reload();
-    this.reloadWhenTimeIsUp();
+    this.reloadWhenTheClockMoves();
     // Once the team's final is over its saved case terminal is of no use (a room's saved terminal is left alone).
     effect(() => {
       const screen = this.final()?.screen;
       if (screen === "SUBMITTED" || screen === "NOT_QUALIFIED") void terminalSnapshots.clearPlace("final");
+    });
+    // When the decryption phase is over the terminal is gone for good: its saved copy goes with it (once the page has
+    // dropped the terminal, so nothing saves it again).
+    effect(() => {
+      if (this.final()?.phase !== "INVESTIGATION") return;
+      afterNextRender(() => void terminalSnapshots.clearPlace("final"), { injector: this.injector });
     });
   }
 
@@ -77,17 +86,25 @@ export class EventTeamFinalPage {
     return this.loader.load();
   }
 
-  private reloadWhenTimeIsUp(): void {
+  private reloadWhenTheClockMoves(): void {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let opening: ReturnType<typeof setTimeout> | null = null;
     inject(DestroyRef).onDestroy(() => {
       if (timer !== null) clearTimeout(timer);
+      if (opening !== null) clearTimeout(opening);
     });
     effect(() => {
       const view = this.final();
       if (timer !== null) clearTimeout(timer);
+      if (opening !== null) clearTimeout(opening);
       timer = null;
+      opening = null;
       if (view?.timerPhase === "RUNNING" && view.status === "IN_FINAL" && view.remainingSeconds !== null) {
         timer = setTimeout(() => void this.reload(), (view.remainingSeconds + 1) * 1000);
+      }
+      // The investigation phase opens by the server's clock: ask again just after it, so the page moves on by itself.
+      if (view?.timerPhase === "RUNNING" && view.phase === "DECRYPTION" && view.phase1EndsInSeconds !== null) {
+        opening = setTimeout(() => void this.reload(), (view.phase1EndsInSeconds + 1) * 1000);
       }
     });
   }

@@ -4,12 +4,9 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "--config",
+      "-c",
       "playwright.event.config.ts",
-      "--list",
-      "event-final.spec.ts",
-      "event-scores.spec.ts",
-      "event-terminal"
+      "e2e/event-final.spec.ts"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
     "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -22,14 +19,18 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "",
         "name": "",
         "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -65,7 +66,9 @@
         "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "name": "",
         "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
@@ -142,18 +145,82 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 900000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 195807,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "unlock: a wrong output gets one generic message; the right ones open the mission",
+                      "duration": 1378
+                    },
+                    {
+                      "title": "mission: clues 4/4, the content's title, intro and two phases",
+                      "duration": 415
+                    },
+                    {
+                      "title": "Start opens the case on Phase 1 with the files, key index, RSA keys and guide",
+                      "duration": 550
+                    },
+                    {
+                      "title": "in the terminal, the guide's commands decrypt clue 3 and show the warehouse report",
+                      "duration": 11885
+                    },
+                    {
+                      "title": "View report opens the recovered report in place and keeps its lines",
+                      "duration": 180
+                    },
+                    {
+                      "title": "five wrong passphrases on clue 4 show the 30-second wait for that clue only",
+                      "duration": 386
+                    },
+                    {
+                      "title": "clues 1, 2 and 4 are solved through the API; the page follows",
+                      "duration": 30389
+                    },
+                    {
+                      "title": "the investigation opens by itself: the page moves to Phase 2 and Phase 1 turns read-only",
+                      "duration": 136571
+                    },
+                    {
+                      "title": "Phase 2: recovered evidence, the suspects sheet, and one suspect after a confirmation",
+                      "duration": 2397
+                    },
+                    {
+                      "title": "Team 01 scored the full final: 15 + 10 + 15 = 40",
+                      "duration": 11
+                    },
+                    {
+                      "title": "the organizer's Final reports page shows the suspect, Correct and the written report",
+                      "duration": 1176
+                    }
+                  ],
+                  "startTime": "2026-11-17T21:28:08.881Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "b86908d9453c435b0f84-e76ab03b7c0b56907942",
           "file": "event-final.spec.ts",
-          "line": 111,
+          "line": 121,
           "column": 5
         },
         {
@@ -162,18 +229,50 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 900000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13711,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "Team 02 (3 clues) sees the Recovery Challenge and no unlock",
+                      "duration": 975
+                    },
+                    {
+                      "title": "a wrong answer costs nothing; the right one leads to the unlock, then the mission",
+                      "duration": 291
+                    },
+                    {
+                      "title": "Team 03 (2 clues) is refused: no unlock, no recovery",
+                      "duration": 916
+                    }
+                  ],
+                  "startTime": "2026-11-17T21:31:26.032Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "b86908d9453c435b0f84-08c8757e12f9e707a355",
           "file": "event-final.spec.ts",
-          "line": 271,
+          "line": 481,
           "column": 5
         },
         {
@@ -182,370 +281,88 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 600000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 70184,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-17T21:31:39.758Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "b86908d9453c435b0f84-4702803e5abb0840474c",
           "file": "event-final.spec.ts",
-          "line": 322,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-scores.spec.ts",
-      "file": "event-scores.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "scores: hint and cheating from the manager's card change the totals; cancelling restores them; the team never sees cheating",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bf7957fccd6b5d51bca5-2558ff8b22d54f5ae1b8",
-          "file": "event-scores.spec.ts",
-          "line": 56,
+          "line": 532,
           "column": 5
         },
         {
-          "title": "scores: the admin imports the final content, sees every problem at once, and controls the one final timer",
+          "title": "final: Phase 2 stays locked during the decryption phase; after it Phase 1 is read-only and the suspect is submitted",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 600000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 71897,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "during decryption: Phase 2 is locked, the suspects are hidden and refused",
+                      "duration": 1295
+                    },
+                    {
+                      "title": "the page moves to Phase 2 by itself; Phase 1 is read-only with the terminal gone",
+                      "duration": 59642
+                    },
+                    {
+                      "title": "after it: passphrases are refused (no attempt, no wait), the suspects are sent and S11 is submitted",
+                      "duration": 506
+                    }
+                  ],
+                  "startTime": "2026-11-17T21:32:49.962Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
-          "id": "bf7957fccd6b5d51bca5-4fa37575b0474cea40f6",
-          "file": "event-scores.spec.ts",
-          "line": 200,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-bundle.spec.ts",
-      "file": "event-terminal-bundle.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "server package: the manager uploads a ZIP and the terminal installs 300 files with their owners",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-ed970335f56a0bd4d71b",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 45,
-          "column": 5
-        },
-        {
-          "title": "server package: the assigned team installs it, a restart revalidates it, and a broken download shows a clear error",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-019702c0d74e24deeec1",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 156,
-          "column": 5
-        },
-        {
-          "title": "server package: a 20 MB package boots in time and leaves the guest enough memory",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-a066dc29b6e378b2b25f",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 230,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-commands.spec.ts",
-      "file": "event-terminal-commands.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal commands: nano edits and saves a file, and tree, less, strings, diff and which run",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "90aa32fa3cce55369de4-6146db1c56b74d493edb",
-          "file": "event-terminal-commands.spec.ts",
-          "line": 28,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-dashboard.spec.ts",
-      "file": "event-terminal-dashboard.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "linux dashboard: keys, partial credit, overrides, export and the access rules",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "d20026424f141faef9bd-f538acfd4f55fa1ff9ed",
-          "file": "event-terminal-dashboard.spec.ts",
-          "line": 51,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-form.spec.ts",
-      "file": "event-terminal-form.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "ce5c442fc1bc94ffc468-3da69dc0b898f718ba9e",
-          "file": "event-terminal-form.spec.ts",
-          "line": 43,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-requests.spec.ts",
-      "file": "event-terminal-requests.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal requests: the nginx site caches the versioned terminal files for a year, and the page versions every one of them",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "d2663b19cc159fe7ffef-af0a47cad866dc8fc6fd",
-          "file": "event-terminal-requests.spec.ts",
-          "line": 63,
-          "column": 5
-        },
-        {
-          "title": "terminal requests: nothing while the team types, one request per Save and Submit, the cache for Restart and refresh",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "d2663b19cc159fe7ffef-fdb4054717359347b57c",
-          "file": "event-terminal-requests.spec.ts",
-          "line": 77,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-resume.spec.ts",
-      "file": "event-terminal-resume.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal resume: a file made in the terminal is still there after a page refresh, with no click",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bc0777ea2dfb0d0d1709-82cd85ba77f8c59a6b20",
-          "file": "event-terminal-resume.spec.ts",
-          "line": 82,
-          "column": 5
-        },
-        {
-          "title": "terminal resume: when the browser cannot store the terminal the team keeps working and sees one small notice",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bc0777ea2dfb0d0d1709-453c4ff5d09b216ce56c",
-          "file": "event-terminal-resume.spec.ts",
-          "line": 157,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-tools.spec.ts",
-      "file": "event-terminal-tools.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal tools: file, base64, bzip2, zip and GNU find in a 2000-file package, exact dates and owners, no manifest, the terminal clock",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "fad9589c029bf4515920-0392cc29aed39abbdc5c",
-          "file": "event-terminal-tools.spec.ts",
-          "line": 46,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal.spec.ts",
-      "file": "event-terminal.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal: the Linux team boots Linux in the browser, greps the room's file and submits the line",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "e14b51c5eae7eeb59d9e-d5505ccd0184865e9860",
-          "file": "event-terminal.spec.ts",
-          "line": 67,
+          "id": "b86908d9453c435b0f84-fb22641de36188b7f4eb",
+          "file": "event-final.spec.ts",
+          "line": 575,
           "column": 5
         }
       ]
@@ -553,10 +370,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-17T12:42:39.720Z",
-    "duration": 344.7349999999999,
-    "expected": 0,
-    "skipped": 17,
+    "startTime": "2026-11-17T21:28:08.321Z",
+    "duration": 353992.417,
+    "expected": 4,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

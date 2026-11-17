@@ -7,6 +7,7 @@ import dev.devfest.event.dto.DeductionView;
 import dev.devfest.event.dto.EventStateView;
 import dev.devfest.event.dto.FinalAddTimeRequest;
 import dev.devfest.event.dto.FinalBoardRow;
+import dev.devfest.event.dto.FinalReportView;
 import dev.devfest.event.dto.FinalContentView;
 import dev.devfest.event.dto.RankingRow;
 import dev.devfest.event.dto.FinalTimerView;
@@ -203,6 +204,12 @@ public class EventAdminController {
   @GetMapping("/final/board")
   List<FinalBoardRow> finalBoard(@AuthenticationPrincipal AuthService.Principal principal) {
     return scoreViews.finalTable(principal);
+  }
+
+  /** The Final Investigation Reports: every team's suspect and written justification (never shown to a team). */
+  @GetMapping("/final/reports")
+  List<FinalReportView> finalReports(@AuthenticationPrincipal AuthService.Principal principal) {
+    return scoreViews.finalReports(principal);
   }
 
   @GetMapping("/deductions")

@@ -1,11 +1,12 @@
 {
   "format": 2,
   "fullUntilMinutes": 25,
+  "phase1Minutes": 15,
   "mission": {
     "title": "THE LAST SHIPMENT",
-    "intro": "You've successfully collected all four encrypted clues. Now it's time to decrypt them, uncover the hidden evidence, and discover who kidnapped Noor.",
-    "phase1": "Decrypt all four evidence files (15 minutes)",
-    "phase2": "Analyze the evidence and identify the kidnapper (25 minutes)"
+    "intro": "NOVA Technologies is preparing to launch a confidential project named Project ORION.\n\nA few days before launch, Noor, a Cybersecurity Engineer at NOVA, discovered that sensitive files belonging to the project had been leaked. Noor began an internal investigation and discovered that the leak appeared to be connected to one of NOVA's outgoing equipment shipments.\n\nOn the night of the incident, Noor discovered that a copy of the stolen files was still inside the final shipment scheduled to leave the building at 10:00 PM. The shipment was originally scheduled for inspection at 9:30 PM, but Noor requested that the inspection be moved to 9:15 PM.\n\nBefore heading toward the shipping area, Noor sent a message to a colleague: \"I found the missing files. They're still inside the building. I'm going to check the shipment before it leaves.\"\n\nAfter that: NOOR DISAPPEARED. No exit from the building was recorded for her.\n\nDuring the same period, cameras covering part of the shipping area were temporarily unavailable because of maintenance, and unusual activity was recorded in NOVA's internal access and shipment systems.\n\nNOVA's internal investigation identified 20 suspects. All twenty are NOVA employees. Each has a different role, level of access and statement about what happened that night. There is currently no confirmed identity for the person responsible.",
+    "phase1": "Decrypt all four files (15 minutes).",
+    "phase2": "Analyze the decrypted information and compare it with the Suspects Sheet (25 minutes)."
   },
   "clues": [
     {
@@ -67,62 +68,62 @@
     {
       "id": "S01",
       "name": "Yazan Al-Haddad",
-      "position": "Operations Manager",
-      "statement": "I was in my office going over the shipment schedule."
+      "position": "Operations Director",
+      "statement": "I was reviewing operations reports in my office."
     },
     {
       "id": "S02",
       "name": "Rami Al-Khatib",
       "position": "Security Officer",
-      "statement": "I approved the temporary shipping cards for the evening crew. I never went to the corridor."
+      "statement": "I was in the security room during the camera maintenance."
     },
     {
       "id": "S03",
-      "name": "Rania Khoury",
-      "position": "HR Coordinator",
-      "statement": "I was preparing the new staff contracts in the HR office."
+      "name": "Laila Nasser",
+      "position": "Development Lead",
+      "statement": "I was with the development team."
     },
     {
       "id": "S04",
       "name": "Adam Hijazi",
       "position": "Network Engineer",
-      "statement": "I was in the network room fixing a switch from about 9:10."
+      "statement": "I was working in the network room."
     },
     {
       "id": "S05",
       "name": "Sara Awad",
       "position": "Procurement Analyst",
-      "statement": "I was in the Procurement Department reviewing invoices."
+      "statement": "I was reviewing invoices in Procurement."
     },
     {
       "id": "S06",
-      "name": "Tamer Odeh",
-      "position": "IT Support Technician",
-      "statement": "I was resetting passwords for the night shift at the IT help desk."
+      "name": "Omar Naim",
+      "position": "Infrastructure Manager",
+      "statement": "I was reviewing maintenance tickets."
     },
     {
       "id": "S07",
-      "name": "Dana Sabbah",
-      "position": "Finance Officer",
-      "statement": "I was closing the month's accounts in the finance office."
+      "name": "Maryam Haddad",
+      "position": "Cybersecurity Analyst",
+      "statement": "I was reviewing security alerts."
     },
     {
       "id": "S08",
       "name": "Fares Salim",
-      "position": "Dock Supervisor",
-      "statement": "I reserved Dock Door 3 for the 10:00 PM transport and stayed near the docks."
+      "position": "Facilities Supervisor",
+      "statement": "I was inspecting the second floor."
     },
     {
       "id": "S09",
-      "name": "Bilal Hamdan",
-      "position": "Forklift Operator",
-      "statement": "I swapped the battery on forklift FL-3 and then moved pallets in the yard."
+      "name": "Dana Sharif",
+      "position": "Incident Response Coordinator",
+      "statement": "I didn't know there was an incident until Noor disappeared."
     },
     {
       "id": "S10",
-      "name": "Reem Jaber",
-      "position": "Quality Inspector",
-      "statement": "I was getting the Equipment Inspection Room ready for the 9:30 inspection."
+      "name": "Tala Mansour",
+      "position": "Embedded Systems Engineer",
+      "statement": "I was in the lab."
     },
     {
       "id": "S11",
@@ -132,57 +133,57 @@
     },
     {
       "id": "S12",
-      "name": "Yousef Darwish",
-      "position": "Facilities Technician",
-      "statement": "I ran the east fire-door test on Level 2 at about 9:00."
+      "name": "Reem Khalil",
+      "position": "Internal Auditor",
+      "statement": "I was reviewing a separate audit file."
     },
     {
       "id": "S13",
       "name": "Jad Younes",
       "position": "Shift Supervisor",
-      "statement": "I was writing the evening handover report."
+      "statement": "I was moving between departments."
     },
     {
       "id": "S14",
-      "name": "Lama Qawasmi",
-      "position": "Receptionist",
-      "statement": "I issued a visitor badge at 8:30 and stayed at the main lobby desk."
+      "name": "Rana Salem",
+      "position": "Compliance Officer",
+      "statement": "I was reviewing compliance documents."
     },
     {
       "id": "S15",
       "name": "Nader Shaheen",
-      "position": "Logistics Coordinator",
-      "statement": "I was checking pallet labels in the packing area."
+      "position": "CCTV Technician",
+      "statement": "I was working on the camera maintenance."
     },
     {
       "id": "S16",
       "name": "Karam Fawzi",
-      "position": "Vendor Coordinator",
-      "statement": "I updated vendor contacts at my desk earlier in the evening."
+      "position": "Systems Administrator",
+      "statement": "I was working on an internal system update."
     },
     {
       "id": "S17",
       "name": "Jana Zaidan",
-      "position": "IoT Systems Technician",
-      "statement": "I ran the sensor heartbeat check and stayed at the monitoring console."
+      "position": "IoT Operations Analyst",
+      "statement": "I was monitoring IoT devices."
     },
     {
       "id": "S18",
-      "name": "Ziad Kanaan",
-      "position": "Marketing Specialist",
-      "statement": "I was working late on the product launch slides in the marketing office."
+      "name": "Bilal Taha",
+      "position": "Network Technician",
+      "statement": "I was assisting with network maintenance."
     },
     {
       "id": "S19",
       "name": "Hiba Qasem",
-      "position": "Warehouse Specialist",
-      "statement": "I was counting stock in the north aisle of the warehouse."
+      "position": "Contracts Specialist",
+      "statement": "I was reviewing a new supplier contract."
     },
     {
       "id": "S20",
       "name": "Mazen Al-Dweik",
-      "position": "Shipping Supervisor",
-      "statement": "I was on the phone with the transport company about the 10:00 PM pickup."
+      "position": "Logistics Driver",
+      "statement": "I was preparing the loading area for the shipment."
     }
   ],
   "correctSuspect": "S11",

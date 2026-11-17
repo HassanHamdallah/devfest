@@ -1,11 +1,14 @@
 package dev.devfest.event.service;
 
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.FinalPhase;
 import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.dto.FinalBoardRow;
+import dev.devfest.event.dto.FinalReportView;
 import dev.devfest.event.dto.RankingRow;
 import dev.devfest.event.dto.TeamScoreBreakdown;
+import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.TeamFinalRepository;
 import dev.devfest.event.repository.TeamFinalRepository.AdminCounts;
 import java.util.List;
@@ -28,12 +31,23 @@ public class EventFinalBoardService {
   private final ScoreBreakdownService scores;
   private final TeamFinalRepository finals;
   private final FinalContentReader content;
+  private final EventStateRepository states;
+  private final EventClock clock;
 
-  public EventFinalBoardService(EventAccessPolicy access, ScoreBreakdownService scores, TeamFinalRepository finals, FinalContentReader content) {
+  public EventFinalBoardService(
+    EventAccessPolicy access,
+    ScoreBreakdownService scores,
+    TeamFinalRepository finals,
+    FinalContentReader content,
+    EventStateRepository states,
+    EventClock clock
+  ) {
     this.access = access;
     this.scores = scores;
     this.finals = finals;
     this.content = content;
+    this.states = states;
+    this.clock = clock;
   }
 
   /** Every active team with its place; a disqualified team has no rank and comes last. */
@@ -48,25 +62,58 @@ public class EventFinalBoardService {
     access.requireAdmin(principal);
     Map<Long, AdminCounts> counts = finals.adminCounts().stream().collect(Collectors.toMap(AdminCounts::teamId, Function.identity()));
     Optional<ShipmentContent> file = content.content();
+    FinalPhase phase = FinalClock.phase(states.state(), file.map(ShipmentContent::phase1OrDefault).orElse(FinalPhase.DEFAULT_PHASE1_MINUTES), clock.now());
     return scores
       .all()
       .stream()
-      .map(b -> row(b, counts.get(b.teamId()), file.orElse(null)))
+      .map(b -> row(b, counts.get(b.teamId()), file.orElse(null), phase))
       .toList();
   }
 
-  private static FinalBoardRow row(TeamScoreBreakdown b, AdminCounts c, ShipmentContent file) {
+  /** Every team with the suspect and Final Investigation Report it submitted (organizers only); one content read, one query. */
+  @Transactional(readOnly = true)
+  public List<FinalReportView> finalReports(Principal principal) {
+    access.requireAdmin(principal);
+    Optional<ShipmentContent> file = content.content();
+    return finals
+      .reports()
+      .stream()
+      .map(r -> {
+        boolean submitted = r.suspectId() != null;
+        String name = !submitted || file.isEmpty() ? null : file.get().suspect(r.suspectId()).map(ShipmentContent.Suspect::name).orElse(null);
+        return new FinalReportView(
+          r.teamId(),
+          r.teamName(),
+          submitted,
+          r.suspectId(),
+          name,
+          r.suspectCorrect(),
+          r.submittedAt(),
+          r.activeSeconds(),
+          r.report().evidence1(),
+          r.report().evidence2(),
+          r.report().evidence3(),
+          r.report().evidence4(),
+          r.report().explanation()
+        );
+      })
+      .toList();
+  }
+
+  private static FinalBoardRow row(TeamScoreBreakdown b, AdminCounts c, ShipmentContent file, FinalPhase phase) {
     TeamScoreBreakdown.FinalScoreLine f = b.finalScore();
     String suspect = c.suspectId() == null
       ? null
       : file == null ? c.suspectId() : file.suspect(c.suspectId()).map(ShipmentContent.Suspect::name).orElse(c.suspectId());
+    String stage = stage(f, c);
     return new FinalBoardRow(
       b.teamId(),
       b.teamName(),
       b.groupCode(),
       b.disqualified(),
       f.status(),
-      stage(f, c),
+      stage,
+      "Case".equals(stage) ? phase : null,
       c.clues(),
       f.cluesSolved(),
       c.unlockAttempts(),

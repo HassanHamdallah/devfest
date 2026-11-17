@@ -122,10 +122,11 @@ public class EventFinalTerminalBundleService {
     return deliver(ifNoneMatch);
   }
 
-  /** A team's download, only while its final shows the case; 404 for everyone else (like a room's package). */
+  /** A team's download, only while its final shows the case and the decryption phase is open; 404 for everyone else (like a room's package). */
   public TerminalBundleDelivery teamBundle(Principal principal, String ifNoneMatch) {
     EventTeamRecord team = access.requireTeamOf(principal);
     if (team.disqualified() || finals.screen(team) != FinalScreen.CASE) throw fail(404, NOT_FOUND);
+    if (finals.decryptionOver(team)) throw fail(409, EventFinalService.DECRYPTION_OVER);
     return deliver(ifNoneMatch);
   }
 
