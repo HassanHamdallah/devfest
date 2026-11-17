@@ -204,6 +204,7 @@ class EventScoringTest extends EventIntegrationTest {
     }
     // After the suspect is submitted the table names it, with its correctness, the active time and the finish time.
     expectOk(passphrase(alpha, 4, PASSPHRASES.get(3)));
+    openInvestigationPhase();
     expectOk(suspect(alpha, CORRECT_SUSPECT));
     Response done = expectOk(get("/admin/final/board", admin));
     assertEquals(List.of("Submitted"), done.json(statuses + ".stage"));

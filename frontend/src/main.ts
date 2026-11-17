@@ -48,6 +48,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/admin/final-reports",
+    canActivate: [eventAdminGuard],
+    loadComponent: () =>
+      import("./app/features/event/admin/admin-final-reports.page").then(
+        (m) => m.EventAdminFinalReportsPage,
+      ),
+  },
+  {
     path: "event/admin/content",
     canActivate: [eventAdminGuard],
     loadComponent: () =>

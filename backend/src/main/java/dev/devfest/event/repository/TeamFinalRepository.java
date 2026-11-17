@@ -5,6 +5,7 @@ import static dev.devfest.event.repository.EventJdbc.nullableInt;
 import static dev.devfest.event.repository.EventJdbc.timestamp;
 import static dev.devfest.event.repository.EventJdbc.uuid;
 
+import dev.devfest.event.domain.FinalReport;
 import dev.devfest.event.domain.RoomCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,7 +37,8 @@ public class TeamFinalRepository {
     Instant submittedAt,
     Integer activeSeconds,
     Instant finalisedAt,
-    String finalisedCause
+    String finalisedCause,
+    FinalReport report
   ) {
     public boolean finalised() {
       return finalisedAt != null;
@@ -69,7 +71,7 @@ public class TeamFinalRepository {
 
   private static final String ROW = """
     SELECT team_id, unlocked_at, case_started_at, suspect_id, suspect_correct, submitted_at, active_seconds,
-           finalised_at, finalised_cause
+           finalised_at, finalised_cause, evidence1, evidence2, evidence3, evidence4, explanation
     FROM team_final
     """;
 
@@ -131,24 +133,60 @@ public class TeamFinalRepository {
   }
 
   /**
-   * Records the one suspect and finalises the team in the same statement. Returns false (changing nothing) when a
+   * Records the one suspect and the team's report, and finalises the team, in the same statement. Returns false (changing nothing) when a
    * suspect was already submitted or the team is already finalised, which is what makes a second try or a race with
    * the time-up finalisation harmless.
    */
-  public boolean submitSuspect(long teamId, String suspectId, boolean correct, Instant at, int activeSeconds) {
+  public boolean submitSuspect(long teamId, String suspectId, boolean correct, Instant at, int activeSeconds, FinalReport report) {
     return db.update(
       """
       UPDATE team_final
       SET suspect_id = ?, suspect_correct = ?, submitted_at = ?, active_seconds = ?, finalised_at = ?,
-          finalised_cause = 'SUBMITTED'
+          finalised_cause = 'SUBMITTED', evidence1 = ?, evidence2 = ?, evidence3 = ?, evidence4 = ?, explanation = ?
       WHERE team_id = ? AND finalised_at IS NULL AND unlocked_at IS NOT NULL AND case_started_at IS NOT NULL""",
       suspectId,
       correct,
       timestamp(at),
       activeSeconds,
       timestamp(at),
+      report.evidence1(),
+      report.evidence2(),
+      report.evidence3(),
+      report.evidence4(),
+      report.explanation(),
       teamId
     ) == 1;
+  }
+
+  /** One team in the organizers' list of reports: whether it submitted, its suspect and its report (null when none). */
+  public record ReportRow(
+    long teamId,
+    String teamName,
+    String suspectId,
+    Boolean suspectCorrect,
+    Instant submittedAt,
+    Integer activeSeconds,
+    FinalReport report
+  ) {}
+
+  /** Every team (by name) with the answer and report it submitted, as ONE statement. */
+  public List<ReportRow> reports() {
+    return db.query(
+      """
+      SELECT t.id AS team_id, t.name AS team_name, f.suspect_id, f.suspect_correct, f.submitted_at, f.active_seconds,
+             f.evidence1, f.evidence2, f.evidence3, f.evidence4, f.explanation
+      FROM event_team t LEFT JOIN team_final f ON f.team_id = t.id AND f.finalised_cause = 'SUBMITTED'
+      ORDER BY t.name, t.id""",
+      (rs, row) -> new ReportRow(
+        rs.getLong("team_id"),
+        rs.getString("team_name"),
+        rs.getString("suspect_id"),
+        rs.getObject("suspect_correct", Boolean.class),
+        instant(rs, "submitted_at"),
+        nullableInt(rs, "active_seconds"),
+        mapReport(rs)
+      )
+    );
   }
 
   /** Finalises one team once (creating its row if it never had one); false when it already was. */
@@ -382,7 +420,18 @@ public class TeamFinalRepository {
       instant(rs, "submitted_at"),
       nullableInt(rs, "active_seconds"),
       instant(rs, "finalised_at"),
-      rs.getString("finalised_cause")
+      rs.getString("finalised_cause"),
+      mapReport(rs)
+    );
+  }
+
+  private static FinalReport mapReport(ResultSet rs) throws SQLException {
+    return new FinalReport(
+      rs.getString("evidence1"),
+      rs.getString("evidence2"),
+      rs.getString("evidence3"),
+      rs.getString("evidence4"),
+      rs.getString("explanation")
     );
   }
 

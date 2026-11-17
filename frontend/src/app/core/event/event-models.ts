@@ -197,6 +197,31 @@ export interface FinalMission {
 }
 
 /** The team's final, always built from the server's state; parts of other screens are null or empty. */
+/** The Final Investigation Report: up to four pieces of evidence and an explanation; null where the team wrote none. */
+export interface FinalReport {
+  evidence1: string | null;
+  evidence2: string | null;
+  evidence3: string | null;
+  evidence4: string | null;
+  explanation: string | null;
+}
+
+/** One team in the organizers' list of reports (admin only: it carries the suspect's correctness). */
+export interface FinalReportRow extends FinalReport {
+  teamId: number;
+  teamName: string;
+  submitted: boolean;
+  suspectId: string | null;
+  suspectName: string | null;
+  correct: boolean | null;
+  submittedAt: string | null;
+  /** The final's active seconds at the submission. */
+  activeSeconds: number | null;
+}
+
+/** The final's two phases, decided by the server from the final timer's active seconds. */
+export type FinalPhase = "DECRYPTION" | "INVESTIGATION";
+
 export interface TeamFinal {
   status: FinalStage;
   screen: FinalScreen;
@@ -204,6 +229,10 @@ export interface TeamFinal {
   finalStartedAt: string | null;
   timerPhase: RoundPhase | null;
   remainingSeconds: number | null;
+  /** On the mission and case screens: the phase, its length in minutes and the active seconds until it ends (null after). */
+  phase: FinalPhase | null;
+  phase1Minutes: number | null;
+  phase1EndsInSeconds: number | null;
   cluesCollected: number;
   /** Seconds to wait before the next unlock try after five wrong answers in a row. */
   waitSeconds: number;
@@ -211,7 +240,10 @@ export interface TeamFinal {
   recovery: { question: string; attempts: number } | null;
   /** On the mission and case screens. */
   mission: FinalMission | null;
-  /** The case screen only: the four files, the key index, the suspects and the final's terminal package. */
+  /**
+   * The case screen only: the four files and the key index; the suspects only in the investigation phase and the final's
+   * terminal package only in the decryption phase.
+   */
   clues: FinalCaseClue[];
   keyIndex: FinalKeyIndexEntry[];
   suspects: FinalSuspect[];
@@ -219,7 +251,16 @@ export interface TeamFinal {
   terminal: TerminalBundleInfo | null;
   /** The team's suspect is recorded. */
   submitted: boolean;
-  submission: { teamName: string; status: FinalStage; at: string; message: string } | null;
+  submission: {
+    teamName: string;
+    status: FinalStage;
+    at: string;
+    message: string;
+    /** The team's own submitted answer and report (null when it submitted none, e.g. time up). */
+    suspectId: string | null;
+    suspectName: string | null;
+    report: FinalReport | null;
+  } | null;
   resultsPublished: boolean;
   /** The same per-room evidence as on the team board. */
   evidence: RoomEvidence[];
@@ -871,6 +912,8 @@ export interface FinalBoardRow {
   disqualified: boolean;
   status: FinalStage;
   stage: string;
+  /** The final's phase while the team is on the case; null otherwise. */
+  phase: FinalPhase | null;
   clues: number;
   /** Evidence files decrypted, 0 to 4. */
   cluesSolved: number;
@@ -896,6 +939,10 @@ export interface FinalTimerView {
   remainingSeconds: number | null;
   durationSeconds: number | null;
   serverNow: string;
+  /** The phase every team is in now, the decryption phase's length and the active seconds until the investigation opens. */
+  finalPhase: FinalPhase | null;
+  phase1Minutes: number;
+  phase1EndsInSeconds: number | null;
 }
 
 /** The admin's summary of the final's own terminal package (kept apart from every room's package). */

@@ -182,6 +182,7 @@ class EventOverrideTest extends EventIntegrationTest {
     setRound(5);
     openFinal();
     playTo(alpha, 4);
+    openInvestigationPhase();
     expectOk(suspect(alpha, WRONG_SUSPECT));
     int submissions = count("room_submission");
 

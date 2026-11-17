@@ -4,8 +4,10 @@ import static dev.devfest.api.Errors.fail;
 
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.FinalPhase;
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
+import dev.devfest.event.domain.ShipmentContent;
 import dev.devfest.event.dto.FinalTimerView;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
@@ -32,19 +34,22 @@ public class EventFinalTimerService {
   private final FinalAdjustmentRepository adjustments;
   private final AuditLog audit;
   private final EventClock clock;
+  private final FinalContentReader contents;
 
   public EventFinalTimerService(
     EventAccessPolicy access,
     EventStateRepository states,
     FinalAdjustmentRepository adjustments,
     AuditLog audit,
-    EventClock clock
+    EventClock clock,
+    FinalContentReader contents
   ) {
     this.access = access;
     this.states = states;
     this.adjustments = adjustments;
     this.audit = audit;
     this.clock = clock;
+    this.contents = contents;
   }
 
   public FinalTimerView view(Principal principal) {
@@ -109,14 +114,18 @@ public class EventFinalTimerService {
     return timer;
   }
 
-  private static FinalTimerView view(EventStateRecord state, Instant now) {
+  private FinalTimerView view(EventStateRecord state, Instant now) {
     var timer = state.finalTimer();
+    int phase1 = contents.content().map(ShipmentContent::phase1OrDefault).orElse(FinalPhase.DEFAULT_PHASE1_MINUTES);
     return new FinalTimerView(
       state.finalOpen(),
       timer.map(t -> t.effectivePhase(now)).orElse(null),
       timer.map(t -> t.remainingSeconds(now)).orElse(null),
       timer.map(RoundTimer::durationSeconds).orElse(null),
-      now
+      now,
+      timer.isPresent() ? FinalClock.phase(state, phase1, now) : null,
+      phase1,
+      FinalClock.phase1EndsInSeconds(state, phase1, now)
     );
   }
 }

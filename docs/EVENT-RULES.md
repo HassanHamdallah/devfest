@@ -219,25 +219,50 @@ State always comes from the server; a refresh resumes where the team was. Screen
 1. **Unlock**: four inputs labelled with the real room names (in room order). Each must match **that room's clue key**
    (rule 5.4) **and** the team must hold that room's clue. A wrong try says only "These room outputs do not open the case."
    (never which field); **5 wrong in a row = a 30-second wait**.
-2. **Mission**: the mission's title, introduction and two phases from the content file ("Decrypt all four evidence files",
-   "Analyze the evidence and identify the kidnapper"). **Start** opens the case.
+2. **Mission**: the mission's title, case briefing and two phases from the content file ("Decrypt all four files (15
+   minutes).", "Analyze the decrypted information and compare it with the Suspects Sheet (25 minutes)."). **Start** opens
+   the case.
 3. **Case** (until the suspect is submitted or the team is finalised): the four encrypted evidence files (title, `.enc`
    file, `.rsa` key file and key reference), the **key index** (which private key, A to D, each reference names), the
-   **suspects sheet** (id, name, position, initial statement) and the final's terminal (its package below).
+   final's terminal (its package below) and, in the second phase only, the **suspects sheet** (id, name, position,
+   initial statement). The case has two **phases**, below.
    - **Passphrases**, in **any order**: `POST /team/final/clues/{n}/passphrase` with an Idempotency-Key. The server removes
      surrounding whitespace (a copied line ending included), lower-cases the rest, hashes it with SHA-256 and compares it
      with the content's hash. A right passphrase decrypts that file **for good** and its report appears; a wrong one says
      only "That passphrase does not open this clue." (never how close it was). **5 wrong in a row on one file = a
      30-second wait for that file only.** Every evaluated attempt is stored (append-only); a passphrase refused during a
      wait is not an attempt. A report is never sent before the team has decrypted its file.
-   - **Suspect**: choose **one** of the listed suspects by its id; confirmation; **one time only**; no free text. It can
-     be submitted on the case screen at any time (it does not need the four files; the time points do).
+   - **Suspect**: choose **one** of the listed suspects by its id (a row opens the suspect's full card, whose *Select as
+     the kidnapper* only fills the select); confirmation; **one time only**; no free text. It can be submitted only in the
+     investigation phase (it does not need the four files; the time points do).
+   **The two phases** are decided on the server from the final timer's **active seconds** (pauses excluded), so every team
+   is in the same phase at the same moment; a team that enters the case late (through the Recovery Challenge) follows the
+   same clock and gets no extra time. The content's `phase1Minutes` (1 to 39, default 15) is the decryption phase's length.
+   - **Decryption** (active time below `phase1Minutes` × 60): passphrase checks, the 30-second wait and the terminal work
+     as before; decrypted reports are visible; the suspects are **not** sent (an empty list) and a suspect is refused with
+     409 "The investigation phase starts at 15:00." (the real minutes).
+   - **Investigation** (from then until the final ends): a passphrase is refused with 409 "The decryption phase is over."
+     (no attempt row, no wait); the final's terminal bundle is refused (409) and no terminal is offered; the suspects are sent
+     and the one-time submission works. Reports decrypted in time stay visible; the other files stay locked ("Not decrypted
+     in time"). Nothing about an unsolved report, a hash or the correct suspect is ever sent.
+   The case view carries `phase`, `phase1Minutes` and `phase1EndsInSeconds` (active seconds until the investigation opens,
+   null after); the admin's timer view and final table carry the phase too. Scoring is unchanged.
+   **Final Investigation Report** (written justification): the one-time suspect request may also carry `evidence1` to
+   `evidence4` and `explanation`, each optional, trimmed (blank means none), at most **600 characters**, no control
+   character except a new line (every failing field is listed at once). It is stored with the submission in the same
+   guarded statement (`team_final`, migration V23), so it is recorded once and **cannot be changed afterwards** (the same
+   suspect sent again changes nothing); it is refused outside the investigation phase exactly like the suspect. It is for
+   the organizers: **it never changes a score, a time point or the ranking**, the audit entry never carries its text, and
+   a team only ever sees its own (read-only, on the Submitted screen, with the suspect it chose). Organizers read every
+   team's report in `GET /admin/final/reports` (team, submitted, suspect id and name, correct, submitted at, evidence,
+   explanation; teams that have not submitted are listed too) and in the results CSV's last columns
+   (`evidence1` to `explanation`, always quoted, new lines kept inside the quotes).
 4. **Submitted**: "Your final answer is recorded. The result stays confidential until judging." with team, status and
    time; never whether anything was right.
 
 **Content** is one validated JSON file, format 2, imported by the admin (`PUT /admin/final/content`, shipped as
 `docs/final/last-shipment-content.json`) and read-only once the final opens. It holds the "full points until" minutes
-(default 25), the mission texts, exactly **four clues numbered 1 to 4** (title, `encFile`, `rsaFile`, `keyReference`,
+(default 25), `phase1Minutes` (the decryption phase's length, 1 to 39, default 15), the mission texts, exactly **four clues numbered 1 to 4** (title, `encFile`, `rsaFile`, `keyReference`,
 `passphraseSha256` = lower-case hex SHA-256 of the passphrase without any line ending, and the report), the **key index**
 (one entry per clue reference; each key A to D used exactly once), **2 to 30 suspects** with unique ids, the correct
 suspect (one of their ids) and the Recovery Challenge (question and accepted answers; the admin board warns while the
@@ -247,17 +272,25 @@ receives a passphrase hash, the report of an unsolved file, the correct suspect,
 **The final's terminal package** is stored apart from every room's package (rule 18): the admin uploads, replaces or
 deletes one ZIP (`PUT/GET/DELETE /admin/final/terminal-bundle`, multipart, at most 25 MB, validated and built exactly like a
 room's package, read-only once the final opens; it never touches a room's package or its ETag). A team downloads the built
-bundle (`GET /team/final/terminal-bundle`, ETag / 304 like a room's) **only while its final shows the case**; anyone else
-gets 404. While no package is uploaded the admin board shows the non-blocking alert *The final terminal package is not
+bundle (`GET /team/final/terminal-bundle`, ETag / 304 like a room's) **only while its final shows the case and the
+decryption phase is open** (409 "The decryption phase is over." after it); anyone else gets 404. While no package is uploaded the admin board shows the non-blocking alert *The final terminal package is not
 uploaded yet.* and the case screen says "The terminal package is not ready yet. Ask the organizer." The case terminal's
 saved copy (page refresh) is filed under the place *final*, never a room id, so a room's saved terminal is never restored
 in the final or the reverse.
 
-**Case screen layout**: two tabs, *Phase 1 — Decryption* (open first) and *Phase 2 — Investigation*, switchable at any time
-(suggested 15 and 25 minutes; the one 40-minute timer stays in the sticky bar). Phase 1: the key index, the RSA key files,
-the quick guide (the OpenSSL commands, each copyable), the four encrypted files with a passphrase box each, the terminal and
-the decrypted files (View opens a report). Phase 2: the recovered evidence, the suspects sheet and *Who kidnapped Noor?*
-(one suspect, a confirmation, one time only). The final pages use their own dark theme.
+**Case screen layout**: two tabs, *Phase 1 — Decryption* (open first) and *Phase 2 — Investigation*. During the
+decryption phase the Phase 2 tab is visible but locked ("Opens at 15:00 · mm:ss left", a live countdown corrected on every
+refresh); when the investigation starts the page moves to Phase 2 once, and Phase 1 stays readable but read-only (no
+terminal, "The decryption phase is over.", solved files with View report, the others "Not decrypted in time"; the saved
+final terminal is deleted). The sticky bar shows "Phase 1 — Decryption · ends in mm:ss", then "Phase 2 — Investigation",
+beside the one 40-minute timer. Phase 1: the first step, the progress, the key index, one card per file with its five
+steps and the terminal. Phase 2: the recovered evidence, "My notes" (kept in this browser only), the suspects sheet (a
+search by id, name, position or statement; a row opens the full card) and *Who kidnapped Noor?* (one suspect), then the
+**Final Investigation Report** card ("Your answer must include a brief explanation of the evidence supporting your
+conclusion."; four *Evidence* boxes and an optional *Explanation*, a counter of 600 each, saved in this browser while
+typing, "Saved on this device until you submit.", cleared after the submit). Submit asks for a confirmation and sends
+the suspect and the report together; an empty report is allowed but the confirmation says "Your report is empty.
+Organizers use it to judge your reasoning." The Submitted screen shows the chosen suspect and the report read-only. The final pages use the site's own light look; only the terminal is dark.
 
 **Final score (40)**: each decrypted evidence file **3.75** (at most 15); the correct suspect **10**; **time points (at
 most 15)** from t = the **active** minutes from the final's start to the suspect submission (pauses are not counted), for
@@ -284,7 +317,9 @@ scoreboard (four room lines with base and deductions, the final's parts, the tot
 final table (`GET /admin/final/board`: status, stage, unlock and passphrase attempts, files decrypted 0 to 4, suspect and
 whether it is correct, active time, finish time, score parts) and the full penalty log. The CSV export's final columns are
 cluesSolved, cluePoints, suspect, time, finalScore. The Content page imports the final content file and the final's
-terminal package; the Control page has the final timer's pause, resume and added time.
+terminal package; the Control page has the final timer's pause, resume and added time and the line "Investigation opens at 15:00 (in mm:ss)"; the live final table names each team's phase. The **Final reports** page (`/event/admin/final-reports`, under Scores)
+shows one card per team (suspect, Correct or Wrong, the minute it submitted, the evidence and explanation), a filter (All, Correct,
+Wrong, Not submitted) and a Print layout (one team per block, no application chrome).
 
 ## 12. Publication
 

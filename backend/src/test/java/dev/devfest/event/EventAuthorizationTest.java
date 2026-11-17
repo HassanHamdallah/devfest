@@ -126,6 +126,7 @@ class EventAuthorizationTest extends EventIntegrationTest {
       after.add(expectOk(passphrase(member, n, PASSPHRASES.get(n - 1))).body());
       after.add(expectOk(get("/team/final", member.token())).body());
     }
+    openInvestigationPhase();
     after.add(expectOk(suspect(member, WRONG_SUSPECT)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
     after.add(expectOk(get("/team/board", member.token())).body());

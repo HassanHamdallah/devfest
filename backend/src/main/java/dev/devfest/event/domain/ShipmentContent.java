@@ -17,6 +17,7 @@ import java.util.Optional;
 public record ShipmentContent(
   Integer format,
   Integer fullUntilMinutes,
+  Integer phase1Minutes,
   Mission mission,
   List<Clue> clues,
   List<KeyIndexEntry> keyIndex,
@@ -50,6 +51,11 @@ public record ShipmentContent(
   public record Suspect(String id, String name, String position, String statement) {}
 
   public record Recovery(String question, List<String> acceptedAnswers) {}
+
+  /** How long the decryption phase lasts (minutes of the final's active time); the default when the file has no value. */
+  public int phase1OrDefault() {
+    return phase1Minutes == null ? FinalPhase.DEFAULT_PHASE1_MINUTES : phase1Minutes;
+  }
 
   /** The clue numbered {@code number} (1 to 4); the validated file lists them in that order. */
   public Clue clue(int number) {

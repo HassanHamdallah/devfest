@@ -30,7 +30,8 @@ const KEYS: readonly UiSelectOption[] = ["A", "B", "C", "D"].map((letter) => ({ 
 /**
  * One clue as one card with its five steps (pick the key, recover the passphrase with RSA, decrypt the report with
  * AES, read it, prove it). The commands are filled in with this clue's number and files and the key the team picked.
- * A solved clue collapses to "Decrypted" and its report.
+ * A solved clue collapses to "Decrypted" and its report; once the decryption phase is over an unsolved one only says it
+ * was not decrypted in time.
  */
 @Component({
   selector: "event-final-clue-card",
@@ -145,6 +146,8 @@ const KEYS: readonly UiSelectOption[] = ["A", "B", "C", "D"].map((letter) => ({ 
       <h3>{{ label() }}</h3>
       @if (clue().solved) {
         <ui-status-chip variant="success" data-clue-status>Decrypted</ui-status-chip>
+      } @else if (readOnly()) {
+        <ui-status-chip variant="neutral" data-clue-status>Not decrypted in time</ui-status-chip>
       } @else {
         <ui-status-chip variant="neutral" data-clue-status>Locked</ui-status-chip>
       }
@@ -161,6 +164,8 @@ const KEYS: readonly UiSelectOption[] = ["A", "B", "C", "D"].map((letter) => ({ 
           <event-final-report [clue]="clue()" />
         }
       </div>
+    } @else if (readOnly()) {
+      <p class="step__hint" data-clue-missed>The decryption phase is over, so this file stays locked.</p>
     } @else {
       <dl>
         <dt>File</dt>
@@ -234,6 +239,8 @@ export class EventFinalClueCard {
   /** The stored attempt of this clue (so a retry after a lost response resends the same passphrase). */
   readonly attempt = input.required<PendingAttempt<PassphraseRequest, FinalActionResult>>();
   readonly send = input<TerminalSender | null>(null);
+  /** The decryption phase is over: a solved clue keeps its report, an unsolved one stays locked. */
+  readonly readOnly = input(false);
   readonly changed = output<void>();
 
   protected readonly keys = KEYS;

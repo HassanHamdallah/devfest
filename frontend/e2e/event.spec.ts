@@ -261,7 +261,7 @@ test("event: rounds, room clues, judging, hint, recovery, the case, ranking and 
     await test.step("AI manager sets the room's clue key on the board", () => setAiKeyInUi(manager.page));
     await test.step("the other managers set their keys; the admin imports the final content", async () => {
       await setPracticeKeys(accounts, ["PROBLEM_SOLVING", "LINUX", "HARDWARE"]);
-      await adminApi.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson()));
+      await adminApi.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson(1)));
     });
     await test.step("admin moves to round 1 (assigned) and opens the AI room", () => startFirstRound(admin.page));
     await test.step("team is sent to the AI room; the form waits for the timer", () => teamWaitsForTheTimer(member.page));

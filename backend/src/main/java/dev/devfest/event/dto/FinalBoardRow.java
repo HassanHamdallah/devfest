@@ -1,5 +1,6 @@
 package dev.devfest.event.dto;
 
+import dev.devfest.event.domain.FinalPhase;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.domain.GroupCode;
 import java.math.BigDecimal;
@@ -7,7 +8,7 @@ import java.time.Instant;
 
 /**
  * One active team on the admin's live final table: its status, the stage it is on, how many attempts it made, the
- * evidence files it decrypted (0 to 4), its suspect and the parts of its final score. Admin only: it carries the
+ * phase the final is in while the team is on the case (null otherwise), evidence files it decrypted (0 to 4), its suspect and the parts of its final score. Admin only: it carries the
  * suspect's correctness.
  */
 public record FinalBoardRow(
@@ -17,6 +18,7 @@ public record FinalBoardRow(
   boolean disqualified,
   FinalStage status,
   String stage,
+  FinalPhase phase,
   int clues,
   int cluesSolved,
   int unlockAttempts,

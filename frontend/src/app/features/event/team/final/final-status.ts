@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { FinalScreen, FinalStage, RoundClock, TeamFinal } from "../../../../core/event/event-models";
-import { FINAL_STAGE_LABELS } from "../../../../core/event/format";
+import { FINAL_STAGE_LABELS, decryptionClock } from "../../../../core/event/format";
+import { UiPhaseClock } from "../../../../shared/ui/ui-phase-clock/ui-phase-clock";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 
@@ -26,7 +27,7 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
  */
 @Component({
   selector: "event-final-status",
-  imports: [UiCountdown, UiStatusChip],
+  imports: [UiCountdown, UiPhaseClock, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     /* The host adds no box, so the bar sticks within the whole page column instead of within its own height. */
@@ -53,6 +54,11 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-3);
+    }
+    .bar__phase {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-primary-text);
     }
     .bar__timer {
       display: flex;
@@ -126,6 +132,13 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
       <div class="bar__left">
         <ui-status-chip [variant]="variant()" data-final-status>{{ label() }}</ui-status-chip>
         <span class="bar__clues event-muted">{{ final().cluesCollected }} of 4 clues</span>
+        @if (final().phase === 'DECRYPTION') {
+          <span class="bar__phase" data-final-phase-label>
+            Phase 1 — Decryption · ends in <ui-phase-clock [clock]="phaseClock()" />
+          </span>
+        } @else if (final().phase === 'INVESTIGATION') {
+          <span class="bar__phase" data-final-phase-label>Phase 2 — Investigation</span>
+        }
       </div>
       @if (clock(); as c) {
         <div class="bar__timer" data-final-timer>
@@ -153,6 +166,7 @@ export class EventFinalStatus {
   readonly final = input.required<TeamFinal>();
 
   protected readonly steps = STEPS;
+  protected readonly phaseClock = computed(() => decryptionClock(this.final()));
   protected readonly label = computed(() => FINAL_STAGE_LABELS[this.final().status]);
   protected readonly variant = computed(() => STATUS_VARIANTS[this.final().status]);
   protected readonly current = computed(() =>
