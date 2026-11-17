@@ -6,9 +6,11 @@ import { message } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import {
   CONTEST_PROBLEMS,
+  CONTEST_STANDINGS,
   ContestProblem,
   ContestResults,
   ContestRound,
+  ContestStanding,
   ContestTeamRow,
 } from "../../../../core/event/event-models";
 import { formatTime } from "../../../../core/event/format";
@@ -23,19 +25,17 @@ import { EventRoomSubpageHeader } from "../room-subpage-header";
 
 /** Results do not change the event revision, so this page asks for fresh numbers on its own while it is open. */
 const REFRESH_MS = 5000;
-const WHOLE_MINUTES = /^\d{1,6}$/;
-const MAX_PENALTY = 100000;
 
 /** What the organizer has typed for one team and not saved yet. */
 interface Draft {
   solved: ContestProblem[];
-  penalty: string;
+  standing: ContestStanding;
 }
 
 /**
  * /event/room/:roomId/contest: the Problem Solving room's organizer page for its manager (or ADMIN). The contest link,
- * the teams grouped by round with a checkbox per problem A to E and a penalty in whole minutes (typed from the
- * Codeforces standings, saved per team), the scores the server computes on every read, the clue release per team and
+ * the teams grouped by round with a checkbox per problem A to F and a standing (1st, 2nd, 3rd or Other, taken from
+ * the Codeforces standings, saved per team), the scores the server computes on every read, the clue release per team and
  * per round, and the spreadsheet export. Nothing here is ever sent to the teams except the link and the released clue.
  */
 @Component({
@@ -50,6 +50,7 @@ export class EventContestResultsPage {
   protected readonly loader = new BoardLoader<ContestResults>(() => this.eventApi.contestResults(this.roomId()));
   protected readonly results = this.loader.data;
   protected readonly problems = CONTEST_PROBLEMS;
+  protected readonly standings = CONTEST_STANDINGS;
   protected readonly formatTime = formatTime;
   protected readonly updated = computed(() => formatTime(this.results()?.generatedAt ?? null));
 
@@ -136,8 +137,8 @@ export class EventContestResultsPage {
     return this.draftOf(row).solved.includes(problem);
   }
 
-  protected penaltyOf(row: ContestTeamRow): string {
-    return this.draftOf(row).penalty;
+  protected standingOf(row: ContestTeamRow): ContestStanding {
+    return this.draftOf(row).standing;
   }
 
   protected toggle(row: ContestTeamRow, problem: ContestProblem, checked: boolean): void {
@@ -146,20 +147,15 @@ export class EventContestResultsPage {
     this.setDraft(row, { ...draft, solved: CONTEST_PROBLEMS.filter((p) => solved.includes(p)) });
   }
 
-  protected setPenalty(row: ContestTeamRow, penalty: string): void {
-    this.setDraft(row, { ...this.draftOf(row), penalty });
+  protected setStanding(row: ContestTeamRow, standing: ContestStanding): void {
+    this.setDraft(row, { ...this.draftOf(row), standing });
   }
 
   protected dirty(row: ContestTeamRow): boolean {
     const draft = this.drafts()[row.teamId];
     if (!draft) return false;
     const saved = this.saved(row);
-    return draft.penalty !== saved.penalty || draft.solved.join() !== saved.solved.join() || !row.saved;
-  }
-
-  protected penaltyValid(row: ContestTeamRow): boolean {
-    const text = this.penaltyOf(row).trim();
-    return WHOLE_MINUTES.test(text) && Number(text) <= MAX_PENALTY;
+    return draft.standing !== saved.standing || draft.solved.join() !== saved.solved.join() || !row.saved;
   }
 
   protected discard(row: ContestTeamRow): void {
@@ -167,12 +163,12 @@ export class EventContestResultsPage {
   }
 
   protected async save(row: ContestTeamRow): Promise<void> {
-    if (this.busy() || !this.penaltyValid(row)) return;
+    if (this.busy()) return;
     const draft = this.draftOf(row);
     await this.write(`save:${row.teamId}`, async () => {
       const saved = await this.eventApi.saveContestResult(this.roomId(), row.teamId, {
         problems: draft.solved,
-        penaltyMinutes: Number(draft.penalty.trim()),
+        standing: draft.standing,
       });
       this.discard(row);
       return saved;
@@ -229,7 +225,7 @@ export class EventContestResultsPage {
   // ---- helpers ----
 
   private saved(row: ContestTeamRow): Draft {
-    return { solved: [...row.solved], penalty: String(row.penaltyMinutes) };
+    return { solved: [...row.solved], standing: row.standing ?? "OTHER" };
   }
 
   private draftOf(row: ContestTeamRow): Draft {

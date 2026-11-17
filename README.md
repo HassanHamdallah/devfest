@@ -174,10 +174,10 @@ release (rules §20).
   **contest link** (https only) under **Contest link** → **Save link**. The admin board warns while the link or the clue
   key is missing. The assigned team sees the link only while its round's timer runs or is paused.
 - **During the contest.** Open **Contest results** (it refreshes every 5 s). Teams are grouped by round. For each team
-  tick the problems it solved (A to E) and type its penalty in whole minutes from the Codeforces standings, then press
-  **Save** on that row. The page works out solved, points (A=2, B=3, C=3, D=2, E=2), place (more solved first, then lower
-  penalty; ties share a place), the bonus (1st +3, 2nd +2, 3rd +1; none for 0 solved), the total out of 15 and whether
-  the team is **eligible** (at least 3 solved). Teams never see any of it.
+  tick the problems it solved (A to F, 2 points each) and pick its standing (1st, 2nd, 3rd or Other) from the Codeforces
+  standings, then press **Save** on that row. The page works out solved, points, the bonus (1st +3, 2nd +2, 3rd +1; none
+  for Other or for 0 solved; two teams may share a standing), the total out of 15 and whether the team is **eligible**
+  (at least 3 solved). Teams never see any of it.
 - **Release the clue.** **Reveal clue** on an eligible team's row, or **Reveal to all eligible (n)** for the round.
   It is refused for a team that is not eligible or when the room has no clue key, and repeating it changes nothing.
   The team's page then says "Clue unlocked" with the clue behind the eye toggle. The release shows on your room board

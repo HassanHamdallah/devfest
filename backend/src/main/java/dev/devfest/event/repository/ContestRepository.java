@@ -4,6 +4,7 @@ import static dev.devfest.event.repository.EventJdbc.instant;
 import static dev.devfest.event.repository.EventJdbc.timestamp;
 
 import dev.devfest.event.domain.ContestProblem;
+import dev.devfest.event.domain.ContestStanding;
 import dev.devfest.event.domain.GroupCode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,7 +29,7 @@ public class ContestRepository {
     SELECT t.id, t.name, t.group_code, r.team_id IS NOT NULL AS saved,
            COALESCE(r.solved_a, FALSE) AS solved_a, COALESCE(r.solved_b, FALSE) AS solved_b,
            COALESCE(r.solved_c, FALSE) AS solved_c, COALESCE(r.solved_d, FALSE) AS solved_d,
-           COALESCE(r.solved_e, FALSE) AS solved_e, COALESCE(r.penalty_minutes, 0) AS penalty_minutes,
+           COALESCE(r.solved_e, FALSE) AS solved_e, COALESCE(r.solved_f, FALSE) AS solved_f, r.standing,
            r.saved_at, rel.released_at
     FROM event_team t
     LEFT JOIN contest_result r ON r.team_id = t.id AND r.room_id = ?
@@ -77,15 +78,17 @@ public class ContestRepository {
     return db.query(ROWS_SQL, ContestRepository::mapTeam, roomId, roomId);
   }
 
-  public void saveResult(long teamId, long roomId, Set<ContestProblem> solved, int penaltyMinutes, long savedBy, Instant at) {
+  /** The old penalty column is not written: it keeps its default (0). */
+  public void saveResult(long teamId, long roomId, Set<ContestProblem> solved, ContestStanding standing, long savedBy, Instant at) {
     db.update(
       """
-      INSERT INTO contest_result(team_id, room_id, solved_a, solved_b, solved_c, solved_d, solved_e,
-                                 penalty_minutes, saved_by, saved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO contest_result(team_id, room_id, solved_a, solved_b, solved_c, solved_d, solved_e, solved_f,
+                                 standing, saved_by, saved_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (team_id, room_id) DO UPDATE SET solved_a = EXCLUDED.solved_a, solved_b = EXCLUDED.solved_b,
         solved_c = EXCLUDED.solved_c, solved_d = EXCLUDED.solved_d, solved_e = EXCLUDED.solved_e,
-        penalty_minutes = EXCLUDED.penalty_minutes, saved_by = EXCLUDED.saved_by, saved_at = EXCLUDED.saved_at""",
+        solved_f = EXCLUDED.solved_f, standing = EXCLUDED.standing, saved_by = EXCLUDED.saved_by,
+        saved_at = EXCLUDED.saved_at""",
       teamId,
       roomId,
       solved.contains(ContestProblem.A),
@@ -93,7 +96,8 @@ public class ContestRepository {
       solved.contains(ContestProblem.C),
       solved.contains(ContestProblem.D),
       solved.contains(ContestProblem.E),
-      penaltyMinutes,
+      solved.contains(ContestProblem.F),
+      standing.name(),
       savedBy,
       timestamp(at)
     );
@@ -134,13 +138,15 @@ public class ContestRepository {
     if (rs.getBoolean("solved_c")) solved.add(ContestProblem.C);
     if (rs.getBoolean("solved_d")) solved.add(ContestProblem.D);
     if (rs.getBoolean("solved_e")) solved.add(ContestProblem.E);
+    if (rs.getBoolean("solved_f")) solved.add(ContestProblem.F);
+    String standing = rs.getString("standing");
     return new ContestTeamRecord(
       rs.getLong("id"),
       rs.getString("name"),
       GroupCode.valueOf(rs.getString("group_code")),
       rs.getBoolean("saved"),
       solved,
-      rs.getInt("penalty_minutes"),
+      standing == null ? null : ContestStanding.valueOf(standing),
       instant(rs, "saved_at"),
       instant(rs, "released_at")
     );

@@ -32,7 +32,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 /**
  * The Problem Solving room (rules §20): the contest link and who sees it, the organizer's typed results and the scores
  * computed from them, the clue release (single, whole round, repeated, racing), that nothing a member receives ever
- * carries a count, point, penalty, place or eligibility, and that resets and snapshots cover the new tables. In the
+ * carries a count, point, standing, bonus or eligibility, and that resets and snapshots cover the new tables. In the
  * rotation round 1 visits Problem solving with group B, round 2 with A, round 3 with D and round 4 with C.
  */
 class EventContestTest extends EventIntegrationTest {
@@ -44,7 +44,7 @@ class EventContestTest extends EventIntegrationTest {
   private static final String REASON = "\"reason\":\"Contest test\"";
   /** A member must never receive any of these as a JSON field name. */
   private static final Pattern FORBIDDEN_FIELDS = Pattern.compile(
-    "\"(solved|solvedCount|penalty|penaltyMinutes|points|problemPoints|bonus|total|place|placement|eligible|eligibility|score|rank)\"\\s*:"
+    "\"(solved|solvedCount|standing|points|problemPoints|bonus|total|eligible|eligibility|score|rank)\"\\s*:"
   );
 
   @MockitoSpyBean
@@ -70,7 +70,7 @@ class EventContestTest extends EventIntegrationTest {
   void onlyTheRoomsManagerAndTheAdminReachTheOrganizerPageEveryoneElseGetsA404() {
     TestTeam bravo = team("Bravo", GroupCode.B);
     String ai = managers.get(RoomCode.AI);
-    String result = "{\"problems\":[\"A\"],\"penaltyMinutes\":1}";
+    String result = "{\"problems\":[\"A\"],\"standing\":\"OTHER\"}";
     List<Call> calls = List.of(
       new Call(HttpMethod.GET, "/rooms/" + ps + "/contest-results", null),
       new Call(HttpMethod.GET, "/rooms/" + ps + "/contest-results.csv", null),
@@ -233,8 +233,9 @@ class EventContestTest extends EventIntegrationTest {
   private record Round1(TestTeam winner, TestTeam tiedOne, TestTeam tiedTwo, TestTeam two, TestTeam zero, TestTeam unsaved, TestTeam alpha) {}
 
   /**
-   * Group B (round 1): Winner 5 solved; TiedOne and TiedTwo 3 solved with equal penalty; Two 2 solved; Zero 0 solved;
-   * Unsaved has no result. Group A (round 2): Alpha 4 solved, alone in its round.
+   * Group B (round 1): Winner 6 solved, standing 1st; TiedOne and TiedTwo 3 solved, both 2nd (a tie); Two 2 solved,
+   * 3rd; Zero 0 solved although 1st was picked (no bonus); Unsaved has no result. Group A (round 2): Alpha 4 solved,
+   * Other.
    */
   private Round1 round1() {
     Round1 s = new Round1(
@@ -246,12 +247,12 @@ class EventContestTest extends EventIntegrationTest {
       team("B-Unsaved", GroupCode.B),
       team("Alpha", GroupCode.A)
     );
-    expectOk(save(s.winner(), "[\"A\",\"B\",\"C\",\"D\",\"E\"]", 100));
-    expectOk(save(s.tiedOne(), "[\"A\",\"B\",\"C\"]", 50));
-    expectOk(save(s.tiedTwo(), "[\"B\",\"C\",\"D\"]", 50));
-    expectOk(save(s.two(), "[\"A\",\"B\"]", 10));
-    expectOk(save(s.zero(), "[]", 0));
-    expectOk(save(s.alpha(), "[\"A\",\"C\",\"D\",\"E\"]", 77));
+    expectOk(save(s.winner(), "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]", "FIRST"));
+    expectOk(save(s.tiedOne(), "[\"A\",\"B\",\"C\"]", "SECOND"));
+    expectOk(save(s.tiedTwo(), "[\"B\",\"C\",\"D\"]", "SECOND"));
+    expectOk(save(s.two(), "[\"A\",\"B\"]", "THIRD"));
+    expectOk(save(s.zero(), "[]", "FIRST"));
+    expectOk(save(s.alpha(), "[\"A\",\"C\",\"D\",\"E\"]", "OTHER"));
     return s;
   }
 
@@ -261,74 +262,76 @@ class EventContestTest extends EventIntegrationTest {
     TestTeam gone = team("Gone", GroupCode.B);
     TestTeam out = team("Out", GroupCode.B);
     String path = "/rooms/" + ps + "/contest-results/teams/";
-    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"A\"],\"penaltyMinutes\":-1}").status());
-    expectError(put(path + bravo.id(), manager, "{\"problems\":[\"A\"],\"penaltyMinutes\":3.5}"), 400, "The penalty must be a whole number of minutes.");
-    expectError(put(path + bravo.id(), manager, "{\"problems\":[\"A\"],\"penaltyMinutes\":100001}"), 400, "The penalty can be at most 100000 minutes.");
-    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"F\"],\"penaltyMinutes\":1}").status());
-    assertEquals(400, put(path + bravo.id(), manager, "{\"penaltyMinutes\":1}").status());
-    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"A\"]}").status());
-    expectError(put(path + Long.MAX_VALUE, manager, "{\"problems\":[],\"penaltyMinutes\":0}"), 404, TEAM_NOT_FOUND);
+    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"A\"]}").status(), "the standing is required");
+    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"A\"],\"standing\":null}").status());
+    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"A\"],\"standing\":\"FOURTH\"}").status());
+    assertEquals(400, put(path + bravo.id(), manager, "{\"problems\":[\"G\"],\"standing\":\"OTHER\"}").status(), "only A to F exist");
+    assertEquals(400, put(path + bravo.id(), manager, "{\"standing\":\"FIRST\"}").status());
+    expectError(put(path + Long.MAX_VALUE, manager, "{\"problems\":[],\"standing\":\"OTHER\"}"), 404, TEAM_NOT_FOUND);
     db.update("UPDATE event_team SET active = FALSE WHERE id = ?", gone.id());
-    expectError(put(path + gone.id(), manager, "{\"problems\":[],\"penaltyMinutes\":0}"), 404, TEAM_NOT_FOUND);
+    expectError(put(path + gone.id(), manager, "{\"problems\":[],\"standing\":\"OTHER\"}"), 404, TEAM_NOT_FOUND);
     expectOk(post("/admin/teams/" + out.id() + "/disqualify", admin, "{" + REASON + "}"));
-    expectError(put(path + out.id(), manager, "{\"problems\":[],\"penaltyMinutes\":0}"), 404, TEAM_NOT_FOUND);
+    expectError(put(path + out.id(), manager, "{\"problems\":[],\"standing\":\"OTHER\"}"), 404, TEAM_NOT_FOUND);
     assertEquals(0, count("SELECT count(*) FROM contest_result"));
 
     long before = revision();
-    Response saved = expectOk(put(path + bravo.id(), manager, "{\"problems\":[\"C\",\"A\",\"A\"],\"penaltyMinutes\":12.0}"));
+    Response saved = expectOk(put(path + bravo.id(), manager, "{\"problems\":[\"C\",\"F\",\"A\",\"A\"],\"standing\":\"SECOND\"}"));
     assertEquals(before, revision(), "saving a result does not move the global revision");
-    assertEquals(List.of("A", "C"), saved.json("$.rounds[0].teams[0].solved"));
-    assertEquals(12, (int) saved.json("$.rounds[0].teams[0].penaltyMinutes"));
+    assertEquals(List.of("A", "C", "F"), saved.json("$.rounds[0].teams[0].solved"), "problem F is accepted");
+    assertEquals("SECOND", saved.json("$.rounds[0].teams[0].standing"));
+    assertEquals(6 + 2, (int) saved.json("$.rounds[0].teams[0].total"));
+    assertEquals(0, count("SELECT penalty_minutes FROM contest_result"), "the old penalty column stays unused");
     assertEquals(
-      List.of("EVENT_CONTEST_RESULT_SAVED room:" + ps + " team:" + bravo.id() + " solved:AC penalty:12"),
+      List.of("EVENT_CONTEST_RESULT_SAVED room:" + ps + " team:" + bravo.id() + " solved:ACF standing:SECOND"),
       db.queryForList("SELECT action || ' ' || target FROM audit_event WHERE action = 'EVENT_CONTEST_RESULT_SAVED'", String.class)
     );
-    expectOk(put(path + bravo.id(), admin, "{\"problems\":[\"B\"],\"penaltyMinutes\":0}"));
+    expectOk(put(path + bravo.id(), admin, "{\"problems\":[\"B\"],\"standing\":\"OTHER\"}"));
     assertEquals(1, count("SELECT count(*) FROM contest_result"), "the same row, edited in place");
     assertEquals(List.of("B"), expectOk(get("/rooms/" + ps + "/contest-results", manager)).json("$.rounds[0].teams[?(@.teamName == 'Bravo')].solved[*]"));
   }
 
   @Test
-  void theTableGroupsTeamsByRoundSortsThemByPlaceAndComputesEveryNumberOnRead() {
+  void theTableGroupsTeamsByRoundSortsThemByTotalAndComputesEveryNumberOnRead() {
     round1();
     Response view = expectOk(get("/rooms/" + ps + "/contest-results", manager));
     assertEquals(12, (int) view.json("$.maxProblemPoints"));
     assertEquals(15, (int) view.json("$.maxTotal"));
     assertEquals(3, (int) view.json("$.eligibleSolved"));
-    assertEquals(List.of("A", "B", "C", "D", "E"), view.json("$.problems[*].problem"));
-    assertEquals(List.of(2, 3, 3, 2, 2), view.json("$.problems[*].points"));
+    assertEquals(List.of("A", "B", "C", "D", "E", "F"), view.json("$.problems[*].problem"));
+    assertEquals(List.of(2, 2, 2, 2, 2, 2), view.json("$.problems[*].points"));
     assertEquals(List.of(1, 2), view.json("$.rounds[*].round"));
     assertEquals(List.of("B", "A"), view.json("$.rounds[*].group"));
 
-    assertEquals(List.of("B-Winner", "B-TiedOne", "B-TiedTwo", "B-Two", "B-Zero", "B-Unsaved"), view.json("$.rounds[0].teams[*].teamName"));
-    assertEquals(java.util.Arrays.asList(1, 2, 2, 4, 5, null), view.json("$.rounds[0].teams[*].place"));
-    assertEquals(List.of(3, 2, 2, 0, 0, 0), view.json("$.rounds[0].teams[*].bonus"));
-    assertEquals(List.of(12, 8, 8, 5, 0, 0), view.json("$.rounds[0].teams[*].problemPoints"));
-    assertEquals(List.of(15, 10, 10, 5, 0, 0), view.json("$.rounds[0].teams[*].total"));
-    assertEquals(List.of(5, 3, 3, 2, 0, 0), view.json("$.rounds[0].teams[*].solvedCount"));
+    assertEquals(List.of("B-Winner", "B-TiedOne", "B-TiedTwo", "B-Two", "B-Unsaved", "B-Zero"), view.json("$.rounds[0].teams[*].teamName"), "total, then solved, then name");
+    assertEquals(java.util.Arrays.asList("FIRST", "SECOND", "SECOND", "THIRD", null, "FIRST"), view.json("$.rounds[0].teams[*].standing"));
+    assertEquals(List.of(3, 2, 2, 1, 0, 0), view.json("$.rounds[0].teams[*].bonus"), "a tie keeps both bonuses; 1st with nothing solved gets none");
+    assertEquals(List.of(12, 6, 6, 4, 0, 0), view.json("$.rounds[0].teams[*].problemPoints"));
+    assertEquals(List.of(15, 8, 8, 5, 0, 0), view.json("$.rounds[0].teams[*].total"));
+    assertEquals(List.of(6, 3, 3, 2, 0, 0), view.json("$.rounds[0].teams[*].solvedCount"));
     assertEquals(List.of(true, true, true, false, false, false), view.json("$.rounds[0].teams[*].eligible"));
-    assertEquals(List.of(true, true, true, true, true, false), view.json("$.rounds[0].teams[*].saved"));
+    assertEquals(List.of(true, true, true, true, false, true), view.json("$.rounds[0].teams[*].saved"));
     assertEquals(List.of(6, 5, 3, 3, 0), List.of(
       (int) view.json("$.rounds[0].teamCount"), (int) view.json("$.rounds[0].savedCount"),
       (int) view.json("$.rounds[0].eligibleCount"), (int) view.json("$.rounds[0].releasableCount"),
       (int) view.json("$.rounds[0].releasedCount")
     ));
     assertEquals(List.of("Alpha"), view.json("$.rounds[1].teams[*].teamName"));
-    assertEquals(List.of(1), view.json("$.rounds[1].teams[*].place"), "alone in its round, not compared with group B");
-    assertEquals(List.of(3), view.json("$.rounds[1].teams[*].bonus"));
-    assertEquals(List.of(12), view.json("$.rounds[1].teams[*].total"), "A + C + D + E = 2 + 3 + 2 + 2 = 9, plus 3");
+    assertEquals(List.of("OTHER"), view.json("$.rounds[1].teams[*].standing"));
+    assertEquals(List.of(0), view.json("$.rounds[1].teams[*].bonus"));
+    assertEquals(List.of(8), view.json("$.rounds[1].teams[*].total"), "A + C + D + E = 4 x 2, plus 0");
   }
 
   @Test
-  void editingAResultMovesTheOthersWithoutAnythingStored() {
+  void aTieForFirstKeepsBothBonusesAndNothingComputedIsStored() {
     Round1 s = round1();
-    // The unsaved team now beats everybody: 5 solved with a lower penalty than the winner.
-    Response view = expectOk(save(s.unsaved(), "[\"A\",\"B\",\"C\",\"D\",\"E\"]", 90));
+    // The unsaved team solves all six and the organizer also picks 1st for it: a tie with the winner, 15 each.
+    Response view = expectOk(save(s.unsaved(), "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]", "FIRST"));
     assertEquals(List.of("B-Unsaved", "B-Winner", "B-TiedOne", "B-TiedTwo", "B-Two", "B-Zero"), view.json("$.rounds[0].teams[*].teamName"));
-    assertEquals(List.of(1, 2, 3, 3, 5, 6), view.json("$.rounds[0].teams[*].place"));
-    assertEquals(List.of(3, 2, 1, 1, 0, 0), view.json("$.rounds[0].teams[*].bonus"));
-    assertEquals(List.of(15, 14, 9, 9, 5, 0), view.json("$.rounds[0].teams[*].total"));
-    assertEquals(6, place(view, "B-Zero"));
+    assertEquals(List.of(3, 3, 2, 2, 1, 0), view.json("$.rounds[0].teams[*].bonus"));
+    assertEquals(List.of(15, 15, 8, 8, 5, 0), view.json("$.rounds[0].teams[*].total"));
+    // Changing one team's standing changes only that team.
+    view = expectOk(save(s.winner(), "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]", "SECOND"));
+    assertEquals(List.of(15, 14, 8, 8, 5, 0), view.json("$.rounds[0].teams[*].total"));
     assertEquals(0, count("SELECT count(*) FROM information_schema.columns WHERE table_name IN ('contest_result', 'contest_release', 'contest_room_link') AND (column_name ~ 'total|score|place|bonus|points|eligible')"), "no computed value has a column");
   }
 
@@ -336,9 +339,9 @@ class EventContestTest extends EventIntegrationTest {
   void thereIsAReadOnlyServiceMethodForTheRoomScore() {
     Round1 s = round1();
     assertEquals(Optional.of(new RoomScore(15, 15)), scoreService.roomScore(s.winner().id()));
-    assertEquals(Optional.of(new RoomScore(10, 15)), scoreService.roomScore(s.tiedOne().id()));
-    assertEquals(Optional.of(new RoomScore(0, 15)), scoreService.roomScore(s.zero().id()));
-    assertEquals(Optional.of(new RoomScore(12, 15)), scoreService.roomScore(s.alpha().id()));
+    assertEquals(Optional.of(new RoomScore(8, 15)), scoreService.roomScore(s.tiedOne().id()));
+    assertEquals(Optional.of(new RoomScore(0, 15)), scoreService.roomScore(s.zero().id()), "1st picked but nothing solved");
+    assertEquals(Optional.of(new RoomScore(8, 15)), scoreService.roomScore(s.alpha().id()));
     assertEquals(Optional.empty(), scoreService.roomScore(s.unsaved().id()));
     assertEquals(Optional.empty(), scoreService.roomScore(Long.MAX_VALUE));
     expectOk(post("/admin/teams/" + s.two().id() + "/disqualify", admin, "{" + REASON + "}"));
@@ -353,9 +356,9 @@ class EventContestTest extends EventIntegrationTest {
     team("Alpha", GroupCode.A);
     Response before = expectOk(get("/admin/scores", admin));
     assertEquals(List.of(0.0, 0.0), ((List<?>) before.json("$[*].roomsTotal")).stream().map(n -> ((Number) n).doubleValue()).toList());
-    expectOk(save(bravo, "[\"A\",\"B\",\"C\",\"D\",\"E\"]", 0));
+    expectOk(save(bravo, "[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]", "FIRST"));
     Response after = expectOk(get("/admin/scores", admin));
-    // Five solved is 12 problem points plus the first-place bonus of 3: the room's 15, on the Problem solving line only.
+    // Six solved is 12 problem points plus the 1st-standing bonus of 3: the room's 15, on the Problem solving line only.
     List<Number> psRoom = after.json("$[?(@.teamName == 'Bravo')].rooms[1].score");
     assertEquals(15.0, psRoom.get(0).doubleValue());
     assertEquals(List.of("CONTEST"), after.json("$[?(@.teamName == 'Bravo')].rooms[1].source"));
@@ -369,30 +372,51 @@ class EventContestTest extends EventIntegrationTest {
   }
 
   @Test
-  void inactiveAndDisqualifiedTeamsAreExcludedFromThePageAndFromThePlacement() {
+  void inactiveAndDisqualifiedTeamsAreExcludedFromThePage() {
     Round1 s = round1();
     expectOk(post("/admin/teams/" + s.winner().id() + "/disqualify", admin, "{" + REASON + "}"));
     db.update("UPDATE event_team SET active = FALSE WHERE id = ?", s.zero().id());
     Response view = expectOk(get("/rooms/" + ps + "/contest-results", manager));
     assertEquals(List.of("B-TiedOne", "B-TiedTwo", "B-Two", "B-Unsaved"), view.json("$.rounds[0].teams[*].teamName"));
-    assertEquals(java.util.Arrays.asList(1, 1, 3, null), view.json("$.rounds[0].teams[*].place"), "the winner no longer takes first place");
-    assertEquals(List.of(3, 3, 1, 0), view.json("$.rounds[0].teams[*].bonus"), "two teams tied first get 3, 3, then 1, then 0");
-    assertEquals(List.of(11, 11, 6, 0), view.json("$.rounds[0].teams[*].total"));
+    assertEquals(java.util.Arrays.asList("SECOND", "SECOND", "THIRD", null), view.json("$.rounds[0].teams[*].standing"), "standings are the organizer's picks: nobody moves up by itself");
+    assertEquals(List.of(2, 2, 1, 0), view.json("$.rounds[0].teams[*].bonus"));
+    assertEquals(List.of(8, 8, 5, 0), view.json("$.rounds[0].teams[*].total"));
   }
 
   @Test
-  void theCsvListsEveryTeamByRoundAndPlaceAndNeutralizesFormulas() {
+  void theCsvListsEveryTeamByRoundAndTotalAndNeutralizesFormulas() {
     Round1 s = round1();
     db.update("UPDATE event_team SET name = '=HYPERLINK(1)' WHERE id = ?", s.unsaved().id());
     Response csv = expectOk(get("/rooms/" + ps + "/contest-results.csv", manager));
     String[] lines = csv.body().split("\r\n");
-    assertEquals("round,group,place,team,saved,solved,solvedCount,penaltyMinutes,problemPoints,bonus,total,eligible,released", lines[0]);
+    assertEquals("round,group,team,saved,solved,solvedCount,problemPoints,standing,bonus,total,eligible,released", lines[0]);
     assertEquals(8, lines.length);
-    assertEquals("1,B,1,\"B-Winner\",true,\"A B C D E\",5,100,12,3,15,true,false", lines[1]);
-    assertEquals("1,B,2,\"B-TiedOne\",true,\"A B C\",3,50,8,2,10,true,false", lines[2]);
-    assertEquals("1,B,,\"'=HYPERLINK(1)\",false,\"\",0,0,0,0,0,false,false", lines[6]);
-    assertTrue(lines[7].startsWith("2,A,1,\"Alpha\""), lines[7]);
+    assertEquals("1,B,\"B-Winner\",true,\"A B C D E F\",6,12,1st,3,15,true,false", lines[1]);
+    assertEquals("1,B,\"B-TiedOne\",true,\"A B C\",3,6,2nd,2,8,true,false", lines[2]);
+    assertEquals("1,B,\"'=HYPERLINK(1)\",false,\"\",0,0,,0,0,false,false", lines[5]);
+    assertEquals("1,B,\"B-Zero\",true,\"\",0,0,1st,0,0,false,false", lines[6]);
+    assertTrue(lines[7].startsWith("2,A,\"Alpha\",true,\"A C D E\",4,8,Other,0,8,"), lines[7]);
     assertEquals(1, count("SELECT count(*) FROM audit_event WHERE action = 'EVENT_CONTEST_EXPORT'"));
+  }
+
+  @Test
+  void aResultSavedBeforeStandingsExistedHasNoStandingAndScoresAsOther() {
+    TestTeam bravo = team("Bravo", GroupCode.B);
+    // The V18 shape: five problems, a typed penalty, no standing, no problem F.
+    db.update(
+      "INSERT INTO contest_result(team_id, room_id, solved_a, solved_b, solved_c, solved_d, solved_e, penalty_minutes, saved_by, saved_at) "
+        + "VALUES (?, ?, TRUE, TRUE, TRUE, FALSE, FALSE, 40, (SELECT id FROM app_user ORDER BY id LIMIT 1), now())",
+      bravo.id(),
+      ps
+    );
+    Response view = expectOk(get("/rooms/" + ps + "/contest-results", manager));
+    assertEquals(List.of("A", "B", "C"), view.json("$.rounds[0].teams[0].solved"));
+    assertEquals("OTHER", view.json("$.rounds[0].teams[0].standing"));
+    assertEquals(0, (int) view.json("$.rounds[0].teams[0].bonus"));
+    assertEquals(6, (int) view.json("$.rounds[0].teams[0].total"));
+    // Saving again with a standing replaces it.
+    view = expectOk(save(bravo, "[\"A\",\"B\",\"C\"]", "FIRST"));
+    assertEquals(9, (int) view.json("$.rounds[0].teams[0].total"));
   }
 
   // ---- the clue release ---------------------------------------------------------------------------
@@ -405,9 +429,9 @@ class EventContestTest extends EventIntegrationTest {
     expectError(
       post(base + s.two().id() + "/reveal", manager, null),
       409,
-      "This team solved 2 of the problems; at least 3 are needed for the clue."
+      "This team solved 2 of 6 problems; at least 3 are needed for the clue."
     );
-    expectError(post(base + s.zero().id() + "/reveal", manager, null), 409, "This team solved 0 of the problems; at least 3 are needed for the clue.");
+    expectError(post(base + s.zero().id() + "/reveal", manager, null), 409, "This team solved 0 of 6 problems; at least 3 are needed for the clue.");
     expectError(post(base + s.unsaved().id() + "/reveal", manager, null), 409, "This team has no saved results yet, so it is not eligible for the clue.");
     expectError(post(base + Long.MAX_VALUE + "/reveal", manager, null), 404, TEAM_NOT_FOUND);
 
@@ -441,7 +465,7 @@ class EventContestTest extends EventIntegrationTest {
     assertEquals(1, count("SELECT count(*) FROM room_submission WHERE team_id = " + s.tiedOne().id() + " AND clue_correct AND round = 1"));
     assertEquals(1, count("SELECT count(*) FROM collected_clue WHERE team_id = " + s.tiedOne().id() + " AND room_id = " + ps + " AND source = 'ROOM'"));
     assertEquals(
-      "Contest results · solved 3/5 (A, B, C) · problem points 8/12 · penalty 50 min · place 2 · bonus 2 · total 10/15",
+      "Contest results · solved 3/6 (A, B, C) · problem points 6/12 · standing 2nd · bonus 2 · total 8/15",
       db.queryForObject("SELECT technical_output FROM room_submission WHERE team_id = ?", String.class, s.tiedOne().id())
     );
     assertEquals("Contest results released", db.queryForObject("SELECT clue_answer FROM room_submission WHERE team_id = ?", String.class, s.tiedOne().id()));
@@ -501,7 +525,7 @@ class EventContestTest extends EventIntegrationTest {
     assertEquals(true, db.queryForObject("SELECT clue_correct FROM room_submission WHERE team_id = ?", Boolean.class, s.tiedOne().id()));
 
     // The results drop below the line afterwards: the clue stays, and the page says so.
-    Response view = expectOk(save(s.tiedOne(), "[\"A\"]", 50));
+    Response view = expectOk(save(s.tiedOne(), "[\"A\"]", "SECOND"));
     assertEquals(List.of(true), view.json("$.rounds[0].teams[?(@.teamName == 'B-TiedOne')].released"));
     assertEquals(List.of(false), view.json("$.rounds[0].teams[?(@.teamName == 'B-TiedOne')].eligible"));
     assertEquals(List.of(true), view.json("$.rounds[0].teams[?(@.teamName == 'B-TiedOne')].releasedNotEligible"));
@@ -581,7 +605,7 @@ class EventContestTest extends EventIntegrationTest {
   // ---- what a member may see ----------------------------------------------------------------------
 
   @Test
-  void noMemberResponseEverCarriesCountsPointsPenaltyPlaceOrEligibilityInAnyState() {
+  void noMemberResponseEverCarriesCountsPointsStandingBonusOrEligibilityInAnyState() {
     expectOk(put("/rooms/" + ps + "/contest-results/link", manager, "{\"url\":\"" + LINK + "\"}"));
     Round1 s = round1();
     List<TestTeam> everyone = List.of(s.winner(), s.tiedOne(), s.two(), s.zero(), s.unsaved(), s.alpha());
@@ -663,7 +687,7 @@ class EventContestTest extends EventIntegrationTest {
     List<String> fewPage = statements("/rooms/" + ps + "/contest-results", manager);
     List<String> fewTeam = statements("/team/rooms/" + ps + "/contest", first.token());
     teams(3);
-    expectOk(save(first, "[\"A\",\"B\",\"C\"]", 5));
+    expectOk(save(first, "[\"A\",\"B\",\"C\"]", "THIRD"));
     assertEquals(14, ((List<?>) expectOk(get("/rooms/" + ps + "/contest-results", manager)).json("$.rounds[*].teams[*]")).size());
     List<String> manyPage = statements("/rooms/" + ps + "/contest-results", manager);
     List<String> manyTeam = statements("/team/rooms/" + ps + "/contest", first.token());
@@ -692,7 +716,7 @@ class EventContestTest extends EventIntegrationTest {
     assertTrue(download.body().contains("contest_result") && download.body().contains("contest_release"));
     Response view = expectOk(get("/rooms/" + ps + "/contest-results", manager));
     assertEquals(List.of(false), view.json("$.rounds[0].teams[?(@.teamName == 'B-Winner')].saved"));
-    assertEquals(List.of(1), view.json("$.rounds[0].teams[?(@.teamName == 'B-TiedOne')].place"), "the others move up");
+    assertEquals(List.of(8), view.json("$.rounds[0].teams[?(@.teamName == 'B-TiedOne')].total"), "the others keep their scores");
 
     String body = "{\"confirmText\":\"RESET\",\"password\":\"%s\",%s}".formatted(PASSWORD, REASON);
     Response all = expectOk(post("/admin/reset/event", admin, body));
@@ -725,11 +749,11 @@ class EventContestTest extends EventIntegrationTest {
 
   // ---- helpers ------------------------------------------------------------------------------------
 
-  private Response save(TestTeam team, String problemsJson, int penalty) {
+  private Response save(TestTeam team, String problemsJson, String standing) {
     return put(
       "/rooms/" + ps + "/contest-results/teams/" + team.id(),
       manager,
-      "{\"problems\":%s,\"penaltyMinutes\":%d}".formatted(problemsJson, penalty)
+      "{\"problems\":%s,\"standing\":\"%s\"}".formatted(problemsJson, standing)
     );
   }
 
@@ -739,11 +763,6 @@ class EventContestTest extends EventIntegrationTest {
 
   private boolean released(TestTeam team) {
     return count("SELECT count(*) FROM contest_release WHERE team_id = " + team.id()) > 0;
-  }
-
-  private static int place(Response view, String team) {
-    List<Integer> places = view.json("$.rounds[*].teams[?(@.teamName == '" + team + "')].place");
-    return places.get(0);
   }
 
   private int snapshotRows(long snapshotId, String table) {

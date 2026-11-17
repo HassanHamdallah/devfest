@@ -7,6 +7,7 @@ import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ContestProblem;
 import dev.devfest.event.domain.ContestScoring;
+import dev.devfest.event.domain.ContestStanding;
 import dev.devfest.event.domain.ContestUrl;
 import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.dto.ContestLinkRequest;
@@ -20,7 +21,6 @@ import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRepository;
-import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
@@ -112,13 +112,12 @@ public class ContestResultsService {
     Set<ContestProblem> solved = request.problems().isEmpty()
       ? EnumSet.noneOf(ContestProblem.class)
       : EnumSet.copyOf(request.problems());
-    int penalty = wholeMinutes(request.penaltyMinutes());
     teams.lockForUpdate(teamId).filter(team -> team.active() && !team.disqualified()).orElseThrow(() -> fail(404, TEAM_NOT_FOUND));
-    contest.saveResult(teamId, room.id(), solved, penalty, principal.id(), clock.now());
+    contest.saveResult(teamId, room.id(), solved, request.standing(), principal.id(), clock.now());
     audit.record(
       principal.id(),
       "EVENT_CONTEST_RESULT_SAVED",
-      "room:" + room.id() + " team:" + teamId + " solved:" + letters(solved, "") + " penalty:" + penalty
+      "room:" + room.id() + " team:" + teamId + " solved:" + letters(solved, "") + " standing:" + request.standing()
     );
     return build(room, states.state());
   }
@@ -128,16 +127,16 @@ public class ContestResultsService {
     EventRoomRecord room = requireContestRoom(principal, roomId);
     ContestResultsView view = build(room, states.state());
     StringBuilder csv = new StringBuilder(
-      "round,group,place,team,saved,solved,solvedCount,penaltyMinutes,problemPoints,bonus,total,eligible,released\r\n"
+      "round,group,team,saved,solved,solvedCount,problemPoints,standing,bonus,total,eligible,released\r\n"
     );
     for (RoundView round : view.rounds()) {
       for (TeamRow row : round.teams()) {
         csv.append(row.round()).append(',').append(row.group()).append(',');
-        csv.append(row.place() == null ? "" : row.place().toString()).append(',');
         csv.append(csvCell(row.teamName())).append(',').append(row.saved()).append(',');
         csv.append(csvCell(letters(row.solved(), " "))).append(',');
-        csv.append(row.solvedCount()).append(',').append(row.penaltyMinutes()).append(',');
-        csv.append(row.problemPoints()).append(',').append(row.bonus()).append(',').append(row.total()).append(',');
+        csv.append(row.solvedCount()).append(',').append(row.problemPoints()).append(',');
+        csv.append(row.standing() == null ? "" : row.standing().label()).append(',');
+        csv.append(row.bonus()).append(',').append(row.total()).append(',');
         csv.append(row.eligible()).append(',').append(row.released()).append("\r\n");
       }
     }
@@ -166,13 +165,6 @@ public class ContestResultsService {
       ContestBoard.rounds(contest.teams(room.id()), room.position()),
       clock.now()
     );
-  }
-
-  private static int wholeMinutes(BigDecimal value) {
-    if (value.signum() < 0) throw fail(400, "The penalty cannot be negative.");
-    if (value.stripTrailingZeros().scale() > 0) throw fail(400, "The penalty must be a whole number of minutes.");
-    if (value.compareTo(BigDecimal.valueOf(100000)) > 0) throw fail(400, "The penalty can be at most 100000 minutes.");
-    return value.intValueExact();
   }
 
   static String letters(Collection<ContestProblem> solved, String separator) {

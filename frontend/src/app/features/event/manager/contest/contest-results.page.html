@@ -71,15 +71,16 @@
   <ui-card>
     <h2 ui-card-header>How teams are scored</h2>
     <p class="event-muted contest__intro">
-      Problem points
+      Each solved problem of
       @for (item of view.problems; track item.problem; let last = $last) {
-      <strong>{{ item.problem }}={{ item.points }}</strong>{{ last ? "" : ", " }}
+      <strong>{{ item.problem }}</strong>{{ last ? "" : ", " }}
       }
-      (up to {{ view.maxProblemPoints }}). Inside a round, more problems solved ranks first, then the lower penalty;
-      equal results share a place. Bonus by place: 1st +3, 2nd +2, 3rd +1; none for a team with nothing solved. Total out
-      of {{ view.maxTotal }}. A team needs at least {{ view.eligibleSolved }} solved problems to receive the clue. Nothing
-      here is shown to teams.
+      is worth {{ view.problems[0]?.points ?? 2 }} points (up to {{ view.maxProblemPoints }}). Pick each team's standing:
+      1st +3, 2nd +2, 3rd +1, Other +0; two teams may share a standing, and a team with nothing solved gets no bonus.
+      Total out of {{ view.maxTotal }}. A team needs at least {{ view.eligibleSolved }} solved problems to receive the
+      clue. Nothing here is shown to teams.
     </p>
+    <p class="event-muted contest__intro" data-standing-hint>Take the standing from the Codeforces standings.</p>
   </ui-card>
 
   @if (!view.rounds.length) {
@@ -106,12 +107,11 @@
       <table class="contest__table">
         <thead>
           <tr>
-            <th scope="col">#</th>
             <th scope="col">Team</th>
             @for (problem of problems; track problem) {
             <th scope="col" class="contest__problem">{{ problem }}</th>
             }
-            <th scope="col">Penalty (min)</th>
+            <th scope="col">Standing</th>
             <th scope="col"></th>
             <th scope="col" class="contest__num">Solved</th>
             <th scope="col" class="contest__num">Points</th>
@@ -124,7 +124,6 @@
         <tbody>
           @for (row of round.teams; track row.teamId) {
           <tr [attr.data-team]="row.teamName" [class.contest__row--dirty]="dirty(row)">
-            <td class="event-num" data-place>{{ row.place ?? "—" }}</td>
             <th scope="row">{{ row.teamName }}</th>
             @for (problem of problems; track problem) {
             <td class="contest__problem">
@@ -140,25 +139,21 @@
             </td>
             }
             <td>
-              <input
-                type="number"
-                min="0"
-                max="100000"
-                step="1"
-                inputmode="numeric"
-                class="contest__penalty"
-                [class.contest__penalty--invalid]="!penaltyValid(row)"
-                [attr.aria-label]="row.teamName + ' penalty in minutes'"
-                [attr.aria-invalid]="!penaltyValid(row)"
-                [value]="penaltyOf(row)"
+              <select
+                class="contest__standing"
+                [attr.aria-label]="row.teamName + ' standing'"
                 [disabled]="busy() !== null"
-                (input)="setPenalty(row, $any($event.target).value)"
-              />
+                (change)="setStanding(row, $any($event.target).value)"
+              >
+                @for (option of standings; track option.value) {
+                <option [value]="option.value" [selected]="standingOf(row) === option.value">{{ option.label }}</option>
+                }
+              </select>
             </td>
             <td class="contest__actions">
               <ui-button
                 size="sm"
-                [disabled]="(!dirty(row) && row.saved) || !penaltyValid(row) || busy() !== null"
+                [disabled]="(!dirty(row) && row.saved) || busy() !== null"
                 [loading]="busy() === 'save:' + row.teamId"
                 (click)="save(row)"
                 >{{ row.saved ? "Save" : "Save results" }}</ui-button
