@@ -18,7 +18,7 @@ const WIDE = { width: 1440, height: 900 };
 const NARROW = { width: 390, height: 844 };
 // Cold boot in headless Edge, plus the package download and its installation inside the guest.
 const BOOT = { timeout: 120000 };
-const BANNER = "Rami's server is mounted. There is no internet in this terminal.";
+const BANNER = "Noor's server is mounted. There is no internet in this terminal.";
 /** Team 09–12 are group C: the Linux room in round 1. */
 const LINUX_TEAM = 8;
 

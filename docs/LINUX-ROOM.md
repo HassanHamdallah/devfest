@@ -17,7 +17,20 @@ Remove the package to go back to them. Rooms without a package behave exactly as
 
 - The shell starts in the home directory `~` (`/root`). The team is `root` in its own private VM, so file modes do not
   stop them from reading anything; owners and groups matter for `ls -l`, `find -user` and `find -group` challenges.
-- The banner says: *Rami's server is mounted. There is no internet in this terminal.*
+- The banner says: *Noor's server is mounted. There is no internet in this terminal.*
+- **Look.** The Linux room's terminal looks like Ubuntu: an aubergine screen (`#300a24`) with light text, and the prompt
+  `investigator@noor-server:<path>$ ` with the name in bold green (`#8ae234`) and the path in bold blue (`#729fcf`), `~` for
+  the home directory. The prompt is set by the invisible setup of a room **with a server package** (a `PS1` line using
+  BusyBox's `\w`, `\033` and `\[ \]`, so long commands wrap and Up/Down redraw correctly); the Linux image is not
+  changed. The final's terminal keeps its own look.
+- **Full screen.** The terminal header has a **Full screen** button (the terminal card, also in the manager's *Test
+  terminal*). The terminal is fitted to the screen and told its new size (`stty cols … rows …`, invisibly, at an empty
+  prompt); **Exit full screen** or Esc returns it to 80 x 24. The keyboard stays in the terminal. A browser that refuses
+  full screen simply changes nothing.
+- **Names on screen.** What people see as **FILE_NAME** (the former PATTERN) and **RETRIEVED KEY** (the former Final clue; on
+  the manager's room board the key card is called *Retrieved key* in this room) are labels only: the stored fields,
+  the JSON names (`pattern`, `finalClue`), the score items (`PATTERN`, `CLUE`) and the answer keys are unchanged, so earlier
+  answers and keys keep scoring. The dashboard CSV columns are `fileName`, `retrievedKey`, `fileNamePoints`, `retrievedKeyPoints`.
 - **The terminal is saved in the team's browser.** After the team types, the whole Linux VM (files, shell history,
   running state and the text on the screen) is saved to the browser's own storage (IndexedDB): 5 seconds after the last
   keystroke, at most once every 15 seconds, and at once when the tab goes to the background. A terminal nobody typed in
@@ -217,16 +230,16 @@ if your file is dated 2026-03-04 and the clock says 2026-03-14, `find -mtime 10`
 ## 7. The team form
 
 A room with the **Linux terminal activity** (admin: Content page) shows the team a form next to the terminal instead of
-the usual technical-output and clue-answer boxes. Five fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN**,
-**Final clue**. There is no separate encrypted message: your target file holds one encrypted clue, and the team types
-its decryption as the Final clue.
+the usual technical-output and clue-answer boxes. Five fields: **PATH**, **USERNAME**, **FILE_SIZE**, **FILE_NAME**,
+**RETRIEVED KEY**. There is no separate encrypted message: your target file holds one encrypted clue, and the team types
+its decryption as the RETRIEVED KEY.
 
 - **Save** stores what is on the screen, as often as the team likes; blanks are fine. **Final submit** (the team is asked
   first) locks the form for good. Everything is kept on the server, so a refresh or a terminal restart changes nothing.
 - A team that saved something but did not submit is submitted automatically when the round ends (End round, removed
   time, or the next round). A team that saved nothing, or only blanks, is not.
 - The final answer becomes the room's ordinary submission: its **technical output** is a summary of the five values
-  (you judge it as usual), and the **Final clue** is checked against the clue key you set on the room board (case and
+  (you judge it as usual), and the **RETRIEVED KEY** is checked against the retrieved key you set on the room board (case and
   spacing do not matter, punctuation does). A correct clue gives the team the room's clue; a blank or wrong one does not.
 - Teams see only **Saved** or **Submitted**: never whether an answer is right, a score, or a key. The other four
   answers are scored on the organizer dashboard (next section), not at submission.
@@ -236,14 +249,14 @@ its decryption as the Final clue.
 Open it from the room board (**Organizer dashboard**) or from the admin board's warning. Only you and the admin can
 open it. It has three parts:
 
-1. **Answer keys.** One box for PATH, USERNAME, FILE_SIZE and PATTERN, **one accepted value per line** (for example
+1. **Answer keys.** One box for PATH, USERNAME, FILE_SIZE and FILE_NAME, **one accepted value per line** (for example
    both `/srv/rami/uploads` and a second folder). Save them any time before the final opens. A key left empty cannot be awarded automatically: the admin board warns, and you can still award
-   that item by hand. The Final clue is checked against the **clue key** you set on the room board, as always.
-   - PATH ignores one trailing slash (`/srv/x/` equals `/srv/x`); PATTERN ignores surrounding quotes (`"*.bak"` equals
+   that item by hand. The RETRIEVED KEY is checked against the **retrieved key** you set on the room board, as always.
+   - PATH ignores one trailing slash (`/srv/x/` equals `/srv/x`); FILE_NAME ignores surrounding quotes (`"*.bak"` equals
      `*.bak`); FILE_SIZE ignores case (`1337C` equals `1337c`); USERNAME is case-sensitive.
 2. **Teams, out of 15.** Every active team, in every round, with its status (Not started, Saved, Submitted), what it
    wrote with a tick or cross for each of the five items, its total and when it submitted. The table is sorted by total
-   and refreshes every 5 seconds. Each item is worth 3 points; the fifth item (**Clue**) is worth 3 points when the
+   and refreshes every 5 seconds. Each item is worth 3 points; the fifth item (**RETRIEVED KEY**) is worth 3 points when the
    final clue is right (checked against the clue key, as for collecting the clue). Scores are computed from the keys every time, so fixing a key or the clue key fixes the table.
 3. **Overrides.** Under each item choose **Award** or **Deny** to decide it yourself (it is marked *Overridden* and the
    change is audited); choose **Automatic** to clear it. Overriding Clue changes the points only: it never
@@ -262,12 +275,12 @@ The Playwright fixture (`frontend/e2e/linux-room-fixture.ts`) builds the kind of
 find /srv/rami/uploads -type f                      # PATH      -> several files
 find /srv /home /var -user tech9 -type f            # USERNAME  -> several files
 find /srv /home /var -type f -size 1337c            # FILE_SIZE -> several files
-find /srv /home /var -type f -name "*.bak"          # PATTERN   -> several files
+find /srv /home /var -type f -name "*.bak"          # FILE_NAME   -> several files
 find /srv/rami/uploads -user tech9 -size 1337c -name "*.bak"   # exactly one file
 ```
 
 The target file holds one encrypted clue (in the fixture `Encrypted clue: ZHVW WRZHU`, a shift by three of the clue key
-`WEST TOWER`); the team decrypts it and enters the result as the **Final clue**. There is no separate message field.
+`WEST TOWER`); the team decrypts it and enters the result as the **RETRIEVED KEY**. There is no separate message field.
 
 Keep the decoys believable (same names, sizes and owners as the target in every way except one), and re-read the
 whole listing with `ls -lnR` once through **Test terminal** before the event.

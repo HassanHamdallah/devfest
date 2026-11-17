@@ -6,7 +6,9 @@
       "test",
       "-c",
       "playwright.event.config.ts",
-      "e2e/event-final.spec.ts"
+      "event-terminal-dashboard",
+      "event-terminal-form",
+      "event-terminal.spec"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
     "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -134,18 +136,18 @@
   },
   "suites": [
     {
-      "title": "event-final.spec.ts",
-      "file": "event-final.spec.ts",
+      "title": "event-terminal-dashboard.spec.ts",
+      "file": "event-terminal-dashboard.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [
         {
-          "title": "final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the rest, investigates and submits S11",
+          "title": "linux dashboard: keys, partial credit, overrides, export and the access rules",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 900000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
@@ -155,7 +157,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 195807,
+                  "duration": 25474,
                   "errors": [],
                   "stdout": [
                     {
@@ -166,51 +168,131 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "unlock: a wrong output gets one generic message; the right ones open the mission",
-                      "duration": 1378
+                      "title": "with no answer key the admin board warns and the dashboard says which keys are missing",
+                      "duration": 1189
                     },
                     {
-                      "title": "mission: clues 4/4, the content's title, intro and two phases",
-                      "duration": 415
+                      "title": "the manager sets the keys, several values one per line",
+                      "duration": 280
                     },
                     {
-                      "title": "Start opens the case on Phase 1 with the files, key index, RSA keys and guide",
-                      "duration": 550
+                      "title": "a correct team and a partly right team submit through the form",
+                      "duration": 952
                     },
                     {
-                      "title": "in the terminal, the guide's commands decrypt clue 3 and show the warehouse report",
-                      "duration": 11885
+                      "title": "the dashboard lists all active teams with totals out of 15, sorted, and refreshes by itself",
+                      "duration": 4331
                     },
                     {
-                      "title": "View report opens the recovered report in place and keeps its lines",
-                      "duration": 180
+                      "title": "an override awards, shows Overridden, and clears; the fifth item never touches the clue",
+                      "duration": 296
                     },
                     {
-                      "title": "five wrong passphrases on clue 4 show the 30-second wait for that clue only",
-                      "duration": 386
+                      "title": "the correct clue is in the good team's collected clues, the partial team has none",
+                      "duration": 15
                     },
                     {
-                      "title": "clues 1, 2 and 4 are solved through the API; the page follows",
-                      "duration": 30389
+                      "title": "Export CSV downloads the table",
+                      "duration": 317
                     },
                     {
-                      "title": "the investigation opens by itself: the page moves to Phase 2 and Phase 1 turns read-only",
-                      "duration": 136571
+                      "title": "Test terminal starts with the room's current package",
+                      "duration": 6724
                     },
                     {
-                      "title": "Phase 2: recovered evidence, the suspects sheet, and one suspect after a confirmation",
-                      "duration": 2397
+                      "title": "a member and another room's manager get a 404, and the keys never reach a team",
+                      "duration": 290
+                    }
+                  ],
+                  "startTime": "2026-11-17T22:13:26.152Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d20026424f141faef9bd-f538acfd4f55fa1ff9ed",
+          "file": "event-terminal-dashboard.spec.ts",
+          "line": 51,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-terminal-form.spec.ts",
+      "file": "event-terminal-form.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "linux form: the team finds the file in the terminal, saves, refreshes, submits once and the clue is collected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 480000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24397,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 164
                     },
                     {
-                      "title": "Team 01 scored the full final: 15 + 10 + 15 = 40",
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 7680
+                    },
+                    {
+                      "title": "there is no 'use selection' button, only a copy button",
                       "duration": 11
                     },
                     {
-                      "title": "the organizer's Final reports page shows the suspect, Correct and the written report",
-                      "duration": 1176
+                      "title": "the terminal has the Ubuntu look: coloured prompt, aubergine screen, long commands and history",
+                      "duration": 306
+                    },
+                    {
+                      "title": "Full screen fits the terminal to the screen and Exit brings it back (skipped when the browser refuses)",
+                      "duration": 1639
+                    },
+                    {
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 1888
+                    },
+                    {
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 804
+                    },
+                    {
+                      "title": "the room counts as finished: the correct clue is collected and shown in the evidence",
+                      "duration": 33
+                    },
+                    {
+                      "title": "a team that only saved is submitted by the round's end, once",
+                      "duration": 193
+                    },
+                    {
+                      "title": "a team never receives anything but its own values and a status",
+                      "duration": 3
                     }
                   ],
-                  "startTime": "2026-11-17T21:28:08.881Z",
+                  "startTime": "2026-11-17T22:13:51.912Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -218,19 +300,32 @@
               "status": "expected"
             }
           ],
-          "id": "b86908d9453c435b0f84-e76ab03b7c0b56907942",
-          "file": "event-final.spec.ts",
-          "line": 121,
+          "id": "ce5c442fc1bc94ffc468-3da69dc0b898f718ba9e",
+          "file": "event-terminal-form.spec.ts",
+          "line": 43,
           "column": 5
-        },
+        }
+      ]
+    },
+    {
+      "title": "event-terminal.spec.ts",
+      "file": "event-terminal.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
         {
-          "title": "final: a 3-clue team passes the Recovery Challenge and reaches the mission; a 2-clue team is refused",
+          "title": "terminal: the Linux team boots Linux in the browser, greps the room's file and submits the line",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 900000,
-              "annotations": [],
+              "timeout": 420000,
+              "annotations": [
+                {
+                  "type": "boot",
+                  "description": "Ready in 3.9 s"
+                }
+              ],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
@@ -239,7 +334,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 13711,
+                  "duration": 15920,
                   "errors": [],
                   "stdout": [
                     {
@@ -250,119 +345,50 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "Team 02 (3 clues) sees the Recovery Challenge and no unlock",
-                      "duration": 975
+                      "title": "the Linux manager adds logs/lock.log on the room board",
+                      "duration": 1399
                     },
                     {
-                      "title": "a wrong answer costs nothing; the right one leads to the unlock, then the mission",
-                      "duration": 291
+                      "title": "on a phone the form stays as it is, with a note and a way to open the terminal",
+                      "duration": 109
                     },
                     {
-                      "title": "Team 03 (2 clues) is refused: no unlock, no recovery",
-                      "duration": 916
+                      "title": "the AI team never gets the terminal and gets 404 for the Linux files",
+                      "duration": 63
+                    },
+                    {
+                      "title": "Start terminal boots Linux with the room's file in ~/logs",
+                      "duration": 4488
+                    },
+                    {
+                      "title": "grep finds the OVERRIDE line",
+                      "duration": 255
+                    },
+                    {
+                      "title": "the selected line becomes the technical output and the team submits as usual",
+                      "duration": 237
+                    },
+                    {
+                      "title": "when the admin ends the round the terminal is gone without any click",
+                      "duration": 109
                     }
                   ],
-                  "startTime": "2026-11-17T21:31:26.032Z",
-                  "annotations": [],
+                  "startTime": "2026-11-17T22:14:16.340Z",
+                  "annotations": [
+                    {
+                      "type": "boot",
+                      "description": "Ready in 3.9 s"
+                    }
+                  ],
                   "attachments": []
                 }
               ],
               "status": "expected"
             }
           ],
-          "id": "b86908d9453c435b0f84-08c8757e12f9e707a355",
-          "file": "event-final.spec.ts",
-          "line": 481,
-          "column": 5
-        },
-        {
-          "title": "final: on the phone the mission and both phases fit 390 px; without a package the terminal says it is not ready",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 600000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 70184,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-11-17T21:31:39.758Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "b86908d9453c435b0f84-4702803e5abb0840474c",
-          "file": "event-final.spec.ts",
-          "line": 532,
-          "column": 5
-        },
-        {
-          "title": "final: Phase 2 stays locked during the decryption phase; after it Phase 1 is read-only and the suspect is submitted",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 600000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 71897,
-                  "errors": [],
-                  "stdout": [
-                    {
-                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
-                    }
-                  ],
-                  "stderr": [],
-                  "retry": 0,
-                  "steps": [
-                    {
-                      "title": "during decryption: Phase 2 is locked, the suspects are hidden and refused",
-                      "duration": 1295
-                    },
-                    {
-                      "title": "the page moves to Phase 2 by itself; Phase 1 is read-only with the terminal gone",
-                      "duration": 59642
-                    },
-                    {
-                      "title": "after it: passphrases are refused (no attempt, no wait), the suspects are sent and S11 is submitted",
-                      "duration": 506
-                    }
-                  ],
-                  "startTime": "2026-11-17T21:32:49.962Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "b86908d9453c435b0f84-fb22641de36188b7f4eb",
-          "file": "event-final.spec.ts",
-          "line": 575,
+          "id": "e14b51c5eae7eeb59d9e-d5505ccd0184865e9860",
+          "file": "event-terminal.spec.ts",
+          "line": 67,
           "column": 5
         }
       ]
@@ -370,9 +396,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-17T21:28:08.321Z",
-    "duration": 353992.417,
-    "expected": 4,
+    "startTime": "2026-11-17T22:13:25.774Z",
+    "duration": 66944.204,
+    "expected": 3,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

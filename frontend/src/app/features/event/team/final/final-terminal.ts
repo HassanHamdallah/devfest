@@ -60,6 +60,7 @@ const BANNER = "The Last Shipment: the case files are in ~/DevFest-Crypto. There
           [snapshotScope]="snapshotScope()"
           [packageBanner]="banner"
           [seedEntropy]="true"
+          [roomLook]="false"
         />
       } @loading (minimum 300ms) {
         <p>Loading the terminal…</p>

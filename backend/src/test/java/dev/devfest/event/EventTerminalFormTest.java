@@ -102,7 +102,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
     startLinuxRound();
     expectOk(save(charlie, UUID.randomUUID(), form("é".repeat(250), "", "", "", "")));
     expectError(save(charlie, UUID.randomUUID(), form("é".repeat(250) + "x", "", "", "", "")), 400, "PATH is too long (max 500 bytes).");
-    expectError(save(charlie, UUID.randomUUID(), form("", "", "", "", "a\\u0000b")), 400, "Final clue must be text.");
+    expectError(save(charlie, UUID.randomUUID(), form("", "", "", "", "a\\u0000b")), 400, "RETRIEVED KEY must be text.");
     assertEquals(400, teamPost(charlie, formPath(linux) + "/save", UUID.randomUUID(), "{\"path\":\"x\"}").status());
   }
 
@@ -186,7 +186,7 @@ class EventTerminalFormTest extends EventIntegrationTest {
 
     Map<String, Object> row = db.queryForMap("SELECT technical_output, clue_answer, clue_correct, round FROM room_submission");
     assertEquals(
-      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nPATTERN: *.bak\nFinal clue:  " + CLUE.toLowerCase() + " ",
+      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nFILE_NAME: *.bak\nRETRIEVED KEY:  " + CLUE.toLowerCase() + " ",
       row.get("technical_output")
     );
     assertEquals(true, row.get("clue_correct"));

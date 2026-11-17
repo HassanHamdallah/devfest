@@ -7,11 +7,11 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 /**
- * The organizer's answer keys of a Linux terminal room (rules §18.8): PATH, USERNAME, FILE_SIZE and PATTERN each
+ * The organizer's answer keys of a Linux terminal room (rules §18.8): PATH, USERNAME, FILE_SIZE and FILE_NAME (stored as {@code pattern}) each
  * accept several values (one per line). An empty key can never be matched, so the item cannot be awarded
  * automatically. The final clue is not here: it uses the room's clue key.
  *
- * <p>Comparison: every value is trimmed. PATH also ignores one trailing slash; PATTERN also ignores one pair of
+ * <p>Comparison: every value is trimmed. PATH also ignores one trailing slash; FILE_NAME also ignores one pair of
  * surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive.
  */
 public record TerminalAnswerKeys(String path, String username, String fileSize, String pattern) {
@@ -25,7 +25,7 @@ public record TerminalAnswerKeys(String path, String username, String fileSize, 
 
   /** Why the keys cannot be stored (too many values, a value too long, a NUL character), or empty when they can. */
   public Optional<String> problem() {
-    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "PATTERN" };
+    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "FILE_NAME" };
     String[] texts = { path, username, fileSize, pattern };
     for (int i = 0; i < texts.length; i++) {
       if (texts[i].indexOf('\0') >= 0) return Optional.of(labels[i] + " must be text.");
@@ -46,7 +46,7 @@ public record TerminalAnswerKeys(String path, String username, String fileSize, 
     if (values(path).isEmpty()) empty.add("PATH");
     if (values(username).isEmpty()) empty.add("USERNAME");
     if (values(fileSize).isEmpty()) empty.add("FILE_SIZE");
-    if (values(pattern).isEmpty()) empty.add("PATTERN");
+    if (values(pattern).isEmpty()) empty.add("FILE_NAME");
     return empty;
   }
 

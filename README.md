@@ -85,12 +85,12 @@ terminal that runs inside their browser — no internet, nothing runs on the ser
   the manifest takes an optional fifth column `mtime` (`2026-03-14T09:26:00Z`) for exact file and folder dates, and the
   package card has an optional **Terminal clock** (so `find -mtime` gives the same result on any day).
 - **Team form.** With the **Linux terminal activity** switched on for the room (admin, **Content** page; on by default
-  for the Linux room), teams get a six-field form next to the terminal (PATH, USERNAME, FILE_SIZE, PATTERN, Encrypted
-  message, Final clue) instead of the technical-output and clue-answer boxes. **Save** is repeatable, **Final submit**
+  for the Linux room), teams get a six-field form next to the terminal (PATH, USERNAME, FILE_SIZE, FILE_NAME, Encrypted
+  message, RETRIEVED KEY) instead of the technical-output and clue-answer boxes. **Save** is repeatable, **Final submit**
   locks the form, and a saved form is submitted automatically when the round ends. The final answer is recorded as the
-  room's submission and its Final clue is checked against your clue key; teams only ever see Saved or Submitted.
+  room's submission and its RETRIEVED KEY is checked against your clue key; teams only ever see Saved or Submitted.
 - **Organizer dashboard.** The room board links to it (manager of the room and admin only). Set the **answer keys**
-  there (one accepted value per line for PATH, USERNAME, FILE_SIZE and PATTERN), then follow every active team's answers
+  there (one accepted value per line for PATH, USERNAME, FILE_SIZE and FILE_NAME), then follow every active team's answers
   with a tick or cross per item, its score out of 15 (3 per correct parameter, 3 when the message and the clue are both
   right), award or deny single items by hand, export the table as CSV and open **Test terminal** with the current
   package. It refreshes every 5 seconds; the 15 points stay in this room and do not change the event's ranking.

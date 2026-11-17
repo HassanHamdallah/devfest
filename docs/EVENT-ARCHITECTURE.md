@@ -283,7 +283,7 @@ and Time's up run one after the other. A form submission is hidden from the team
 counts as a recorded result for `EvidenceVisibility`; resets and snapshots list both tables.
 
 **Organizer dashboard (V15, rules §18.8)**: `terminal_answer_key(room_id PK, four multi-value text columns)`
-and `terminal_form_override(team_id, room_id, item PK, awarded)` (items PATH, USERNAME, FILE_SIZE, PATTERN, CLUE; absence = automatic; clearing deletes the row, the
+and `terminal_form_override(team_id, room_id, item PK, awarded)` (items PATH, USERNAME, FILE_SIZE, PATTERN, CLUE (shown as FILE_NAME and RETRIEVED KEY); absence = automatic; clearing deletes the row, the
 audit keeps the history). Pure domain classes: `TerminalAnswerKeys` (the comparison rules) and `TerminalFormScoring`
 (3 points per item, 15 at most, overrides applied; **nothing is stored**: every read recomputes from the form rows, the
 current keys, the room's clue key and the overrides). `TerminalDashboardService.view` reads in 5 statements whatever

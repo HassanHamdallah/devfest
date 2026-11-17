@@ -74,13 +74,13 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
     await test.step("with no answer key the admin board warns and the dashboard says which keys are missing", async () => {
       const board = await adminApi.send<{ alerts: { code: string; message: string; link: string }[] }>("GET", "/event/admin/board");
       const alert = board.alerts.find((candidate) => candidate.code === "TERMINAL_KEYS_MISSING");
-      expect(alert?.message).toContain("no answer key for PATH, USERNAME, FILE_SIZE, PATTERN");
+      expect(alert?.message).toContain("no answer key for PATH, USERNAME, FILE_SIZE, FILE_NAME");
       expect(alert?.link).toBe(`/event/room/${linuxRoom}/dashboard`);
       await signIn(manager.page, accounts.managers.LINUX, accounts.seedPassword);
       await manager.page.goto(`/event/room/${linuxRoom}`);
       await manager.page.getByRole("link", { name: "Organizer dashboard", exact: true }).click();
       await expect(manager.page.getByRole("heading", { name: "Linux room dashboard", exact: true })).toBeVisible();
-      await expect(manager.page.locator("[data-empty-keys]")).toContainText("PATH, USERNAME, FILE_SIZE, PATTERN");
+      await expect(manager.page.locator("[data-empty-keys]")).toContainText("PATH, USERNAME, FILE_SIZE, FILE_NAME");
     });
 
     await test.step("the manager sets the keys, several values one per line", async () => {
@@ -88,7 +88,7 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
       await field(page, "PATH").fill(`${fixture.target.path}\n/var/uploads/`);
       await field(page, "USERNAME").fill(fixture.target.user);
       await field(page, "FILE_SIZE").fill(fixture.target.size);
-      await field(page, "PATTERN").fill(fixture.target.pattern);
+      await field(page, "FILE_NAME").fill(fixture.target.pattern);
       await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Save answer keys", exact: true }).click();
       await expect(page.getByText("Answer keys saved.", { exact: false })).toBeVisible();
@@ -102,15 +102,15 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
         PATH: `${fixture.target.path}/`,
         USERNAME: fixture.target.user,
         FILE_SIZE: fixture.target.size.toUpperCase(),
-        PATTERN: `"${fixture.target.pattern}"`,
-        "Final clue": PRACTICE_KEYS.LINUX.toLowerCase(),
+        FILE_NAME: `"${fixture.target.pattern}"`,
+        "RETRIEVED KEY": PRACTICE_KEYS.LINUX.toLowerCase(),
       });
       await submitForm(partial.page, {
         PATH: fixture.target.path,
         USERNAME: "guard2",
         FILE_SIZE: fixture.target.size,
-        PATTERN: "*.log",
-        "Final clue": "NOT THE CLUE",
+        FILE_NAME: "*.log",
+        "RETRIEVED KEY": "NOT THE CLUE",
       });
     });
 
@@ -147,7 +147,7 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
       await expect(teamTen.locator("[data-total]")).toHaveText("6");
       await expect(teamTen.locator('[data-item="USERNAME"]')).not.toContainText("Overridden");
 
-      await page.getByLabel("Override Clue for Team 10", { exact: true }).selectOption("award");
+      await page.getByLabel("Override RETRIEVED KEY for Team 10", { exact: true }).selectOption("award");
       await expect(teamTen.locator("[data-total]")).toHaveText("9");
       const session = await EventApiSession.fromPage(partial.page);
       try {
@@ -156,10 +156,10 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
       } finally {
         await session.dispose();
       }
-      await page.getByLabel("Override Clue for Team 10", { exact: true }).selectOption("auto");
+      await page.getByLabel("Override RETRIEVED KEY for Team 10", { exact: true }).selectOption("auto");
       await expect(teamTen.locator("[data-total]")).toHaveText("6");
 
-      await page.getByLabel("Override Clue for Team 09", { exact: true }).selectOption("deny");
+      await page.getByLabel("Override RETRIEVED KEY for Team 09", { exact: true }).selectOption("deny");
       await expect(row(page, "Team 09").locator("[data-total]")).toHaveText("12");
       const sessionGood = await EventApiSession.fromPage(good.page);
       try {
@@ -168,7 +168,7 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
       } finally {
         await sessionGood.dispose();
       }
-      await page.getByLabel("Override Clue for Team 09", { exact: true }).selectOption("auto");
+      await page.getByLabel("Override RETRIEVED KEY for Team 09", { exact: true }).selectOption("auto");
       await expect(row(page, "Team 09").locator("[data-total]")).toHaveText("15");
     });
 
@@ -194,7 +194,7 @@ test("linux dashboard: keys, partial credit, overrides, export and the access ru
       await expect(terminal(page)).toHaveAttribute("data-state", "ready", BOOT);
       // xterm paints only what is on screen.
       await terminal(page).scrollIntoViewIfNeeded();
-      await expect(terminal(page)).toContainText("Rami's server is mounted.");
+      await expect(terminal(page)).toContainText("Noor's server is mounted.");
     });
 
     await test.step("a member and another room's manager get a 404, and the keys never reach a team", async () => {

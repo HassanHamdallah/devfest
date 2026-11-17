@@ -125,8 +125,8 @@ test("terminal requests: nothing while the team types, one request per Save and 
     await page.getByRole("textbox", { name: "PATH", exact: true }).fill(fixture.target.path);
     await page.getByRole("textbox", { name: "USERNAME", exact: true }).fill(fixture.target.user);
     await page.getByRole("textbox", { name: "FILE_SIZE", exact: true }).fill(fixture.target.size);
-    await page.getByRole("textbox", { name: "PATTERN", exact: true }).fill(fixture.target.pattern);
-    await page.getByRole("textbox", { name: "Final clue", exact: true }).fill(PRACTICE_KEYS.LINUX.toLowerCase());
+    await page.getByRole("textbox", { name: "FILE_NAME", exact: true }).fill(fixture.target.pattern);
+    await page.getByRole("textbox", { name: "RETRIEVED KEY", exact: true }).fill(PRACTICE_KEYS.LINUX.toLowerCase());
     await page.waitForTimeout(1500);
     phase.current = "save";
     await page.getByRole("button", { name: "Save", exact: true }).click();

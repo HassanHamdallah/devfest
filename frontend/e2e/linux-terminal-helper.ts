@@ -54,7 +54,7 @@ export async function expectFindChallenge(page: Page, fixture: FindChallenge, ro
     ["PATH", byPath],
     ["USERNAME", byUser],
     ["FILE_SIZE", bySize],
-    ["PATTERN", byName],
+    ["FILE_NAME", byName],
   ] as const) {
     expect(count, `${label} alone returns several files`).toBeGreaterThan(4);
   }

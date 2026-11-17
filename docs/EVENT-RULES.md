@@ -515,7 +515,7 @@ the terminal only helps produce the technical output.
      **terminal clock** if there is one, removes the setup files and changes to `~`. A folder is written after
      everything below it, so extracting files never changes a folder's date. A failure shows a clear
      error ("The room's server could not be set up in this terminal. …") instead of a half-built shell. The banner is
-     "Rami's server is mounted. There is no internet in this terminal."
+     "Noor's server is mounted. There is no internet in this terminal."
    - **Extra tools.** A room with a package also gets `file`, `base64`, `bzip2`, `bunzip2`, `bzcat`, `zip` and **GNU
      find** (and xargs): official Alpine Linux x86 (musl) packages verified against Alpine's signed index and pinned by
      SHA-256 (`infrastructure/build-terminal-tools.py`, sources and licenses in LINUX-ROOM.md section 10), shipped as one
@@ -531,9 +531,9 @@ the terminal only helps produce the technical output.
    - While a package exists, teams get the package and **not** the text files; a room without a package keeps the
      text-file behaviour of item 2 to 5 unchanged.
 7. **Team form (rooms with the `LINUX_TERMINAL` activity).** On the same page as the terminal the team sees five
-   fields: **PATH**, **USERNAME**, **FILE_SIZE**, **PATTERN** and **Final clue** (each at most 500 bytes, blanks
+   fields: **PATH**, **USERNAME**, **FILE_SIZE**, **FILE_NAME** and **RETRIEVED KEY** (each at most 500 bytes, blanks
    allowed). There is no separate encrypted message: the target file holds one encrypted clue, and the team enters its
-   decryption as the Final clue (V17 removed the former message field; the final case of rule 10 is a different thing).
+   decryption as the RETRIEVED KEY (V17 removed the former message field; the final case of rule 10 is a different thing).
    - **Save** stores the current values, as often as the team likes (each request carries an Idempotency-Key: a retry
      of the same request is answered again, a different request with the same key is refused with 409, and a stale
      retry never overwrites a newer save). **Final submit** asks first ("This cannot be undone"), carries the current
@@ -552,8 +552,8 @@ the terminal only helps produce the technical output.
      (done inside the round's end — End round, removing the time left, or the next round — in the same transaction,
      with no scheduler; a disqualified team is skipped), the server records the answer through the ordinary
      room-submission path, exactly once even if the two race: **technical output** = a server-made summary of the five
-     values, **clue answer** = the Final clue. The room is then finished for the team, boards and evidence keep working,
-     the manager judges the technical output as for any room, and the Final clue gets the automatic clue check of
+     values, **clue answer** = the RETRIEVED KEY. The room is then finished for the team, boards and evidence keep working,
+     the manager judges the technical output as for any room, and the RETRIEVED KEY gets the automatic clue check of
      rule 5 against the room's clue key: a correct one collects the room's clue as a ROOM clue (and a later key change
      re-checks it like any answer), a blank or wrong one collects nothing. Save never bumps the event revision; Final
      submit and the round's end do, broadcast after commit.
@@ -563,15 +563,15 @@ the terminal only helps produce the technical output.
    `/event/room/{id}/dashboard`, linked from the room board, for the room's manager and the admin only: a member, another
    room's manager, an unknown room and a room without the activity all get the same 404 ("Dashboard not found."),
    because the page carries the answer keys.
-   - **Answer keys**, set on that page: PATH, USERNAME, FILE_SIZE and PATTERN. Each accepts several values, one per
-     line (at most 20 values of 500 bytes each). The Final clue has no key here: it is checked against the room's clue
+   - **Answer keys**, set on that page: PATH, USERNAME, FILE_SIZE and FILE_NAME. Each accepts several values, one per
+     line (at most 20 values of 500 bytes each). The RETRIEVED KEY has no key here: it is checked against the room's clue
      key. **An empty key means the item cannot be awarded automatically** and the admin board warns ("Room <name> has no answer key for …"), without
      blocking anything. Keys are content: read-only once the final opens (rule 13). They never reach a team; saving
      them is audited without their text.
-   - **Comparison.** Every value is trimmed. PATH also ignores one trailing slash; PATTERN also ignores one pair of
-     surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive. The Final clue uses the room's ordinary clue key and the
+   - **Comparison.** Every value is trimmed. PATH also ignores one trailing slash; FILE_NAME also ignores one pair of
+     surrounding quotes; FILE_SIZE ignores case; USERNAME is case-sensitive. The RETRIEVED KEY uses the room's ordinary clue key and the
      normalizer of rule 5.4. A blank answer never matches.
-   - **Points.** 3 for each correct PATH, USERNAME, FILE_SIZE and PATTERN, and 3 when the **Clue** (the Final clue, by the
+   - **Points.** 3 for each correct PATH, USERNAME, FILE_SIZE and FILE_NAME, and 3 when the **RETRIEVED KEY** (the final clue, by the
      same clue check that collects the room's clue) is correct: five items, **15 points** at most. Scores are **computed on every read** from the stored
      forms, the current keys and the overrides; no total is stored, so a changed key or clue key changes the table at
      once. The event score uses them as the Linux room's base (rule 8.1).
@@ -580,8 +580,8 @@ the terminal only helps produce the technical output.
      refreshes every 5 seconds while open. A form that is only saved is scored too (it is submitted at Time's up).
    - **Overrides.** On each of the five items the organizer chooses **Automatic**, **Award** or **Deny**; an overridden
      item is marked "Overridden", and going back to Automatic clears it. Every change is audited (room, team, item and
-     decision, never an answer). Overrides work at any time, also after the final opens. Overriding the fifth item (Clue) changes
-     its points only: it **never grants or revokes the room's clue**, which stays with the Final clue's check and the
+     decision, never an answer). Overrides work at any time, also after the final opens. Overriding the fifth item (RETRIEVED KEY) changes
+     its points only: it **never grants or revokes the room's clue**, which stays with the RETRIEVED KEY's check and the
      manager's ordinary clue verdict (rule 5.6).
    - **Export and Test terminal.** **Export CSV** gives the table (team names and values go through the formula-safe
      cell helper). **Test terminal** starts the terminal with the room's current package.

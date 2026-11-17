@@ -105,7 +105,7 @@ export function recheckNotice(count: number): string {
     data-clue-key-details
   >
     <summary class="clue-key__summary" (click)="keepOpenWhenMissing($event)">
-      <h2 id="clue-key-heading">Clue key</h2>
+      <h2 id="clue-key-heading">{{ keyName() }}</h2>
       @if (room().clueKeySet) {
         <span class="clue-key__set">Set ✓</span>
       } @else {
@@ -135,7 +135,7 @@ export function recheckNotice(count: number): string {
           }
           @if (room().contentEditable) {
             <ui-button size="sm" variant="secondary" (click)="edit()">{{
-              room().clueKeySet ? "Edit" : "Set clue key"
+              room().clueKeySet ? "Edit" : "Set " + keyName().toLowerCase()
             }}</ui-button>
           }
         </div>
@@ -144,7 +144,7 @@ export function recheckNotice(count: number): string {
     @if (editing()) {
       <form
         class="clue-key__form"
-        aria-label="Edit clue key"
+        [attr.aria-label]="'Edit ' + keyName().toLowerCase()"
         (ngSubmit)="save()"
       >
         <p class="event-muted">
@@ -152,7 +152,7 @@ export function recheckNotice(count: number): string {
           Changing it re-checks every answer already submitted in this room.
         </p>
         <ui-input
-          label="Clue key"
+          [label]="keyName()"
           name="clueKey"
           autocomplete="off"
           [ngModel]="draft()"
@@ -171,7 +171,7 @@ export function recheckNotice(count: number): string {
     }
     @if (!room().contentEditable) {
       <ui-alert variant="info"
-        >The clue key is read-only after the final opens.</ui-alert
+        >The {{ keyName().toLowerCase() }} is read-only after the final opens.</ui-alert
       >
     }
     <p class="event-muted clue-key__notice" role="status">{{ notice() }}</p>
@@ -186,6 +186,8 @@ export class EventClueKeyCard {
   private readonly toasts = inject(ToastService);
 
   readonly room = input.required<RoomBoardRoom>();
+  /** The Linux room calls the room's key the "Retrieved key" (the team retrieves it from the server); the others "Clue key". */
+  protected readonly keyName = computed(() => (this.room().activity === "LINUX_TERMINAL" ? "Retrieved key" : "Clue key"));
   readonly changed = output<void>();
 
   /**

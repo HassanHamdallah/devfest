@@ -140,7 +140,7 @@ export class EventTerminalDashboardPage {
     return item.override === null ? "auto" : item.override ? "award" : "deny";
   }
 
-  /** The submitted text for one scored item (the Clue item shows the final clue and whether it was right). */
+  /** The submitted text for one scored item (the RETRIEVED KEY item shows the retrieved key and whether it was right). */
   protected valuesOf(team: TerminalDashboardTeam, item: TerminalScoreItem): { text: string; ok: boolean | null }[] {
     switch (item) {
       case "PATH":
