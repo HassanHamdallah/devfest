@@ -32,14 +32,14 @@ function row(page: Page, team: string) {
   return page.locator(`tr[data-team="${team}"]`);
 }
 
-/** Types one team's result the way the organizer does: tick the problems, set the penalty, press Save. */
-async function enterResult(page: Page, team: string, solved: string[], penalty: number) {
+/** Types one team's result the way the organizer does: tick the problems, pick the standing, press Save. */
+async function enterResult(page: Page, team: string, solved: string[], standing: "1st" | "2nd" | "3rd" | "Other") {
   const line = row(page, team);
-  for (const problem of ["A", "B", "C", "D", "E"]) {
+  for (const problem of ["A", "B", "C", "D", "E", "F"]) {
     const box = line.locator(`input[data-problem="${problem}"]`);
     if ((await box.isChecked()) !== solved.includes(problem)) await box.click();
   }
-  await line.getByLabel(`${team} penalty in minutes`, { exact: true }).fill(String(penalty));
+  await line.getByLabel(`${team} standing`, { exact: true }).selectOption({ label: standing });
   await line.getByRole("button", { name: /^Save/ }).click();
   await expect(line.locator("[data-solved]")).toHaveText(String(solved.length));
 }
@@ -143,22 +143,23 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
     await test.step("the manager enters the results of four teams from the standings", async () => {
       await page.reload();
       await expect(page.locator('[data-round="1"]')).toBeVisible();
-      await enterResult(page, "Team 05", ["A", "B", "C", "D", "E"], 120);
-      await enterResult(page, "Team 06", ["A", "B", "C"], 60);
-      await enterResult(page, "Team 07", ["A", "B"], 10);
-      await enterResult(page, "Team 08", ["A", "B", "C"], 60);
+      await expect(page.locator("[data-standing-hint]")).toHaveText("Take the standing from the Codeforces standings.");
+      await enterResult(page, "Team 05", ["A", "B", "C", "D", "E", "F"], "1st");
+      await enterResult(page, "Team 06", ["A", "B", "C"], "2nd");
+      await enterResult(page, "Team 07", ["A", "B"], "3rd");
+      await enterResult(page, "Team 08", ["A", "B", "C"], "2nd");
     });
 
-    await test.step("points, bonus, total, place and eligibility are worked out and sorted by place", async () => {
+    await test.step("points, bonus, total and eligibility are worked out and sorted by total", async () => {
       const round = page.locator('[data-round="1"]');
       await expect(row(page, "Team 05").locator("[data-total]")).toHaveText("15");
       await expect(row(page, "Team 05").locator("[data-bonus]")).toHaveText("+3");
-      await expect(row(page, "Team 06").locator("[data-total]")).toHaveText("10");
-      await expect(row(page, "Team 08").locator("[data-total]")).toHaveText("10");
+      await expect(row(page, "Team 06").locator("[data-total]")).toHaveText("8");
+      await expect(row(page, "Team 06").locator("[data-bonus]")).toHaveText("+2");
+      await expect(row(page, "Team 08").locator("[data-total]")).toHaveText("8");
+      await expect(row(page, "Team 08").locator("[data-bonus]")).toHaveText("+2");
       await expect(row(page, "Team 07").locator("[data-total]")).toHaveText("5");
-      await expect(row(page, "Team 06").locator("[data-place]")).toHaveText("2");
-      await expect(row(page, "Team 08").locator("[data-place]")).toHaveText("2");
-      await expect(row(page, "Team 07").locator("[data-place]")).toHaveText("4");
+      await expect(row(page, "Team 07").locator("[data-bonus]")).toHaveText("+1");
       await expect(row(page, "Team 07").locator("[data-eligible]")).toContainText("Not yet");
       await expect(row(page, "Team 06").locator("[data-eligible]")).toContainText("Eligible");
       const order = await round.locator("tbody tr").evaluateAll((rows) => rows.map((tr) => tr.getAttribute("data-team")));
@@ -180,11 +181,11 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
         const view = await managerApi.send<{ rounds: { teams: { teamId: number; teamName: string }[] }[] }>("GET", `/event/rooms/${room}/contest-results`);
         const first = view.rounds.flatMap((round) => round.teams).find((team) => team.teamName === "Team 01");
         expect(first).toBeTruthy();
-        await managerApi.send("PUT", `/event/rooms/${room}/contest-results/teams/${first!.teamId}`, { problems: ["A", "B", "C", "D"], penaltyMinutes: 33 });
+        await managerApi.send("PUT", `/event/rooms/${room}/contest-results/teams/${first!.teamId}`, { problems: ["A", "B", "C", "D"], standing: "OTHER" });
       } finally {
         await managerApi.dispose();
       }
-      await expect(row(page, "Team 01").locator("[data-total]")).toHaveText("13", REFRESHED);
+      await expect(row(page, "Team 01").locator("[data-total]")).toHaveText("8", REFRESHED);
     });
 
     await test.step("Export CSV downloads the table", async () => {
@@ -193,8 +194,8 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
       const file = await download;
       expect(file.suggestedFilename()).toBe("problem-solving-results.csv");
       const csv = fs.readFileSync((await file.path()) as string, "utf8").split("\r\n");
-      expect(csv[0]).toBe("round,group,place,team,saved,solved,solvedCount,penaltyMinutes,problemPoints,bonus,total,eligible,released");
-      expect(csv.find((line) => line.includes('"Team 05"'))).toBe('1,B,1,"Team 05",true,"A B C D E",5,120,12,3,15,true,false');
+      expect(csv[0]).toBe("round,group,team,saved,solved,solvedCount,problemPoints,standing,bonus,total,eligible,released");
+      expect(csv.find((line) => line.includes('"Team 05"'))).toBe('1,B,"Team 05",true,"A B C D E F",6,12,1st,3,15,true,false');
     });
 
     await test.step("Reveal to all eligible releases the clue to round 1's three eligible teams", async () => {
@@ -220,7 +221,7 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
         await expect(role.page.locator('[data-room="PROBLEM_SOLVING"]')).toContainText("Room complete");
         await expect(role.page.locator('[data-room="PROBLEM_SOLVING"]')).not.toContainText("Submitted");
         const text = (await role.page.locator("event-contest-room-activity").innerText()).toLowerCase();
-        for (const word of ["points", "score", "total", "penalty", "place", "eligible", "bonus"]) expect(text).not.toContain(word);
+        for (const word of ["points", "score", "total", "standing", "eligible", "bonus"]) expect(text).not.toContain(word);
       }
       for (const [label, size] of [["1440", WIDE], ["390", NARROW]] as const) {
         await team05.page.setViewportSize(size);
@@ -237,7 +238,7 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
       try {
         const raw = JSON.stringify(await api.send("GET", "/event/team/board")) + JSON.stringify(await api.send("GET", `/event/team/rooms/${room}/contest`));
         expect(raw).not.toContain(PRACTICE_KEYS.PROBLEM_SOLVING);
-        expect(raw).not.toMatch(/"(solved|solvedCount|penalty|penaltyMinutes|points|problemPoints|bonus|total|place|eligible)"\s*:/);
+        expect(raw).not.toMatch(/"(solved|solvedCount|standing|points|problemPoints|bonus|total|eligible)"\s*:/);
       } finally {
         await api.dispose();
       }
@@ -258,7 +259,7 @@ test("contest: link, results for four teams, bulk reveal, and what each team see
     });
 
     await test.step("editing results later never changes a clue; the page warns about a released team that no longer qualifies", async () => {
-      await enterResult(page, "Team 06", ["A"], 60);
+      await enterResult(page, "Team 06", ["A"], "Other");
       await expect(row(page, "Team 06").locator("[data-warning]")).toContainText("Released, but no longer eligible");
       await expect(team06.page.locator('[data-contest-result="unlocked"]')).toBeVisible();
     });

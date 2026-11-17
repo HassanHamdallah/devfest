@@ -1,6 +1,7 @@
 package dev.devfest.event.dto;
 
 import dev.devfest.event.domain.ContestProblem;
+import dev.devfest.event.domain.ContestStanding;
 import dev.devfest.event.domain.GroupCode;
 import java.time.Instant;
 import java.util.List;
@@ -8,7 +9,7 @@ import java.util.List;
 /**
  * The organizer page of the Problem Solving room (rules §20.5), for the room's manager and the ADMIN only. Teams are
  * grouped by the round in which their group visits the room. Every number is computed on this read from the typed
- * results; teams without a saved result have {@code saved} false, no place and zero scores.
+ * results; teams without a saved result have {@code saved} false, no standing and zero scores.
  */
 public record ContestResultsView(
   long roomId,
@@ -47,12 +48,11 @@ public record ContestResultsView(
     int round,
     boolean saved,
     List<ContestProblem> solved,
-    int penaltyMinutes,
+    ContestStanding standing,
     int solvedCount,
     int problemPoints,
     int bonus,
     int total,
-    Integer place,
     boolean eligible,
     boolean released,
     Instant releasedAt,

@@ -1,20 +1,18 @@
 package dev.devfest.event.domain;
 
-/** The five problems A to E of the Codeforces contest and their points (rules §20.4): 2 + 3 + 3 + 2 + 2 = 12. */
+/** The six problems A to F of the Codeforces contest (rules §20.4). Every solved problem is worth the same points. */
 public enum ContestProblem {
-  A(2),
-  B(3),
-  C(3),
-  D(2),
-  E(2);
+  A,
+  B,
+  C,
+  D,
+  E,
+  F;
 
-  private final int points;
-
-  ContestProblem(int points) {
-    this.points = points;
-  }
+  /** Points of one solved problem: 2 for each of the six, 12 in all. */
+  public static final int POINTS = 2;
 
   public int points() {
-    return points;
+    return POINTS;
   }
 }

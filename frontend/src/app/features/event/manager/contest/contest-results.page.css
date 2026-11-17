@@ -69,7 +69,7 @@
   accent-color: var(--color-primary);
 }
 
-.contest__penalty {
+.contest__standing {
   inline-size: 5.5rem;
   padding: var(--space-1) var(--space-2);
   font: inherit;
@@ -77,10 +77,6 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong, var(--color-border));
   border-radius: var(--radius-sm);
-}
-
-.contest__penalty--invalid {
-  border-color: var(--color-error-text, #b3261e);
 }
 
 .contest__actions {
@@ -112,7 +108,7 @@
 
 /* On a phone the Team column stays in view while the rest of the row scrolls under it. */
 .contest__table tbody th,
-.contest__table thead th:nth-child(2) {
+.contest__table thead th:first-child {
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
@@ -120,7 +116,7 @@
   box-shadow: 1px 0 0 var(--color-border);
 }
 
-.contest__table thead th:nth-child(2) {
+.contest__table thead th:first-child {
   background: var(--color-surface-subtle, var(--color-surface));
 }
 

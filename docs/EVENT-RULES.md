@@ -737,29 +737,31 @@ no answer form in this room.
    link is gone. Next to the link it reads "Your results are being reviewed by the room organizer." After the clue is
    released it reads "Clue unlocked" and shows the room's clue in the usual masked clue card (the team's evidence for
    the room says the same). A team that is not assigned to the room this round gets a 404 for the contest. **No member
-   response ever contains a solved count, points, penalty, place or eligibility, and the clue is in no member
+   response ever contains a solved count, points, standing, bonus or eligibility, and the clue is in no member
    response before its release.** A team that never gets a release simply has no clue from this room; the
    Recovery Challenge (rule 9) applies.
 4. **Results (organizer page).** `/event/room/{id}/contest`, linked from the room board, for the room's manager and the
    admin; everyone else, members and other rooms' managers included, gets a 404. Teams are grouped by the **round** in
-   which their group visits the room. For each active, not disqualified team the organizer ticks the problems A to E it
-   solved and types one **penalty** in whole minutes (0 or more, at most 100000; 3.5 is refused), copied from the
-   Codeforces standings (the contest's own tie-break; it never adds time to a team and is not a deduction of rule 8), and saves **per team** (audited, allowed at any time). Saving does **not** change the event
-   revision. Inactive and disqualified teams are not listed and take no place.
-5. **Scoring (computed on every read, never stored).**
-   - **Problem points:** A = 2, B = 3, C = 3, D = 2, E = 2 (at most 12).
-   - **Placement** inside one round, among the teams with a saved result: more problems solved first, then the lower
-     penalty. Equal solved count and penalty share a place and the next place skips them (1, 1, 3, 4).
-   - **Bonus by place:** 1st = 3, 2nd = 2, 3rd = 1, otherwise 0. Two teams tied first therefore get 3 and 3, the next
-     team 1 and the one after it 0. A team that solved nothing gets no bonus whatever its place.
+   which their group visits the room. For each active, not disqualified team the organizer ticks the problems A to F it
+   solved and picks its **standing** (1st, 2nd, 3rd or Other) from the Codeforces standings ("Take the standing from
+   the Codeforces standings."), and saves **per team** (audited, allowed at any time; the standing is required when
+   saving). Ties are allowed: two teams may both be 1st. There is no penalty input and no automatic placement any more
+   (the old `penalty_minutes` column stays in the database, unused). Saving does **not** change the event revision.
+   Inactive and disqualified teams are not listed.
+5. **Scoring (computed on every read, never stored).** Six problems A to F.
+   - **Problem points:** every solved problem is worth 2 (at most 12).
+   - **Bonus from the chosen standing:** 1st = 3, 2nd = 2, 3rd = 1, Other = 0. A team that solved nothing gets no bonus
+     whatever standing was picked. A result saved before standings existed has no standing and counts as Other until
+     the organizer saves the team again.
    - **Total** out of 15 (12 + 3). **Eligible** for the clue with at least **3 solved** problems.
-   - The page shows solved, points, bonus, total, place, eligible and released per team, sorted by place (teams
-     without a saved result last), refreshes every 5 seconds while open and has **Export CSV** (team names are made
-     formula-safe). The read-only service methods (`ContestScoreService.roomScore`, `roomTotals`) return a team's
+   - The page shows solved, points, standing, bonus, total, eligible and released per team, sorted by total, then
+     solved problems, then team name; it refreshes every 5 seconds while open and has **Export CSV** (columns round,
+     group, team, saved, solved, solvedCount, problemPoints, standing, bonus, total, eligible, released; team names are
+     made formula-safe). The read-only service methods (`ContestScoreService.roomScore`, `roomTotals`) return a team's
      room score (points, maximum 15), which the event score uses as the room's base (rule 8.1).
 6. **Clue release.** **Reveal clue** (one team) and **Reveal to all eligible** (one round) are done by the room's
    manager or the admin.
-   - Refused with a 409 and a clear message when the team is not eligible ("This team solved 2 of the problems; at
+   - Refused with a 409 and a clear message when the team is not eligible ("This team solved 2 of 6 problems; at
      least 3 are needed for the clue.", or no saved results), when the team is disqualified, or when the room has no
      clue key ("Set the clue key for this room before revealing its clue."). A round with nobody eligible waiting is
      not an error; nothing happens.
@@ -768,8 +770,8 @@ no answer form in this room.
      (no second submission, clue, audit row or revision bump). The table `contest_release` has one row per team and
      room, is append-only, and the primary key backs this up.
    - It records the team's result through the **ordinary room-submission path** as a **CORRECT** submission whose
-     technical output is a summary the server makes ("Contest results · solved 3/5 (A, B, C) · problem points 8/12 ·
-     penalty 50 min · place 2 · bonus 2 · total 10/15", visible to organizers only), which adds the manager's clue as
+     technical output is a summary the server makes ("Contest results · solved 3/6 (A, B, C) · problem points 6/12 ·
+     standing 2nd · bonus 2 · total 8/15", visible to organizers only), which adds the manager's clue as
      a **ROOM** clue and finishes the room for that team. The submission carries the team's own round (1 to 4), also
      when released later. One revision bump per call that released anything, broadcast after the commit. Audited
      ("EVENT_CONTEST_CLUE_RELEASED").

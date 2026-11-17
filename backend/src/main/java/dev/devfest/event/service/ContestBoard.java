@@ -14,9 +14,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Turns the contest room's stored rows into scored rounds (rules §20.4). Placement is computed inside one round, i.e.
- * among the teams of the one group that visits the room in that round, so a team is never compared with a team of
- * another round. Pure; the caller supplies the rows.
+ * Turns the contest room's stored rows into scored rounds (rules §20.4). A team's score depends on its own result only
+ * (the standing is the organizer's pick); teams are grouped by the round in which their group visits the room. Pure;
+ * the caller supplies the rows.
  */
 final class ContestBoard {
 
@@ -29,19 +29,14 @@ final class ContestBoard {
 
   /** The score of every team that has a saved result, by team id. */
   static Map<Long, ContestScoring.Score> scores(List<ContestTeamRecord> teams, int roomPosition) {
-    Map<Integer, List<ContestScoring.Result>> byRound = new HashMap<>();
-    for (ContestTeamRecord team : teams) {
-      if (!team.saved()) continue;
-      byRound
-        .computeIfAbsent(roundOf(team, roomPosition), round -> new ArrayList<>())
-        .add(new ContestScoring.Result(team.teamId(), team.solved(), team.penaltyMinutes()));
-    }
     Map<Long, ContestScoring.Score> scores = new HashMap<>();
-    byRound.values().forEach(round -> scores.putAll(ContestScoring.scoreRound(round)));
+    for (ContestTeamRecord team : teams) {
+      if (team.saved()) scores.put(team.teamId(), ContestScoring.score(team.solved(), team.standing()));
+    }
     return scores;
   }
 
-  /** Rounds 1..4 in order, each with its teams sorted by place (teams without a result last, by name). */
+  /** Rounds 1..4 in order, each with its teams sorted by total, then solved problems, then name. */
   static List<RoundView> rounds(List<ContestTeamRecord> teams, int roomPosition) {
     Map<Long, ContestScoring.Score> scores = scores(teams, roomPosition);
     Map<Integer, List<ContestTeamRecord>> byRound = teams.stream().collect(Collectors.groupingBy(team -> roundOf(team, roomPosition)));
@@ -55,7 +50,9 @@ final class ContestBoard {
         .map(team -> row(team, round, scores.get(team.teamId())))
         .sorted(
           Comparator
-            .comparing(TeamRow::place, Comparator.nullsLast(Comparator.naturalOrder()))
+            .comparingInt(TeamRow::total)
+            .reversed()
+            .thenComparing(Comparator.comparingInt(TeamRow::solvedCount).reversed())
             .thenComparing(TeamRow::teamName)
         )
         .toList();
@@ -84,12 +81,11 @@ final class ContestBoard {
       round,
       saved,
       saved ? team.solved().stream().sorted().toList() : List.<ContestProblem>of(),
-      saved ? team.penaltyMinutes() : 0,
+      saved ? score.standing() : null,
       saved ? score.solvedCount() : 0,
       saved ? score.problemPoints() : 0,
       saved ? score.bonus() : 0,
       saved ? score.total() : 0,
-      saved ? score.place() : null,
       saved && score.eligible(),
       team.released(),
       team.releasedAt(),

@@ -94,7 +94,7 @@ public class ContestReleaseService {
     ContestScoring.Score score = ContestBoard.scores(all, locked.position()).get(teamId);
     if (score == null) throw fail(409, "This team has no saved results yet, so it is not eligible for the clue.");
     if (!score.eligible()) {
-      throw fail(409, "This team solved %d of the problems; at least %d are needed for the clue.".formatted(score.solvedCount(), ContestScoring.ELIGIBLE_SOLVED));
+      throw fail(409, "This team solved %d of %d problems; at least %d are needed for the clue.".formatted(score.solvedCount(), ContestScoring.PROBLEM_COUNT, ContestScoring.ELIGIBLE_SOLVED));
     }
     release(principal.id(), state, team, locked, row, score, clock.now());
     states.bumpRevision();
@@ -166,14 +166,13 @@ public class ContestReleaseService {
   /** What the manager sees as the submission's technical output: the facts behind the release, made by the server. */
   static String summary(ContestTeamRecord row, ContestScoring.Score score) {
     String solved = ContestResultsService.letters(row.solved(), ", ");
-    return "Contest results · solved %d/%d (%s) · problem points %d/%d · penalty %d min · place %d · bonus %d · total %d/%d".formatted(
+    return "Contest results · solved %d/%d (%s) · problem points %d/%d · standing %s · bonus %d · total %d/%d".formatted(
       score.solvedCount(),
-      ContestProblem.values().length,
+      ContestScoring.PROBLEM_COUNT,
       solved.isEmpty() ? "none" : solved,
       score.problemPoints(),
       ContestScoring.MAX_PROBLEM_POINTS,
-      row.penaltyMinutes(),
-      score.place(),
+      score.standing().label(),
       score.bonus(),
       score.total(),
       ContestScoring.MAX_TOTAL

@@ -745,10 +745,19 @@ export interface TerminalDashboard {
 
 // ---- Problem Solving room: the contest (rules §20) ----
 
-export type ContestProblem = "A" | "B" | "C" | "D" | "E";
-export const CONTEST_PROBLEMS: readonly ContestProblem[] = ["A", "B", "C", "D", "E"];
+export type ContestProblem = "A" | "B" | "C" | "D" | "E" | "F";
+export const CONTEST_PROBLEMS: readonly ContestProblem[] = ["A", "B", "C", "D", "E", "F"];
 
-/** GET /team/rooms/{id}/contest: all a team learns. No count, point, penalty, place or eligibility is ever sent. */
+/** The team's standing in the Codeforces standings, picked by the organizer (ties allowed): bonus 3, 2, 1, 0. */
+export type ContestStanding = "FIRST" | "SECOND" | "THIRD" | "OTHER";
+export const CONTEST_STANDINGS: readonly { value: ContestStanding; label: string }[] = [
+  { value: "FIRST", label: "1st" },
+  { value: "SECOND", label: "2nd" },
+  { value: "THIRD", label: "3rd" },
+  { value: "OTHER", label: "Other" },
+];
+
+/** GET /team/rooms/{id}/contest: all a team learns. No count, point, standing, bonus or eligibility is ever sent. */
 export interface ContestTeamView {
   roomId: number;
   /** The contest link while the team's timer runs or is paused; null otherwise. */
@@ -763,12 +772,12 @@ export interface ContestTeamRow {
   round: number;
   saved: boolean;
   solved: ContestProblem[];
-  penaltyMinutes: number;
+  /** Null while the team has no saved result (a result saved before standings existed reads as OTHER). */
+  standing: ContestStanding | null;
   solvedCount: number;
   problemPoints: number;
   bonus: number;
   total: number;
-  place: number | null;
   eligible: boolean;
   released: boolean;
   releasedAt: string | null;
@@ -805,7 +814,7 @@ export interface ContestResults {
 
 export interface ContestResultRequest {
   problems: ContestProblem[];
-  penaltyMinutes: number;
+  standing: ContestStanding;
 }
 
 export interface TerminalSettingView {
