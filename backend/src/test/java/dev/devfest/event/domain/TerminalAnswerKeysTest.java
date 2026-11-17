@@ -85,8 +85,8 @@ class TerminalAnswerKeysTest {
     assertFalse(none.patternCorrect("*"));
     assertFalse(keys("  \n \n", "", "", "").pathCorrect("  "));
     assertFalse(keys("x", "x", "x", "x").usernameCorrect(null));
-    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN"), none.emptyKeys());
-    assertEquals(List.of("USERNAME", "PATTERN"), keys("/p", "", "1c", " ").emptyKeys());
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "FILE_NAME"), none.emptyKeys());
+    assertEquals(List.of("USERNAME", "FILE_NAME"), keys("/p", "", "1c", " ").emptyKeys());
   }
 
   @Test

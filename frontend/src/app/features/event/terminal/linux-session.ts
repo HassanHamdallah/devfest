@@ -60,6 +60,15 @@ const CLOCK_PATTERN = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/;
 const SEED_ENTROPY = " haveged -F --once -b 16 -v 0 >/dev/null 2>&1;";
 
 /**
+ * The Linux room's prompt (Ubuntu style): "investigator@noor-server" in bold green, the path in bold blue with ~ for
+ * the home directory, then "$ ". BusyBox 1.28's line editor understands \w (the path, ~ for home), \033 (escape) and
+ * \[ \] (the colour codes take no room on the line, so long commands wrap and Up/Down redraw correctly). Set only
+ * by the setup of a room with a server package; the Linux image itself is not touched.
+ */
+export const ROOM_PROMPT =
+  String.raw`PS1='\[\033[1;32m\]investigator@noor-server\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]$ ';`;
+
+/**
  * Typed into the shell once, invisibly, for a room with a server package. This BusyBox tar has no -z flag, so
  * gzip unpacks into the pipe. In order: the package from the root of the file system, the owners appended to
  * /etc/passwd and /etc/group, the extra tools (into /usr/local, which then leads the PATH so that "find" is GNU
@@ -67,7 +76,7 @@ const SEED_ENTROPY = " haveged -F --once -b 16 -v 0 >/dev/null 2>&1;";
  * from the share, with `seedEntropy` the kernel's random pool (see SEED_ENTROPY), and the move to the home directory. A failing package step ends in the failure mark, a failing
  * tools step in its own mark; only a complete setup ends in the ready mark.
  */
-export function bundleSetup(clock: string | null, seedEntropy = false): string {
+export function bundleSetup(clock: string | null, seedEntropy = false, prompt = false): string {
   const match = clock ? CLOCK_PATTERN.exec(clock) : null;
   const setClock = match ? ` date -s "${match[1]} ${match[2]}" >/dev/null;` : "";
   return (
@@ -76,7 +85,7 @@ export function bundleSetup(clock: string | null, seedEntropy = false): string {
     ` cat /mnt/${GROUP_FILE} >> /etc/group; then` +
     ` if gzip -dc /mnt/${TOOLS_FILE} | tar -xf - -C /; then` +
     ` rm -f /mnt/${BUNDLE_FILE} /mnt/${PASSWD_FILE} /mnt/${GROUP_FILE} /mnt/${TOOLS_FILE};` +
-    ` export PATH=/usr/local/bin:$PATH;${seedEntropy ? SEED_ENTROPY : ""}${setClock} cd ~; echo __DEVFEST""_READY__;` +
+    ` export PATH=/usr/local/bin:$PATH;${seedEntropy ? SEED_ENTROPY : ""}${setClock} cd ~;${prompt ? " " + ROOM_PROMPT : ""} echo __DEVFEST""_READY__;` +
     ` else echo __DEVFEST""_TOOLS_FAILED__; fi;` +
     ` else echo __DEVFEST""_FAILED__; fi\n`
   );
@@ -120,12 +129,12 @@ export class LinuxSession {
     bundle: TerminalBundle | null,
     banner: string,
     onOutput: (byte: number) => void,
-    options: { seedEntropy?: boolean } = {},
+    options: { seedEntropy?: boolean; prompt?: boolean } = {},
   ): Promise<LinuxSession> {
     const emulator = new Emulator(emulatorOptions(buffers, bundle !== null));
     const session = new LinuxSession(emulator, onOutput);
     try {
-      await session.start(files, bundle, new TextEncoder().encode(banner), options.seedEntropy === true);
+      await session.start(files, bundle, new TextEncoder().encode(banner), options.seedEntropy === true, options.prompt === true);
     } catch (error) {
       await session.destroy();
       throw error;
@@ -187,7 +196,7 @@ export class LinuxSession {
     await this.emulator.run();
   }
 
-  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array, seedEntropy: boolean): Promise<void> {
+  private async start(files: TerminalStartFiles, bundle: TerminalBundle | null, banner: Uint8Array, seedEntropy: boolean, prompt: boolean): Promise<void> {
     let text = "";
     // `matched` runs synchronously inside the output listener, before the next byte arrives.
     let waiter: { test: (text: string) => boolean; matched: () => void } | null = null;
@@ -225,7 +234,7 @@ export class LinuxSession {
     );
     if (bundle) {
       await this.placeBundle(bundle);
-      this.send(bundleSetup(bundle.info.clock, seedEntropy));
+      this.send(bundleSetup(bundle.info.clock, seedEntropy, prompt));
     } else {
       await this.placeFiles(files);
       this.send(SETUP);

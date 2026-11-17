@@ -50,6 +50,18 @@ class TerminalFormScoringTest {
   }
 
   @Test
+  void aStoredPatternKeyStillScoresTheFileNameItem() {
+    // The stored key and the JSON field keep the name "pattern"; only the label people see is FILE_NAME.
+    TerminalFormValues onlyName = new TerminalFormValues("", "", "", "\"*.bak\"", "");
+    Score score = TerminalFormScoring.score(KEYS, onlyName, CLUE_KEY, NO_OVERRIDES);
+    assertEquals(3, score.total());
+    assertTrue(item(score, TerminalScoreItem.PATTERN).awarded());
+    assertEquals("FILE_NAME", item(score, TerminalScoreItem.PATTERN).item().label());
+    assertEquals("pattern", TerminalScoreItem.PATTERN.name().toLowerCase());
+    assertEquals(java.util.List.of("FILE_NAME"), new TerminalAnswerKeys("/p", "u", "1c", "").emptyKeys());
+  }
+
+  @Test
   void aCorrectFinalClueIsWorth3OnItsOwn() {
     TerminalFormValues wrong = new TerminalFormValues("", "", "", "", "wrong");
     TerminalFormValues right = new TerminalFormValues("", "", "", "", "West   Tower");
@@ -61,7 +73,7 @@ class TerminalFormScoringTest {
     assertEquals(3, hit.total(), "the usual clue check: case and spaces are ignored");
     assertTrue(hit.clueCorrect());
     assertTrue(item(hit, TerminalScoreItem.CLUE).awarded());
-    assertEquals("Clue", item(hit, TerminalScoreItem.CLUE).item().label());
+    assertEquals("RETRIEVED KEY", item(hit, TerminalScoreItem.CLUE).item().label());
     assertEquals(
       java.util.List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "CLUE"),
       hit.items().stream().map(item -> item.item().name()).toList()

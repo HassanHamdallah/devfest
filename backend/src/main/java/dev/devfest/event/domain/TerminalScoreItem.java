@@ -5,9 +5,9 @@ public enum TerminalScoreItem {
   PATH("PATH"),
   USERNAME("USERNAME"),
   FILE_SIZE("FILE_SIZE"),
-  PATTERN("PATTERN"),
-  /** Worth its points when the final clue is correct (the room's clue check). */
-  CLUE("Clue");
+  PATTERN("FILE_NAME"),
+  /** Worth its points when the retrieved key (stored as the final clue) is correct (the room's clue check). */
+  CLUE("RETRIEVED KEY");
 
   private final String label;
 

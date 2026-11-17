@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * The 15 points of a Linux terminal room's form (rules §18.8): 3 for each correct PATH, USERNAME, FILE_SIZE and
- * PATTERN and 3 when the final clue is correct. Computed on every read from the
+ * FILE_NAME and 3 when the retrieved key is correct. Computed on every read from the
  * stored answers, the current keys and the organizer's overrides; no total is ever stored. An override awards or
  * denies one item's points whatever the keys say. The points stay inside this room: the event's ranking does not use
  * them.

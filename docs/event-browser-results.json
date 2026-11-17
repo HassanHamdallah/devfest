@@ -4,12 +4,11 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "--config",
+      "-c",
       "playwright.event.config.ts",
-      "--list",
-      "event-final.spec.ts",
-      "event-scores.spec.ts",
-      "event-terminal"
+      "event-terminal-dashboard",
+      "event-terminal-form",
+      "event-terminal.spec"
     ],
     "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
     "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -22,14 +21,18 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "",
         "name": "",
         "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
@@ -65,7 +68,9 @@
         "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "name": "",
         "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
@@ -131,218 +136,6 @@
   },
   "suites": [
     {
-      "title": "event-final.spec.ts",
-      "file": "event-final.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the rest, investigates and submits S11",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "b86908d9453c435b0f84-e76ab03b7c0b56907942",
-          "file": "event-final.spec.ts",
-          "line": 111,
-          "column": 5
-        },
-        {
-          "title": "final: a 3-clue team passes the Recovery Challenge and reaches the mission; a 2-clue team is refused",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "b86908d9453c435b0f84-08c8757e12f9e707a355",
-          "file": "event-final.spec.ts",
-          "line": 271,
-          "column": 5
-        },
-        {
-          "title": "final: on the phone the mission and both phases fit 390 px; without a package the terminal says it is not ready",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "b86908d9453c435b0f84-4702803e5abb0840474c",
-          "file": "event-final.spec.ts",
-          "line": 322,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-scores.spec.ts",
-      "file": "event-scores.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "scores: hint and cheating from the manager's card change the totals; cancelling restores them; the team never sees cheating",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bf7957fccd6b5d51bca5-2558ff8b22d54f5ae1b8",
-          "file": "event-scores.spec.ts",
-          "line": 56,
-          "column": 5
-        },
-        {
-          "title": "scores: the admin imports the final content, sees every problem at once, and controls the one final timer",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bf7957fccd6b5d51bca5-4fa37575b0474cea40f6",
-          "file": "event-scores.spec.ts",
-          "line": 200,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-bundle.spec.ts",
-      "file": "event-terminal-bundle.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "server package: the manager uploads a ZIP and the terminal installs 300 files with their owners",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-ed970335f56a0bd4d71b",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 45,
-          "column": 5
-        },
-        {
-          "title": "server package: the assigned team installs it, a restart revalidates it, and a broken download shows a clear error",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-019702c0d74e24deeec1",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 156,
-          "column": 5
-        },
-        {
-          "title": "server package: a 20 MB package boots in time and leaves the guest enough memory",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "1a548edbbfd9c6d1411d-a066dc29b6e378b2b25f",
-          "file": "event-terminal-bundle.spec.ts",
-          "line": 230,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-commands.spec.ts",
-      "file": "event-terminal-commands.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal commands: nano edits and saves a file, and tree, less, strings, diff and which run",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "90aa32fa3cce55369de4-6146db1c56b74d493edb",
-          "file": "event-terminal-commands.spec.ts",
-          "line": 28,
-          "column": 5
-        }
-      ]
-    },
-    {
       "title": "event-terminal-dashboard.spec.ts",
       "file": "event-terminal-dashboard.spec.ts",
       "column": 0,
@@ -354,13 +147,69 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 25474,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "with no answer key the admin board warns and the dashboard says which keys are missing",
+                      "duration": 1189
+                    },
+                    {
+                      "title": "the manager sets the keys, several values one per line",
+                      "duration": 280
+                    },
+                    {
+                      "title": "a correct team and a partly right team submit through the form",
+                      "duration": 952
+                    },
+                    {
+                      "title": "the dashboard lists all active teams with totals out of 15, sorted, and refreshes by itself",
+                      "duration": 4331
+                    },
+                    {
+                      "title": "an override awards, shows Overridden, and clears; the fifth item never touches the clue",
+                      "duration": 296
+                    },
+                    {
+                      "title": "the correct clue is in the good team's collected clues, the partial team has none",
+                      "duration": 15
+                    },
+                    {
+                      "title": "Export CSV downloads the table",
+                      "duration": 317
+                    },
+                    {
+                      "title": "Test terminal starts with the room's current package",
+                      "duration": 6724
+                    },
+                    {
+                      "title": "a member and another room's manager get a 404, and the keys never reach a team",
+                      "duration": 290
+                    }
+                  ],
+                  "startTime": "2026-11-17T22:13:26.152Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "d20026424f141faef9bd-f538acfd4f55fa1ff9ed",
@@ -382,142 +231,78 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
+              "timeout": 480000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24397,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the room shows the five-field form instead of the plain answer form",
+                      "duration": 164
+                    },
+                    {
+                      "title": "the terminal installs the server; each parameter alone returns several files, all four exactly the target",
+                      "duration": 7680
+                    },
+                    {
+                      "title": "there is no 'use selection' button, only a copy button",
+                      "duration": 11
+                    },
+                    {
+                      "title": "the terminal has the Ubuntu look: coloured prompt, aubergine screen, long commands and history",
+                      "duration": 306
+                    },
+                    {
+                      "title": "Full screen fits the terminal to the screen and Exit brings it back (skipped when the browser refuses)",
+                      "duration": 1639
+                    },
+                    {
+                      "title": "Save stores the values; a refresh and a terminal restart show them again",
+                      "duration": 1888
+                    },
+                    {
+                      "title": "Final submit asks first, then locks the form for good",
+                      "duration": 804
+                    },
+                    {
+                      "title": "the room counts as finished: the correct clue is collected and shown in the evidence",
+                      "duration": 33
+                    },
+                    {
+                      "title": "a team that only saved is submitted by the round's end, once",
+                      "duration": 193
+                    },
+                    {
+                      "title": "a team never receives anything but its own values and a status",
+                      "duration": 3
+                    }
+                  ],
+                  "startTime": "2026-11-17T22:13:51.912Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "ce5c442fc1bc94ffc468-3da69dc0b898f718ba9e",
           "file": "event-terminal-form.spec.ts",
           "line": 43,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-requests.spec.ts",
-      "file": "event-terminal-requests.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal requests: the nginx site caches the versioned terminal files for a year, and the page versions every one of them",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "d2663b19cc159fe7ffef-af0a47cad866dc8fc6fd",
-          "file": "event-terminal-requests.spec.ts",
-          "line": 63,
-          "column": 5
-        },
-        {
-          "title": "terminal requests: nothing while the team types, one request per Save and Submit, the cache for Restart and refresh",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "d2663b19cc159fe7ffef-fdb4054717359347b57c",
-          "file": "event-terminal-requests.spec.ts",
-          "line": 77,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-resume.spec.ts",
-      "file": "event-terminal-resume.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal resume: a file made in the terminal is still there after a page refresh, with no click",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bc0777ea2dfb0d0d1709-82cd85ba77f8c59a6b20",
-          "file": "event-terminal-resume.spec.ts",
-          "line": 82,
-          "column": 5
-        },
-        {
-          "title": "terminal resume: when the browser cannot store the terminal the team keeps working and sees one small notice",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "bc0777ea2dfb0d0d1709-453c4ff5d09b216ce56c",
-          "file": "event-terminal-resume.spec.ts",
-          "line": 157,
-          "column": 5
-        }
-      ]
-    },
-    {
-      "title": "event-terminal-tools.spec.ts",
-      "file": "event-terminal-tools.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "terminal tools: file, base64, bzip2, zip and GNU find in a 2000-file package, exact dates and owners, no manifest, the terminal clock",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 300000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [],
-              "status": "skipped"
-            }
-          ],
-          "id": "fad9589c029bf4515920-0392cc29aed39abbdc5c",
-          "file": "event-terminal-tools.spec.ts",
-          "line": 46,
           "column": 5
         }
       ]
@@ -534,13 +319,71 @@
           "tags": [],
           "tests": [
             {
-              "timeout": 300000,
-              "annotations": [],
+              "timeout": 420000,
+              "annotations": [
+                {
+                  "type": "boot",
+                  "description": "Ready in 3.9 s"
+                }
+              ],
               "expectedStatus": "passed",
               "projectId": "",
               "projectName": "",
-              "results": [],
-              "status": "skipped"
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 15920,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the Linux manager adds logs/lock.log on the room board",
+                      "duration": 1399
+                    },
+                    {
+                      "title": "on a phone the form stays as it is, with a note and a way to open the terminal",
+                      "duration": 109
+                    },
+                    {
+                      "title": "the AI team never gets the terminal and gets 404 for the Linux files",
+                      "duration": 63
+                    },
+                    {
+                      "title": "Start terminal boots Linux with the room's file in ~/logs",
+                      "duration": 4488
+                    },
+                    {
+                      "title": "grep finds the OVERRIDE line",
+                      "duration": 255
+                    },
+                    {
+                      "title": "the selected line becomes the technical output and the team submits as usual",
+                      "duration": 237
+                    },
+                    {
+                      "title": "when the admin ends the round the terminal is gone without any click",
+                      "duration": 109
+                    }
+                  ],
+                  "startTime": "2026-11-17T22:14:16.340Z",
+                  "annotations": [
+                    {
+                      "type": "boot",
+                      "description": "Ready in 3.9 s"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
             }
           ],
           "id": "e14b51c5eae7eeb59d9e-d5505ccd0184865e9860",
@@ -553,10 +396,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-17T12:42:39.720Z",
-    "duration": 344.7349999999999,
-    "expected": 0,
-    "skipped": 17,
+    "startTime": "2026-11-17T22:13:25.774Z",
+    "duration": 66944.204,
+    "expected": 3,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

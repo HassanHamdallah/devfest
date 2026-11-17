@@ -15,7 +15,7 @@ import { ask, expectFindChallenge, screen, terminal } from "./linux-terminal-hel
 let accounts: RehearsalAccounts;
 const WIDE = { width: 1440, height: 900 };
 const BOOT = { timeout: 180000 };
-const BANNER = "Rami's server is mounted.";
+const BANNER = "Noor's server is mounted.";
 /** Team 09 is in group C: the Linux room in round 1. */
 const TEAM = 8;
 

@@ -36,15 +36,15 @@ class TerminalFormValuesTest {
   void aTooLongOrNulValueNamesItsField() {
     String tooLong = "é".repeat(250) + "x";
     assertEquals("PATH is too long (max 500 bytes).", new TerminalFormValues(tooLong, "", "", "", "").problem().orElseThrow());
-    assertEquals("Final clue is too long (max 500 bytes).", new TerminalFormValues("", "", "", "", tooLong).problem().orElseThrow());
-    assertEquals("PATTERN must be text.", new TerminalFormValues("", "", "", "a\0b", "").problem().orElseThrow());
+    assertEquals("RETRIEVED KEY is too long (max 500 bytes).", new TerminalFormValues("", "", "", "", tooLong).problem().orElseThrow());
+    assertEquals("FILE_NAME must be text.", new TerminalFormValues("", "", "", "a\0b", "").problem().orElseThrow());
   }
 
   @Test
   void theSummaryLabelsEveryFieldAndSaysHowItCameAbout() {
     String submitted = filled().summary(TerminalFormCause.SUBMIT);
     assertEquals(
-      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nPATTERN: *.bak\nFinal clue: WEST TOWER",
+      "Linux terminal form (submitted by the team)\nPATH: /srv/rami/uploads\nUSERNAME: tech9\nFILE_SIZE: 1337c\nFILE_NAME: *.bak\nRETRIEVED KEY: WEST TOWER",
       submitted
     );
     assertTrue(filled().summary(TerminalFormCause.TIME_UP).startsWith("Linux terminal form (saved by the team, submitted at Time's up)\n"));

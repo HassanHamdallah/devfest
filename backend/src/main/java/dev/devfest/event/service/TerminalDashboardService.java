@@ -124,8 +124,8 @@ public class TerminalDashboardService {
     EventRoomRecord room = requireFormRoom(principal, roomId);
     TerminalDashboardView view = build(room, states.state());
     StringBuilder csv = new StringBuilder(
-      "team,group,status,submittedAt,path,username,fileSize,pattern,finalClue,"
-        + "pathPoints,usernamePoints,fileSizePoints,patternPoints,cluePoints,total,overridden\r\n"
+      "team,group,status,submittedAt,path,username,fileSize,fileName,retrievedKey,"
+        + "pathPoints,usernamePoints,fileSizePoints,fileNamePoints,retrievedKeyPoints,total,overridden\r\n"
     );
     for (TeamRow row : view.teams()) {
       csv.append(csvCell(row.teamName())).append(',').append(row.group()).append(',').append(row.status()).append(',');

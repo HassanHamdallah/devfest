@@ -1,4 +1,12 @@
-<section class="linux-terminal" aria-label="Linux terminal" [attr.data-state]="state()" [attr.data-saves]="saves()">
+<section
+  #card
+  class="linux-terminal"
+  [class.linux-terminal--room]="roomLook()"
+  [class.linux-terminal--fullscreen]="fullscreen()"
+  aria-label="Linux terminal"
+  [attr.data-state]="state()"
+  [attr.data-saves]="saves()"
+>
   <div class="linux-terminal__bar">
     <h3 class="linux-terminal__title">Terminal</h3>
     <span class="linux-terminal__status" aria-live="polite">
@@ -15,10 +23,13 @@
         variant="ghost"
         size="sm"
         [disabled]="ended() || state() === 'downloading'"
-        (click)="confirmRestart.set(true)"
+        (click)="askRestart()"
         >Restart terminal</ui-button
       >
       <ui-button variant="secondary" size="sm" (click)="copySelection()">Copy selection</ui-button>
+      <ui-button variant="secondary" size="sm" [pressed]="fullscreen()" data-fullscreen (click)="toggleFullscreen()">{{
+        fullscreen() ? "Exit full screen" : "Full screen"
+      }}</ui-button>
       @if (offerOutput()) {
       <ui-button size="sm" (click)="useSelection()">Use selection as technical output</ui-button>
       }
@@ -44,7 +55,7 @@
   <ui-button variant="secondary" size="sm" (click)="restart()">Try again</ui-button>
   }
 
-  <div class="linux-terminal__frame">
+  <div #frame class="linux-terminal__frame">
     <div #screen class="linux-terminal__screen"></div>
     @if (state() === "ended") {
     <div class="linux-terminal__ended" role="status">Time is up</div>

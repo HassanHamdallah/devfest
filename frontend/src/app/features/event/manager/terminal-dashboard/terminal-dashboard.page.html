@@ -23,9 +23,9 @@
   <ui-card>
     <h2 ui-card-header>Answer keys</h2>
     <p class="event-muted dashboard__intro">
-      Each parameter accepts several values, one per line. PATH ignores one trailing slash, PATTERN ignores surrounding
-      quotes, FILE_SIZE ignores case, USERNAME is case-sensitive. The final clue is checked against the room's clue key,
-      like any clue answer. A parameter without a key cannot be awarded automatically.
+      Each parameter accepts several values, one per line. PATH ignores one trailing slash, FILE_NAME ignores surrounding
+      quotes, FILE_SIZE ignores case, USERNAME is case-sensitive. The RETRIEVED KEY is checked against the room's retrieved
+      key, like any clue answer. A parameter without a key cannot be awarded automatically.
     </p>
     @if (view.emptyKeys.length) {
     <ui-alert variant="warning" data-empty-keys>
@@ -62,7 +62,7 @@
         (ngModelChange)="setKey('fileSize', $event)"
       />
       <ui-textarea
-        label="PATTERN"
+        label="FILE_NAME"
         name="keyPattern"
         [rows]="3"
         [disabled]="!view.keysEditable"
@@ -88,7 +88,7 @@
     <p class="event-muted">There are no active teams.</p>
     } @else {
     <p class="event-muted dashboard__intro">
-      {{ view.pointsPerItem }} points per item; the last item (Clue) is awarded when the final clue is correct. Choose Award or Deny
+      {{ view.pointsPerItem }} points per item; the last item (RETRIEVED KEY) is awarded when the retrieved key is correct. Choose Award or Deny
       to override an item; Automatic follows the keys. Overriding never grants or removes the room's clue.
     </p>
     <div class="dashboard__scroll" tabindex="0" role="region" aria-label="Team scores">
@@ -102,8 +102,8 @@
             <th scope="col">PATH</th>
             <th scope="col">USERNAME</th>
             <th scope="col">FILE_SIZE</th>
-            <th scope="col">PATTERN</th>
-            <th scope="col">Clue</th>
+            <th scope="col">FILE_NAME</th>
+            <th scope="col">RETRIEVED KEY</th>
           </tr>
         </thead>
         <tbody>

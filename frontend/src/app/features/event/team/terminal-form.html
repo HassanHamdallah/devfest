@@ -35,14 +35,14 @@
       (ngModelChange)="set('fileSize', $event)"
     />
     <ui-input
-      label="PATTERN"
+      label="FILE_NAME"
       name="pattern"
       [disabled]="!editable()"
       [ngModel]="draft().pattern"
       (ngModelChange)="set('pattern', $event)"
     />
     <ui-input
-      label="Final clue"
+      label="RETRIEVED KEY"
       name="finalClue"
       [disabled]="!editable()"
       [ngModel]="draft().finalClue"

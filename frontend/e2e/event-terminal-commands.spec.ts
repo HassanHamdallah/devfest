@@ -82,7 +82,7 @@ test("terminal commands: nano edits and saves a file, and tree, less, strings, d
         expect(shown, `nano's "${leftover}" is still on the screen`).not.toContain(leftover);
       }
       // What the team had on the screen before nano is back.
-      expect(shown).toContain("Rami's server is mounted.");
+      expect(shown).toContain("Noor's server is mounted.");
     });
 
     await test.step("nano leaves a file alone when the team quits without changes", async () => {

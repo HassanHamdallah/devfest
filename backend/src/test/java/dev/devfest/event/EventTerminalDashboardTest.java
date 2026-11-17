@@ -81,12 +81,12 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
   @Test
   void theKeysAreSavedReturnedAndWarnedAboutWhileEmptyAndNeverAuditedAsContent() {
     Response empty = expectOk(get("/rooms/" + linux + "/terminal-dashboard", manager));
-    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN"), empty.json("$.emptyKeys"));
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "FILE_NAME"), empty.json("$.emptyKeys"));
     assertEquals(15, (int) empty.json("$.maxPoints"));
     assertEquals(3, (int) empty.json("$.pointsPerItem"));
     List<String> warnings = expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_KEYS_MISSING')].message");
     assertEquals(1, warnings.size());
-    assertTrue(warnings.get(0).startsWith("Room Linux has no answer key for PATH, USERNAME, FILE_SIZE, PATTERN"), warnings.get(0));
+    assertTrue(warnings.get(0).startsWith("Room Linux has no answer key for PATH, USERNAME, FILE_SIZE, FILE_NAME"), warnings.get(0));
     assertEquals(List.of("/event/room/" + linux + "/dashboard"), expectOk(get("/admin/board", admin)).json("$.alerts[?(@.code == 'TERMINAL_KEYS_MISSING')].link"));
 
     long before = revision();
@@ -98,7 +98,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
 
     expectOk(put("/rooms/" + linux + "/terminal-dashboard/keys", admin, keysJson("", "tech9", "", "")));
     assertEquals(
-      List.of("PATH", "FILE_SIZE", "PATTERN"),
+      List.of("PATH", "FILE_SIZE", "FILE_NAME"),
       expectOk(get("/rooms/" + linux + "/terminal-dashboard", manager)).json("$.emptyKeys"),
       "an empty key is allowed and warned about"
     );
@@ -151,7 +151,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     assertEquals(false, view.json("$.teams[1].clueCorrect"));
     assertEquals("/var/uploads", view.json("$.teams[1].path"), "the submitted values are shown");
     assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "CLUE"), view.json("$.teams[0].items[*].item"));
-    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Clue"), view.json("$.teams[0].items[*].label"));
+    assertEquals(List.of("PATH", "USERNAME", "FILE_SIZE", "FILE_NAME", "RETRIEVED KEY"), view.json("$.teams[0].items[*].label"));
     assertFalse(view.body().contains("messageCorrect") || view.body().contains("encryptedMessage"), "the dashboard has no message field");
     assertNull(view.<Object>json("$.teams[3].submittedAt"));
     assertEquals(4, ((List<?>) view.json("$.teams[*]")).size());
@@ -302,7 +302,7 @@ class EventTerminalDashboardTest extends EventIntegrationTest {
     Response csv = expectOk(get("/rooms/" + linux + "/terminal-dashboard.csv", manager));
     String[] lines = csv.body().split("\r\n");
     assertEquals(
-      "team,group,status,submittedAt,path,username,fileSize,pattern,finalClue,pathPoints,usernamePoints,fileSizePoints,patternPoints,cluePoints,total,overridden",
+      "team,group,status,submittedAt,path,username,fileSize,fileName,retrievedKey,pathPoints,usernamePoints,fileSizePoints,fileNamePoints,retrievedKeyPoints,total,overridden",
       lines[0]
     );
     assertEquals(5, lines.length);

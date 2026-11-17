@@ -11,7 +11,7 @@ import {
 } from "./event-api-helper";
 import { expectFitsPhone, openRolePage, saveScreenshot, signIn } from "./event-ui-helper";
 import { buildLinuxRoomFixture } from "./linux-room-fixture";
-import { expectFindChallenge, terminal } from "./linux-terminal-helper";
+import { ask, expectFindChallenge, terminal } from "./linux-terminal-helper";
 
 let accounts: RehearsalAccounts;
 const shots = path.resolve("..", "docs", "ui-after");
@@ -70,7 +70,7 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
     await test.step("the room shows the five-field form instead of the plain answer form", async () => {
       await expect(page.getByRole("heading", { name: "Your answers", exact: true })).toBeVisible();
       await expect(chip(page)).toHaveText("Not saved yet");
-      for (const label of ["PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Final clue"]) {
+      for (const label of ["PATH", "USERNAME", "FILE_SIZE", "FILE_NAME", "RETRIEVED KEY"]) {
         await expect(field(page, label)).toBeVisible();
       }
       await expect(page.getByRole("textbox", { name: "Technical output", exact: true })).toHaveCount(0);
@@ -80,7 +80,7 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
     await test.step("the terminal installs the server; each parameter alone returns several files, all four exactly the target", async () => {
       await page.getByRole("button", { name: "Start terminal", exact: true }).click();
       await expect(terminal(page)).toHaveAttribute("data-state", "ready", BOOT);
-      await expect(terminal(page)).toContainText("Rami's server is mounted.");
+      await expect(terminal(page)).toContainText("Noor's server is mounted.");
       await expectFindChallenge(page, fixture);
       await terminal(page).locator(".xterm").click();
       await page.keyboard.type(`head -n 1 /${fixture.target.file}`);
@@ -93,12 +93,60 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       await expect(terminal(page).getByRole("button", { name: "Copy selection", exact: true })).toBeVisible();
     });
 
+    await test.step("the terminal has the Ubuntu look: coloured prompt, aubergine screen, long commands and history", async () => {
+      const screen = terminal(page).locator(".xterm-rows");
+      await expect(screen).toContainText("investigator@noor-server:~$");
+      const color = (text: string) =>
+        screen.locator("span", { hasText: text }).first().evaluate((element) => getComputedStyle(element).color);
+      expect(await color("investigator@noor-server")).toBe("rgb(138, 226, 52)");
+      expect(await color("~")).toBe("rgb(114, 159, 207)");
+      expect(await terminal(page).locator(".linux-terminal__frame").evaluate((frame) => getComputedStyle(frame).backgroundColor)).toBe(
+        "rgb(48, 10, 36)",
+      );
+      // A command longer than the 80 columns wraps and is still one line for the shell; Up brings it back.
+      const long = `echo wrapped=${"x".repeat(120)}`;
+      await terminal(page).locator(".xterm").click();
+      await page.keyboard.type(long);
+      await page.keyboard.press("Enter");
+      await expect(screen).toContainText(`wrapped=${"x".repeat(120)}`);
+      await page.keyboard.press("ArrowUp");
+      await page.keyboard.type("1");
+      await page.keyboard.press("Enter");
+      await expect(screen).toContainText(`wrapped=${"x".repeat(120)}1`);
+    });
+
+    await test.step("Full screen fits the terminal to the screen and Exit brings it back (skipped when the browser refuses)", async () => {
+      const card = terminal(page);
+      const before = (await card.locator(".xterm-screen").boundingBox())!;
+      await card.getByRole("button", { name: "Full screen", exact: true }).click();
+      await page.waitForTimeout(1000);
+      if (!(await page.evaluate(() => document.fullscreenElement !== null))) {
+        // The browser refused: nothing changed and nothing broke.
+        await expect(card.getByRole("button", { name: "Full screen", exact: true })).toBeVisible();
+        await expect(card).toHaveAttribute("data-state", "ready");
+        test.info().annotations.push({ type: "note", description: "this browser refused full screen" });
+        return;
+      }
+      await expect(card.getByRole("button", { name: "Exit full screen", exact: true })).toBeVisible();
+      await expect.poll(async () => (await card.locator(".xterm-screen").boundingBox())!.width).toBeGreaterThan(before.width + 100);
+      // The shell works at once (the keyboard is still in the terminal) and knows the new size.
+      const size = (await ask(page, "echo fsz=$(stty size)", "fsz")).split(" ").map(Number);
+      expect(size[1]).toBeGreaterThan(80);
+      expect(size[0]).toBeGreaterThan(24);
+      await saveScreenshot(page, path.join(shots, "linux-terminal-fullscreen-1440.png"), false);
+      await card.getByRole("button", { name: "Exit full screen", exact: true }).click();
+      await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+      await expect(card.getByRole("button", { name: "Full screen", exact: true })).toBeVisible();
+      await expect.poll(async () => (await card.locator(".xterm-screen").boundingBox())!.width).toBeLessThan(before.width + 5);
+      expect(await ask(page, "echo bsz=$(stty size)", "bsz")).toBe("24 80");
+    });
+
     const answers = {
       PATH: fixture.target.path,
       USERNAME: fixture.target.user,
       FILE_SIZE: fixture.target.size,
-      PATTERN: fixture.target.pattern,
-      "Final clue": PRACTICE_KEYS.LINUX.toLowerCase(),
+      FILE_NAME: fixture.target.pattern,
+      "RETRIEVED KEY": PRACTICE_KEYS.LINUX.toLowerCase(),
     };
 
     await test.step("Save stores the values; a refresh and a terminal restart show them again", async () => {
@@ -145,7 +193,7 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
       await page.reload();
       await expect(chip(page)).toHaveText("Submitted");
-      await expect(field(page, "Final clue")).toHaveValue(answers["Final clue"]);
+      await expect(field(page, "RETRIEVED KEY")).toHaveValue(answers["RETRIEVED KEY"]);
     });
 
     await test.step("the room counts as finished: the correct clue is collected and shown in the evidence", async () => {
@@ -168,7 +216,7 @@ test("linux form: the team finds the file in the terminal, saves, refreshes, sub
       const second = teamTwo.page;
       await expect(second.getByRole("heading", { name: "Your answers", exact: true })).toBeVisible();
       await field(second, "PATH").fill(fixture.target.path);
-      await field(second, "Final clue").fill(PRACTICE_KEYS.LINUX);
+      await field(second, "RETRIEVED KEY").fill(PRACTICE_KEYS.LINUX);
       await second.getByRole("button", { name: "Save", exact: true }).click();
       await expect(chip(second)).toHaveText("Saved");
       await control.endRound();

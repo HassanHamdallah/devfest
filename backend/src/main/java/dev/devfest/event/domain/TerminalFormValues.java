@@ -28,7 +28,7 @@ public record TerminalFormValues(
 
   /** Why the values cannot be stored (a field too long, or a NUL character), or empty when they can. */
   public Optional<String> problem() {
-    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "PATTERN", "Final clue" };
+    String[] labels = { "PATH", "USERNAME", "FILE_SIZE", "FILE_NAME", "RETRIEVED KEY" };
     String[] values = { path, username, fileSize, pattern, finalClue };
     for (int i = 0; i < values.length; i++) {
       if (values[i].indexOf('\0') >= 0) return Optional.of(labels[i] + " must be text.");
@@ -48,7 +48,7 @@ public record TerminalFormValues(
       + "PATH: " + path + "\n"
       + "USERNAME: " + username + "\n"
       + "FILE_SIZE: " + fileSize + "\n"
-      + "PATTERN: " + pattern + "\n"
-      + "Final clue: " + finalClue;
+      + "FILE_NAME: " + pattern + "\n"
+      + "RETRIEVED KEY: " + finalClue;
   }
 }
