@@ -223,7 +223,7 @@ test("scores: the admin imports the final content, sees every problem at once, a
       await section.getByRole("button", { name: "Import this file", exact: true }).click();
       await expect(section.locator("[data-final-imported]")).toBeVisible();
       await expect(section).toContainText("Imported");
-      await expect(section.locator("[data-final-content-counts]")).toHaveText("Format 2 · 4 clues · 12 suspects");
+      await expect(section.locator("[data-final-content-counts]")).toHaveText("Format 2 · 4 clues · 20 suspects");
       await expect(section.locator("[data-recovery-placeholder]")).toHaveCount(0);
       await admin.page.goto("/event/admin");
       await expect(admin.page.getByRole("heading", { name: "Alerts", exact: true })).toBeVisible();

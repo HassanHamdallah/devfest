@@ -8,6 +8,17 @@ import { Centroid, Dot, Place, RouteData, Vehicle } from "./sentinel-data";
 
 // ---- Plot scales ----------------------------------------------------------------------------------
 
+/**
+ * What the server accepts as a NUMBER answer: a plain decimal with a point or a comma ("0.19", ".19", "0,19", "4",
+ * "-2.5"), no exponent, no text, no thousands separator. null when it is not one. Mirrors the server (it judges).
+ */
+export function parseNumberAnswer(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(trimmed)) return null;
+  const value = Number(trimmed.replace(",", "."));
+  return Number.isFinite(value) ? value : null;
+}
+
 export interface Plot {
   width: number;
   height: number;

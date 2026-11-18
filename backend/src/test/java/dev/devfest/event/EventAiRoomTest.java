@@ -54,7 +54,7 @@ class EventAiRoomTest extends EventIntegrationTest {
   /** No member response may carry any of these keys, in any state. */
   private static final Set<String> FORBIDDEN_KEYS = Set.of(
     "points", "maxPoints", "pointsEarned", "award", "awards", "score", "scores", "total", "passScore", "passed",
-    "correct", "correctOption", "answer", "expected", "role", "explanation", "derived", "maximum", "flaggedAll"
+    "correct", "correctOption", "answer", "expected", "role", "explanation", "derived", "maximum", "flaggedAll", "accepted", "tolerance"
   );
 
   @Autowired
@@ -102,7 +102,7 @@ class EventAiRoomTest extends EventIntegrationTest {
     startTimer();
     Response playing = expectOk(view(alpha));
     assertEquals("RUNNING", playing.json("$.phase"));
-    assertEquals(List.of("PREDICT", "SEE", "NOOR"), playing.json("$.missions[*].title"));
+    assertEquals(List.of("PREDICT", "SEE", "ECHO"), playing.json("$.missions[*].title"));
     assertEquals(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), playing.json("$.missions[*].stages[*].number"));
     assertNoSecrets(playing.body());
     for (String table : List.of("flagged", "train", "validation", "reply", "chunks", "role")) {
@@ -178,56 +178,48 @@ class EventAiRoomTest extends EventIntegrationTest {
   @Test
   void repeatsAreFreeAndTheStageBudgetsAreEnforcedPerTeam() {
     startRound1();
-    Response first = expectOk(run(alpha, key(), 3, "knn-1"));
-    assertEquals(100, intAt(first, "$.result.train"));
-    assertEquals(71, intAt(first, "$.result.validation"));
-    assertEquals(3, (int) first.json("$.runsLeft"));
-    Response repeat = expectOk(run(alpha, key(), 3, "knn-1"));
-    assertEquals(3, (int) repeat.json("$.runsLeft"), "a repeat costs nothing");
-    assertEquals(intAt(first, "$.result.validation"), intAt(repeat, "$.result.validation"));
-    assertEquals(2, (int) expectOk(run(alpha, key(), 3, "knn-5")).json("$.runsLeft"));
-    assertEquals(1, (int) expectOk(run(alpha, key(), 3, "tree-2")).json("$.runsLeft"));
-    assertEquals(0, (int) expectOk(run(alpha, key(), 3, "tree-5")).json("$.runsLeft"));
-    expectError(run(alpha, key(), 3, "knn-15"), 409, "You have used all the experiments of this stage.");
-    expectError(run(alpha, key(), 3, "tree-20"), 409, "You have used all the experiments of this stage.");
-    assertEquals(0, (int) expectOk(run(alpha, key(), 3, "knn-5")).json("$.runsLeft"), "an old run is still free when the budget is spent");
-    assertEquals(4, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id() + " AND stage = 3"));
+    Response first = expectOk(run(alpha, key(), 10, "small-1"));
+    assertEquals(1, (int) first.json("$.result.chunks.length()"));
+    assertEquals(2, (int) first.json("$.runsLeft"));
+    Response repeat = expectOk(run(alpha, key(), 10, "small-1"));
+    assertEquals(2, (int) repeat.json("$.runsLeft"), "a repeat costs nothing");
+    assertEquals(first.<Object>json("$.result.reply"), repeat.<Object>json("$.result.reply"));
+    assertEquals(1, (int) expectOk(run(alpha, key(), 10, "small-3")).json("$.runsLeft"));
+    assertEquals(0, (int) expectOk(run(alpha, key(), 10, "large-1")).json("$.runsLeft"));
+    expectError(run(alpha, key(), 10, "large-3"), 409, "You have used all the experiments of this stage.");
+    assertEquals(0, (int) expectOk(run(alpha, key(), 10, "small-1")).json("$.runsLeft"), "an old run is still free when the budget is spent");
+    assertEquals(3, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id() + " AND stage = 10"));
     Response view = expectOk(view(alpha));
-    assertEquals(List.of("knn-1", "knn-5", "tree-2", "tree-5"), view.json("$.missions[0].stages[2].runs[*].config"), "runs come back in the order they were run");
-    assertEquals(0, (int) view.json("$.missions[0].stages[2].runsLeft"));
-    assertEquals(89, intAt(view, "$.missions[0].stages[2].runs[3].result.validation"));
+    assertEquals(List.of("small-1", "small-3", "large-1"), view.json("$.missions[2].stages[3].runs[*].config"), "runs come back in the order they were run");
+    assertEquals(0, (int) view.json("$.missions[2].stages[3].runsLeft"));
+    assertTrue(((String) view.json("$.missions[2].stages[3].runs[2].result.reply")).contains("Cybersecurity office"));
 
     for (String config : List.of("iqr-1.5", "iqr-3", "z-2", "z-3")) expectOk(run(alpha, key(), 1, config));
     assertNull(expectOk(run(alpha, key(), 1, "iqr-3")).json("$.runsLeft"), "Outlier Hunt has no limit");
     assertEquals(List.of(), expectOk(run(alpha, key(), 1, "z-3")).json("$.result.flagged"));
 
-    for (String config : List.of("small-1", "small-3", "large-1")) expectOk(run(alpha, key(), 10, config));
-    expectError(run(alpha, key(), 10, "large-3"), 409, "You have used all the experiments of this stage.");
-    Response rag = expectOk(run(alpha, key(), 10, "large-1"));
-    assertEquals(1, (int) rag.json("$.result.chunks.length()"));
-    assertTrue(((String) rag.json("$.result.reply")).contains("Library"));
-
-    assertEquals(3, (int) expectOk(run(alfa, key(), 3, "knn-1")).json("$.runsLeft"), "budgets are per team");
+    assertEquals(2, (int) expectOk(run(alfa, key(), 10, "small-1")).json("$.runsLeft"), "budgets are per team");
     expectError(run(alpha, key(), 2, "anything"), 400, "This stage has no experiments.");
-    expectError(run(alpha, key(), 3, "nope"), 400, "Choose one of the stage's configurations.");
-    expectError(run(alpha, key(), 11, "knn-1"), 404, "Stage not found.");
-    expectError(run(alpha, key(), 0, "knn-1"), 404, "Stage not found.");
-    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/3/runs", key(), "{}").status());
-    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/3/runs", key(), "{\"config\":\"knn-1\",\"extra\":1}").status());
+    for (int choice : List.of(3, 6, 8, 9)) expectError(run(alpha, key(), choice, "a"), 400, "This stage has no experiments.");
+    expectError(run(alpha, key(), 1, "nope"), 400, "Choose one of the stage's configurations.");
+    expectError(run(alpha, key(), 11, "small-1"), 404, "Stage not found.");
+    expectError(run(alpha, key(), 0, "small-1"), 404, "Stage not found.");
+    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/10/runs", key(), "{}").status());
+    assertEquals(400, teamPost(alpha, "/team/rooms/" + ai + "/activity/stages/10/runs", key(), "{\"config\":\"small-1\",\"extra\":1}").status());
 
-    expectOk(submitStage(alpha, key(), 3, PERFECT.get(2)));
-    expectError(run(alpha, key(), 3, "knn-1"), 409, SAVED);
+    expectOk(submitStage(alpha, key(), 10, PERFECT.get(9)));
+    expectError(run(alpha, key(), 10, "small-1"), 409, SAVED);
   }
 
   @Test
   void aRetryOfARunReplaysAndAnotherBodyWithTheSameKeyIsRefused() {
     startRound1();
     UUID key = key();
-    Response first = expectOk(run(alpha, key, 3, "knn-5"));
-    assertEquals(first.body(), expectOk(run(alpha, key, 3, "knn-5")).body());
-    expectError(run(alpha, key, 3, "tree-5"), 409, "This Idempotency-Key was already used for a different request.");
+    Response first = expectOk(run(alpha, key, 10, "small-3"));
+    assertEquals(json.readTree(first.body()), json.readTree(expectOk(run(alpha, key, 10, "small-3")).body()), "the replay holds the same result (stored JSON may order its keys differently)");
+    expectError(run(alpha, key, 10, "large-1"), 409, "This Idempotency-Key was already used for a different request.");
     assertEquals(1, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id()));
-    assertEquals(400, call(org.springframework.http.HttpMethod.POST, "/team/rooms/" + ai + "/activity/stages/3/runs", alpha.token(), "{\"config\":\"knn-1\"}", null).status(), "the Idempotency-Key header is required");
+    assertEquals(400, call(org.springframework.http.HttpMethod.POST, "/team/rooms/" + ai + "/activity/stages/10/runs", alpha.token(), "{\"config\":\"small-1\"}", null).status(), "the Idempotency-Key header is required");
   }
 
   // ---- stage submissions --------------------------------------------------------------------------
@@ -250,7 +242,10 @@ class EventAiRoomTest extends EventIntegrationTest {
     expectError(submitStage(alpha, key(), 5, "{\"config\":\"x\"}"), 400, "Unexpected field config.");
     expectError(submitStage(alpha, key(), 5, "[]"), 400, "Send the stage's answer as a JSON object.");
     expectError(submitStage(alpha, key(), 5, "{\"tp\":1}"), 400, "Enter fp as a whole number.");
-    expectError(submitStage(alpha, key(), 3, "{\"config\":\"nope\"}"), 400, "Choose one of the stage's configurations.");
+    expectError(submitStage(alpha, key(), 10, "{\"config\":\"nope\"}"), 400, "Choose one of the stage's configurations.");
+    expectError(submitStage(alpha, key(), 3, "{\"option\":\"z\"}"), 400, "Choose one of the options.");
+    expectError(submitStage(alpha, key(), 3, "{\"option\":\"0\"}"), 400, "Choose one of the options.");
+    expectError(submitStage(alpha, key(), 3, "{\"config\":\"a\"}"), 400, "Unexpected field config.");
     expectError(submitStage(alpha, key(), 2, "{\"choices\":{\"entry-gate\":\"USE\"}}"), 400, "Decide every feature: use it or drop it.");
     expectError(submitStage(alpha, key(), 11, PERFECT.get(0)), 404, "Stage not found.");
     assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id()), "a refused answer locks nothing");
@@ -262,27 +257,191 @@ class EventAiRoomTest extends EventIntegrationTest {
     assertEquals(List.of(true), view.json("$.missions[1].stages[?(@.number == 4)].saved"));
   }
 
+  // ---- multiple choice stages ---------------------------------------------------------------------------
+
+  @Test
+  void aChoiceStageIsAnsweredOnceByOptionIdAndNeverShowsTheCorrectOne() {
+    startRound1();
+    Response view = expectOk(view(alpha));
+    assertNoSecrets(view.body());
+    assertFalse(view.body().contains("\"correct\""), "the correct option never reaches a team");
+    String stage = "$.missions[*].stages[?(@.number == 3)]";
+    assertEquals(List.of("CHOICE"), view.json(stage + ".type"));
+    List<String> ids = view.json(stage + ".data.options[*].id");
+    assertEquals(Set.of("a", "b", "c", "d"), new HashSet<>(ids));
+    List<Object> options = view.json(stage + ".data.options[*]");
+    for (Object option : options) assertEquals(Set.of("id", "text"), ((java.util.Map<?, ?>) option).keySet(), "an option holds only its id and text");
+    assertEquals(List.of(), view.json(stage + ".runs[*]"), "a choice stage has no experiments");
+    assertEquals(List.of("neuron"), view.json(stage + ".data.figure.type"), "the figure comes with the question's data");
+    // The same order on every request, and it is the team's own.
+    Response again = expectOk(view(alpha));
+    String path = stage + ".data.options[*].id";
+    assertEquals(view.<Object>json(path), again.<Object>json(path), "the order is stable across refreshes");
+
+    // Answers are option ids: a wrong one saves 0 and locks the stage.
+    Response saved = expectOk(submitStage(alpha, key(), 3, "{\"option\":\"c\"}"));
+    assertEquals("Saved", saved.json("$.message"));
+    assertNoSecrets(saved.body());
+    assertEquals(new BigDecimal("0.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 3", BigDecimal.class, alpha.id()));
+    expectError(submitStage(alpha, key(), 3, "{\"option\":\"a\"}"), 409, SAVED);
+    assertEquals(new BigDecimal("0.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 3", BigDecimal.class, alpha.id()), "the first answer is the one that counts");
+    Response after = expectOk(view(alpha));
+    assertEquals(List.of(true), after.json("$.missions[*].stages[?(@.number == 3)].saved"));
+    assertNull(after.json("$.missions[0].stages[2].data"), "a saved stage shows only that it is saved");
+    assertFalse(after.body().contains("\"correct\""));
+
+    // A retry with the same key and body replays; another body with the same key is refused.
+    UUID key = key();
+    Response first = expectOk(submitStage(alfa, key, 3, "{\"option\":\"b\"}"));
+    assertEquals(first.body(), expectOk(submitStage(alfa, key, 3, "{\"option\":\"b\"}")).body());
+    expectError(submitStage(alfa, key, 3, "{\"option\":\"a\"}"), 409, "This Idempotency-Key was already used for a different request.");
+    assertEquals(1, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alfa.id() + " AND stage = 3"));
+  }
+
+  // ---- typed answer stages ------------------------------------------------------------------------------
+
+  private static final String INPUT_STAGES = "$.missions[*].stages[?(@.number == %d)]";
+
+  @Test
+  void aTypedStageShowsOnlyHowToTypeAndItsFigureNeverTheAnswer() {
+    startRound1();
+    Response view = expectOk(view(alpha));
+    assertNoSecrets(view.body());
+    for (String secret : List.of("accepted", "tolerance", "\"value\":0.19", "101001", "\"correct\"")) {
+      assertFalse(view.body().contains(secret), "the screen data must not hold " + secret);
+    }
+    assertEquals(List.of("INPUT"), view.json(INPUT_STAGES.formatted(6) + ".type"));
+    assertEquals(List.of("TEXT"), view.json(INPUT_STAGES.formatted(6) + ".data.inputKind"));
+    assertEquals(List.of("NUMBER"), view.json(INPUT_STAGES.formatted(8) + ".data.inputKind"));
+    assertEquals(List.of("NUMBER"), view.json(INPUT_STAGES.formatted(9) + ".data.inputKind"));
+    assertEquals(List.of(40), view.json(INPUT_STAGES.formatted(6) + ".data.maxLength"));
+    assertEquals(List.of(), view.json(INPUT_STAGES.formatted(6) + ".data.options"), "a typed stage has no options");
+    // The figures hold the question's own data, the same as the brief.
+    assertEquals(List.of("crossover"), view.json(INPUT_STAGES.formatted(6) + ".data.figure.type"));
+    assertEquals(List.of("101100"), view.json(INPUT_STAGES.formatted(6) + ".data.figure.parentA"));
+    assertEquals(List.of("011011"), view.json(INPUT_STAGES.formatted(6) + ".data.figure.parentB"));
+    assertEquals(List.of("split"), view.json(INPUT_STAGES.formatted(8) + ".data.figure.type"));
+    assertEquals(List.of("minimax"), view.json(INPUT_STAGES.formatted(9) + ".data.figure.type"));
+    assertEquals(List.of(), view.json(INPUT_STAGES.formatted(6) + ".runs[*]"));
+  }
+
+  @Test
+  void aTypedStageIsAnsweredOnceAndARefusedAnswerDoesNotUseItUp() {
+    startRound1();
+    // Not a number: refused, nothing stored, the stage stays open.
+    for (String bad : List.of("", "   ", "abc", "1e3", "1,000.5", "0.1.2", "--1", "0,19,5", "zero")) {
+      expectError(submitStage(alpha, key(), 8, "{\"answer\":" + quote(bad) + "}"), 400, "Enter a number, for example 0.5.");
+    }
+    expectError(submitStage(alpha, key(), 9, "{\"answer\":\"\"}"), 400, "Enter a number, for example 0.5.");
+    expectError(submitStage(alpha, key(), 6, "{\"answer\":\"\"}"), 400, "Enter your answer.");
+    expectError(submitStage(alpha, key(), 6, "{\"answer\":\"" + "1".repeat(41) + "\"}"), 400, "The answer can have at most 40 characters.");
+    assertEquals(400, submitStage(alpha, key(), 6, "{\"answer\":5}").status());
+    assertEquals(400, submitStage(alpha, key(), 6, "{\"answer\":\"1\",\"extra\":1}").status());
+    assertEquals(400, submitStage(alpha, key(), 6, "{\"option\":\"a\"}").status());
+    assertEquals(0, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id()), "a refused answer locks nothing");
+    assertEquals(List.of(false), expectOk(view(alpha)).json(INPUT_STAGES.formatted(8) + ".saved"));
+
+    // The first judged answer is the one that counts, in any of the accepted forms.
+    assertEquals(new BigDecimal("10.00"), savedPoints(alpha, 6, " 101 001 "));
+    assertEquals(new BigDecimal("10.00"), savedPoints(alpha, 8, ".19"));
+    assertEquals(new BigDecimal("0.00"), savedPoints(alpha, 9, "5"));
+    expectError(submitStage(alpha, key(), 9, "{\"answer\":\"4\"}"), 409, SAVED);
+    assertEquals(new BigDecimal("0.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 9", BigDecimal.class, alpha.id()));
+    assertEquals(new BigDecimal("10.00"), savedPoints(alfa, 8, "0,18"));
+    assertEquals(new BigDecimal("10.00"), savedPoints(alfa, 9, "4.0"));
+    assertEquals(new BigDecimal("0.00"), savedPoints(alfa, 6, "101011"));
+    TestTeam third = team("Third", GroupCode.A);
+    assertEquals(new BigDecimal("10.00"), savedPoints(third, 8, "0.189"));
+    assertEquals(new BigDecimal("0.00"), savedPoints(third, 9, "4.01"), "a tolerance of 0 accepts only the value");
+    TestTeam fourth = team("Fourth", GroupCode.A);
+    assertEquals(new BigDecimal("0.00"), savedPoints(fourth, 8, "0.21"));
+    assertEquals(new BigDecimal("10.00"), savedPoints(fourth, 6, "101001"));
+
+    Response after = expectOk(view(alpha));
+    assertEquals(List.of(true), after.json(INPUT_STAGES.formatted(8) + ".saved"));
+    assertNoSecrets(after.body());
+    // A retry with the same key and body replays; the same key with another answer is refused.
+    UUID key = key();
+    Response first = expectOk(submitStage(fourth, key, 9, "{\"answer\":\"4\"}"));
+    assertEquals(first.body(), expectOk(submitStage(fourth, key, 9, "{\"answer\":\"4\"}")).body());
+    expectError(submitStage(fourth, key, 9, "{\"answer\":\"5\"}"), 409, "This Idempotency-Key was already used for a different request.");
+  }
+
+  /** Types an answer and returns the points the server stored for it. */
+  private BigDecimal savedPoints(TestTeam team, int stage, String typed) {
+    expectOk(submitStage(team, key(), stage, "{\"answer\":" + quote(typed) + "}"));
+    return db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = ?", BigDecimal.class, team.id(), stage);
+  }
+
+  @Test
+  void teamsSeeTheirOptionsInDifferentOrdersButEachTeamAlwaysInTheSameOne() {
+    startRound1();
+    java.util.Set<List<String>> orders = new HashSet<>();
+    List<TestTeam> group = new ArrayList<>(List.of(alpha, alfa));
+    for (int i = 0; i < 8; i++) group.add(team("Team" + i, GroupCode.A));
+    for (TestTeam team : group) {
+      List<String> first = expectOk(view(team)).json("$.missions[*].stages[?(@.number == 3)].data.options[*].id");
+      List<String> second = expectOk(view(team)).json("$.missions[*].stages[?(@.number == 3)].data.options[*].id");
+      assertEquals(first, second, team.name());
+      orders.add(first);
+    }
+    assertTrue(orders.size() >= 3, "ten teams do not all see the same order: " + orders);
+  }
+
+  @Test
+  void theShippedMissionIsWorth100AndAPerfectTeamIsEvaluatedWith100() {
+    startRound1();
+    saveStages(alpha, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    assertEquals(new BigDecimal("100.00"), evaluationTotal(alpha));
+    assertEquals(100, count("SELECT sum(points_earned)::int FROM sentinel_submission WHERE team_id = " + alpha.id()));
+    assertEquals(10, count("SELECT count(*) FROM sentinel_submission WHERE team_id = " + alpha.id() + " AND points_earned = 10"), "every stage is worth 10");
+  }
+
+  @Test
+  void aMissionStoredWithChoiceStagesSixEightAndNineStillPlays() {
+    db.update("UPDATE sentinel_content SET document = ?::jsonb WHERE room_id = ?", SentinelFixture.v2().replace("\r\n", "\n"), ai);
+    db.update("UPDATE sentinel_content SET document = document - 'passScore' WHERE room_id = ?", ai);
+    startRound1();
+    Response view = expectOk(view(alpha));
+    assertEquals(
+      List.of("OUTLIER_HUNT", "FEATURE_CHECK", "CHOICE", "NEAREST_VEHICLE", "CAMERA_ACCURACY", "CHOICE", "ROUTE_PLANNER", "CHOICE", "CHOICE", "RAG_FIX"),
+      view.json("$.missions[*].stages[*].type")
+    );
+    List<Object> options = view.json(INPUT_STAGES.formatted(6) + ".data.options[*]");
+    assertEquals(4, options.size(), "a stored choice stage keeps its options");
+    expectOk(submitStage(alpha, key(), 6, "{\"option\":\"a\"}"));
+    expectOk(submitStage(alpha, key(), 8, "{\"option\":\"a\"}"));
+    assertEquals(new BigDecimal("10.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 8", BigDecimal.class, alpha.id()));
+  }
+
+  @Test
+  void aMissionStoredBeforeTheChoiceStagesStillPlaysWithItsOldKinds() throws Exception {
+    db.update(
+      "UPDATE sentinel_content SET document = ?::jsonb WHERE room_id = ?",
+      SentinelFixture.v1().replace("\r\n", "\n"),
+      ai
+    );
+    db.update("UPDATE sentinel_content SET document = document - 'passScore' WHERE room_id = ?", ai);
+    startRound1();
+    Response view = expectOk(view(alpha));
+    assertEquals(
+      List.of("OUTLIER_HUNT", "FEATURE_CHECK", "TUNE_DEPLOY", "NEAREST_VEHICLE", "CAMERA_ACCURACY", "GROUP_FRAMES", "ROUTE_PLANNER", "THREAT_FILTER", "RULE_ENGINE", "RAG_FIX"),
+      view.json("$.missions[*].stages[*].type"),
+      "each stage keeps the kind it was stored with"
+    );
+    assertEquals(List.of("PREDICT", "SEE", "NOOR"), view.json("$.missions[*].title"));
+    assertEquals(3, (int) expectOk(run(alpha, key(), 3, "knn-1")).json("$.runsLeft"), "the old experiments still run");
+    expectOk(submitStage(alpha, key(), 3, "{\"config\":\"tree-5\"}"));
+    expectOk(submitStage(alpha, key(), 9, "{\"conclusion\":\"insider-involved\"}"));
+    assertEquals(new BigDecimal("10.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 3", BigDecimal.class, alpha.id()));
+    assertEquals(new BigDecimal("10.00"), db.queryForObject("SELECT points_earned FROM sentinel_submission WHERE team_id = ? AND stage = 9", BigDecimal.class, alpha.id()));
+  }
+
   // ---- concurrency --------------------------------------------------------------------------------
 
   @Test
   void runBudgetsHoldWhenManyRequestsArriveTogether() throws Exception {
     startRound1();
-    List<String> configs = new ArrayList<>();
-    for (String config : List.of("knn-1", "knn-5", "knn-15", "tree-2", "tree-5", "tree-20")) {
-      configs.add(config);
-      configs.add(config);
-    }
-    List<Response> responses = parallel(configs.size(), index -> run(alpha, key(), 3, configs.get(index)));
-    Set<String> succeeded = new HashSet<>();
-    for (int i = 0; i < responses.size(); i++) {
-      Response response = responses.get(i);
-      if (response.status() == 200) succeeded.add(configs.get(i));
-      else expectError(response, 409, "You have used all the experiments of this stage.");
-    }
-    assertEquals(4, succeeded.size(), "exactly the budget of distinct configurations succeeded: " + succeeded);
-    assertEquals(4, count("SELECT count(*) FROM sentinel_run WHERE team_id = " + alpha.id() + " AND stage = 3"));
-    assertEquals(succeeded, new HashSet<>(db.queryForList("SELECT config FROM sentinel_run WHERE team_id = ?", String.class, alpha.id())));
-
     List<String> rag = List.of("small-1", "small-3", "large-1", "large-3", "small-1", "large-3");
     List<Response> ragResponses = parallel(rag.size(), index -> run(alfa, key(), 10, rag.get(index)));
     Set<String> ragSucceeded = new HashSet<>();
@@ -365,12 +524,12 @@ class EventAiRoomTest extends EventIntegrationTest {
     assignRound(1);
     openRoom(RoomCode.AI);
     String notStarted = "The timer has not started yet.";
-    expectError(run(alpha, key(), 3, "knn-1"), 409, notStarted);
+    expectError(run(alpha, key(), 10, "small-1"), 409, notStarted);
     expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, notStarted);
 
     startTimer();
     closeRoom(RoomCode.AI);
-    expectError(run(alpha, key(), 3, "knn-1"), 409, "This room is closed.");
+    expectError(run(alpha, key(), 10, "small-1"), 409, "This room is closed.");
     expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, "This room is closed.");
     openRoom(RoomCode.AI);
     expectError(
@@ -380,7 +539,7 @@ class EventAiRoomTest extends EventIntegrationTest {
     );
 
     expectOk(post("/admin/round/timer/pause", admin, null));
-    expectError(run(alpha, key(), 3, "knn-1"), 409, "The round is paused.");
+    expectError(run(alpha, key(), 10, "small-1"), 409, "The round is paused.");
     expectError(submitStage(alpha, key(), 1, PERFECT.get(0)), 409, "The round is paused.");
     expectOk(post("/admin/round/timer/resume", admin, null));
     expectOk(submitStage(alpha, key(), 1, PERFECT.get(0)));
@@ -389,14 +548,14 @@ class EventAiRoomTest extends EventIntegrationTest {
     expectError(submitStage(alfa, key(), 1, PERFECT.get(0)), 409, "Your team has been disqualified. Contact the organizer.");
 
     clock.advance(Duration.ofMinutes(5).plusSeconds(1));
-    expectError(run(alpha, key(), 3, "knn-1"), 409, "Time is up for this round.");
+    expectError(run(alpha, key(), 10, "small-1"), 409, "Time is up for this round.");
     expectError(submitStage(alpha, key(), 2, PERFECT.get(1)), 409, "Time is up for this round.");
     expectOk(post("/admin/round/timer/end", admin, null));
     expectError(submitStage(alpha, key(), 2, PERFECT.get(1)), 409, "Time is up for this round.");
 
     setRound(2);
     expectError(view(alpha), 404, NO_ACTIVITY);
-    expectError(run(alpha, key(), 3, "knn-1"), 404, NO_ACTIVITY);
+    expectError(run(alpha, key(), 10, "small-1"), 404, NO_ACTIVITY);
     assertEquals(0, count("SELECT count(*) FROM sentinel_run"));
     assertEquals(1, count("SELECT count(*) FROM sentinel_submission"));
   }
@@ -405,22 +564,22 @@ class EventAiRoomTest extends EventIntegrationTest {
   void afterTheResultNothingIsAcceptedAndAnotherRoundOrTeamIsNotFound() {
     startRound1();
     saveStages(alpha, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-    expectError(run(alpha, key(), 3, "knn-1"), 409, EVALUATED);
+    expectError(run(alpha, key(), 10, "small-1"), 409, EVALUATED);
     expectError(submitStage(alpha, key(), 10, PERFECT.get(9)), 409, EVALUATED);
 
     TestTeam bravo = team("Bravo", GroupCode.B);
     expectError(view(bravo), 404, NO_ACTIVITY);
-    expectError(run(bravo, key(), 3, "knn-1"), 404, NO_ACTIVITY);
+    expectError(run(bravo, key(), 10, "small-1"), 404, NO_ACTIVITY);
     expectError(submitStage(bravo, key(), 1, PERFECT.get(0)), 404, NO_ACTIVITY);
     long linux = rooms.get(RoomCode.LINUX);
     expectError(get("/team/rooms/" + linux + "/activity", alpha.token()), 404, NO_ACTIVITY);
     expectError(get("/team/rooms/999999/activity", alpha.token()), 404, NO_ACTIVITY);
-    expectError(teamPost(alpha, "/team/rooms/" + linux + "/activity/stages/3/runs", key(), "{\"config\":\"knn-1\"}"), 404, NO_ACTIVITY);
+    expectError(teamPost(alpha, "/team/rooms/" + linux + "/activity/stages/10/runs", key(), "{\"config\":\"small-1\"}"), 404, NO_ACTIVITY);
     expectOk(post("/admin/round/timer/end", admin, null));
     setRound(4);
     openRoom(RoomCode.AI);
     assertEquals("RUNNING", expectOk(view(bravo)).json("$.phase"), "group B is in the AI room in round 4");
-    expectOk(run(bravo, key(), 3, "knn-1"));
+    expectOk(run(bravo, key(), 10, "small-1"));
   }
 
   @Test
@@ -723,7 +882,7 @@ class EventAiRoomTest extends EventIntegrationTest {
   @Test
   void resetsDeleteATeamsMissionWorkAfterASnapshotThatKeepsIt() {
     startRound1();
-    expectOk(run(alpha, key(), 3, "knn-5"));
+    expectOk(run(alpha, key(), 10, "large-1"));
     saveStages(alpha, 1, 2);
     saveStages(alfa, 1);
     expectOk(post("/admin/round/timer/end", admin, null));
@@ -791,7 +950,7 @@ class EventAiRoomTest extends EventIntegrationTest {
   void theRoomScoreIsAReadOnlySumOutOf100() {
     startRound1();
     saveStages(alpha, 1, 2);
-    expectOk(run(alfa, key(), 3, "knn-1"));
+    expectOk(run(alfa, key(), 10, "small-1"));
     long revision = revision();
     Optional<SentinelScoreService.RoomScore> score = scoreService.roomScore(alpha.id());
     assertEquals(new BigDecimal("20.00"), score.orElseThrow().points());
@@ -812,14 +971,14 @@ class EventAiRoomTest extends EventIntegrationTest {
   @Test
   void theTeamViewUsesTheSameEightStatementsForTwoAndForFourteenTeams() {
     startRound1();
-    expectOk(run(alpha, key(), 3, "knn-5"));
+    expectOk(run(alpha, key(), 10, "large-1"));
     saveStages(alpha, 1, 2);
     expectOk(run(alfa, key(), 1, "iqr-3"));
     List<String> few = viewStatements();
     for (TestTeam team : teams(3)) {
       if (team.group() != GroupCode.A) continue;
-      expectOk(run(team, key(), 3, "knn-1"));
-      expectOk(run(team, key(), 3, "knn-5"));
+      expectOk(run(team, key(), 10, "small-1"));
+      expectOk(run(team, key(), 10, "large-1"));
       saveStages(team, 1, 2, 3);
     }
     saveStages(alfa, 4, 5, 6);
@@ -837,7 +996,7 @@ class EventAiRoomTest extends EventIntegrationTest {
     List<String> few = statementsOf(() -> get("/rooms/" + ai + "/mission/results", managers.get(RoomCode.AI)));
     for (TestTeam team : teams(3)) {
       if (team.group() != GroupCode.A) continue;
-      expectOk(run(team, key(), 3, "knn-1"));
+      expectOk(run(team, key(), 10, "small-1"));
       saveStages(team, 1, 2, 3);
     }
     assertEquals(14, count("SELECT count(*) FROM event_team"));

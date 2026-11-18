@@ -5,6 +5,7 @@ export default defineConfig({
   testMatch: [
     "event-ai-room.spec.ts",
     "event-sentinel-manager.spec.ts",
+    "event-sentinel-polish.spec.ts",
     "event-clues.spec.ts",
     "event-evidence.spec.ts",
     "event-live.spec.ts",

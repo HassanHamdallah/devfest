@@ -18,6 +18,47 @@ export interface OutlierData {
   configs: OutlierConfig[];
 }
 
+/** The drawing above a CHOICE or INPUT stage (inline SVG): the question's own data, never an answer. */
+export interface NeuronFigureData {
+  type: "neuron";
+  inputs: { label: string; value: number }[];
+  weights: number[];
+  bias: number;
+}
+export interface CrossoverFigureData {
+  type: "crossover";
+  parentA: string;
+  parentB: string;
+  cut: number;
+  mutate: number;
+}
+export interface SplitFigureData {
+  type: "split";
+  parent: { normal: number; suspicious: number };
+  question: string;
+  yes: { normal: number; suspicious: number };
+  no: { normal: number; suspicious: number };
+}
+export interface MinimaxFigureData {
+  type: "minimax";
+  root: "MAX" | "MIN";
+  children: number[][];
+}
+export type SentinelFigureData = NeuronFigureData | CrossoverFigureData | SplitFigureData | MinimaxFigureData;
+
+/** A multiple choice stage: the options in this team's own order (ids, never positions). */
+export interface ChoiceData {
+  options: { id: string; text: string }[];
+  figure?: SentinelFigureData;
+}
+
+/** A typed answer stage: how to type it (never what the answer is) and its drawing. */
+export interface InputData {
+  inputKind: "TEXT" | "NUMBER";
+  maxLength: number;
+  figure?: SentinelFigureData;
+}
+
 export interface FeatureData {
   target: string;
   features: { id: string; label: string }[];

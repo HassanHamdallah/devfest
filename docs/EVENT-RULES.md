@@ -592,8 +592,9 @@ the terminal only helps produce the technical output.
 ## 19. AI mission room: SENTINEL (stages, pass score, clue)
 
 A room can run an **activity**: the **AI mission** replaces the answer form (the Linux terminal activity, rule 18.1,
-does not). Its story is *SENTINEL*, an AI that Rami, a journalist, was investigating the night he vanished and that
-someone sabotaged; the team repairs its three systems. The mission has **10 stages** in three missions, worth **100
+does not). Its story is *SENTINEL*, the AI security system of NOVA Technologies, which Noor, the Cybersecurity
+Engineer of Project ORION, was using in her investigation before she disappeared and which someone sabotaged; the team
+repairs its three systems and it releases what it recorded. The mission has **10 stages** in three missions, worth **100
 points** in all. A team whose total reaches the room's **pass score** gets the room's clue; the system records the
 result itself, so the team never types a clue answer there.
 
@@ -611,27 +612,83 @@ result itself, so the team never types a clue answer there.
    | Mission | # | Stage | Worth | The team | Scored |
    |---|---|---|---|---|---|
    | PREDICT | 1 | Outlier Hunt | 10 | runs IQR or Z-score with a threshold, any number of times, then submits one | the points of that configuration |
-   | | 2 | Feature Check | 10 | marks each feature of the Exit gate prediction as use or drop | worth × correct ÷ features |
-   | | 3 | Tune & Deploy | 10 | runs up to 4 different model settings (train and validation accuracy), deploys any one | the points of the deployed setting |
+   | | 2 | Feature Check | 10 | marks each of six features of the Exit gate prediction as use or drop | worth × correct ÷ features |
+   | | 3 | Neuron Check (CHOICE) | 10 | works out what a ReLU neuron outputs and picks one of four answer cards | all or nothing |
    | SEE | 4 | Nearest Vehicle | 10 | answers KNN at k=1 and k=5 and which k is more reliable | class at k=1, class at k=5, more reliable k |
    | | 5 | Camera Accuracy | 10 | counts TP, FP, FN, TN, gives precision and recall (±0.01) and the metric that avoids missed vans | each part |
-   | | 6 | Group the Frames | 10 | steps K-Means (Assign, Update) and gives the van cluster's size and final centroid (±0.01) | size, centroid |
-   | NOOR | 7 | Route Planner | 10 | expands A* from Library to Gate 3, gives the order, the route and its cost | order, route with cost |
-   | | 8 | Threat Filter | 10 | computes the Threat and Normal values of a message (within 1%) and the class | threat value, normal value, class |
-   | | 9 | Rule Engine | 10 | fires rules by forward chaining and gives the final conclusion | the conclusion |
-   | | 10 | RAG Fix | 10 | asks NOOR with up to 3 different chunk size and top-k settings, locks one | the points of the locked setting |
+   | | 6 | Patrol Evolution (INPUT) | 10 | does a crossover and a mutation on two bit strings and types the child (6 bits) | all or nothing |
+   | ECHO (id `noor`) | 7 | Route Planner | 10 | expands A* from Library to Gate 3, gives the order, the route and its cost | order, route with cost |
+   | | 8 | Best Split (INPUT) | 10 | works out an information gain and types it to 2 decimals | all or nothing, ±0.01 |
+   | | 9 | Patrol Game (INPUT) | 10 | does minimax on a small tree and types the value | all or nothing |
+   | | 10 | RAG Fix | 10 | asks ECHO with up to 3 different chunk size and top-k settings, locks one | the points of the locked setting |
+
+   The third system is called **ECHO** on screen (NOVA's assistant, which answers from company records); its internal
+   mission ids stay `predict`, `see` and `noor`. Every field note starts "Noor's notes:" and **helps, never solves**: it
+   explains the method and never contains the answer or a worked result. In a `brief` or `fieldNote`, a line that starts
+   with `$$ ` is shown as a display formula (serif, italic variables, subscripts, real minus and times signs) and
+   lines indented by four spaces are shown together as one monospaced block; this is only how the text looks, the
+   content file stays plain text and its numbers are the same.
+
+   **CHOICE stage (stage 3).** A generic multiple choice kind: `{"number","type":"CHOICE","title","fieldNote","brief",
+   "maxPoints","figure"?,"options":[{"id","text"}],"correct":"<option id>"}`. A file needs 2 to 6 options with unique
+   one-letter ids (a to z), a `correct` that is one of them and a `maxPoints` above 0 (each problem is listed with its
+   stage, e.g. "Stage 3: correct must be the id of one of the options."). The `brief` may contain line breaks; a line
+   that starts with four spaces is shown monospaced. The options are **answer cards** (large, with a letter badge A to D
+   in the team's own order, two columns wide and one under 600 px, whole card clickable, a radio group for the keyboard:
+   Tab, the arrow keys, Space and Enter, with a check mark on the chosen one). The team picks **one answer**, confirms
+   "One answer only. Submit?", and the stage locks (Idempotency-Key; a second answer is refused with "This stage is
+   already saved."); the score is the stage's worth for the right option and 0 for any other, and the team sees only
+   "Saved". The server never sends `correct`. The options come in a **per-team order** decided only by the team and the
+   stage number (a seeded shuffle), so a team sees the same order after a refresh or on another device, and answers are
+   option ids, never positions.
+
+   **INPUT stages (stages 6, 8 and 9).** A typed answer: `{"number","type":"INPUT","title","fieldNote","brief",
+   "maxPoints","figure"?,"answer":{...}}` where `answer` is
+   - `{"kind":"TEXT","accepted":["101001"]}`: 1 to 10 non-empty values; the team's answer is trimmed, every space is
+     removed and the letters are lower-cased, and it must equal one accepted value in the same form ("101 001" is
+     right);
+   - `{"kind":"NUMBER","value":0.19,"tolerance":0.01}`: a finite value and a tolerance of 0 or more; the team's answer
+     must be a **plain decimal number** with a point or a comma ("0.19", ".19", "0,19", "0.189", "4"; no exponent, no
+     thousands separator, no text) and is right when |typed − value| ≤ tolerance (0.18 to 0.20 here; 4 exactly for
+     stage 9, whose tolerance is 0).
+
+   The team types at most 40 characters, confirms "Submit <what it typed>? One answer only." and the stage locks
+   exactly like a CHOICE stage (one answer, Idempotency-Key, only "Saved" afterwards, score = the stage's worth or 0). An
+   answer that cannot be judged is refused (400) and **does not use up the answer**: an empty or unparsable NUMBER
+   answer says "Enter a number, for example 0.5.", an empty TEXT answer "Enter your answer.", more than 40 characters
+   "The answer can have at most 40 characters." The screen data of a typed stage holds only how to type it (`inputKind`,
+   `maxLength`) and its figure, never `accepted`, `value` or `tolerance`.
+
+   **Figures (stages 3, 6, 8 and 9).** A CHOICE or INPUT stage may carry a `figure`, drawn above its brief as inline SVG
+   in the site's colour tokens, scaled to the width (readable at 390 px) and with a text alternative and a caption. A
+   figure shows the question's own data only, never an answer or an intermediate result, and the file is refused when it
+   disagrees with the brief (every number of it is found in the brief; the shapes add up). Four types:
+   `neuron` (`inputs`, `weights`, `bias`: input circles, weighted arrows, a "Σ + b" node, a ReLU box and an output `?`),
+   `crossover` (`parentA`, `parentB`, `cut`, `mutate`: numbered positions, two rows of bit boxes and an empty "Child" row
+   of `?`, all drawn the same way: no tint, no cut line and no flip marker, because the cut and the mutated position
+   are only in the question text; stage 6 shows an interactive builder instead, with the same neutral look, that
+   submits the 6-bit child through the same answer call), `split` (`parent`, `question`, `yes`, `no`: a small
+   tree of dots with their counts, no entropy) and `minimax` (`root`, `children`: a MAX or MIN tree with the leaf values
+   and `?` on the nodes).
+
+   The kinds that no stage uses any more (Tune and Deploy, Group the Frames, Threat Filter, Rule Engine, and CHOICE at
+   stages 6, 8 and 9) stay in the code, so a mission file stored earlier still plays, but a new file cannot use them. The
+   earlier shipped files are kept as `docs/ai-room/sentinel-content.v1-backup.json` and `sentinel-content.v2-backup.json`.
+
+   The AI room never reveals the final's evidence: no evening times of the final's case, no names of its employees or
+   places. The organizer's answers and worked solutions for the four CHOICE stages are in
+   `docs/ai-room/SENTINEL-ORGANIZER-GUIDE.md` (never shown to teams).
 
    Answers that can be computed are **derived by the server** from the stage's data (nearest neighbours, confusion
-   counts, K-Means, A* with its tie-break rule shown on screen, Naive Bayes, forward chaining), so an author cannot
+   counts, A* with its tie-break rule shown on screen), so an author cannot
    mistype them; so are the readings an Outlier Hunt run flags (each axis on its own, flagged if outside on x or on y;
    IQR with Tukey's hinges and fences Q1 − k·IQR and Q3 + k·IQR, Z-score with the population standard deviation; the
-   Field note and the Field Guide state this); only the choices that are judgments (configuration tables, which features to use) are written in the
-   file. A file is read whole: the page shows the server's headline ("The file has N problems.") and **every problem
+   Field note and the Field Guide state this); only the choices that are judgments (configuration tables, which features to use, the options and the correct
+   one of a CHOICE stage) are written in the file. A file is read whole: the page shows the server's headline ("The file has N problems.") and **every problem
    under it at once**, one line each with its stage and field ("Stage 2 · maxPoints: must be a number."), with a
    **Try again** button; nothing is saved when there is any, the stages must add up to exactly 100 points, each scoring table to its stage's worth, and the
    fixture's traps must hold (the nearest vehicle is an outlier so k=1 is wrong; greedy search by estimate alone finds a costlier route than A* (Route Planner: A* expands Library, Lab, Dorm, Admin, Garage, Gate 3, cost 15, with no two frontier places ever sharing an f value; greedy pays 47 through the Cafeteria and Gym);
-   estimates never exceed the real cost; the K-Means answer is a clean value; exactly one offered conclusion follows
-   from the rules; the endings contain no number). The file holds no clue: the clue is the room's clue key.
+   estimates never exceed the real cost; the endings contain no number). The file holds no clue: the clue is the room's clue key.
    **Locks**: an import (which replaces everything) is refused once any team has run or saved anything in the room;
    like all content, the mission is read-only after the final opens. Audits name the room and the number of stages,
    never the content.
@@ -646,12 +703,12 @@ result itself, so the team never types a clue answer there.
    round, by another room's team, by a disqualified team, or while the room is closed. Added time extends the round.
    Another team, or a room that does not run the mission, gets "Activity not found." (404), as for an unknown room.
    Refreshing or signing in again resumes from the server: the saved stages and every experiment already run come back.
-5. **Experiments, submitting and the lock (D4).** Stages 1, 3 and 10 have experiments: the team picks a
+5. **Experiments, submitting and the lock (D4).** Stages 1 and 10 have experiments: the team picks a
    configuration and the server returns **that run's result only** (the flagged readings, the accuracies, the
-   retrieved chunks and NOOR's reply), never the table of all of them. Repeating a configuration is free; stage 3
-   allows 4 different configurations and stage 10 allows 3 ("You have used all the experiments of this stage."),
-   enforced by the server under the team lock. Stages 4 to 9 are worked in the browser from the data the server
-   sends. Each stage is **submitted once** after a confirmation and then **locks** and shows only "Saved". Saving
+   retrieved chunks and ECHO's reply), never the table of all of them. Repeating a configuration is free; stage 1 has
+   no limit and stage 10 allows 3 different ones ("You have used all the experiments of this stage."), enforced by the
+   server under the team lock; a CHOICE stage has none ("This stage has no experiments."). Stages 2 and 4 to 9 are
+   worked in the browser from the data the server sends. Each stage is **submitted once** after a confirmation and then **locks** and shows only "Saved". Saving
    uses an Idempotency-Key: a retry with the same key and the same answer returns the same receipt; any other answer
    later is refused ("This stage is already saved."). A malformed answer is refused (400) and locks nothing. An
    unsubmitted stage scores 0.
@@ -695,8 +752,9 @@ result itself, so the team never types a clue answer there.
    - **Import errors** are shown as a list, one line per problem with its place in the file; nothing is changed.
      Import and pass score show why they are locked (rule 19.2, 19.3).
    - **Field Guide** (`/event/room/{id}/mission/guide`): one A4 page of the ideas behind the stages (Z-score, IQR
-     fences, leakage, overfitting, KNN, confusion metrics, K-Means, A* with f = g + h, Naive Bayes, forward chaining,
-     RAG). It is the same for every room, holds no data, answer or score, and prints without the application chrome.
+     fences, leakage, neuron and ReLU, KNN, confusion metrics, genetic algorithm, A* with f = g + h, entropy and
+     information gain, minimax, RAG), in Noor's notes, with the rules written as display formulas (z-score, IQR fences,
+     ReLU, precision and recall, f = g + h, entropy and gain) and the line "You may use paper and a plain calculator." at the top. It is the same for every room, holds no data, answer or score, and prints without the application chrome.
    - **Live results** refresh every 5 seconds while the page is open (the server answers with the same 6 SQL
      statements whatever the number of teams): the pass score (and whether it is locked); per team the points of each
      saved stage, the total out of 100, its **status** (In progress / Passed / Not passed), whether its **clue is

@@ -106,6 +106,7 @@ public class AiRoomActivityService {
     RoundTimer timer = requireAssigned(team, state, room, exceptionThisRound(state, team));
     return AiRoomViews.member(
       new AiRoomViews.MemberData(
+        team.id(),
         room,
         timer,
         clock.now(),

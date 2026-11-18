@@ -25,6 +25,8 @@ public final class StageAnswers {
       case OutlierHunt _ -> pick(body);
       case TuneDeploy _ -> pick(body);
       case RagFix _ -> pick(body);
+      case Choice _ -> option(body);
+      case Input _ -> typed(body);
       case FeatureCheck _ -> features(body);
       case NearestVehicle _ -> neighbours(body);
       case CameraAccuracy _ -> matrix(body);
@@ -38,6 +40,19 @@ public final class StageAnswers {
   private static StageAnswer pick(JsonNode body) {
     only(body, "config");
     return new StageAnswer.Pick(text(body, "config"));
+  }
+
+  /** What was typed, whatever it is: the scoring refuses what cannot be judged, with a message the team can act on. */
+  private static StageAnswer typed(JsonNode body) {
+    only(body, "answer");
+    JsonNode value = body.path("answer");
+    if (!value.isString()) throw bad("Enter your answer.");
+    return new StageAnswer.Typed(value.stringValue());
+  }
+
+  private static StageAnswer option(JsonNode body) {
+    only(body, "option");
+    return new StageAnswer.Option(text(body, "option"));
   }
 
   private static StageAnswer features(JsonNode body) {

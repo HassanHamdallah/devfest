@@ -117,6 +117,9 @@
       @if (stage.saved) {
       <div class="saved" data-stage-saved role="status">
         <p class="saved__mark"><span aria-hidden="true">✓</span> Saved</p>
+        @if (submittedChild(stage.number); as child) {
+        <p class="saved__child" data-submitted-child>Your child: <strong class="event-num">{{ child }}</strong></p>
+        }
         <p class="event-muted">This stage is locked.</p>
         @if (nextOpen(); as next) {
         <ui-button variant="secondary" (click)="pick(next.number)">Go to stage {{ next.number }}: {{ next.title }}</ui-button>
@@ -131,6 +134,16 @@
       }
       @case ("FEATURE_CHECK") {
       <sentinel-stage-features [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("CHOICE") {
+      <sentinel-stage-choice [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
+      @case ("INPUT") {
+      @if (crossover(stage)) {
+      <sentinel-stage-crossover [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      } @else {
+      <sentinel-stage-input [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />
+      }
       }
       @case ("TUNE_DEPLOY") {
       <sentinel-stage-tune [stage]="stage" [roomId]="view.roomId" [readOnly]="readOnly()" (changed)="reload()" />

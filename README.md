@@ -106,7 +106,7 @@ work, but the 80-column terminal scrolls sideways there. Refreshing the page or 
 ### Event: AI mission room, SENTINEL (room manager, before the event)
 
 Rooms with the **AI mission activity** (admin, **Content** page; on by default for the AI room only) give teams the
-SENTINEL mission instead of the answer form: ten stages in three missions (PREDICT, SEE, NOOR), 100 points in all, on
+SENTINEL mission instead of the answer form: ten stages in three missions (PREDICT, SEE, ECHO), 100 points in all, on
 the room's round timer (set the round to 40 minutes). Each stage is submitted once and then locks. Each team is
 evaluated once, when it submits its last stage or when the round ends: a total at or above the room's **pass score**
 records a correct result and gives the team your clue key as the room's clue; otherwise it gets nothing. Teams never
@@ -114,7 +114,7 @@ see a point, a total or the pass score (rules §19).
 
 - On your room board open **SENTINEL page** (`/event/room/{roomId}/mission`). The whole mission is **one JSON file**.
   `docs/ai-room/sentinel-content.json` is the complete, ready-to-use one (it holds no clue: the clue is your room's
-  clue key). **Import a JSON file** asks first ("Import sentinel-content.json (10 stages)"), then replaces the room's
+  clue key; the previous version is kept as `sentinel-content.v1-backup.json`). **Import a JSON file** asks first ("Import sentinel-content.json (10 stages)"), then replaces the room's
   mission; **Export JSON** downloads the same format, e.g. as a backup. The page lists the ten stages and the total
   (100 / 100).
 - A bad file is refused **whole**: the page shows "The file has N problems." and **every problem listed at once under
@@ -123,8 +123,8 @@ see a point, a total or the pass score (rules §19).
   add up to exactly 100 points and the fixture's traps are checked (see below).
 - Set the **Pass score** (0–100 points, default 60) on the SENTINEL page or in the file; it locks when the first team is
   evaluated.
-- **Print Field Guide** opens one A4 page for the room (Z-score and IQR, leakage, overfitting, KNN, confusion metrics,
-  K-Means, A* with f = g + h, Naive Bayes, forward chaining, RAG). It holds no answers; press **Print** or save it as a PDF.
+- **Print Field Guide** opens one A4 page for the room (Z-score and IQR, leakage, neuron and ReLU, KNN, confusion metrics,
+  genetic algorithm, A* with f = g + h, entropy and information gain, minimax, RAG). It holds no answers; press **Print** or save it as a PDF.
 - The room needs a **clue key** and the mission: otherwise the admin board shows a blocking alert and the admin can
   start the round's timer only with **Start anyway**.
 - Once any team has run or saved anything, an import is refused; everything is read-only after the final opens.
