@@ -1,6 +1,7 @@
 package dev.devfest.event.repository;
 
 import dev.devfest.event.domain.AnswerNormalizer;
+import dev.devfest.event.domain.PhoneNumber;
 import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomCode;
 
@@ -21,8 +22,14 @@ public record EventRoomRecord(
   long version,
   boolean terminalEnabled,
   RoomActivity activity,
-  int quizPassScore
+  int quizPassScore,
+  String phoneNumber
 ) {
+  /** The room runs on points and a phone number answer (the Hardware room), and that number can be matched. */
+  public boolean hasPhoneNumber() {
+    return PhoneNumber.isSet(phoneNumber);
+  }
+
   /** The room runs the AI mission (the activity is stored as AI_QUIZ). */
   public boolean hasMission() {
     return activity == RoomActivity.AI_QUIZ;

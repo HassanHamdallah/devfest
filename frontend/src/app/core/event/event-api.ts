@@ -16,6 +16,8 @@ import {
   HintRequest,
   PassphraseRequest,
   ManualScoreView,
+  PointsHistoryEntry,
+  PointsView,
   RankingRow,
   UnlockRequest,
   AdminBoard,
@@ -233,6 +235,20 @@ export class EventApi {
   /** The typed 0-15 score of a team in a room without an automatic score. */
   saveManualScore(roomId: number, teamId: number, score: number) {
     return this.send<ManualScoreView>("PUT", `/rooms/${roomId}/manual-scores/${teamId}`, { score });
+  }
+  /** Adds (positive) or subtracts (negative) whole points in a PHONE_POINTS room; the key makes a repeat harmless. */
+  addPoints(roomId: number, teamId: number, delta: number, key: string) {
+    return this.postIdempotent<PointsView>(`${EVENT}/rooms/${roomId}/points/teams/${teamId}`, { delta }, key);
+  }
+  undoPoints(roomId: number, teamId: number, key: string) {
+    return this.postIdempotent<PointsView>(`${EVENT}/rooms/${roomId}/points/teams/${teamId}/undo`, {}, key);
+  }
+  pointsHistory(roomId: number, teamId: number) {
+    return this.get<PointsHistoryEntry[]>(`/rooms/${roomId}/points/teams/${teamId}/history`);
+  }
+  /** The room's phone number answer; empty clears it. Never audited with its value. */
+  savePhoneNumber(roomId: number, phoneNumber: string) {
+    return this.send<void>("PUT", `/rooms/${roomId}/phone-number`, { phoneNumber });
   }
   saveRoomContent(roomId: number, body: RoomContentRequest) {
     return this.send<RoomContentView>("PUT", `/rooms/${roomId}/content`, body);

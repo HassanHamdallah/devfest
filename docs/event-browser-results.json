@@ -2,15 +2,20 @@
   "config": {
     "argv": [
       "C:\\Program Files\\nodejs\\node.exe",
-      "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
       "-c",
       "playwright.event.config.ts",
+      "event-clues",
+      "event-evidence",
+      "event-scores",
+      "event-overrides",
+      "event-teams",
       "event-contest",
-      "event-scores"
+      "event.spec"
     ],
-    "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
-    "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+    "configFile": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
+    "rootDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -26,7 +31,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
+        "outputDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -34,7 +39,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+        "testDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -53,6 +58,7 @@
           "event-terminal-tools.spec.ts",
           "event-terminal-dashboard.spec.ts",
           "event-contest.spec.ts",
+          "event-hardware.spec.ts",
           "event-final.spec.ts",
           "event-scores.spec.ts",
           "event.spec.ts"
@@ -64,15 +70,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
+        "outputDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
-        "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "testDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "snapshotDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -91,6 +97,7 @@
           "event-terminal-tools.spec.ts",
           "event-terminal-dashboard.spec.ts",
           "event-contest.spec.ts",
+          "event-hardware.spec.ts",
           "event-final.spec.ts",
           "event-scores.spec.ts",
           "event.spec.ts"
@@ -135,6 +142,74 @@
   },
   "suites": [
     {
+      "title": "event-clues.spec.ts",
+      "file": "event-clues.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "clues: a typo in the key is fixed and re-checked; a near miss is accepted",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11190,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the Linux manager saves a key with a typo",
+                      "duration": 1378
+                    },
+                    {
+                      "title": "the right answer is marked Incorrect against the typo",
+                      "duration": 1013
+                    },
+                    {
+                      "title": "the manager fixes the key and the answer is re-checked",
+                      "duration": 391
+                    },
+                    {
+                      "title": "the team sees Correct, updated after review",
+                      "duration": 27
+                    },
+                    {
+                      "title": "the manager accepts another team's near miss",
+                      "duration": 1688
+                    }
+                  ],
+                  "startTime": "2026-11-17T23:11:51.628Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bdd807980bd29ba09b95-81fcc6ee9e013d8e01dd",
+          "file": "event-clues.spec.ts",
+          "line": 53,
+          "column": 5
+        }
+      ]
+    },
+    {
       "title": "event-contest.spec.ts",
       "file": "event-contest.spec.ts",
       "column": 0,
@@ -156,7 +231,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 25177,
+                  "duration": 28465,
                   "errors": [],
                   "stdout": [
                     {
@@ -168,58 +243,58 @@
                   "steps": [
                     {
                       "title": "the admin board warns that the room has no link and no clue key",
-                      "duration": 18
+                      "duration": 23
                     },
                     {
                       "title": "the manager sets the clue key and the contest link",
-                      "duration": 1662
+                      "duration": 1729
                     },
                     {
                       "title": "the admin starts round 1: only the assigned teams see the link",
-                      "duration": 4538
+                      "duration": 4287
                     },
                     {
                       "title": "a paused timer hides the link and says the contest is paused",
-                      "duration": 176
+                      "duration": 169
                     },
                     {
                       "title": "the manager enters the results of four teams from the standings",
-                      "duration": 1140
+                      "duration": 1068
                     },
                     {
                       "title": "points, bonus, total and eligibility are worked out and sorted by total",
-                      "duration": 394
+                      "duration": 354
                     },
                     {
                       "title": "the page picks up a change made elsewhere by itself",
-                      "duration": 3640
+                      "duration": 4159
                     },
                     {
                       "title": "Export CSV downloads the table",
-                      "duration": 305
+                      "duration": 419
                     },
                     {
                       "title": "Reveal to all eligible releases the clue to round 1's three eligible teams",
-                      "duration": 246
+                      "duration": 220
                     },
                     {
                       "title": "eligible teams see Clue unlocked with the clue; the other team does not",
-                      "duration": 429
+                      "duration": 430
                     },
                     {
                       "title": "a refresh keeps every state",
-                      "duration": 2315
+                      "duration": 2289
                     },
                     {
                       "title": "editing results later never changes a clue; the page warns about a released team that no longer qualifies",
-                      "duration": 224
+                      "duration": 219
                     },
                     {
                       "title": "after the admin ends the round no team has a link, only the review line or the released clue",
-                      "duration": 114
+                      "duration": 98
                     }
                   ],
-                  "startTime": "2026-11-17T22:38:37.657Z",
+                  "startTime": "2026-11-17T23:12:03.072Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -230,6 +305,158 @@
           "id": "955741a00d21b4e1c321-c182e13d2af5c5d8a5a0",
           "file": "event-contest.spec.ts",
           "line": 47,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-evidence.spec.ts",
+      "file": "event-evidence.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "evidence: finished rooms show the answer and the masked clue; the final lists the collected clues",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 27170,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "while the round runs there is no Evidence card",
+                      "duration": 231
+                    },
+                    {
+                      "title": "the admin ends the round: the AI evidence appears with the clue masked",
+                      "duration": 219
+                    },
+                    {
+                      "title": "Copy copies the clue without revealing it",
+                      "duration": 38
+                    },
+                    {
+                      "title": "the eye shows the clue, and it hides itself again after 15 s",
+                      "duration": 15342
+                    },
+                    {
+                      "title": "an incorrect room shows Clue not collected",
+                      "duration": 224
+                    },
+                    {
+                      "title": "in the final, Room clues lists the collected clues masked",
+                      "duration": 727
+                    }
+                  ],
+                  "startTime": "2026-11-17T23:12:31.575Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7327be9bd6c12184307c-8e1e2ff519a8c650e32a",
+          "file": "event-evidence.spec.ts",
+          "line": 55,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event-overrides.spec.ts",
+      "file": "event-overrides.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "overrides: swap, room exception, manual clue, disqualify, snapshot, team reset and event reset",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14021,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "admin swaps two teams after the preview",
+                      "duration": 490
+                    },
+                    {
+                      "title": "admin sends Team 02 to the Linux room for this round",
+                      "duration": 491
+                    },
+                    {
+                      "title": "Team 02 sees where it goes this round",
+                      "duration": 758
+                    },
+                    {
+                      "title": "admin grants a manual clue",
+                      "duration": 397
+                    },
+                    {
+                      "title": "admin disqualifies and reinstates a team",
+                      "duration": 656
+                    },
+                    {
+                      "title": "admin takes a snapshot and downloads it",
+                      "duration": 394
+                    },
+                    {
+                      "title": "admin resets Team 02; its device is signed out",
+                      "duration": 445
+                    },
+                    {
+                      "title": "admin resets the whole event with RESET and the password",
+                      "duration": 855
+                    }
+                  ],
+                  "startTime": "2026-11-17T23:12:58.774Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a9c0381474e9a4f90e1d-fd6fd7d58f5edd90b63d",
+          "file": "event-overrides.spec.ts",
+          "line": 130,
           "column": 5
         }
       ]
@@ -256,7 +483,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 16090,
+                  "duration": 15734,
                   "errors": [],
                   "stdout": [
                     {
@@ -268,15 +495,15 @@
                   "steps": [
                     {
                       "title": "the manager types the room score; the admin scoreboard follows",
-                      "duration": 1105
+                      "duration": 1068
                     },
                     {
                       "title": "Hint given (-2): the card says Hints: 1 of 2 and the total drops by 2",
-                      "duration": 250
+                      "duration": 248
                     },
                     {
                       "title": "Cheating (-7.5) needs a confirmation and a reason; the total drops by 7.5",
-                      "duration": 272
+                      "duration": 209
                     },
                     {
                       "title": "the team sees only Hints used: 1 of 2, never the cheating record, a deduction or a score",
@@ -284,30 +511,30 @@
                     },
                     {
                       "title": "cancelling the hint and then the cheating restores the points",
-                      "duration": 305
+                      "duration": 352
                     },
                     {
                       "title": "a team has two hints in total; the third is refused",
-                      "duration": 269
+                      "duration": 264
                     },
                     {
                       "title": "the admin scoreboard, final table and penalty log show it all",
-                      "duration": 734
+                      "duration": 733
                     },
                     {
                       "title": "the admin gives a hint to any team in any room from the team panel",
-                      "duration": 456
+                      "duration": 469
                     },
                     {
                       "title": "the CSV download follows the scoreboard",
-                      "duration": 213
+                      "duration": 169
                     },
                     {
                       "title": "after publication the team's ranking shows scores but no deduction or cheating",
-                      "duration": 377
+                      "duration": 343
                     }
                   ],
-                  "startTime": "2026-11-17T22:39:04.352Z",
+                  "startTime": "2026-11-17T23:13:12.827Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -336,12 +563,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "failed",
-                  "duration": 24222,
+                  "duration": 22124,
                   "error": {
                     "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n",
-                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5",
                     "location": {
-                      "file": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
+                      "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
                       "column": 68,
                       "line": 226
                     },
@@ -350,11 +577,11 @@
                   "errors": [
                     {
                       "location": {
-                        "file": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
+                        "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
                         "column": 68,
                         "line": 226
                       },
-                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n\n  224 |       await expect(section.locator(\"[data-final-imported]\")).toBeVisible();\n  225 |       await expect(section).toContainText(\"Imported\");\n> 226 |       await expect(section.locator(\"[data-final-content-counts]\")).toHaveText(\"Format 2 · 4 clues · 12 suspects\");\n      |                                                                    ^\n  227 |       await expect(section.locator(\"[data-recovery-placeholder]\")).toHaveCount(0);\n  228 |       await admin.page.goto(\"/event/admin\");\n  229 |       await expect(admin.page.getByRole(\"heading\", { name: \"Alerts\", exact: true })).toBeVisible();\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5"
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n\n  224 |       await expect(section.locator(\"[data-final-imported]\")).toBeVisible();\n  225 |       await expect(section).toContainText(\"Imported\");\n> 226 |       await expect(section.locator(\"[data-final-content-counts]\")).toHaveText(\"Format 2 · 4 clues · 12 suspects\");\n      |                                                                    ^\n  227 |       await expect(section.locator(\"[data-recovery-placeholder]\")).toHaveCount(0);\n  228 |       await admin.page.goto(\"/event/admin\");\n  229 |       await expect(admin.page.getByRole(\"heading\", { name: \"Alerts\", exact: true })).toBeVisible();\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5"
                     }
                   ],
                   "stdout": [
@@ -367,16 +594,16 @@
                   "steps": [
                     {
                       "title": "a broken file is refused whole, with every problem listed",
-                      "duration": 102
+                      "duration": 105
                     },
                     {
                       "title": "the shipped file imports, and no placeholder Recovery Challenge is flagged",
-                      "duration": 15147,
+                      "duration": 15123,
                       "error": {
                         "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  locator('[data-final-content]').locator('[data-final-content-counts]')\nExpected: \u001b[32m\"Format 2 · 4 clues · \u001b[7m1\u001b[27m2 suspects\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m \u001b[27mFormat 2 · 4 clues · 2\u001b[7m0\u001b[27m suspects\u001b[7m \u001b[27m\"\u001b[39m\nTimeout:  15000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" locator('[data-final-content]').locator('[data-final-content-counts]') with timeout 15000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-final-content]').locator('[data-final-content-counts]')\u001b[22m\n\u001b[2m    33 × locator resolved to <p _ngcontent-ng-c2130827748=\"\" data-final-content-counts=\"\"> Format 2 · 4 clues · 20 suspects </p>\u001b[22m\n\u001b[2m       - unexpected value \" Format 2 · 4 clues · 20 suspects \"\u001b[22m\n\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:226:68\n    at c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts:221:5",
                         "location": {
-                          "file": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
+                          "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
                           "column": 68,
                           "line": 226
                         },
@@ -384,22 +611,22 @@
                       }
                     }
                   ],
-                  "startTime": "2026-11-17T22:39:20.462Z",
+                  "startTime": "2026-11-17T23:13:28.583Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "error-context",
                       "contentType": "text/markdown",
-                      "path": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-scores-scores-the-ad-9bd13-ontrols-the-one-final-timer\\error-context.md"
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-scores-scores-the-ad-9bd13-ontrols-the-one-final-timer\\error-context.md"
                     },
                     {
                       "name": "trace",
                       "contentType": "application/zip",
-                      "path": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-scores-scores-the-ad-9bd13-ontrols-the-one-final-timer\\trace.zip"
+                      "path": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results\\event-scores-scores-the-ad-9bd13-ontrols-the-one-final-timer\\trace.zip"
                     }
                   ],
                   "errorLocation": {
-                    "file": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
+                    "file": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e\\event-scores.spec.ts",
                     "column": 68,
                     "line": 226
                   }
@@ -414,13 +641,205 @@
           "column": 5
         }
       ]
+    },
+    {
+      "title": "event-teams.spec.ts",
+      "file": "event-teams.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "teams: planned count, generated sign-ins, one device per team and organizer sign-out",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10835,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "admin sets the planned team count",
+                      "duration": 452
+                    },
+                    {
+                      "title": "admin generates two teams and sees the one-time sign-ins",
+                      "duration": 920
+                    },
+                    {
+                      "title": "the team signs in on device A",
+                      "duration": 745
+                    },
+                    {
+                      "title": "signing in on device B sends device A to the login page",
+                      "duration": 735
+                    },
+                    {
+                      "title": "admin sees the team signed in and signs it out",
+                      "duration": 665
+                    },
+                    {
+                      "title": "device B is sent to the login page with the organizer message",
+                      "duration": 11
+                    }
+                  ],
+                  "startTime": "2026-11-17T23:13:51.793Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "21e4fe48a1ebb93cd219-8930282f2a80e68703d0",
+          "file": "event-teams.spec.ts",
+          "line": 95,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event.spec.ts",
+      "file": "event.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "event: rounds, room clues, judging, hint, recovery, the case, ranking and publication",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 80019,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "AI manager sets the room's clue key on the board",
+                      "duration": 1061
+                    },
+                    {
+                      "title": "the other managers set their keys; the admin imports the final content",
+                      "duration": 864
+                    },
+                    {
+                      "title": "admin moves to round 1 (assigned) and opens the AI room",
+                      "duration": 1224
+                    },
+                    {
+                      "title": "team is sent to the AI room; the form waits for the timer",
+                      "duration": 783
+                    },
+                    {
+                      "title": "AI manager confirms all teams are here",
+                      "duration": 307
+                    },
+                    {
+                      "title": "admin starts the timer although 3 rooms are not ready",
+                      "duration": 378
+                    },
+                    {
+                      "title": "team submits a wrong, then the correct AI clue",
+                      "duration": 345
+                    },
+                    {
+                      "title": "admin pauses; the team sees the round is paused",
+                      "duration": 107
+                    },
+                    {
+                      "title": "admin adds a minute and resumes",
+                      "duration": 217
+                    },
+                    {
+                      "title": "AI manager passes the team and gives a hint",
+                      "duration": 783
+                    },
+                    {
+                      "title": "admin ends the round; the team sees time is up",
+                      "duration": 344
+                    },
+                    {
+                      "title": "helper plays rounds 2-3 and finishes the rooms",
+                      "duration": 318
+                    },
+                    {
+                      "title": "team home shows three collected clues",
+                      "duration": 234
+                    },
+                    {
+                      "title": "admin opens the final",
+                      "duration": 742
+                    },
+                    {
+                      "title": "team recovers the missing Hardware clue",
+                      "duration": 672
+                    },
+                    {
+                      "title": "team plays the case to the end",
+                      "duration": 60963
+                    },
+                    {
+                      "title": "admin sees Team 01 first and publishes",
+                      "duration": 886
+                    },
+                    {
+                      "title": "team opens the published ranking",
+                      "duration": 451
+                    }
+                  ],
+                  "startTime": "2026-11-17T23:14:02.941Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "60714f07d4d913a19ac4-114e08b69a35571183e3",
+          "file": "event.spec.ts",
+          "line": 252,
+          "column": 5
+        }
+      ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-17T22:38:37.158Z",
-    "duration": 68040.46100000001,
-    "expected": 2,
+    "startTime": "2026-11-17T23:11:50.931Z",
+    "duration": 212432.394,
+    "expected": 7,
     "skipped": 0,
     "unexpected": 1,
     "flaky": 0

@@ -13,6 +13,8 @@ import java.util.UUID;
  * and cancelled, newest first); {@code hintsUsed} counts its active hints across all four rooms (of {@code hintsAllowed});
  * {@code roomHints} and {@code cheating} are the active deductions in this room. {@code manualScore} is the typed room
  * score (0..15) of a room without an automatic score, null while none is entered or when the room scores itself.
+ * {@code pointsTotal} (0..100), {@code pointsScore} (x 0.15, out of 15) and {@code undoDelta} (the change "Undo last"
+ * would reverse) belong to a points-and-phone room's ledger and are null in every other room.
  */
 public record RoomTeamRow(
   long teamId,
@@ -31,7 +33,10 @@ public record RoomTeamRow(
   int hintsUsed,
   int hintsAllowed,
   boolean cheating,
-  BigDecimal manualScore
+  BigDecimal manualScore,
+  Integer pointsTotal,
+  BigDecimal pointsScore,
+  Integer undoDelta
 ) {
   /**
    * The latest submission with its clue verdict: {@code clueCorrect} at submission time, {@code autoCorrect}

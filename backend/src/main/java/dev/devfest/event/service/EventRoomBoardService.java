@@ -11,6 +11,8 @@ import dev.devfest.event.domain.JudgeStatus;
 import dev.devfest.event.domain.DeductionKind;
 import dev.devfest.event.domain.Rotation;
 import dev.devfest.event.dto.RoomArrivalView;
+import dev.devfest.event.domain.RoomActivity;
+import dev.devfest.event.dto.PointsView;
 import dev.devfest.event.dto.RoomBoard;
 import dev.devfest.event.dto.RoomBoard.RoomCounters;
 import dev.devfest.event.dto.RoomBoard.RoomDetail;
@@ -24,6 +26,8 @@ import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.DeductionRecord;
 import dev.devfest.event.repository.DeductionRepository;
 import dev.devfest.event.repository.ManualScoreRepository;
+import dev.devfest.event.repository.PointsEntryRecord;
+import dev.devfest.event.repository.RoomPointsRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
 import dev.devfest.event.repository.TeamRoomExceptionRepository;
 import dev.devfest.event.repository.RoomSubmissionRecord;
@@ -46,6 +50,7 @@ public class EventRoomBoardService {
   private final EventBoardRepository boards;
   private final DeductionRepository deductions;
   private final ManualScoreRepository manualScores;
+  private final RoomPointsRepository roomPoints;
   private final RoomArrivalRepository arrivals;
   private final TeamRoomExceptionRepository exceptions;
   private final EventClock clock;
@@ -56,6 +61,7 @@ public class EventRoomBoardService {
     EventBoardRepository boards,
     DeductionRepository deductions,
     ManualScoreRepository manualScores,
+    RoomPointsRepository roomPoints,
     RoomArrivalRepository arrivals,
     TeamRoomExceptionRepository exceptions,
     EventClock clock
@@ -65,6 +71,7 @@ public class EventRoomBoardService {
     this.boards = boards;
     this.deductions = deductions;
     this.manualScores = manualScores;
+    this.roomPoints = roomPoints;
     this.arrivals = arrivals;
     this.exceptions = exceptions;
     this.clock = clock;
@@ -86,6 +93,7 @@ public class EventRoomBoardService {
       .collect(groupingBy(DeductionRecord::teamId));
     Map<Long, Integer> hintsUsed = deductions.activeHintsByTeam();
     Map<Long, BigDecimal> manual = room.activity() == null ? manualScores.forRoom(roomId) : Map.of();
+    Map<Long, List<PointsEntryRecord>> ledger = room.activity() == RoomActivity.PHONE_POINTS ? roomPoints.forRoom(roomId) : Map.of();
     Optional<GroupCode> scheduledGroup = Rotation.groupIn(room.position(), state.currentRound());
     Map<Long, RoomCode> roundExceptions = Rotation.isRunningRound(state.currentRound())
       ? exceptions.findForRound(state.currentRound())
@@ -101,6 +109,7 @@ public class EventRoomBoardService {
           deductionsByTeam.getOrDefault(team.teamId(), List.of()),
           hintsUsed.getOrDefault(team.teamId(), 0),
           manual.get(team.teamId()),
+          room.activity() == RoomActivity.PHONE_POINTS ? RoomPointsService.view(team.teamId(), roomId, ledger.getOrDefault(team.teamId(), List.of())) : null,
           roundExceptions.get(team.teamId())
         )
       )
@@ -135,7 +144,9 @@ public class EventRoomBoardService {
       ClueCheck.hasKey(room.clueKey()),
       room.terminalEnabled(),
       room.activity(),
-      room.activity() == null
+      room.activity() == null,
+      room.activity() == RoomActivity.PHONE_POINTS ? room.phoneNumber() : "",
+      room.activity() == RoomActivity.PHONE_POINTS && room.hasPhoneNumber()
     );
   }
 
@@ -146,6 +157,7 @@ public class EventRoomBoardService {
     List<DeductionRecord> teamDeductions,
     int hintsUsed,
     BigDecimal manualScore,
+    PointsView points,
     RoomCode exception
   ) {
     int scheduledRound = Rotation.roundFor(team.groupCode().index(), room.position());
@@ -165,7 +177,10 @@ public class EventRoomBoardService {
       hintsUsed,
       DeductionKind.MAX_HINTS_PER_TEAM,
       teamDeductions.stream().anyMatch(d -> !d.cancelled() && d.kind() == DeductionKind.CHEATING),
-      manualScore
+      manualScore,
+      points == null ? null : points.total(),
+      points == null ? null : points.score(),
+      points == null ? null : points.undoDelta()
     );
   }
 

@@ -29,17 +29,21 @@ import { UiInput } from "../../../shared/ui/ui-input/ui-input";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { UiTextarea } from "../../../shared/ui/ui-textarea/ui-textarea";
 import { EventAttemptStatus } from "./attempt-status";
+import { EventMaskedClue } from "./masked-clue";
 import { PendingAttempt } from "./pending-attempt";
 import { submissionAvailability } from "./submission-availability";
 
 const TECHNICAL_OUTPUT_MAX = 4000;
 const CLUE_ANSWER_MAX = 500;
+/** What a phone number room keeps as the technical output: the team types the number only. */
+const PHONE_ANSWER = "Phone number answer";
 
 /** The answer form for the team's current open room, its receipt, and "Retry" for an unconfirmed answer. */
 @Component({
   selector: "event-room-submission-panel",
   imports: [
     EventAttemptStatus,
+    EventMaskedClue,
     FormsModule,
     UiAlert,
     UiButton,
@@ -78,6 +82,14 @@ export class EventRoomSubmissionPanel {
   protected readonly availability = computed(() =>
     submissionAvailability(this.board(), this.phase()),
   );
+  /** The Hardware room: one field, the phone number; a correct one gives the room's Retrieved key at once. */
+  protected readonly phoneRoom = computed(() => this.board().scheduledRoom?.activity === "PHONE_POINTS");
+  /** The room's key as the team retrieved it (only after a correct number), or null. */
+  protected readonly retrievedKey = computed(() => {
+    const room = this.board().scheduledRoom;
+    if (!room || room.activity !== "PHONE_POINTS") return null;
+    return this.board().evidence.find((item) => item.roomCode === room.code)?.clueValue ?? null;
+  });
   private readonly openRoomId = computed(() => {
     const availability = this.availability();
     return availability.open ? availability.room.roomId : null;
@@ -125,11 +137,12 @@ export class EventRoomSubmissionPanel {
 
   protected async submit(): Promise<void> {
     const roomId = this.openRoomId();
+    const phone = this.phoneRoom();
     const body: RoomSubmissionRequest = {
-      technicalOutput: this.technicalOutput().trim(),
+      technicalOutput: phone ? PHONE_ANSWER : this.technicalOutput().trim(),
       clueAnswer: this.clueAnswer().trim(),
     };
-    const problem = validate(body);
+    const problem = phone ? validatePhone(body) : validate(body);
     this.validationError.set(problem);
     if (roomId === null || problem) return;
     const receipt = await this.attempt.submit(roomSubmissionPath(roomId), body);
@@ -152,6 +165,12 @@ export class EventRoomSubmissionPanel {
     this.technicalOutput.set("");
     this.clueAnswer.set("");
   }
+}
+
+function validatePhone(body: RoomSubmissionRequest): string | null {
+  if (!body.clueAnswer) return "Enter the phone number.";
+  if (body.clueAnswer.length > CLUE_ANSWER_MAX) return `The phone number is too long (max ${CLUE_ANSWER_MAX} characters).`;
+  return null;
 }
 
 function validate(body: RoomSubmissionRequest): string | null {

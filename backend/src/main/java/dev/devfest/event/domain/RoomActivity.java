@@ -10,7 +10,12 @@ package dev.devfest.event.domain;
 public enum RoomActivity {
   AI_QUIZ,
   LINUX_TERMINAL,
-  CONTEST_RESULTS;
+  CONTEST_RESULTS,
+  /**
+   * The Hardware room: the manager adds points out of 100 step by step (a ledger, score = total x 0.15) and teams answer
+   * with the room's phone number, which releases the room's key automatically (rules §21).
+   */
+  PHONE_POINTS;
 
   /** The stored column value; null means no activity. */
   public static RoomActivity fromStored(String value) {

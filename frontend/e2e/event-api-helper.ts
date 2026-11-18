@@ -180,7 +180,7 @@ export class EventAdminShortcuts {
   }
 
   /** The room's team activity; null gives the room the plain answer form (technical output + clue). */
-  async setRoomActivity(code: RoomCode, activity: "AI_QUIZ" | "LINUX_TERMINAL" | "CONTEST_RESULTS" | null) {
+  async setRoomActivity(code: RoomCode, activity: "AI_QUIZ" | "LINUX_TERMINAL" | "CONTEST_RESULTS" | "PHONE_POINTS" | null) {
     await this.admin.send("PUT", `/event/admin/rooms/${await this.roomId(code)}/activity`, { activity });
   }
 

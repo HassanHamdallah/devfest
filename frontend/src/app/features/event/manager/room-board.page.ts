@@ -28,6 +28,7 @@ import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "./board-loader";
 import { EventArrivalCard } from "./arrival-card";
 import { EventClueKeyCard } from "./clue-key-card";
+import { EventPhoneNumberCard } from "./phone-number-card";
 import { EventRefreshError } from "./refresh-error";
 import { EventRoomTeamRow } from "./room-team-row";
 import { EventTerminalFilesCard } from "./terminal-files-card";
@@ -46,6 +47,7 @@ import {
   imports: [
     EventArrivalCard,
     EventClueKeyCard,
+    EventPhoneNumberCard,
     EventRefreshError,
     EventRoomTeamRow,
     EventTerminalFilesCard,

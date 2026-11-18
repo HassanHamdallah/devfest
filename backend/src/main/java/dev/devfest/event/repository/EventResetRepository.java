@@ -33,6 +33,7 @@ public class EventResetRepository {
     "DELETE FROM room_judgement_history WHERE %s",
     "DELETE FROM room_judgement WHERE %s",
     "DELETE FROM score_deduction WHERE %s",
+    "DELETE FROM room_points_entry WHERE %s",
     "DELETE FROM room_manual_score WHERE %s",
     "DELETE FROM team_room_exception WHERE %s"
   );

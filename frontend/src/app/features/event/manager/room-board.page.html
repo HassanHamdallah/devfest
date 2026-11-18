@@ -78,6 +78,7 @@
       [row]="row"
       [contentEditable]="view.room.contentEditable"
       [manualScoring]="view.room.manualScoring"
+      [pointsLedger]="view.room.activity === 'PHONE_POINTS'"
       [expanded]="expanded().has(row.teamId)"
       (toggled)="toggle(row)"
       (changed)="reload()"
@@ -99,6 +100,9 @@
   <event-arrival-card [board]="view" (changed)="reload()" />
   }
   <event-clue-key-card [room]="view.room" (changed)="reload()" />
+  @if (view.room.activity === "PHONE_POINTS") {
+  <event-phone-number-card [room]="view.room" (changed)="reload()" />
+  }
   @if (view.room.terminalEnabled) {
   <event-terminal-files-card [room]="view.room" [revision]="view.revision" />
   }
@@ -110,6 +114,13 @@
     <p class="event-muted how__text">
       Teams in this room fill in a six-field form. Set the answer keys and follow every team's answers and score out of
       15 on the organizer dashboard.
+    </p>
+    }
+    @case ("PHONE_POINTS") {
+    <p class="event-muted how__text">
+      Teams answer with the phone number you set above; a correct number gives them the room's Retrieved key
+      automatically. Add or subtract whole points for each team (out of 100) on its card; the room score is the total
+      x 0.15, out of 15.
     </p>
     }
     @case ("CONTEST_RESULTS") {

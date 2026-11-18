@@ -22,5 +22,6 @@ public record AdminRoomStatsRecord(
   int failed,
   int pending,
   RoomActivity activity,
-  boolean hasContestLink
+  boolean hasContestLink,
+  boolean hasPhoneNumber
 ) {}

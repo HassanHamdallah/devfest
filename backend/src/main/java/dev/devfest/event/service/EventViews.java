@@ -1,5 +1,6 @@
 package dev.devfest.event.service;
 
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.EvidenceVisibility;
 import dev.devfest.event.domain.GroupCapacity;
 import dev.devfest.event.domain.RoomCode;
@@ -75,7 +76,7 @@ public final class EventViews {
           return new RoomEvidence(room.code(), room.name(), room.activity(), false, null, null, null, room.clueCollected(), null, false);
         }
         // An activity's stored result says nothing the team may see beyond the clue (rules §19.7).
-        boolean plain = room.activity() == null;
+        boolean plain = room.activity() == null || room.activity() == RoomActivity.PHONE_POINTS;
         return new RoomEvidence(
           room.code(),
           room.name(),

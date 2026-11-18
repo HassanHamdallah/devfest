@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { RoomEvidence } from "../../../core/event/event-models";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { EventMaskedClue } from "./masked-clue";
@@ -57,6 +57,18 @@ import { EventMaskedClue } from "./masked-clue";
             <span class="event-muted">Not submitted</span>
           }
         </dd>
+      } @else if (evidence().activity === "PHONE_POINTS") {
+        <dt>Your phone number answer</dt>
+        <dd class="event-inline" data-phone-outcome>
+          @if (evidence().clueAnswer === null) {
+            <span class="event-muted">No answer submitted</span>
+          } @else {
+            <span class="answer">{{ evidence().clueAnswer }}</span>
+            <ui-status-chip [variant]="evidence().clueCorrect ? 'success' : 'danger'">{{
+              evidence().clueCorrect ? "Correct" : "That number is not correct."
+            }}</ui-status-chip>
+          }
+        </dd>
       } @else if (evidence().activity === "CONTEST_RESULTS") {
         <dt>Problem Solving contest</dt>
         <dd data-contest-outcome>
@@ -91,12 +103,12 @@ import { EventMaskedClue } from "./masked-clue";
           }}</ui-status-chip>
         </dd>
       }
-      <dt>Room clue</dt>
+      <dt>{{ retrievedKeyRoom() ? "Retrieved key" : "Room clue" }}</dt>
       <dd>
         @if (evidence().clueValue; as clue) {
           <event-masked-clue [value]="clue" />
         } @else {
-          <ui-status-chip variant="neutral">Clue not collected</ui-status-chip>
+          <ui-status-chip variant="neutral">{{ retrievedKeyRoom() ? "Retrieved key not collected" : "Clue not collected" }}</ui-status-chip>
           @if (recoverable()) {
             <p class="event-muted">You may recover it in the final.</p>
           }
@@ -108,4 +120,7 @@ export class EventTeamEvidenceCard {
   readonly evidence = input.required<RoomEvidence>();
   /** True when this is the one missing clue a team with 3 clues can still win back in the final. */
   readonly recoverable = input(false);
+
+  /** The Hardware room calls its key the "Retrieved key". */
+  protected readonly retrievedKeyRoom = computed(() => this.evidence().activity === "PHONE_POINTS");
 }

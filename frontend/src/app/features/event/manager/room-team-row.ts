@@ -12,6 +12,7 @@ import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 import { EventJudgementControls } from "./judgement-controls";
 import { EventDeductionItem } from "./deduction-item";
 import { EventManualScore } from "./manual-score";
+import { EventPointsLedger } from "./points-ledger";
 import { EventTeamDeductions } from "./team-deductions";
 import { EventTeamSubmission } from "./team-submission";
 
@@ -30,6 +31,7 @@ const PREVIEW_CHARACTERS = 90;
     EventDeductionItem,
     EventJudgementControls,
     EventManualScore,
+    EventPointsLedger,
     EventTeamDeductions,
     EventTeamSubmission,
     NavIcon,
@@ -52,6 +54,8 @@ export class EventRoomTeamRow {
   readonly contentEditable = input.required<boolean>();
   /** The room has no automatic score: its manager types one for each team. */
   readonly manualScoring = input(false);
+  /** The room runs on a points ledger (the Hardware room): the card shows the total, Add / Subtract and Undo last. */
+  readonly pointsLedger = input(false);
   readonly expanded = input(false);
   /** Any write in this row finished; the page reloads its board. */
   readonly changed = output<void>();

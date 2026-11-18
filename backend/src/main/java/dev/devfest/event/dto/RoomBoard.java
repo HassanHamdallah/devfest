@@ -28,7 +28,10 @@ public record RoomBoard(
     boolean clueKeySet,
     boolean terminalEnabled,
     RoomActivity activity,
-    boolean manualScoring
+    boolean manualScoring,
+    /** The room's phone number answer, for its manager and the admin only (empty outside a points-and-phone room). */
+    String phoneNumber,
+    boolean phoneNumberSet
   ) {}
 
   public record RoomCounters(int inRoomNow, int pending, int passed, int failed) {}

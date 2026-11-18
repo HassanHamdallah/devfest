@@ -37,6 +37,7 @@ erDiagram
   event_team ||--o{ score_deduction : receives
   event_room ||--o{ score_deduction : "room of the deduction"
   event_team ||--o{ room_manual_score : "typed score"
+  event_team ||--o{ room_points_entry : "points ledger (Hardware, V25)"
   event_team ||--o{ recovery_attempt : attempts
   event_team ||--o{ final_unlock_attempt : "unlock tries"
   event_team ||--o{ final_clue_attempt : "passphrase tries"
