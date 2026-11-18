@@ -2,6 +2,8 @@ package dev.devfest.event.service;
 
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
+import dev.devfest.event.domain.sentinel.ChoiceOrder;
+import dev.devfest.event.domain.sentinel.InputAnswers;
 import dev.devfest.event.domain.sentinel.NaiveBayes;
 import dev.devfest.event.domain.sentinel.SentinelContent;
 import dev.devfest.event.domain.sentinel.SentinelContent.*;
@@ -32,6 +34,7 @@ final class AiRoomViews {
 
   /** Everything the view is built from, read by the activity service. */
   record MemberData(
+    long teamId,
     EventRoomRecord room,
     RoundTimer timer,
     Instant now,
@@ -57,7 +60,7 @@ final class AiRoomViews {
       content == null ? "" : content.story().start(),
       SentinelContent.STAGE_COUNT,
       saved.size(),
-      content != null && playing ? missions(content, data.runs(), saved, json) : List.of(),
+      content != null && playing ? missions(content, data.teamId(), data.runs(), saved, json) : List.of(),
       data.evaluation().map(evaluation -> result(evaluation, data.room(), content)).orElse(null)
     );
   }
@@ -70,17 +73,17 @@ final class AiRoomViews {
     return new Result(false, null, content == null ? "" : content.story().failed());
   }
 
-  private static List<AiRoomActivityView.Mission> missions(SentinelContent content, List<SentinelWorkRepository.Run> runs, Set<Integer> saved, ObjectMapper json) {
+  private static List<AiRoomActivityView.Mission> missions(SentinelContent content, long teamId, List<SentinelWorkRepository.Run> runs, Set<Integer> saved, ObjectMapper json) {
     List<AiRoomActivityView.Mission> missions = new ArrayList<>();
     for (Mission mission : content.missions()) {
       List<AiRoomActivityView.Stage> stages = new ArrayList<>();
-      for (Stage stage : mission.stages()) stages.add(stage(stage, runs, saved.contains(stage.number()), json));
+      for (Stage stage : mission.stages()) stages.add(stage(stage, teamId, runs, saved.contains(stage.number()), json));
       missions.add(new AiRoomActivityView.Mission(mission.id(), mission.title(), mission.intro(), stages));
     }
     return missions;
   }
 
-  private static AiRoomActivityView.Stage stage(Stage stage, List<SentinelWorkRepository.Run> runs, boolean saved, ObjectMapper json) {
+  private static AiRoomActivityView.Stage stage(Stage stage, long teamId, List<SentinelWorkRepository.Run> runs, boolean saved, ObjectMapper json) {
     Head head = stage.head();
     String type = SentinelContentRules.kind(stage);
     if (saved) return new AiRoomActivityView.Stage(head.number(), type, head.title(), null, null, true, null, List.of(), null);
@@ -90,15 +93,18 @@ final class AiRoomViews {
       .map(run -> new AiRoomActivityView.Run(run.config(), tree(json, run.resultJson())))
       .toList();
     Integer runsLeft = SentinelRuns.hasRuns(stage) && SentinelRuns.budget(stage) != SentinelRuns.UNLIMITED ? SentinelRuns.budget(stage) - own.size() : null;
-    return new AiRoomActivityView.Stage(head.number(), type, head.title(), head.fieldNote(), head.brief(), false, data(stage), own, runsLeft);
+    return new AiRoomActivityView.Stage(head.number(), type, head.title(), head.fieldNote(), head.brief(), false, data(stage, teamId), own, runsLeft);
   }
 
   static JsonNode tree(ObjectMapper json, String text) {
     return json.readTree(text);
   }
 
-  /** What each stage draws. Hand-written for every kind: nothing is copied wholesale from the content. */
-  static Map<String, Object> data(Stage stage) {
+  /**
+   * What each stage draws. Hand-written for every kind: nothing is copied wholesale from the content. A multiple
+   * choice stage lists its options in this team's own order and never says which one is correct.
+   */
+  static Map<String, Object> data(Stage stage, long teamId) {
     Map<String, Object> data = new LinkedHashMap<>();
     switch (stage) {
       case OutlierHunt s -> {
@@ -148,6 +154,16 @@ final class AiRoomViews {
         data.put("rules", s.rules());
         data.put("conclusions", s.conclusions());
       }
+      case Choice s -> {
+        data.put("options", ChoiceOrder.shuffled(s.options(), teamId, s.number()).stream().map(o -> mapOf("id", o.id(), "text", o.text())).toList());
+        if (s.figure() != null) data.put("figure", figure(s.figure()));
+      }
+      case Input s -> {
+        // Only how to type it and the drawing: never the accepted values, the number or the tolerance.
+        data.put("inputKind", s.answer() instanceof NumberAnswer ? "NUMBER" : "TEXT");
+        data.put("maxLength", InputAnswers.MAX_LENGTH);
+        if (s.figure() != null) data.put("figure", figure(s.figure()));
+      }
       case RagFix s -> {
         data.put("question", s.question());
         data.put("chunkSizes", s.chunkSizes());
@@ -157,6 +173,22 @@ final class AiRoomViews {
       }
     }
     return data;
+  }
+
+  /** A figure as the screen draws it: the question's own data, written field by field (there is no answer to leave out). */
+  static Map<String, Object> figure(Figure figure) {
+    return switch (figure) {
+      case NeuronFigure f -> mapOf("type", "neuron", "inputs", f.inputs().stream().map(i -> mapOf("label", i.label(), "value", i.value())).toList(), "weights", f.weights(), "bias", f.bias());
+      case CrossoverFigure f -> mapOf("type", "crossover", "parentA", f.parentA(), "parentB", f.parentB(), "cut", f.cut(), "mutate", f.mutate());
+      case SplitFigure f -> mapOf(
+        "type", "split",
+        "parent", mapOf("normal", f.parent().normal(), "suspicious", f.parent().suspicious()),
+        "question", f.question(),
+        "yes", mapOf("normal", f.yes().normal(), "suspicious", f.yes().suspicious()),
+        "no", mapOf("normal", f.no().normal(), "suspicious", f.no().suspicious())
+      );
+      case MinimaxFigure f -> mapOf("type", "minimax", "root", f.root(), "children", f.children());
+    };
   }
 
   private static Map<String, Object> mapOf(Object... pairs) {

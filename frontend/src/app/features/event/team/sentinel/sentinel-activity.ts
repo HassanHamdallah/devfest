@@ -12,6 +12,7 @@ import {
   untracked,
   viewChild,
 } from "@angular/core";
+import { Api } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import { AiRoomActivity, SentinelStage, TeamBoard } from "../../../../core/event/event-models";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
@@ -21,9 +22,13 @@ import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { BoardLoader } from "../../manager/board-loader";
 import { EventMaskedClue } from "../masked-clue";
+import { sentinelSession } from "./sentinel-session";
 import { SentinelStageCamera } from "./stage-camera";
+import { SentinelStageChoice } from "./stage-choice";
+import { SentinelStageCrossover, isCrossoverStage } from "./stage-crossover";
 import { SentinelStageFeatures } from "./stage-features";
 import { SentinelStageGroups } from "./stage-groups";
+import { SentinelStageInput } from "./stage-input";
 import { SentinelStageNearest } from "./stage-nearest";
 import { SentinelStageOutlier } from "./stage-outlier";
 import { SentinelStageRag } from "./stage-rag";
@@ -34,9 +39,9 @@ import { SentinelStageTune } from "./stage-tune";
 
 /** The three systems, as shown before the timer starts (the server sends the missions only while the round runs). */
 const SYSTEMS = [
-  { id: "predict", title: "PREDICT", about: "Outliers, features and model tuning" },
-  { id: "see", title: "SEE", about: "Neighbours, camera accuracy and grouping" },
-  { id: "noor", title: "NOOR", about: "Routes, threats, rules and retrieval" },
+  { id: "predict", title: "PREDICT", about: "Outliers, features and a neuron" },
+  { id: "see", title: "SEE", about: "Neighbours, camera accuracy and patrol evolution" },
+  { id: "noor", title: "ECHO", about: "Routes, the best split, a patrol game and retrieval" },
 ];
 
 /**
@@ -51,8 +56,11 @@ const SYSTEMS = [
   imports: [
     EventMaskedClue,
     SentinelStageCamera,
+    SentinelStageChoice,
+    SentinelStageCrossover,
     SentinelStageFeatures,
     SentinelStageGroups,
+    SentinelStageInput,
     SentinelStageNearest,
     SentinelStageOutlier,
     SentinelStageRag,
@@ -73,6 +81,7 @@ const SYSTEMS = [
 })
 export class EventSentinelActivity {
   private readonly eventApi = inject(EventApi);
+  private readonly api = inject(Api);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly stageNav = viewChild<ElementRef<HTMLElement>>("stageNav");
@@ -83,6 +92,13 @@ export class EventSentinelActivity {
   protected readonly loader = new BoardLoader<AiRoomActivity>(() => this.eventApi.teamActivity(this.roomId() as number));
   protected readonly activity = this.loader.data;
   protected readonly systems = SYSTEMS;
+  /** Stage 6 is a builder, not a text box, while its figure is a crossover. */
+  protected readonly crossover = isCrossoverStage;
+  /** The child a team submitted in this tab (the builder keeps it), shown on the saved stage; null for other stages. */
+  protected submittedChild(stage: number): string | null {
+    const room = this.roomId();
+    return room === null ? null : sentinelSession.submitted(this.api.user()?.id ?? 0, room, stage);
+  }
   protected readonly paused = computed(() => this.activity()?.phase === "PAUSED");
   protected readonly readOnly = computed(() => this.paused() || this.board().disqualified || !this.board().scheduledRoom?.open);
   protected readonly stages = computed<SentinelStage[]>(() => this.activity()?.missions.flatMap((m) => m.stages) ?? []);

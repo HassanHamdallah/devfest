@@ -18,11 +18,16 @@ import java.util.stream.Collectors;
  */
 public final class SentinelContentRules {
 
-  /** The kind of every stage, fixed by its number. */
+  /** The kind of every stage, fixed by its number (stage 3 is multiple choice, stages 6, 8 and 9 take a typed answer). */
   public static final List<String> STAGE_KINDS = List.of(
-    "OUTLIER_HUNT", "FEATURE_CHECK", "TUNE_DEPLOY", "NEAREST_VEHICLE", "CAMERA_ACCURACY",
-    "GROUP_FRAMES", "ROUTE_PLANNER", "THREAT_FILTER", "RULE_ENGINE", "RAG_FIX"
+    "OUTLIER_HUNT", "FEATURE_CHECK", "CHOICE", "NEAREST_VEHICLE", "CAMERA_ACCURACY",
+    "INPUT", "ROUTE_PLANNER", "INPUT", "INPUT", "RAG_FIX"
   );
+  /**
+   * The kinds that no stage uses any more. Their code stays (and a mission file stored before the change still plays),
+   * but a new file cannot use them.
+   */
+  public static final List<String> LEGACY_KINDS = List.of("TUNE_DEPLOY", "GROUP_FRAMES", "THREAT_FILTER", "RULE_ENGINE");
   public static final List<String> MISSION_IDS = List.of("predict", "see", "noor");
   /** How many stages each mission holds, in order. */
   public static final List<Integer> MISSION_SIZES = List.of(3, 3, 4);
@@ -32,8 +37,22 @@ public final class SentinelContentRules {
 
   private SentinelContentRules() {}
 
+  /** The stage's kind, read from the stage itself (a stored legacy stage keeps its own kind). */
   public static String kind(Stage stage) {
-    return STAGE_KINDS.get(stage.number() - 1);
+    return switch (stage) {
+      case OutlierHunt _ -> "OUTLIER_HUNT";
+      case FeatureCheck _ -> "FEATURE_CHECK";
+      case TuneDeploy _ -> "TUNE_DEPLOY";
+      case NearestVehicle _ -> "NEAREST_VEHICLE";
+      case CameraAccuracy _ -> "CAMERA_ACCURACY";
+      case GroupFrames _ -> "GROUP_FRAMES";
+      case RoutePlanner _ -> "ROUTE_PLANNER";
+      case ThreatFilter _ -> "THREAT_FILTER";
+      case RuleEngine _ -> "RULE_ENGINE";
+      case RagFix _ -> "RAG_FIX";
+      case Choice _ -> "CHOICE";
+      case Input _ -> "INPUT";
+    };
   }
 
   public static List<String> problems(SentinelContent content) {
@@ -56,6 +75,8 @@ public final class SentinelContentRules {
         case ThreatFilter s -> threat(s, own);
         case RuleEngine s -> rules(s, own);
         case RagFix s -> rag(s, own);
+        case Choice s -> choice(s, own);
+        case Input s -> input(s, own);
       }
       own.forEach(problem -> problems.add(where + problem));
     }
@@ -172,6 +193,30 @@ public final class SentinelContentRules {
         problems.add("Configuration \"" + config.id() + "\": a reading sits exactly on its " + (iqr ? "fence" : "threshold") + "; move it so the flagged readings are unambiguous.");
       }
     }
+  }
+
+  /** The id of a CHOICE option: one lowercase letter. */
+  public static final Pattern OPTION_ID = Pattern.compile("[a-z]");
+
+  private static void choice(Choice stage, List<String> problems) {
+    if (!positive(stage.head())) problems.add("The stage must be worth more than 0 points.");
+    if (stage.options().size() < 2 || stage.options().size() > 6) problems.add("Add 2 to 6 options.");
+    Set<String> seen = new HashSet<>();
+    for (ChoiceOption option : stage.options()) {
+      if (!OPTION_ID.matcher(option.id()).matches()) problems.add("Option id \"" + option.id() + "\" must be one lowercase letter from a to z.");
+      else if (!seen.add(option.id())) problems.add("Two options share the id \"" + option.id() + "\".");
+    }
+    if (stage.options().stream().noneMatch(option -> option.id().equals(stage.correct()))) {
+      problems.add("correct must be the id of one of the options.");
+    }
+    FigureRules.problems(stage.figure(), stage.head().brief()).forEach(problems::add);
+  }
+
+  /** A typed answer stage: worth something, a usable answer, and a figure that agrees with the brief. */
+  private static void input(Input stage, List<String> problems) {
+    if (!positive(stage.head())) problems.add("The stage must be worth more than 0 points.");
+    InputAnswers.problems(stage.answer()).forEach(problems::add);
+    FigureRules.problems(stage.figure(), stage.head().brief()).forEach(problems::add);
   }
 
   private static void features(FeatureCheck stage, List<String> problems) {

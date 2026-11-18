@@ -11,24 +11,21 @@
 
 .shell__intro {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .shell__intro p {
   margin: 0;
 }
 
-.shell__brief {
-  max-inline-size: 75ch;
-}
-
+/* The brief and the field note are laid out by <sentinel-brief> (70ch, 1.6 line height, formulas, one data block). */
 .field-note {
-  padding: var(--space-2) var(--space-4);
-  font-style: italic;
+  max-inline-size: calc(70ch + 2 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
   color: var(--room-ink);
   background: var(--room-tint);
   border-inline-start: 4px solid var(--room-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .shell__body {
@@ -289,12 +286,14 @@ th,
 td {
   padding: var(--space-2) var(--space-3);
   text-align: start;
+  font-variant-numeric: tabular-nums;
   border-block-end: 1px solid var(--color-border);
 }
 
 th {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .num {

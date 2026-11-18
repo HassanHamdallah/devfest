@@ -11,7 +11,10 @@ import dev.devfest.event.domain.sentinel.StageAnswer.*;
 import dev.devfest.event.dto.MissionDocument;
 import dev.devfest.event.dto.StageAnswers;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -29,6 +32,16 @@ class SentinelContentTest {
 
   private static BigDecimal points(int stage, String answerJson) {
     Stage s = content().stage(stage);
+    return SentinelScoring.points(s, StageAnswers.read(s, JSON.readTree(answerJson)));
+  }
+
+  /** The file as it was stored before the multiple choice stages: the retired kinds still play and score. */
+  private static SentinelContent v1() {
+    return MissionDocument.load(JSON.readTree(SentinelFixture.v1()));
+  }
+
+  private static BigDecimal v1Points(int stage, String answerJson) {
+    Stage s = v1().stage(stage);
     return SentinelScoring.points(s, StageAnswers.read(s, JSON.readTree(answerJson)));
   }
 
@@ -92,15 +105,70 @@ class SentinelContentTest {
   void theDerivedAnswersOfTheOtherStagesAreWhatTheDesignSays() {
     Confusion confusion = SentinelContentRules.confusion((CameraAccuracy) content().stage(5));
     assertEquals(new Confusion(6, 2, 4, 8), confusion);
-    GroupFrames groups = (GroupFrames) content().stage(6);
+  }
+
+  /** Numbers in a text, in order: the formulas moved to their own lines, none of them changed. */
+  private static List<String> numbersIn(String text) {
+    List<String> found = new ArrayList<>();
+    Matcher m = Pattern.compile("\\d+(?:\\.\\d+)?").matcher(text == null ? "" : text);
+    while (m.find()) found.add(m.group());
+    return found;
+  }
+
+  @Test
+  void theFormulaLinesChangeOnlyTheBriefAndFieldNoteTextsAndNoNumber() {
+    JsonNode before = JSON.readTree(SentinelFixture.v3());
+    JsonNode after = JSON.readTree(SentinelFixture.shipped());
+    List<String> differing = new ArrayList<>();
+    for (int m = 0; m < before.get("missions").size(); m++) {
+      JsonNode oldStages = before.get("missions").get(m).get("stages");
+      JsonNode newStages = after.get("missions").get(m).get("stages");
+      assertEquals(oldStages.size(), newStages.size());
+      for (int i = 0; i < oldStages.size(); i++) {
+        ObjectNode oldStage = ((ObjectNode) oldStages.get(i)).deepCopy();
+        ObjectNode newStage = ((ObjectNode) newStages.get(i)).deepCopy();
+        String number = String.valueOf(oldStage.get("number").intValue());
+        for (String text : List.of("brief", "fieldNote")) {
+          String was = oldStage.has(text) && !oldStage.get(text).isNull() ? oldStage.get(text).stringValue() : "";
+          String now = newStage.has(text) && !newStage.get(text).isNull() ? newStage.get(text).stringValue() : "";
+          assertEquals(numbersIn(was), numbersIn(now), "stage " + number + " " + text + ": the numbers");
+          // Only line breaks (and the "$$ " marks, the minus sign and the words that now sit on their own line) differ.
+          if (!was.equals(now)) differing.add(number + ":" + text);
+          oldStage.remove(text);
+          newStage.remove(text);
+        }
+        assertEquals(oldStage, newStage, "stage " + number + ": everything but the two texts is identical");
+      }
+    }
+    assertEquals(List.of("1:fieldNote", "3:brief", "7:brief", "7:fieldNote", "8:brief"), differing);
+    for (String text : List.of("$$ Q1 - k x IQR", "$$ Q3 + k x IQR", "$$ z = w1·x1 + w2·x2 + b", "$$ ReLU(z) = max(0, z)", "$$ f = g + h", "$$ Entropy = -Σ p·log2(p)", "$$ log2(0.25) = -2")) {
+      assertTrue(SentinelFixture.shipped().contains(text), text);
+    }
+  }
+
+  @Test
+  void aMissionStoredWithMultipleChoiceStagesSixEightAndNineStillLoadsAndScores() {
+    SentinelContent stored = MissionDocument.load(JSON.readTree(SentinelFixture.v2()));
+    for (int number : List.of(3, 6, 8, 9)) {
+      Stage stage = stored.stage(number);
+      assertEquals("CHOICE", SentinelContentRules.kind(stage), "stage " + number);
+      assertEquals(new BigDecimal("10.00"), SentinelScoring.points(stage, StageAnswers.read(stage, JSON.readTree("{\"option\":\"a\"}"))));
+      assertEquals(new BigDecimal("0.00"), SentinelScoring.points(stage, StageAnswers.read(stage, JSON.readTree("{\"option\":\"b\"}"))));
+    }
+  }
+
+  @Test
+  void theRetiredKindsStillDeriveTheirAnswersFromAStoredV1File() {
+    GroupFrames groups = (GroupFrames) v1().stage(6);
     KMeans.Result result = SentinelContentRules.clusters(groups);
     assertEquals(6, result.size(SentinelContentRules.askedIndex(groups)));
     assertEquals(7.5, result.centres().get(1).x(), 1e-12);
     assertEquals(6.5, result.centres().get(1).y(), 1e-12);
     assertTrue(result.rounds() >= 3, "the animation has something to show");
-    NaiveBayes.Verdict verdict = SentinelContentRules.verdict((ThreatFilter) content().stage(8));
+    NaiveBayes.Verdict verdict = SentinelContentRules.verdict((ThreatFilter) v1().stage(8));
     assertEquals("Normal", verdict.label());
-    assertEquals("insider-involved", SentinelContentRules.conclusion((RuleEngine) content().stage(9)));
+    assertEquals("insider-involved", SentinelContentRules.conclusion((RuleEngine) v1().stage(9)));
+    assertEquals(List.of("TUNE_DEPLOY", "GROUP_FRAMES", "THREAT_FILTER", "RULE_ENGINE"), List.of(3, 6, 8, 9).stream().map(n -> SentinelContentRules.kind(v1().stage(n))).toList());
   }
 
   // ---- derived data agrees with the design ---------------------------------------------------------
@@ -174,37 +242,40 @@ class SentinelContentTest {
     assertTrue(outlier.head().fieldNote().contains("Tukey's hinges") && outlier.head().fieldNote().contains("population standard deviation"), "stage 1 states its method");
     FeatureCheck features = (FeatureCheck) content.stage(2);
     assertTrue(features.head().brief().contains(features.target()), "stage 2 names its target");
-    TuneDeploy tune = (TuneDeploy) content.stage(3);
-    assertTrue(tune.head().brief().contains("run " + tune.maxRuns() + " different settings"), "stage 3 states its run budget");
-    assertTrue(tune.configs().stream().allMatch(c -> c.train() >= c.validation()), "training accuracy is never below validation");
-    List<ModelConfig> byValidation = tune.configs().stream().sorted((a, b) -> Double.compare(b.validation(), a.validation())).toList();
-    assertEquals(
-      byValidation.stream().filter(c -> c.award().signum() > 0).map(ModelConfig::id).toList(),
-      byValidation.stream().limit(2).map(ModelConfig::id).toList(),
-      "only the two settings with the best validation accuracy earn points, the best earning the most"
-    );
-    assertTrue(byValidation.getFirst().award().compareTo(byValidation.get(1).award()) > 0);
+    Choice choice = (Choice) content.stage(3);
+    assertEquals(List.of("a", "b", "c", "d"), choice.options().stream().map(ChoiceOption::id).toList());
+    assertEquals(List.of("0", "-1.5", "1.5", "5.5"), choice.options().stream().map(ChoiceOption::text).toList());
+    assertEquals("a", choice.correct());
+    assertTrue(choice.figure() instanceof NeuronFigure, "stage 3 draws its neuron");
+    for (int number : List.of(6, 8, 9)) {
+      Input input = (Input) content.stage(number);
+      assertTrue(input.head().fieldNote().startsWith("Noor's notes:"), "stage " + number);
+      assertTrue(input.figure() != null, "stage " + number + " has a figure");
+    }
+    assertEquals(new TextAnswer(List.of("101001")), ((Input) content.stage(6)).answer());
+    assertEquals(new NumberAnswer(0.19, 0.01), ((Input) content.stage(8)).answer());
+    assertEquals(new NumberAnswer(4, 0), ((Input) content.stage(9)).answer());
+    assertTrue(((Input) content.stage(6)).head().brief().endsWith("Type the final child as 6 bits."));
+    assertTrue(((Input) content.stage(8)).head().brief().endsWith("Type the information gain to 2 decimal places."));
+    assertTrue(((Input) content.stage(9)).head().brief().endsWith("Type the value."));
+    for (Stage stage : content.stages()) assertEquals(0, stage.head().maxPoints().compareTo(BigDecimal.TEN), "every stage is worth 10");
+    assertEquals(List.of("Neuron Check", "Patrol Evolution", "Best Split", "Patrol Game"), List.of(3, 6, 8, 9).stream().map(n -> content.stage(n).head().title()).toList());
     NearestVehicle nearest = (NearestVehicle) content.stage(4);
     assertTrue(nearest.head().brief().contains("hollow diamond"), "stage 4 describes the unknown vehicle's mark");
     CameraAccuracy camera = (CameraAccuracy) content.stage(5);
     assertEquals(20, camera.rows().size());
     assertTrue(camera.head().brief().startsWith("Twenty camera frames"), "stage 5 counts its rows");
-    GroupFrames groups = (GroupFrames) content.stage(6);
-    String asked = groups.centroids().stream().filter(c -> c.id().equals(groups.asked())).findFirst().orElseThrow().label();
-    assertTrue(groups.head().brief().contains(asked + " holds the van"), "stage 6 names the asked cluster");
     RoutePlanner route = (RoutePlanner) content.stage(7);
     String start = route.places().stream().filter(p -> p.id().equals(route.start())).findFirst().orElseThrow().name();
     String goal = route.places().stream().filter(p -> p.id().equals(route.goal())).findFirst().orElseThrow().name();
     assertTrue(route.head().brief().contains("from " + start + " to " + goal), "stage 7 names its start and goal");
-    ThreatFilter threat = (ThreatFilter) content.stage(8);
-    assertTrue(threat.head().brief().contains("\"" + String.join(" ", threat.message()) + "\""), "stage 8 quotes its message");
     RagFix rag = (RagFix) content.stage(10);
     assertTrue(rag.head().brief().contains("try " + rag.maxRuns() + " different settings"), "stage 10 states its try budget");
-    for (String word : List.of("Rami", "last", "confirmed")) {
+    for (String word : List.of("Noor", "last", "confirmed")) {
       assertTrue(rag.question().contains(word) && rag.head().brief().contains(word), "stage 10's question and brief are about the same thing: " + word);
     }
     for (RagConfig config : rag.configs()) {
-      assertEquals(config.award().signum() > 0, config.reply().contains("Library"), "a reply names the Library exactly when its setting earns points: " + config.id());
+      assertEquals(config.award().signum() > 0, config.reply().contains("Cybersecurity office"), "a reply names the Cybersecurity office exactly when its setting earns points: " + config.id());
     }
     assertEquals("large-1", rag.configs().stream().filter(c -> c.award().compareTo(rag.head().maxPoints()) == 0).findFirst().orElseThrow().id());
   }
@@ -217,12 +288,12 @@ class SentinelContentTest {
     assertEquals(new BigDecimal("6.00"), points(1, "{\"config\":\"iqr-3\"}"));
     assertEquals(new BigDecimal("4.00"), points(1, "{\"config\":\"z-2\"}"));
     assertEquals(new BigDecimal("0.00"), points(1, "{\"config\":\"z-3\"}"));
-    assertEquals(new BigDecimal("0.00"), points(3, "{\"config\":\"knn-1\"}"));
-    assertEquals(new BigDecimal("5.00"), points(3, "{\"config\":\"knn-5\"}"));
-    assertEquals(new BigDecimal("0.00"), points(3, "{\"config\":\"knn-15\"}"));
-    assertEquals(new BigDecimal("0.00"), points(3, "{\"config\":\"tree-2\"}"));
-    assertEquals(new BigDecimal("10.00"), points(3, "{\"config\":\"tree-5\"}"));
-    assertEquals(new BigDecimal("0.00"), points(3, "{\"config\":\"tree-20\"}"));
+    assertEquals(new BigDecimal("10.00"), points(3, "{\"option\":\"a\"}"));
+    assertEquals(new BigDecimal("0.00"), points(3, "{\"option\":\"b\"}"));
+    assertEquals(new BigDecimal("0.00"), v1Points(3, "{\"config\":\"knn-1\"}"));
+    assertEquals(new BigDecimal("5.00"), v1Points(3, "{\"config\":\"knn-5\"}"));
+    assertEquals(new BigDecimal("10.00"), v1Points(3, "{\"config\":\"tree-5\"}"));
+    assertEquals(new BigDecimal("0.00"), v1Points(3, "{\"config\":\"tree-20\"}"));
     assertEquals(new BigDecimal("10.00"), points(10, "{\"config\":\"large-1\"}"));
     assertEquals(new BigDecimal("5.00"), points(10, "{\"config\":\"large-3\"}"));
     assertEquals(new BigDecimal("5.00"), points(10, "{\"config\":\"small-3\"}"));
@@ -260,9 +331,9 @@ class SentinelContentTest {
 
   @Test
   void clusterAnswerNeedsTheSizeAndBothCoordinatesWithinOneHundredth() {
-    assertEquals(new BigDecimal("10.00"), points(6, "{\"size\":6,\"x\":7.51,\"y\":6.49}"));
-    assertEquals(new BigDecimal("5.00"), points(6, "{\"size\":6,\"x\":7.5,\"y\":6.52}"), "one coordinate off loses the centroid");
-    assertEquals(new BigDecimal("5.00"), points(6, "{\"size\":5,\"x\":7.5,\"y\":6.5}"), "wrong size loses 5");
+    assertEquals(new BigDecimal("10.00"), v1Points(6, "{\"size\":6,\"x\":7.51,\"y\":6.49}"));
+    assertEquals(new BigDecimal("5.00"), v1Points(6, "{\"size\":6,\"x\":7.5,\"y\":6.52}"), "one coordinate off loses the centroid");
+    assertEquals(new BigDecimal("5.00"), v1Points(6, "{\"size\":5,\"x\":7.5,\"y\":6.5}"), "wrong size loses 5");
   }
 
   @Test
@@ -278,16 +349,16 @@ class SentinelContentTest {
   @Test
   void threatFilterAcceptsOnePercentOfTheTrueValues() {
     String base = "{\"threat\":%s,\"normal\":%s,\"label\":\"%s\"}";
-    assertEquals(new BigDecimal("10.00"), points(8, base.formatted("0.0001209", "0.00102", "Normal")), "within 1% of 0.00012 and 0.0010125");
-    assertEquals(new BigDecimal("6.00"), points(8, base.formatted("0.000122", "0.00102", "Normal")), "1.7% off loses the threat value");
-    assertEquals(new BigDecimal("8.00"), points(8, base.formatted("0.00012", "0.0010125", "Threat")), "the wrong class loses 2");
+    assertEquals(new BigDecimal("10.00"), v1Points(8, base.formatted("0.0001209", "0.00102", "Normal")), "within 1% of 0.00012 and 0.0010125");
+    assertEquals(new BigDecimal("6.00"), v1Points(8, base.formatted("0.000122", "0.00102", "Normal")), "1.7% off loses the threat value");
+    assertEquals(new BigDecimal("8.00"), v1Points(8, base.formatted("0.00012", "0.0010125", "Threat")), "the wrong class loses 2");
   }
 
   @Test
   void ruleEngineIsAllOrNothing() {
-    assertEquals(new BigDecimal("10.00"), points(9, "{\"conclusion\":\"insider-involved\"}"));
-    assertEquals(new BigDecimal("0.00"), points(9, "{\"conclusion\":\"cover-up\"}"));
-    assertThrows(IllegalArgumentException.class, () -> points(9, "{\"conclusion\":\"aliens\"}"));
+    assertEquals(new BigDecimal("10.00"), v1Points(9, "{\"conclusion\":\"insider-involved\"}"));
+    assertEquals(new BigDecimal("0.00"), v1Points(9, "{\"conclusion\":\"cover-up\"}"));
+    assertThrows(IllegalArgumentException.class, () -> v1Points(9, "{\"conclusion\":\"aliens\"}"));
   }
 
   @Test
@@ -340,19 +411,19 @@ class SentinelContentTest {
       stage(root, 1).put("maxPoints", 11);
       ((ObjectNode) stage(root, 4).get("vehicles").get(11)).put("kind", "Van");
       ((ObjectNode) stage(root, 7).get("places").get(1)).put("h", 40);
-      ((ObjectNode) stage(root, 9).get("rules").get(4)).set("ifAll", JSON.createArrayNode().add("staff-driver"));
+      stage(root, 3).put("correct", "z");
       ((ObjectNode) stage(root, 5).get("awards")).put("tp", 5);
       ((ObjectNode) root.get("story")).put("failed", "You scored 59.");
-      ((ObjectNode) stage(root, 3).get("configs").get(0)).put("train", 140);
+      ((ObjectNode) stage(root, 10).get("configs").get(0)).put("award", 11);
     });
     assertTrue(problems.contains("The stages are worth 101 points in all; they must add up to 100."), problems.toString());
     assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 1: One configuration must earn the stage's full worth.")), problems.toString());
     assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 4: The nearest vehicle must be an outlier")), problems.toString());
     assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 7: The estimate of \"lab\" (40.0) is larger than its real cost")), problems.toString());
-    assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 9: Exactly one offered conclusion must follow from the rules")), problems.toString());
+    assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 3: correct must be the id of one of the options.")), problems.toString());
     assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 5: The awards add up to 14 but the stage is worth 10.")), problems.toString());
     assertTrue(problems.contains("story.failed must not contain a number."), problems.toString());
-    assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 3: Configuration \"knn-1\": accuracies must be between 0 and 100.")), problems.toString());
+    assertTrue(problems.stream().anyMatch(p -> p.startsWith("Stage 10: Every configuration's award must be between 0 and the stage's worth.")), problems.toString());
   }
 
   @Test
@@ -362,8 +433,8 @@ class SentinelContentTest {
       ((ObjectNode) stage(root, 7).get("roads").get(0)).put("to", "g3").put("cost", 15);
     });
     assertTrue(noTrap.stream().anyMatch(p -> p.startsWith("Stage 7: Greedy search by estimate alone must find a costlier route than A*")), noTrap.toString());
-    List<String> badAsked = rejected(root -> ((ObjectNode) stage(root, 6)).put("asked", "C"));
-    assertEquals(List.of("Stage 6: asked must be the id of one of the centroids."), badAsked);
+    List<String> badCorrect = rejected(root -> stage(root, 3).put("correct", "q"));
+    assertEquals(List.of("Stage 3: correct must be the id of one of the options."), badCorrect);
     List<String> misnumbered = rejected(root -> ((ObjectNode) root.get("missions").get(0).get("stages").get(1)).put("number", 5));
     assertTrue(misnumbered.contains("Stage 5: type FEATURE_CHECK belongs to stage 2, not stage 5."), misnumbered.toString());
   }

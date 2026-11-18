@@ -24,16 +24,16 @@ const TEAM_TWO = 1;
 const PERFECT = [
   { config: "iqr-1.5" },
   { choices: { "entry-gate": "USE", "entry-time": "USE", "vehicle-type": "USE", "previous-visits": "USE", "plate-number": "DROP", "exit-camera-time": "DROP" } },
-  { config: "tree-5" },
+  { option: "a" },
   { k1: "Car", k5: "Van", reliable: 5 },
   { tp: 6, fp: 2, fn: 4, tn: 8, precision: 0.75, recall: 0.6, metric: "Recall" },
-  { size: 6, x: 7.5, y: 6.5 },
+  { answer: "101001" },
   { order: ["lib", "lab", "dor", "adm", "gar", "g3"], path: ["lib", "lab", "adm", "gar", "g3"], cost: 15 },
-  { threat: 0.00012, normal: 0.0010125, label: "Normal" },
-  { conclusion: "insider-involved" },
+  { answer: "0.19" },
+  { answer: "4" },
   { config: "large-1" },
 ];
-const TOPICS = ["Z-score", "IQR fences", "Leakage", "Overfitting", "KNN", "Confusion metrics", "K-Means", "A* search: f = g + h", "Naive Bayes", "Forward chaining", "RAG"];
+const TOPICS = ["Z-score", "IQR fences", "Leakage", "Neuron and ReLU", "KNN", "Confusion metrics", "Genetic algorithm", "A* search: f = g + h", "Entropy and information gain", "Minimax", "RAG"];
 
 test.beforeAll(() => {
   accounts = readRehearsalAccounts();
@@ -145,8 +145,16 @@ test("sentinel manager page: import, pass score, Field Guide, live results, CSV 
       const guide = page;
       await expect(guide.getByRole("heading", { name: "SENTINEL · Field Guide", exact: true })).toBeVisible();
       for (const topic of TOPICS) await expect(guide.locator("[data-guide] h2", { hasText: topic })).toBeVisible();
+      await expect(guide.locator("[data-guide-tools]")).toHaveText("You may use paper and a plain calculator.");
+      // The rules are written as display formulas: IQR fences and z-score, ReLU, precision and recall, f = g + h, entropy and gain.
+      await expect(guide.locator("[data-guide] [data-formula]")).toHaveCount(11);
+      await expect(guide.locator("[data-guide]")).not.toContainText("$$");
+      for (const rule of ["z = (x − mean) ÷ sd", "Lower fence = Q1 − k × IQR", "ReLU(z) = max(0, z)", "Precision = TP / (TP + FP)", "Recall = TP / (TP + FN)", "f = g + h", "Gain = Entropy(parent)"]) {
+        await expect(guide.locator("[data-guide] [data-formula]", { hasText: rule })).toHaveCount(1);
+      }
+      for (const words of ["majority vote", "crossover", "mutation", "chunk size", "top-k", "smallest", "largest"]) await expect(guide.locator("[data-guide]")).toContainText(words, { ignoreCase: true });
       const text = (await guide.locator("[data-guide]").innerText()).toLowerCase();
-      for (const word of ["white van", "tree-5", "insider", "iqr-1.5", "pass score"]) expect(text).not.toContain(word);
+      for (const word of ["white van", "tree-5", "insider", "iqr-1.5", "pass score", "rami", "101001", "-1.5", "0.19"]) expect(text).not.toContain(word);
       await noOverflow(guide, "Field Guide at 1440");
       await shot(guide, "sentinel-field-guide-1440.png");
       await guide.emulateMedia({ media: "print" });

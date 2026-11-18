@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
 import { SentinelStage } from "../../../../core/event/event-models";
+import { SentinelBrief } from "./sentinel-brief";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiConfirmDialog } from "../../../../shared/ui/ui-confirm-dialog/ui-confirm-dialog";
@@ -11,17 +12,17 @@ import { UiConfirmDialog } from "../../../../shared/ui/ui-confirm-dialog/ui-conf
  */
 @Component({
   selector: "sentinel-stage-shell",
-  imports: [UiAlert, UiButton, UiConfirmDialog],
+  imports: [SentinelBrief, UiAlert, UiButton, UiConfirmDialog],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: "./sentinel-shared.css",
   host: { class: "shell" },
   template: `
     <header class="shell__intro">
       @if (stage().fieldNote; as note) {
-        <p class="field-note" data-field-note>{{ note }}</p>
+        <div class="field-note" data-field-note><sentinel-brief [brief]="note" /></div>
       }
       @if (stage().brief; as brief) {
-        <p class="shell__brief">{{ brief }}</p>
+        <sentinel-brief class="shell__brief" [brief]="brief" />
       }
     </header>
     <div class="shell__body">

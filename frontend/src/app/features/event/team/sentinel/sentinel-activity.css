@@ -263,11 +263,12 @@
   margin: 0;
 }
 
+/* "mission · stage": small and quiet, so the stage title is the first thing read. */
 .stage-card__mission {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  color: var(--room-ink);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
 }
 
 .saved {

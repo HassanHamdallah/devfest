@@ -26,6 +26,12 @@ public sealed interface StageAnswer {
   /** Stage 8: the two unnormalised values and the class. */
   record Bayes(double threat, double normal, String label) implements StageAnswer {}
 
+  /** A CHOICE stage: the id of the option chosen (never its position). */
+  record Option(String option) implements StageAnswer {}
+
+  /** An INPUT stage: what the team typed, as typed (the server trims and compares it). */
+  record Typed(String text) implements StageAnswer {}
+
   /** Stage 9: the final conclusion. */
   record Conclusion(String fact) implements StageAnswer {}
 }

@@ -7,13 +7,16 @@
 <article class="guide" data-guide aria-labelledby="guide-title">
   <header class="guide__head">
     <h1 id="guide-title">SENTINEL · Field Guide</h1>
-    <p>Rami's notes on the tools you need to repair SENTINEL. Read them, then trust your own working.</p>
+    <p class="guide__tools" data-guide-tools>You may use paper and a plain calculator.</p>
+    <p>Noor's notes on the tools you need to repair SENTINEL. Read them, then trust your own working.</p>
   </header>
 
   <div class="guide__grid">
     <section>
       <h2>Z-score</h2>
-      <p>How many standard deviations a value sits from the mean: <b>z = (x − mean) ÷ sd</b>. Flag a point when |z| is above the threshold (2 or 3 are common).</p>
+      <p>How many standard deviations a value sits from the mean:</p>
+      <sentinel-brief class="guide__math" [brief]="formulas.zScore" />
+      <p>Flag a point when |z| is above the threshold (2 or 3 are common).</p>
       <p>For points with two coordinates, judge <b>each axis on its own</b>; a point is flagged if it is outside on either. The sd here is the <b>population sd</b> (divide by n, not n − 1).</p>
       <p class="guide__tip">Big outliers inflate the mean and sd, so they can hide each other.</p>
     </section>
@@ -32,7 +35,8 @@
         <text x="20" y="11" text-anchor="middle">fence</text>
         <text x="180" y="11" text-anchor="middle">fence</text>
       </svg>
-      <p><b>IQR = Q3 − Q1.</b> Fences: Q1 − k·IQR and Q3 + k·IQR. Outside a fence means outlier. k = 1.5 is usual, k = 3 only catches extreme points. Medians and quartiles ignore outliers.</p>
+      <sentinel-brief class="guide__math" [brief]="formulas.iqr" />
+      <p>Outside a fence means outlier. k = 1.5 is usual, k = 3 only catches extreme points. Medians and quartiles ignore outliers.</p>
       <p><b>Quartiles here are Tukey's hinges:</b> Q1 and Q3 are the medians of the lower and the upper half of the sorted values (with an odd count the middle value is in both halves). Each axis has its own fences; flagged if outside on either.</p>
     </section>
 
@@ -42,13 +46,15 @@
     </section>
 
     <section>
-      <h2>Overfitting</h2>
-      <p>The model learns the training data, noise included: training accuracy is high, <b>validation accuracy</b> (data it never saw) is much lower. Judge a model by validation. A simpler setting often wins.</p>
+      <h2>Neuron and ReLU</h2>
+      <p>A neuron multiplies each input by its <b>weight</b>, adds the results and a <b>bias</b>: </p>
+      <sentinel-brief class="guide__math" [brief]="formulas.neuron" />
+      <p>An activation function then shapes the output. ReLU: a positive z passes unchanged, a negative z becomes 0.</p>
     </section>
 
     <section>
       <h2>KNN</h2>
-      <p>Measure the distance to every labelled point, take the <b>k nearest</b>, and let them vote. k = 1 trusts a single neighbour, so one odd point decides alone. A larger k smooths the noise; too large blurs the groups. An odd k avoids ties.</p>
+      <p>Measure the distance to every labelled point, take the <b>k nearest</b>, and let them vote: the <b>majority vote</b> of those k labels is the answer. k = 1 trusts a single neighbour, so one odd point decides alone. A larger k smooths the noise; too large blurs the groups. An odd k avoids ties.</p>
     </section>
 
     <section>
@@ -60,37 +66,40 @@
           <tr><th>was no</th><td>FP</td><td>TN</td></tr>
         </tbody>
       </table>
-      <p><b>precision = TP ÷ (TP + FP)</b> (when it says yes, how often is it right). <b>recall = TP ÷ (TP + FN)</b> (how many real ones it catches). Choose recall when missing one is the costly mistake.</p>
+      <sentinel-brief class="guide__math" [brief]="formulas.metrics" />
+      <p>Precision: when it says yes, how often is it right. Recall: how many real ones it catches. Choose recall when missing one is the costly mistake.</p>
     </section>
 
     <section>
-      <h2>K-Means</h2>
+      <h2>Genetic algorithm</h2>
+      <p>Routes (or any candidates) are written as <b>bits</b>. Two parents make a child:</p>
       <ol>
-        <li>Start with k centroids.</li>
-        <li><b>Assign</b> every point to its nearest centroid.</li>
-        <li><b>Update</b> each centroid to the mean (x and y) of its points.</li>
-        <li>Repeat 2 and 3 until nothing moves.</li>
+        <li><b>Crossover</b>: pick a cut position; the child takes the start from one parent and the rest from the other.</li>
+        <li><b>Mutation</b>: flip one bit (0 becomes 1, 1 becomes 0).</li>
       </ol>
     </section>
 
     <section>
       <h2>A* search: f = g + h</h2>
-      <p><b>g</b> = cost so far, <b>h</b> = estimate of the cost still to go (never more than the real cost). Always expand the frontier place with the lowest <b>f = g + h</b>; if two tie, follow the tie rule on the screen. Stop when the goal itself is expanded. Greedy search that looks at h alone can be fooled by a cheap-looking road.</p>
+      <p><b>g</b> = cost so far, <b>h</b> = estimate of the cost still to go (never more than the real cost). Always expand the frontier place with the lowest f:</p>
+      <sentinel-brief class="guide__math" [brief]="formulas.aStar" />
+      <p>If two tie, follow the tie rule on the screen. Stop when the goal itself is expanded. Greedy search that looks at h alone can be fooled by a cheap-looking road.</p>
     </section>
 
     <section>
-      <h2>Naive Bayes</h2>
-      <p>For each class: <b>prior × P(word₁ | class) × P(word₂ | class) × …</b> over the words of the message. The larger value wins. "Naive" because it treats words as independent. A small prior can outweigh scary words.</p>
+      <h2>Entropy and information gain</h2>
+      <sentinel-brief class="guide__math" [brief]="formulas.entropy" />
+      <p>Entropy measures how mixed a group is: 0 when it is pure, 1 when two classes are equally common. The <b>weighted average</b> weighs each child by its share of the items. A bigger gain means a better split.</p>
     </section>
 
     <section>
-      <h2>Forward chaining</h2>
-      <p>Start with known facts. A rule <b>IF a AND b THEN c</b> may fire only when <b>all</b> its conditions are known; then c becomes known. Keep firing rules until nothing new appears. The final conclusion is whatever the facts and rules prove, nothing more.</p>
+      <h2>Minimax</h2>
+      <p>Two players take turns: <b>MAX</b> wants the largest value, <b>MIN</b> wants the smallest. Work from the bottom of the tree: every MIN node keeps its <b>smallest</b> child value, every MAX node its <b>largest</b>. The value at the top is what MAX can guarantee.</p>
     </section>
 
     <section>
       <h2>RAG</h2>
-      <p>Retrieval-augmented generation: split documents into <b>chunks</b>, <b>retrieve</b> the top-k chunks most similar to the question, and let the model answer from them. Tiny chunks lose context; huge ones bring noise. A bigger k adds evidence and distraction. Check what was retrieved before trusting the answer.</p>
+      <p>Retrieval-augmented generation: split documents into <b>chunks</b>, <b>retrieve</b> the top-k chunks most similar to the question, and let the model answer from them. <b>Chunk size</b>: tiny chunks lose context, huge ones bring noise. <b>Top-k</b>: a bigger k adds evidence and distraction. Check what was retrieved before trusting the answer.</p>
     </section>
   </div>
 

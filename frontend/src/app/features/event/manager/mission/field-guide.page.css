@@ -25,6 +25,20 @@
   margin: var(--space-2) 0 var(--space-4);
 }
 
+.guide__head .guide__tools {
+  margin-block-end: var(--space-1);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* The display formulas: tight, so the guide still fits one printed page. */
+.guide__math {
+  --formula-indent: var(--space-2);
+  --formula-size: 1.05em;
+  margin-block-end: var(--space-2);
+  max-inline-size: none;
+  line-height: 1.35;
+}
+
 .guide__grid {
   columns: 3 280px;
   column-gap: var(--space-5);

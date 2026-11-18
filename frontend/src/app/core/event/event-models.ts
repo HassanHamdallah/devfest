@@ -494,6 +494,8 @@ export interface RoomContentView {
 export type SentinelStageType =
   | "OUTLIER_HUNT"
   | "FEATURE_CHECK"
+  | "CHOICE"
+  | "INPUT"
   | "TUNE_DEPLOY"
   | "NEAREST_VEHICLE"
   | "CAMERA_ACCURACY"

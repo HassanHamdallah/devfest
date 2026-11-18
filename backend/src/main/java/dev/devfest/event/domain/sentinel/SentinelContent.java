@@ -6,7 +6,8 @@ import java.util.Map;
 
 /**
  * The AI mission room's content (rules §19.2), already read from the import file: a story, three missions and ten
- * stages whose order and kinds are fixed. Everything a stage needs, including each scoring table, lives here;
+ * stages whose order and kinds are fixed (see {@link SentinelContentRules#STAGE_KINDS}; the kinds that no stage uses any
+ * more are kept so that a mission file stored earlier still plays). Everything a stage needs, including each scoring table, lives here;
  * answers that are derived (nearest neighbours, confusion counts, K-Means, A*, Naive Bayes, forward chaining) are
  * never stored, the server computes them from the stage's data.
  */
@@ -26,7 +27,7 @@ public record SentinelContent(Story story, List<Mission> missions) {
   public record Head(int number, String title, String fieldNote, String brief, BigDecimal maxPoints) {}
 
   /** A stage; {@link #awards()} is the stage's scoring table and never leaves the server. */
-  public sealed interface Stage permits OutlierHunt, FeatureCheck, TuneDeploy, NearestVehicle, CameraAccuracy, GroupFrames, RoutePlanner, ThreatFilter, RuleEngine, RagFix {
+  public sealed interface Stage permits OutlierHunt, FeatureCheck, TuneDeploy, NearestVehicle, CameraAccuracy, GroupFrames, RoutePlanner, ThreatFilter, RuleEngine, RagFix, Choice, Input {
     Head head();
 
     default int number() {
@@ -106,6 +107,58 @@ public record SentinelContent(Story story, List<Mission> missions) {
   public record RagConfig(String id, String chunkSize, int topK, List<String> chunks, String reply, BigDecimal award) {}
 
   public record RagFix(Head head, String question, List<String> chunkSizes, List<Integer> topKs, int maxRuns, List<RagConfig> configs) implements Stage {}
+
+  // ---- CHOICE -----------------------------------------------------------------------------------
+
+  /** One answer of a multiple choice stage; {@code id} is a single letter a to z, the answer a team sends. */
+  public record ChoiceOption(String id, String text) {}
+
+  /**
+   * A generic multiple choice stage (rules §19.2): one answer only, worth the stage's full {@code maxPoints} when
+   * {@code correct} (an option id) is chosen and nothing otherwise. {@code correct} never leaves the server.
+   */
+  public record Choice(Head head, List<ChoiceOption> options, String correct, Figure figure) implements Stage {}
+
+  // ---- INPUT ------------------------------------------------------------------------------------
+
+  /** How a typed answer is judged: {@link TextAnswer} or {@link NumberAnswer}. It never leaves the server. */
+  public sealed interface Answer permits TextAnswer, NumberAnswer {}
+
+  /** Correct when what the team typed, trimmed, without any space and in lower case, equals one accepted value in the same form. */
+  public record TextAnswer(List<String> accepted) implements Answer {}
+
+  /** Correct when the typed decimal number is within {@code tolerance} of {@code value}. */
+  public record NumberAnswer(double value, double tolerance) implements Answer {}
+
+  /**
+   * A typed answer stage (rules §19.2): one answer only, at most {@value InputAnswers#MAX_LENGTH} characters, worth the
+   * stage's full {@code maxPoints} when correct and nothing otherwise. {@code answer} never leaves the server.
+   */
+  public record Input(Head head, Figure figure, Answer answer) implements Stage {}
+
+  // ---- figures ----------------------------------------------------------------------------------
+
+  /**
+   * An optional drawing above a CHOICE or INPUT stage's brief (rules §19.2). A figure holds the question's own data
+   * only, the same numbers as the brief, and never an answer or an intermediate result.
+   */
+  public sealed interface Figure permits NeuronFigure, CrossoverFigure, SplitFigure, MinimaxFigure {}
+
+  public record NeuronInput(String label, double value) {}
+
+  /** A neuron: inputs, one weight each, and a bias. */
+  public record NeuronFigure(List<NeuronInput> inputs, List<Double> weights, double bias) implements Figure {}
+
+  /** Two bit strings, the cut after position {@code cut} and the bit {@code mutate} (both counted from 1). */
+  public record CrossoverFigure(String parentA, String parentB, int cut, int mutate) implements Figure {}
+
+  public record Counts(int normal, int suspicious) {}
+
+  /** A node of items split by a yes/no question into two child nodes. */
+  public record SplitFigure(Counts parent, String question, Counts yes, Counts no) implements Figure {}
+
+  /** A two level game tree: the root player ({@code MAX} or {@code MIN}) and, per child node, its leaf values. */
+  public record MinimaxFigure(String root, List<List<Double>> children) implements Figure {}
 
   // ---- lookups ----------------------------------------------------------------------------------
 

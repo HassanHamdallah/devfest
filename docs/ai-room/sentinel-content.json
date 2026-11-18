@@ -2,7 +2,7 @@
   "format": 1,
   "passScore": 60,
   "story": {
-    "start": "SENTINEL OFFLINE. Rami was investigating this AI the night he vanished. Someone sabotaged it. Repair its three systems and it will release what it recorded.",
+    "start": "SENTINEL OFFLINE. SENTINEL is the AI security system of NOVA Technologies. Noor, the Cybersecurity Engineer on Project ORION, was using it in her investigation before she disappeared. Someone sabotaged it. Repair its three systems and it will release what it recorded.",
     "passed": "SENTINEL RESTORED. All systems are back online. Recovered record:",
     "failed": "SENTINEL UNSTABLE. Some systems could not be restored. Your team did not reach the required score."
   },
@@ -10,14 +10,14 @@
     {
       "id": "predict",
       "title": "PREDICT",
-      "intro": "SENTINEL's prediction engine was corrupted. Rami, a journalist, tracked a white van through it. Retrain the engine before it misleads anyone else.",
+      "intro": "SENTINEL's prediction engine was corrupted. Noor, NOVA's Cybersecurity Engineer, tracked a white van through it. Retrain the engine before it misleads anyone else.",
       "stages": [
         {
           "number": 1,
           "type": "OUTLIER_HUNT",
           "title": "Outlier Hunt",
-          "fieldNote": "Rami's notes: \"The van's GPS jumps around. Some pings are real, some are noise. Find the noise without throwing away good data.\" Method: east and north are judged separately, and a ping is flagged if it is outside on either one. IQR uses Tukey's hinges (the medians of the lower and upper halves) with fences at Q1 - k x IQR and Q3 + k x IQR. Z-score uses the population standard deviation (divide by n).",
-          "brief": "These are the white van's GPS pings (km east and north of the campus gate). Choose a detector, IQR or Z-score, with a threshold, then run it to see which pings it flags. Try as many settings as you like, then submit the one you trust.",
+          "fieldNote": "Noor's notes: \"The van's GPS jumps around. Some pings are real, some are noise. Find the noise without throwing away good data.\" Method: east and north are judged separately, and a ping is flagged if it is outside on either one. IQR uses Tukey's hinges (the medians of the lower and upper halves) with fences at\n$$ Q1 - k x IQR\n$$ Q3 + k x IQR\nZ-score uses the population standard deviation (divide by n).",
+          "brief": "These are the white van's GPS pings (km east and north of the NOVA campus gate). Choose a detector, IQR or Z-score, with a threshold, then run it to see which pings it flags. Try as many settings as you like, then submit the one you trust.",
           "maxPoints": 10,
           "readings": [
             {
@@ -136,7 +136,7 @@
           "number": 2,
           "type": "FEATURE_CHECK",
           "title": "Feature Check",
-          "fieldNote": "Rami's notes: \"Careful what you teach it. Some columns just give the answer away.\"",
+          "fieldNote": "Noor's notes: Careful what you teach it. A column can give the answer away, or it can be only a label that tells the model nothing.",
           "brief": "SENTINEL predicts which gate a vehicle will leave by (the target: Exit gate). For each column, decide whether to use it as an input or drop it. Think about what is known at the moment of the prediction, and what is only an identifier.",
           "maxPoints": 10,
           "target": "Exit gate",
@@ -147,9 +147,19 @@
               "role": "USE"
             },
             {
+              "id": "plate-number",
+              "label": "Plate number",
+              "role": "DROP"
+            },
+            {
               "id": "entry-time",
               "label": "Entry time",
               "role": "USE"
+            },
+            {
+              "id": "exit-camera-time",
+              "label": "Exit camera timestamp",
+              "role": "DROP"
             },
             {
               "id": "vehicle-type",
@@ -160,84 +170,66 @@
               "id": "previous-visits",
               "label": "Previous visits",
               "role": "USE"
-            },
-            {
-              "id": "plate-number",
-              "label": "Plate number",
-              "role": "DROP"
-            },
-            {
-              "id": "exit-camera-time",
-              "label": "Exit camera timestamp",
-              "role": "DROP"
             }
           ]
         },
         {
           "number": 3,
-          "type": "TUNE_DEPLOY",
-          "title": "Tune & Deploy",
-          "fieldNote": "Rami's notes: \"Training accuracy alone fooled me once. Check how it does on data it has never seen.\"",
-          "brief": "Each row is a model setting. You may run 4 different settings (running the same one again is free). A run shows its accuracy on the training data and on validation data it has never seen. Then deploy one setting; it does not have to be one you ran.",
+          "type": "CHOICE",
+          "title": "Neuron Check",
+          "fieldNote": "Noor's notes: Multiply each input by its weight, add the results and the bias. ReLU keeps a positive number as it is and turns any negative number into 0.",
+          "brief": "A neuron in SENTINEL scores a card swipe.\nInputs: x1 = 3 (hours after closing), x2 = 2 (failed logins)\nWeights: w1 = 0.5, w2 = -2. Bias: b = 1.\nThe neuron computes\n$$ z = w1·x1 + w2·x2 + b\nthen outputs\n$$ ReLU(z) = max(0, z)\nWhat does the neuron output?",
           "maxPoints": 10,
-          "maxRuns": 4,
-          "configs": [
+          "figure": {
+            "type": "neuron",
+            "inputs": [
+              {
+                "label": "x1",
+                "value": 3
+              },
+              {
+                "label": "x2",
+                "value": 2
+              }
+            ],
+            "weights": [
+              0.5,
+              -2
+            ],
+            "bias": 1
+          },
+          "options": [
             {
-              "id": "knn-1",
-              "label": "KNN, k = 1",
-              "train": 100,
-              "validation": 71,
-              "award": 0
+              "id": "a",
+              "text": "0"
             },
             {
-              "id": "knn-5",
-              "label": "KNN, k = 5",
-              "train": 90,
-              "validation": 86,
-              "award": 5
+              "id": "b",
+              "text": "-1.5"
             },
             {
-              "id": "knn-15",
-              "label": "KNN, k = 15",
-              "train": 78,
-              "validation": 76,
-              "award": 0
+              "id": "c",
+              "text": "1.5"
             },
             {
-              "id": "tree-2",
-              "label": "Decision tree, depth 2",
-              "train": 74,
-              "validation": 73,
-              "award": 0
-            },
-            {
-              "id": "tree-5",
-              "label": "Decision tree, depth 5",
-              "train": 91,
-              "validation": 89,
-              "award": 10
-            },
-            {
-              "id": "tree-20",
-              "label": "Decision tree, depth 20",
-              "train": 100,
-              "validation": 70,
-              "award": 0
+              "id": "d",
+              "text": "5.5"
             }
-          ]
+          ],
+          "correct": "a"
         }
       ]
     },
     {
       "id": "see",
       "title": "SEE",
-      "intro": "Rami wired SENTINEL's cameras to the campus gates. The sabotage left them half blind. Check what they see and how well they see it.",
+      "intro": "Noor connected SENTINEL's cameras to the gates of the NOVA campus. The sabotage left them half blind. Check what they see and how well they see it.",
       "stages": [
         {
           "number": 4,
           "type": "NEAREST_VEHICLE",
           "title": "Nearest Vehicle",
-          "fieldNote": "Rami's notes: \"One neighbour can be a liar. Ask more of them.\"",
+          "fieldNote": "Noor's notes: The nearest neighbours of the unknown vehicle are the labelled vehicles closest to it. With k = 1 one vehicle decides; with a larger k the k nearest vote and the majority class wins. Think about how much one odd vehicle can sway each vote.",
           "brief": "The cameras measured an unknown vehicle (the hollow diamond) by its length and height. Use the k control to see which labelled vehicles are its k nearest neighbours and how they vote. Answer: its class when k = 1, its class when k = 5, and which of the two settings you trust more.",
           "maxPoints": 10,
           "classes": [
@@ -345,7 +337,7 @@
           "number": 5,
           "type": "CAMERA_ACCURACY",
           "title": "Camera Accuracy",
-          "fieldNote": "Rami's notes: \"A camera that misses a real van is worse than one that cries wolf.\"",
+          "fieldNote": "Noor's notes: Count the four groups first: true positives, false positives, false negatives and true negatives. Precision asks: of the frames the camera flagged, how many were real? Recall asks: of the real ones, how many did the camera flag?",
           "brief": "Twenty camera frames: whether a white van was really there, and what the camera said. Fill in the four counts, then precision and recall as decimals (0.80, not 80%). Finally choose the metric that matters most when the goal is not to miss the van.",
           "maxPoints": 10,
           "positive": "Van",
@@ -448,106 +440,38 @@
         },
         {
           "number": 6,
-          "type": "GROUP_FRAMES",
-          "title": "Group the Frames",
-          "fieldNote": "Rami's notes: \"Without labels the frames still fall into groups. Let it find them.\"",
-          "brief": "Each dot is a camera frame (brightness across, shape size up). Two centroids start in fixed places. Press Assign to give every frame to its nearest centroid, then Update to move each centroid to the middle of its frames. Repeat until nothing moves. Cluster B holds the van's frames: how many frames are in it, and where does its centroid end up?",
+          "type": "INPUT",
+          "title": "Patrol Evolution",
+          "fieldNote": "Noor's notes: Crossover joins the start of one parent to the end of the other. A mutation flips one bit: 0 becomes 1 and 1 becomes 0. Do the crossover first, then the mutation.",
+          "brief": "SENTINEL searches for the best patrol route with a genetic algorithm. Each route is written as bits:\n    Parent A:  1 0 1 | 1 0 0\n    Parent B:  0 1 1 | 0 1 1\n1. Crossover after position 3: the child takes the first 3 bits from Parent A and the rest from Parent B.\n2. Mutation: flip bit number 5 (counting from the left, starting at 1).\nWhat is the final child?\nType the final child as 6 bits.",
           "maxPoints": 10,
-          "dots": [
-            {
-              "id": "f01",
-              "x": 1,
-              "y": 2
-            },
-            {
-              "id": "f02",
-              "x": 2,
-              "y": 1
-            },
-            {
-              "id": "f03",
-              "x": 2,
-              "y": 3
-            },
-            {
-              "id": "f04",
-              "x": 3,
-              "y": 2
-            },
-            {
-              "id": "f05",
-              "x": 1,
-              "y": 1
-            },
-            {
-              "id": "f06",
-              "x": 3,
-              "y": 3
-            },
-            {
-              "id": "f07",
-              "x": 6,
-              "y": 5
-            },
-            {
-              "id": "f08",
-              "x": 8,
-              "y": 5
-            },
-            {
-              "id": "f09",
-              "x": 8,
-              "y": 7
-            },
-            {
-              "id": "f10",
-              "x": 9,
-              "y": 6
-            },
-            {
-              "id": "f11",
-              "x": 7,
-              "y": 7
-            },
-            {
-              "id": "f12",
-              "x": 7,
-              "y": 9
-            }
-          ],
-          "centroids": [
-            {
-              "id": "A",
-              "label": "Cluster A",
-              "x": 2,
-              "y": 2
-            },
-            {
-              "id": "B",
-              "label": "Cluster B",
-              "x": 4,
-              "y": 3
-            }
-          ],
-          "asked": "B",
-          "awards": {
-            "size": 5,
-            "centre": 5
+          "figure": {
+            "type": "crossover",
+            "parentA": "101100",
+            "parentB": "011011",
+            "cut": 3,
+            "mutate": 5
+          },
+          "answer": {
+            "kind": "TEXT",
+            "accepted": [
+              "101001"
+            ]
           }
         }
       ]
     },
     {
       "id": "noor",
-      "title": "NOOR",
-      "intro": "NOOR is SENTINEL's reasoning core. Rami trusted it to plan routes, spot threats and answer questions. Bring it back online.",
+      "title": "ECHO",
+      "intro": "ECHO is NOVA's assistant: it plans, decides and answers from company records. Noor relied on it in her investigation. Bring it back online.",
       "stages": [
         {
           "number": 7,
           "type": "ROUTE_PLANNER",
           "title": "Route Planner",
-          "fieldNote": "Rami's notes: \"The road that looks shortest is not always the cheapest one.\"",
-          "brief": "Plan SENTINEL's patrol route from Library to Gate 3 with A*. Each road shows its cost and each place its estimate h of the cost still to go. Click the next place to expand from the frontier: it must have the lowest f = g + h. Then give the order in which you expanded places (ending at Gate 3), the route, and its total cost.",
+          "fieldNote": "Noor's notes: A* ranks the places on the frontier by\n$$ f = g + h\nwhere g is the cost of the road so far and h is the estimate of the cost still to go. Always expand the frontier place with the lowest f.",
+          "brief": "Plan SENTINEL's patrol route from Library to Gate 3 with A*. Each road shows its cost and each place its estimate h of the cost still to go. Click the next place to expand from the frontier: it must have the lowest\n$$ f = g + h\nThen give the order in which you expanded places (ending at Gate 3), the route, and its total cost.",
           "maxPoints": 10,
           "places": [
             {
@@ -669,181 +593,72 @@
         },
         {
           "number": 8,
-          "type": "THREAT_FILTER",
-          "title": "Threat Filter",
-          "fieldNote": "Rami's notes: \"Scary words are not proof. Do the arithmetic.\"",
-          "brief": "A message reached the gate: \"urgent files tonight meeting\". For each class, multiply its prior by the probability of every word of the message. Enter the Threat value and the Normal value (as decimals), then say which class wins.",
+          "type": "INPUT",
+          "title": "Best Split",
+          "fieldNote": "Noor's notes: Find the entropy of each child group first. Weight each one by the share of swipes it holds, add them, and subtract from the parent's entropy. The gain is how much uncertainty the split removes.",
+          "brief": "A node holds 8 card swipes: 4 normal and 4 suspicious, so its entropy is 1.\nSENTINEL splits it on \"After closing time?\":\n    Yes: 1 normal, 3 suspicious\n    No:  3 normal, 1 suspicious\n$$ Entropy = -Σ p·log2(p)\nInformation gain:\n$$ Gain = Entropy(parent) − weighted average entropy(children)\nUseful:\n$$ log2(0.25) = -2\n$$ log2(0.75) ≈ -0.415\nWhat is the information gain, approximately?\nType the information gain to 2 decimal places.",
           "maxPoints": 10,
-          "message": [
-            "urgent",
-            "files",
-            "tonight",
-            "meeting"
-          ],
-          "priors": {
-            "threat": 0.1,
-            "normal": 0.9
-          },
-          "table": [
-            {
-              "word": "urgent",
-              "threat": 0.4,
-              "normal": 0.1
+          "figure": {
+            "type": "split",
+            "parent": {
+              "normal": 4,
+              "suspicious": 4
             },
-            {
-              "word": "files",
-              "threat": 0.3,
-              "normal": 0.25
+            "question": "After closing time?",
+            "yes": {
+              "normal": 1,
+              "suspicious": 3
             },
-            {
-              "word": "tonight",
-              "threat": 0.2,
-              "normal": 0.15
-            },
-            {
-              "word": "meeting",
-              "threat": 0.05,
-              "normal": 0.3
-            },
-            {
-              "word": "gate",
-              "threat": 0.15,
-              "normal": 0.1
-            },
-            {
-              "word": "report",
-              "threat": 0.02,
-              "normal": 0.2
+            "no": {
+              "normal": 3,
+              "suspicious": 1
             }
-          ],
-          "awards": {
-            "threat": 4,
-            "normal": 4,
-            "label": 2
+          },
+          "answer": {
+            "kind": "NUMBER",
+            "value": 0.19,
+            "tolerance": 0.01
           }
         },
         {
           "number": 9,
-          "type": "RULE_ENGINE",
-          "title": "Rule Engine",
-          "fieldNote": "Rami's notes: \"Facts alone prove nothing. Rules turn facts into conclusions.\"",
-          "brief": "Start from the known facts. Click a rule whose conditions are all known to add its conclusion; a rule whose conditions are not all known will refuse. Keep going until nothing new appears, then choose the final conclusion.",
+          "type": "INPUT",
+          "title": "Patrol Game",
+          "fieldNote": "Noor's notes: Start at the bottom. Each MIN node keeps its smallest value, because the intruder plays against you. Then MAX picks the largest of those.",
+          "brief": "A security drone (MAX) picks a route; the intruder (MIN) then answers with the move that is worst for the drone. Values are for the drone.\n    MAX\n    ├─ MIN: 3, 5\n    ├─ MIN: 2, 9\n    └─ MIN: 4, 6\nWhat value can the drone guarantee with minimax?\nType the value.",
           "maxPoints": 10,
-          "facts": [
-            {
-              "id": "van-at-gate",
-              "text": "A white van was seen at Gate 3"
-            },
-            {
-              "id": "after-hours",
-              "text": "It was after closing time"
-            },
-            {
-              "id": "plate-fleet",
-              "text": "The plate matches the campus fleet"
-            },
-            {
-              "id": "phone-offline",
-              "text": "Rami's phone went offline near the Library"
-            },
-            {
-              "id": "unscheduled-visit",
-              "text": "The van made an unscheduled visit"
-            },
-            {
-              "id": "fleet-vehicle",
-              "text": "The van is a campus fleet vehicle"
-            },
-            {
-              "id": "staff-driver",
-              "text": "The van was driven by a staff member"
-            },
-            {
-              "id": "insider-involved",
-              "text": "Someone on the inside was involved"
-            },
-            {
-              "id": "gate-log-deleted",
-              "text": "The gate log was deleted"
-            },
-            {
-              "id": "cover-up",
-              "text": "There is a cover-up"
-            },
-            {
-              "id": "outsider-theft",
-              "text": "An outsider stole the van"
-            },
-            {
-              "id": "equipment-failure",
-              "text": "The cameras simply failed"
-            }
-          ],
-          "known": [
-            "van-at-gate",
-            "after-hours",
-            "plate-fleet",
-            "phone-offline"
-          ],
-          "rules": [
-            {
-              "id": "R1",
-              "ifAll": [
-                "van-at-gate",
-                "after-hours"
+          "figure": {
+            "type": "minimax",
+            "root": "MAX",
+            "children": [
+              [
+                3,
+                5
               ],
-              "then": "unscheduled-visit"
-            },
-            {
-              "id": "R2",
-              "ifAll": [
-                "plate-fleet"
+              [
+                2,
+                9
               ],
-              "then": "fleet-vehicle"
-            },
-            {
-              "id": "R3",
-              "ifAll": [
-                "unscheduled-visit",
-                "fleet-vehicle"
-              ],
-              "then": "staff-driver"
-            },
-            {
-              "id": "R4",
-              "ifAll": [
-                "staff-driver",
-                "phone-offline"
-              ],
-              "then": "insider-involved"
-            },
-            {
-              "id": "R5",
-              "ifAll": [
-                "insider-involved",
-                "gate-log-deleted"
-              ],
-              "then": "cover-up"
-            }
-          ],
-          "conclusions": [
-            "insider-involved",
-            "cover-up",
-            "outsider-theft",
-            "equipment-failure"
-          ],
-          "awards": {
-            "conclusion": 10
+              [
+                4,
+                6
+              ]
+            ]
+          },
+          "answer": {
+            "kind": "NUMBER",
+            "value": 4,
+            "tolerance": 0
           }
         },
         {
           "number": 10,
           "type": "RAG_FIX",
           "title": "RAG Fix",
-          "fieldNote": "Rami's notes: \"NOOR answers from what it retrieves. Feed it the right pages.\"",
-          "brief": "Ask NOOR where Rami was last confirmed. Choose a chunk size (how much text each retrieved piece holds) and a top-k (how many pieces NOOR reads), then press Ask NOOR to see what it retrieves and how it answers. You may try 3 different settings. Then lock the one you want NOOR to use.",
+          "fieldNote": "Noor's notes: \"ECHO answers from what it retrieves. Feed it the right pages.\"",
+          "brief": "Ask ECHO where Noor was last confirmed. Choose a chunk size (how much text each retrieved piece holds) and a top-k (how many pieces ECHO reads), then press Ask ECHO to see what it retrieves and how it answers. You may try 3 different settings. Then lock the one you want ECHO to use.",
           "maxPoints": 10,
-          "question": "Where was Rami last confirmed?",
+          "question": "Where was Noor last confirmed?",
           "chunkSizes": [
             "Small",
             "Large"
@@ -859,9 +674,9 @@
               "chunkSize": "Small",
               "topK": 1,
               "chunks": [
-                "Rami badged out of the Lab at 18:05."
+                "Noor badged out of the Lab at 18:05."
               ],
-              "reply": "Rami was last confirmed at the Lab, leaving at 18:05.",
+              "reply": "Noor was last confirmed at the Lab, leaving at 18:05.",
               "award": 0
             },
             {
@@ -869,11 +684,11 @@
               "chunkSize": "Small",
               "topK": 3,
               "chunks": [
-                "Rami badged out of the Lab at 18:05.",
+                "Noor badged out of the Lab at 18:05.",
                 "A white van entered Gate 3 at 21:55.",
-                "Rami's phone went offline at 21:40."
+                "Noor's phone went offline at 20:40."
               ],
-              "reply": "I am not sure. He left the Lab, and later his phone went offline. Possibly near the Library.",
+              "reply": "I am not sure. She left the Lab, and later her phone went offline. Possibly near the Cybersecurity office.",
               "award": 5
             },
             {
@@ -881,9 +696,9 @@
               "chunkSize": "Large",
               "topK": 1,
               "chunks": [
-                "Evening log. 18:05 Rami badged out of the Lab. 20:30 Rami badged into the Library reading room. 21:40 Rami's phone went offline inside the Library; no later badge entry or exit exists, so the Library is the last place he was confirmed. 21:55 A white van entered Gate 3."
+                "Evening log. 18:05 Noor badged out of the Lab. 20:30 Noor badged into the Cybersecurity office. 20:40 Noor's phone went offline inside the Cybersecurity office; no later badge entry or exit exists, so the Cybersecurity office is the last place she was confirmed. 21:55 A white van entered Gate 3."
               ],
-              "reply": "Rami was last confirmed in the Library reading room at 21:40, when his phone went offline.",
+              "reply": "Noor was last confirmed in the Cybersecurity office at 20:40, when her phone went offline.",
               "award": 10
             },
             {
@@ -891,11 +706,11 @@
               "chunkSize": "Large",
               "topK": 3,
               "chunks": [
-                "Evening log. 18:05 Rami badged out of the Lab. 20:30 Rami badged into the Library reading room. 21:40 Rami's phone went offline inside the Library; no later badge entry or exit exists, so the Library is the last place he was confirmed. 21:55 A white van entered Gate 3.",
-                "Security notice. The Cafeteria cameras were serviced on Tuesday and footage from that day is incomplete; one clip may show Rami near the Cafeteria earlier in the week.",
-                "Lab access sheet. Rami visited the Lab several times last week and signed the sheet on his last visit, but the sheet has no time on it."
+                "Evening log. 18:05 Noor badged out of the Lab. 20:30 Noor badged into the Cybersecurity office. 20:40 Noor's phone went offline inside the Cybersecurity office; no later badge entry or exit exists, so the Cybersecurity office is the last place she was confirmed. 21:55 A white van entered Gate 3.",
+                "Security notice. The Cafeteria cameras were serviced on Tuesday and footage from that day is incomplete; one clip may show Noor near the Cafeteria earlier in the week.",
+                "Lab access sheet. Noor visited the Lab several times last week and signed the sheet on her last visit, but the sheet has no time on it."
               ],
-              "reply": "The records disagree: it may have been the Library, the Cafeteria or the Lab.",
+              "reply": "The records disagree: it may have been the Cybersecurity office, the Cafeteria or the Lab.",
               "award": 5
             }
           ]

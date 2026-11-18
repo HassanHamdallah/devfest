@@ -1,0 +1,906 @@
+{
+  "format": 1,
+  "passScore": 60,
+  "story": {
+    "start": "SENTINEL OFFLINE. Rami was investigating this AI the night he vanished. Someone sabotaged it. Repair its three systems and it will release what it recorded.",
+    "passed": "SENTINEL RESTORED. All systems are back online. Recovered record:",
+    "failed": "SENTINEL UNSTABLE. Some systems could not be restored. Your team did not reach the required score."
+  },
+  "missions": [
+    {
+      "id": "predict",
+      "title": "PREDICT",
+      "intro": "SENTINEL's prediction engine was corrupted. Rami, a journalist, tracked a white van through it. Retrain the engine before it misleads anyone else.",
+      "stages": [
+        {
+          "number": 1,
+          "type": "OUTLIER_HUNT",
+          "title": "Outlier Hunt",
+          "fieldNote": "Rami's notes: \"The van's GPS jumps around. Some pings are real, some are noise. Find the noise without throwing away good data.\" Method: east and north are judged separately, and a ping is flagged if it is outside on either one. IQR uses Tukey's hinges (the medians of the lower and upper halves) with fences at Q1 - k x IQR and Q3 + k x IQR. Z-score uses the population standard deviation (divide by n).",
+          "brief": "These are the white van's GPS pings (km east and north of the campus gate). Choose a detector, IQR or Z-score, with a threshold, then run it to see which pings it flags. Try as many settings as you like, then submit the one you trust.",
+          "maxPoints": 10,
+          "readings": [
+            {
+              "id": "g01",
+              "label": "Ping 01",
+              "x": 4.0,
+              "y": 3.1
+            },
+            {
+              "id": "g02",
+              "label": "Ping 02",
+              "x": 4.2,
+              "y": 3.3
+            },
+            {
+              "id": "g03",
+              "label": "Ping 03",
+              "x": 3.9,
+              "y": 3.0
+            },
+            {
+              "id": "g04",
+              "label": "Ping 04",
+              "x": 4.1,
+              "y": 3.4
+            },
+            {
+              "id": "g05",
+              "label": "Ping 05",
+              "x": 4.3,
+              "y": 3.2
+            },
+            {
+              "id": "g06",
+              "label": "Ping 06",
+              "x": 3.8,
+              "y": 3.2
+            },
+            {
+              "id": "g07",
+              "label": "Ping 07",
+              "x": 4.0,
+              "y": 3.5
+            },
+            {
+              "id": "g08",
+              "label": "Ping 08",
+              "x": 4.4,
+              "y": 3.0
+            },
+            {
+              "id": "g09",
+              "label": "Ping 09",
+              "x": 4.1,
+              "y": 3.1
+            },
+            {
+              "id": "g10",
+              "label": "Ping 10",
+              "x": 3.7,
+              "y": 3.4
+            },
+            {
+              "id": "g11",
+              "label": "Ping 11",
+              "x": 4.5,
+              "y": 3.6
+            },
+            {
+              "id": "g12",
+              "label": "Ping 12",
+              "x": 5.6,
+              "y": 4.7
+            },
+            {
+              "id": "g13",
+              "label": "Ping 13",
+              "x": 7.5,
+              "y": 6.5
+            },
+            {
+              "id": "g14",
+              "label": "Ping 14",
+              "x": 7.0,
+              "y": 6.1
+            }
+          ],
+          "configs": [
+            {
+              "id": "iqr-1.5",
+              "method": "IQR",
+              "threshold": 1.5,
+              "award": 10
+            },
+            {
+              "id": "iqr-3",
+              "method": "IQR",
+              "threshold": 3,
+              "award": 6
+            },
+            {
+              "id": "z-2",
+              "method": "Z",
+              "threshold": 2,
+              "award": 4
+            },
+            {
+              "id": "z-3",
+              "method": "Z",
+              "threshold": 3,
+              "award": 0
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "type": "FEATURE_CHECK",
+          "title": "Feature Check",
+          "fieldNote": "Rami's notes: \"Careful what you teach it. Some columns just give the answer away.\"",
+          "brief": "SENTINEL predicts which gate a vehicle will leave by (the target: Exit gate). For each column, decide whether to use it as an input or drop it. Think about what is known at the moment of the prediction, and what is only an identifier.",
+          "maxPoints": 10,
+          "target": "Exit gate",
+          "features": [
+            {
+              "id": "entry-gate",
+              "label": "Entry gate",
+              "role": "USE"
+            },
+            {
+              "id": "entry-time",
+              "label": "Entry time",
+              "role": "USE"
+            },
+            {
+              "id": "vehicle-type",
+              "label": "Vehicle type",
+              "role": "USE"
+            },
+            {
+              "id": "previous-visits",
+              "label": "Previous visits",
+              "role": "USE"
+            },
+            {
+              "id": "plate-number",
+              "label": "Plate number",
+              "role": "DROP"
+            },
+            {
+              "id": "exit-camera-time",
+              "label": "Exit camera timestamp",
+              "role": "DROP"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "type": "TUNE_DEPLOY",
+          "title": "Tune & Deploy",
+          "fieldNote": "Rami's notes: \"Training accuracy alone fooled me once. Check how it does on data it has never seen.\"",
+          "brief": "Each row is a model setting. You may run 4 different settings (running the same one again is free). A run shows its accuracy on the training data and on validation data it has never seen. Then deploy one setting; it does not have to be one you ran.",
+          "maxPoints": 10,
+          "maxRuns": 4,
+          "configs": [
+            {
+              "id": "knn-1",
+              "label": "KNN, k = 1",
+              "train": 100,
+              "validation": 71,
+              "award": 0
+            },
+            {
+              "id": "knn-5",
+              "label": "KNN, k = 5",
+              "train": 90,
+              "validation": 86,
+              "award": 5
+            },
+            {
+              "id": "knn-15",
+              "label": "KNN, k = 15",
+              "train": 78,
+              "validation": 76,
+              "award": 0
+            },
+            {
+              "id": "tree-2",
+              "label": "Decision tree, depth 2",
+              "train": 74,
+              "validation": 73,
+              "award": 0
+            },
+            {
+              "id": "tree-5",
+              "label": "Decision tree, depth 5",
+              "train": 91,
+              "validation": 89,
+              "award": 10
+            },
+            {
+              "id": "tree-20",
+              "label": "Decision tree, depth 20",
+              "train": 100,
+              "validation": 70,
+              "award": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "see",
+      "title": "SEE",
+      "intro": "Rami wired SENTINEL's cameras to the campus gates. The sabotage left them half blind. Check what they see and how well they see it.",
+      "stages": [
+        {
+          "number": 4,
+          "type": "NEAREST_VEHICLE",
+          "title": "Nearest Vehicle",
+          "fieldNote": "Rami's notes: \"One neighbour can be a liar. Ask more of them.\"",
+          "brief": "The cameras measured an unknown vehicle (the hollow diamond) by its length and height. Use the k control to see which labelled vehicles are its k nearest neighbours and how they vote. Answer: its class when k = 1, its class when k = 5, and which of the two settings you trust more.",
+          "maxPoints": 10,
+          "classes": [
+            "Car",
+            "Van",
+            "Truck"
+          ],
+          "vehicles": [
+            {
+              "id": "v01",
+              "label": "Vehicle 01",
+              "kind": "Car",
+              "length": 4.1,
+              "height": 1.5
+            },
+            {
+              "id": "v02",
+              "label": "Vehicle 02",
+              "kind": "Car",
+              "length": 4.4,
+              "height": 1.45
+            },
+            {
+              "id": "v03",
+              "label": "Vehicle 03",
+              "kind": "Car",
+              "length": 4.0,
+              "height": 1.6
+            },
+            {
+              "id": "v04",
+              "label": "Vehicle 04",
+              "kind": "Car",
+              "length": 4.3,
+              "height": 1.55
+            },
+            {
+              "id": "v05",
+              "label": "Vehicle 05",
+              "kind": "Van",
+              "length": 5.3,
+              "height": 2.1
+            },
+            {
+              "id": "v06",
+              "label": "Vehicle 06",
+              "kind": "Van",
+              "length": 5.0,
+              "height": 2.3
+            },
+            {
+              "id": "v07",
+              "label": "Vehicle 07",
+              "kind": "Van",
+              "length": 5.5,
+              "height": 2.0
+            },
+            {
+              "id": "v08",
+              "label": "Vehicle 08",
+              "kind": "Van",
+              "length": 5.2,
+              "height": 2.4
+            },
+            {
+              "id": "v09",
+              "label": "Vehicle 09",
+              "kind": "Van",
+              "length": 5.7,
+              "height": 2.25
+            },
+            {
+              "id": "v10",
+              "label": "Vehicle 10",
+              "kind": "Truck",
+              "length": 8.2,
+              "height": 3.1
+            },
+            {
+              "id": "v11",
+              "label": "Vehicle 11",
+              "kind": "Truck",
+              "length": 7.6,
+              "height": 3.3
+            },
+            {
+              "id": "v12",
+              "label": "Vehicle 12",
+              "kind": "Car",
+              "length": 5.1,
+              "height": 2.18
+            }
+          ],
+          "unknown": {
+            "length": 5.2,
+            "height": 2.2
+          },
+          "awards": {
+            "k1": 3,
+            "k5": 4,
+            "reliable": 3
+          }
+        },
+        {
+          "number": 5,
+          "type": "CAMERA_ACCURACY",
+          "title": "Camera Accuracy",
+          "fieldNote": "Rami's notes: \"A camera that misses a real van is worse than one that cries wolf.\"",
+          "brief": "Twenty camera frames: whether a white van was really there, and what the camera said. Fill in the four counts, then precision and recall as decimals (0.80, not 80%). Finally choose the metric that matters most when the goal is not to miss the van.",
+          "maxPoints": 10,
+          "positive": "Van",
+          "metrics": [
+            "Accuracy",
+            "Precision",
+            "Recall"
+          ],
+          "rows": [
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": false,
+              "predicted": true
+            },
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": false
+            },
+            {
+              "actual": true,
+              "predicted": true
+            },
+            {
+              "actual": false,
+              "predicted": false
+            }
+          ],
+          "awards": {
+            "tp": 1,
+            "fp": 1,
+            "fn": 1,
+            "tn": 1,
+            "precision": 2,
+            "recall": 2,
+            "metric": 2
+          }
+        },
+        {
+          "number": 6,
+          "type": "GROUP_FRAMES",
+          "title": "Group the Frames",
+          "fieldNote": "Rami's notes: \"Without labels the frames still fall into groups. Let it find them.\"",
+          "brief": "Each dot is a camera frame (brightness across, shape size up). Two centroids start in fixed places. Press Assign to give every frame to its nearest centroid, then Update to move each centroid to the middle of its frames. Repeat until nothing moves. Cluster B holds the van's frames: how many frames are in it, and where does its centroid end up?",
+          "maxPoints": 10,
+          "dots": [
+            {
+              "id": "f01",
+              "x": 1,
+              "y": 2
+            },
+            {
+              "id": "f02",
+              "x": 2,
+              "y": 1
+            },
+            {
+              "id": "f03",
+              "x": 2,
+              "y": 3
+            },
+            {
+              "id": "f04",
+              "x": 3,
+              "y": 2
+            },
+            {
+              "id": "f05",
+              "x": 1,
+              "y": 1
+            },
+            {
+              "id": "f06",
+              "x": 3,
+              "y": 3
+            },
+            {
+              "id": "f07",
+              "x": 6,
+              "y": 5
+            },
+            {
+              "id": "f08",
+              "x": 8,
+              "y": 5
+            },
+            {
+              "id": "f09",
+              "x": 8,
+              "y": 7
+            },
+            {
+              "id": "f10",
+              "x": 9,
+              "y": 6
+            },
+            {
+              "id": "f11",
+              "x": 7,
+              "y": 7
+            },
+            {
+              "id": "f12",
+              "x": 7,
+              "y": 9
+            }
+          ],
+          "centroids": [
+            {
+              "id": "A",
+              "label": "Cluster A",
+              "x": 2,
+              "y": 2
+            },
+            {
+              "id": "B",
+              "label": "Cluster B",
+              "x": 4,
+              "y": 3
+            }
+          ],
+          "asked": "B",
+          "awards": {
+            "size": 5,
+            "centre": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "noor",
+      "title": "NOOR",
+      "intro": "NOOR is SENTINEL's reasoning core. Rami trusted it to plan routes, spot threats and answer questions. Bring it back online.",
+      "stages": [
+        {
+          "number": 7,
+          "type": "ROUTE_PLANNER",
+          "title": "Route Planner",
+          "fieldNote": "Rami's notes: \"The road that looks shortest is not always the cheapest one.\"",
+          "brief": "Plan SENTINEL's patrol route from Library to Gate 3 with A*. Each road shows its cost and each place its estimate h of the cost still to go. Click the next place to expand from the frontier: it must have the lowest f = g + h. Then give the order in which you expanded places (ending at Gate 3), the route, and its total cost.",
+          "maxPoints": 10,
+          "places": [
+            {
+              "id": "lib",
+              "name": "Library",
+              "x": 60,
+              "y": 220,
+              "h": 9
+            },
+            {
+              "id": "lab",
+              "name": "Lab",
+              "x": 165,
+              "y": 110,
+              "h": 8
+            },
+            {
+              "id": "caf",
+              "name": "Cafeteria",
+              "x": 165,
+              "y": 330,
+              "h": 7
+            },
+            {
+              "id": "adm",
+              "name": "Admin",
+              "x": 330,
+              "y": 55,
+              "h": 6
+            },
+            {
+              "id": "dor",
+              "name": "Dorm",
+              "x": 275,
+              "y": 275,
+              "h": 6
+            },
+            {
+              "id": "gym",
+              "name": "Gym",
+              "x": 385,
+              "y": 385,
+              "h": 5
+            },
+            {
+              "id": "gar",
+              "name": "Garage",
+              "x": 440,
+              "y": 165,
+              "h": 3
+            },
+            {
+              "id": "g3",
+              "name": "Gate 3",
+              "x": 600,
+              "y": 220,
+              "h": 0
+            }
+          ],
+          "roads": [
+            {
+              "from": "lib",
+              "to": "lab",
+              "cost": 3
+            },
+            {
+              "from": "lib",
+              "to": "caf",
+              "cost": 9
+            },
+            {
+              "from": "lab",
+              "to": "caf",
+              "cost": 6
+            },
+            {
+              "from": "lab",
+              "to": "adm",
+              "cost": 5
+            },
+            {
+              "from": "lab",
+              "to": "dor",
+              "cost": 4
+            },
+            {
+              "from": "caf",
+              "to": "gym",
+              "cost": 11
+            },
+            {
+              "from": "adm",
+              "to": "dor",
+              "cost": 11
+            },
+            {
+              "from": "adm",
+              "to": "gar",
+              "cost": 3
+            },
+            {
+              "from": "dor",
+              "to": "gym",
+              "cost": 9
+            },
+            {
+              "from": "gar",
+              "to": "g3",
+              "cost": 4
+            }
+          ],
+          "start": "lib",
+          "goal": "g3",
+          "tieBreak": "If two places have the same f, expand the one that comes first alphabetically.",
+          "awards": {
+            "order": 5,
+            "route": 5
+          }
+        },
+        {
+          "number": 8,
+          "type": "THREAT_FILTER",
+          "title": "Threat Filter",
+          "fieldNote": "Rami's notes: \"Scary words are not proof. Do the arithmetic.\"",
+          "brief": "A message reached the gate: \"urgent files tonight meeting\". For each class, multiply its prior by the probability of every word of the message. Enter the Threat value and the Normal value (as decimals), then say which class wins.",
+          "maxPoints": 10,
+          "message": [
+            "urgent",
+            "files",
+            "tonight",
+            "meeting"
+          ],
+          "priors": {
+            "threat": 0.1,
+            "normal": 0.9
+          },
+          "table": [
+            {
+              "word": "urgent",
+              "threat": 0.4,
+              "normal": 0.1
+            },
+            {
+              "word": "files",
+              "threat": 0.3,
+              "normal": 0.25
+            },
+            {
+              "word": "tonight",
+              "threat": 0.2,
+              "normal": 0.15
+            },
+            {
+              "word": "meeting",
+              "threat": 0.05,
+              "normal": 0.3
+            },
+            {
+              "word": "gate",
+              "threat": 0.15,
+              "normal": 0.1
+            },
+            {
+              "word": "report",
+              "threat": 0.02,
+              "normal": 0.2
+            }
+          ],
+          "awards": {
+            "threat": 4,
+            "normal": 4,
+            "label": 2
+          }
+        },
+        {
+          "number": 9,
+          "type": "RULE_ENGINE",
+          "title": "Rule Engine",
+          "fieldNote": "Rami's notes: \"Facts alone prove nothing. Rules turn facts into conclusions.\"",
+          "brief": "Start from the known facts. Click a rule whose conditions are all known to add its conclusion; a rule whose conditions are not all known will refuse. Keep going until nothing new appears, then choose the final conclusion.",
+          "maxPoints": 10,
+          "facts": [
+            {
+              "id": "van-at-gate",
+              "text": "A white van was seen at Gate 3"
+            },
+            {
+              "id": "after-hours",
+              "text": "It was after closing time"
+            },
+            {
+              "id": "plate-fleet",
+              "text": "The plate matches the campus fleet"
+            },
+            {
+              "id": "phone-offline",
+              "text": "Rami's phone went offline near the Library"
+            },
+            {
+              "id": "unscheduled-visit",
+              "text": "The van made an unscheduled visit"
+            },
+            {
+              "id": "fleet-vehicle",
+              "text": "The van is a campus fleet vehicle"
+            },
+            {
+              "id": "staff-driver",
+              "text": "The van was driven by a staff member"
+            },
+            {
+              "id": "insider-involved",
+              "text": "Someone on the inside was involved"
+            },
+            {
+              "id": "gate-log-deleted",
+              "text": "The gate log was deleted"
+            },
+            {
+              "id": "cover-up",
+              "text": "There is a cover-up"
+            },
+            {
+              "id": "outsider-theft",
+              "text": "An outsider stole the van"
+            },
+            {
+              "id": "equipment-failure",
+              "text": "The cameras simply failed"
+            }
+          ],
+          "known": [
+            "van-at-gate",
+            "after-hours",
+            "plate-fleet",
+            "phone-offline"
+          ],
+          "rules": [
+            {
+              "id": "R1",
+              "ifAll": [
+                "van-at-gate",
+                "after-hours"
+              ],
+              "then": "unscheduled-visit"
+            },
+            {
+              "id": "R2",
+              "ifAll": [
+                "plate-fleet"
+              ],
+              "then": "fleet-vehicle"
+            },
+            {
+              "id": "R3",
+              "ifAll": [
+                "unscheduled-visit",
+                "fleet-vehicle"
+              ],
+              "then": "staff-driver"
+            },
+            {
+              "id": "R4",
+              "ifAll": [
+                "staff-driver",
+                "phone-offline"
+              ],
+              "then": "insider-involved"
+            },
+            {
+              "id": "R5",
+              "ifAll": [
+                "insider-involved",
+                "gate-log-deleted"
+              ],
+              "then": "cover-up"
+            }
+          ],
+          "conclusions": [
+            "insider-involved",
+            "cover-up",
+            "outsider-theft",
+            "equipment-failure"
+          ],
+          "awards": {
+            "conclusion": 10
+          }
+        },
+        {
+          "number": 10,
+          "type": "RAG_FIX",
+          "title": "RAG Fix",
+          "fieldNote": "Rami's notes: \"NOOR answers from what it retrieves. Feed it the right pages.\"",
+          "brief": "Ask NOOR where Rami was last confirmed. Choose a chunk size (how much text each retrieved piece holds) and a top-k (how many pieces NOOR reads), then press Ask NOOR to see what it retrieves and how it answers. You may try 3 different settings. Then lock the one you want NOOR to use.",
+          "maxPoints": 10,
+          "question": "Where was Rami last confirmed?",
+          "chunkSizes": [
+            "Small",
+            "Large"
+          ],
+          "topKs": [
+            1,
+            3
+          ],
+          "maxRuns": 3,
+          "configs": [
+            {
+              "id": "small-1",
+              "chunkSize": "Small",
+              "topK": 1,
+              "chunks": [
+                "Rami badged out of the Lab at 18:05."
+              ],
+              "reply": "Rami was last confirmed at the Lab, leaving at 18:05.",
+              "award": 0
+            },
+            {
+              "id": "small-3",
+              "chunkSize": "Small",
+              "topK": 3,
+              "chunks": [
+                "Rami badged out of the Lab at 18:05.",
+                "A white van entered Gate 3 at 21:55.",
+                "Rami's phone went offline at 21:40."
+              ],
+              "reply": "I am not sure. He left the Lab, and later his phone went offline. Possibly near the Library.",
+              "award": 5
+            },
+            {
+              "id": "large-1",
+              "chunkSize": "Large",
+              "topK": 1,
+              "chunks": [
+                "Evening log. 18:05 Rami badged out of the Lab. 20:30 Rami badged into the Library reading room. 21:40 Rami's phone went offline inside the Library; no later badge entry or exit exists, so the Library is the last place he was confirmed. 21:55 A white van entered Gate 3."
+              ],
+              "reply": "Rami was last confirmed in the Library reading room at 21:40, when his phone went offline.",
+              "award": 10
+            },
+            {
+              "id": "large-3",
+              "chunkSize": "Large",
+              "topK": 3,
+              "chunks": [
+                "Evening log. 18:05 Rami badged out of the Lab. 20:30 Rami badged into the Library reading room. 21:40 Rami's phone went offline inside the Library; no later badge entry or exit exists, so the Library is the last place he was confirmed. 21:55 A white van entered Gate 3.",
+                "Security notice. The Cafeteria cameras were serviced on Tuesday and footage from that day is incomplete; one clip may show Rami near the Cafeteria earlier in the week.",
+                "Lab access sheet. Rami visited the Lab several times last week and signed the sheet on his last visit, but the sheet has no time on it."
+              ],
+              "reply": "The records disagree: it may have been the Library, the Cafeteria or the Lab.",
+              "award": 5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

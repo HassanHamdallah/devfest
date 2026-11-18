@@ -35,6 +35,8 @@ public final class SentinelScoring {
       case ThreatFilter s -> threat(s, answer);
       case RuleEngine s -> conclusion(s, answer);
       case RagFix s -> pick(answer, s.configs().stream().collect(Collectors.toMap(RagConfig::id, RagConfig::award)));
+      case Choice s -> choice(s, answer);
+      case Input s -> input(s, answer);
     };
     return points.setScale(2, RoundingMode.HALF_UP);
   }
@@ -49,6 +51,27 @@ public final class SentinelScoring {
     BigDecimal award = awards.get(pick.config());
     if (award == null) throw new IllegalArgumentException("Choose one of the stage's configurations.");
     return award;
+  }
+
+  /**
+   * A typed answer stage is all or nothing. An answer that cannot be judged (empty, longer than 40 characters, or not a
+   * number in a NUMBER stage) is refused with a message for the team, so it never counts as the stage's one answer.
+   */
+  private static BigDecimal input(Input stage, StageAnswer answer) {
+    String typed = as(Typed.class, answer).text();
+    InputAnswers.refusal(stage.answer(), typed).ifPresent(message -> {
+      throw new IllegalArgumentException(message);
+    });
+    return InputAnswers.correct(stage.answer(), typed) ? stage.head().maxPoints() : BigDecimal.ZERO;
+  }
+
+  /** A multiple choice stage is all or nothing: the stage's full worth for the right option, 0 for any other. */
+  private static BigDecimal choice(Choice stage, StageAnswer answer) {
+    Option given = as(Option.class, answer);
+    if (stage.options().stream().noneMatch(option -> option.id().equals(given.option()))) {
+      throw new IllegalArgumentException("Choose one of the options.");
+    }
+    return given.option().equals(stage.correct()) ? stage.head().maxPoints() : BigDecimal.ZERO;
   }
 
   private static BigDecimal features(FeatureCheck stage, StageAnswer answer) {

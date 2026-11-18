@@ -3,7 +3,7 @@ import { RagData, dataOf, runOf } from "./sentinel-data";
 import { SentinelStageBase } from "./stage-base";
 import { SentinelStageShell } from "./stage-shell";
 
-/** Stage 10: ask NOOR with a chunk size and a top-k (three different tries), then lock one setting. */
+/** Stage 10: ask ECHO with a chunk size and a top-k (three different tries), then lock one setting. */
 @Component({
   selector: "sentinel-stage-rag",
   imports: [SentinelStageShell],
@@ -71,7 +71,7 @@ import { SentinelStageShell } from "./stage-shell";
             </div>
           </fieldset>
           <fieldset>
-            <legend>Top-k (pieces NOOR reads)</legend>
+            <legend>Top-k (pieces ECHO reads)</legend>
             <div class="opts opts--row">
               @for (k of data().topKs; track k) {
                 <label class="opt"><input type="radio" name="rag-k" [checked]="k === topK()" [disabled]="readOnly()" (change)="topK.set(k)" />Top-{{ k }}</label>
@@ -79,7 +79,7 @@ import { SentinelStageShell } from "./stage-shell";
             </div>
           </fieldset>
           <div class="btn-row">
-            <button type="button" class="tool tool--primary" data-ask [disabled]="current() === null || readOnly() || running() !== null || (!asked() && stage().runsLeft === 0)" (click)="ask()">Ask NOOR</button>
+            <button type="button" class="tool tool--primary" data-ask [disabled]="current() === null || readOnly() || running() !== null || (!asked() && stage().runsLeft === 0)" (click)="ask()">Ask ECHO</button>
             <span class="event-muted" data-runs-left>Tries left: {{ stage().runsLeft }} of {{ data().runsAllowed }}</span>
           </div>
           <fieldset>
@@ -99,10 +99,10 @@ import { SentinelStageShell } from "./stage-shell";
                 @for (chunk of chunks(run.result); track $index) {
                   <p class="chunk">{{ chunk }}</p>
                 }
-                <p class="reply"><strong>NOOR:</strong> {{ run.result['reply'] }}</p>
+                <p class="reply"><strong>ECHO:</strong> {{ run.result['reply'] }}</p>
               </section>
             } @empty {
-              <p class="event-muted">Nothing asked yet. NOOR shows what it retrieved and how it answers.</p>
+              <p class="event-muted">Nothing asked yet. ECHO shows what it retrieved and how it answers.</p>
             }
           </div>
         </div>

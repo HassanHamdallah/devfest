@@ -54,7 +54,7 @@ public record MissionDocument(Integer passScore, SentinelContent content) {
     Story story = story(file.object("story"));
     List<Mission> missions = new ArrayList<>();
     List<Fields> missionFields = file.objects("missions", 3, 3);
-    for (Fields mission : missionFields) missions.add(mission(mission));
+    for (Fields mission : missionFields) missions.add(mission(mission, check));
     if (!problems.isEmpty()) throw new ContentRejectedException(problems.list());
     SentinelContent content = new SentinelContent(story, missions);
     List<String> rules = check ? SentinelContentRules.problems(content) : List.of();
@@ -69,13 +69,13 @@ public record MissionDocument(Integer passScore, SentinelContent content) {
     return new Story(story.text("start", STORY), story.text("passed", STORY), story.text("failed", STORY));
   }
 
-  private static Mission mission(Fields mission) {
+  private static Mission mission(Fields mission, boolean check) {
     mission.only("id", "title", "intro", "stages");
     String id = mission.text("id", 20);
     String title = mission.text("title", TITLE);
     String intro = mission.text("intro", NOTE);
     List<Stage> stages = new ArrayList<>();
-    for (Fields stage : mission.objects("stages", 1, 6)) stages.add(stage(stage));
+    for (Fields stage : mission.objects("stages", 1, 6)) stages.add(stage(stage, check));
     return new Mission(id, title, intro, stages);
   }
 
@@ -93,17 +93,33 @@ public record MissionDocument(Integer passScore, SentinelContent content) {
     return new Head(f.integer("number"), f.text("title", TITLE), f.text("fieldNote", NOTE), f.text("brief", BRIEF), f.decimal("maxPoints"));
   }
 
-  private static Stage stage(Fields f) {
+  /**
+   * A new file may use the kinds of {@link SentinelContentRules#STAGE_KINDS} only, each at its own stage; a file that
+   * was stored before ({@code check} false) may also hold the kinds that no stage uses any more.
+   */
+  private static Stage stage(Fields f, boolean check) {
     f.problems.label(f.path, stageLabel(f));
     String type = f.text("type", 30);
     Head head = head(f);
-    int index = SentinelContentRules.STAGE_KINDS.indexOf(type);
-    if (index < 0) {
-      f.problems.add(f.path, "type must be one of " + SentinelContentRules.STAGE_KINDS + ".");
+    List<String> kinds = SentinelContentRules.STAGE_KINDS;
+    boolean known = kinds.contains(type) || (!check && (SentinelContentRules.LEGACY_KINDS.contains(type) || "CHOICE".equals(type)));
+    if (!known) {
+      f.problems.add(f.path, "type must be one of " + kinds.stream().distinct().toList() + ".");
       return null;
     }
-    if (head.number() != index + 1) f.problems.add(f.path, "type " + type + " belongs to stage " + (index + 1) + ", not stage " + head.number() + ".");
+    if (check) {
+      int index = kinds.indexOf(type);
+      boolean once = index == kinds.lastIndexOf(type);
+      boolean inRange = head.number() >= 1 && head.number() <= kinds.size();
+      if (once && head.number() != index + 1) {
+        f.problems.add(f.path, "type " + type + " belongs to stage " + (index + 1) + ", not stage " + head.number() + ".");
+      } else if (!once && (!inRange || !kinds.get(head.number() - 1).equals(type))) {
+        f.problems.add(f.path, "type " + type + " cannot be stage " + head.number() + (inRange ? " (stage " + head.number() + " is " + kinds.get(head.number() - 1) + ")." : "."));
+      }
+    }
     return switch (type) {
+      case "CHOICE" -> choice(f, head);
+      case "INPUT" -> input(f, head);
       case "OUTLIER_HUNT" -> outlier(f, head);
       case "FEATURE_CHECK" -> features(f, head);
       case "TUNE_DEPLOY" -> tune(f, head);
@@ -130,6 +146,96 @@ public record MissionDocument(Integer passScore, SentinelContent content) {
       configs.add(new OutlierConfig(c.text("id", 40), c.text("method", 8), c.num("threshold"), c.decimal("award")));
     }
     return new OutlierHunt(head, readings, configs);
+  }
+
+  private static Stage choice(Fields f, Head head) {
+    f.only("number", "type", "title", "fieldNote", "brief", "maxPoints", "options", "correct", "figure");
+    List<ChoiceOption> options = new ArrayList<>();
+    for (Fields o : f.objects("options", 1, 12)) {
+      o.only("id", "text");
+      options.add(new ChoiceOption(o.text("id", 40), o.text("text", LABEL)));
+    }
+    return new Choice(head, options, f.text("correct", 40), figure(f));
+  }
+
+  private static Stage input(Fields f, Head head) {
+    f.only("number", "type", "title", "fieldNote", "brief", "maxPoints", "figure", "answer");
+    return new Input(head, figure(f), answer(f.object("answer")));
+  }
+
+  /** How a typed answer is judged: {"kind":"TEXT","accepted":[...]} or {"kind":"NUMBER","value":n,"tolerance":t}. */
+  private static Answer answer(Fields a) {
+    String kind = a.text("kind", 10);
+    return switch (kind) {
+      case "TEXT" -> {
+        a.only("kind", "accepted");
+        yield new TextAnswer(a.strings("accepted", 1, 10));
+      }
+      case "NUMBER" -> {
+        a.only("kind", "value", "tolerance");
+        yield new NumberAnswer(a.num("value"), a.num("tolerance"));
+      }
+      default -> {
+        if (!kind.isEmpty()) a.problems.add(a.path, "kind must be TEXT or NUMBER.");
+        yield new TextAnswer(List.of());
+      }
+    };
+  }
+
+  /** The optional drawing of a stage; null when the stage has none (or its type is not one of the four). */
+  private static Figure figure(Fields stage) {
+    if (!stage.node.has("figure")) return null;
+    Fields f = stage.object("figure");
+    if (!f.node.isObject()) return null;
+    String type = f.text("type", 20);
+    return switch (type) {
+      case "neuron" -> {
+        f.only("type", "inputs", "weights", "bias");
+        List<NeuronInput> inputs = new ArrayList<>();
+        for (Fields i : f.objects("inputs", 1, 6)) {
+          i.only("label", "value");
+          inputs.add(new NeuronInput(i.text("label", 12), i.num("value")));
+        }
+        yield new NeuronFigure(inputs, f.numbers("weights", 1, 6), f.num("bias"));
+      }
+      case "crossover" -> {
+        f.only("type", "parentA", "parentB", "cut", "mutate");
+        yield new CrossoverFigure(f.text("parentA", 40), f.text("parentB", 40), f.integer("cut"), f.integer("mutate"));
+      }
+      case "split" -> {
+        f.only("type", "parent", "question", "yes", "no");
+        yield new SplitFigure(counts(f.object("parent")), f.text("question", LABEL), counts(f.object("yes")), counts(f.object("no")));
+      }
+      case "minimax" -> {
+        f.only("type", "root", "children");
+        List<List<Double>> children = new ArrayList<>();
+        JsonNode list = f.node.path("children");
+        if (!list.isArray()) f.problems.add(f.path + ".children", "must be a list of lists of numbers.");
+        else {
+          for (JsonNode child : list) {
+            List<Double> leaves = new ArrayList<>();
+            if (!child.isArray()) f.problems.add(f.path + ".children", "must be a list of lists of numbers.");
+            else {
+              for (JsonNode leaf : child) {
+                if (leaf.isNumber()) leaves.add(leaf.doubleValue());
+                else f.problems.add(f.path + ".children", "must hold numbers only.");
+              }
+            }
+            children.add(leaves);
+          }
+        }
+        yield new MinimaxFigure(f.text("root", 8), children);
+      }
+      default -> {
+        if (!type.isEmpty()) f.problems.add(f.path, "type must be one of neuron, crossover, split, minimax.");
+        yield null;
+      }
+    };
+  }
+
+  private static Counts counts(Fields c) {
+    c.only("normal", "suspicious");
+    return new Counts(c.integer("normal"), c.integer("suspicious"));
   }
 
   private static Stage features(Fields f, Head head) {
@@ -413,6 +519,22 @@ public record MissionDocument(Integer passScore, SentinelContent content) {
       for (JsonNode item : value) {
         if (!item.isString() || item.stringValue().isBlank()) problems.add(at(name), "must hold non-empty texts only.");
         else items.add(item.stringValue().strip());
+      }
+      return items;
+    }
+
+    /** A list of numbers. */
+    List<Double> numbers(String name, int min, int max) {
+      JsonNode value = node.path(name);
+      List<Double> items = new ArrayList<>();
+      if (!value.isArray()) {
+        problems.add(at(name), "must be a list of numbers.");
+        return items;
+      }
+      if (value.size() < min || value.size() > max) problems.add(at(name), "needs " + min + " to " + max + " entries.");
+      for (JsonNode item : value) {
+        if (!item.isNumber()) problems.add(at(name), "must hold numbers only.");
+        else items.add(item.doubleValue());
       }
       return items;
     }
