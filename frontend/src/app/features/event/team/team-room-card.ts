@@ -74,7 +74,9 @@ const STATUS_VARIANTS: Record<TeamRoomStatus, UiStatusChipVariant> = {
         <ui-status-chip
           [variant]="room().clueCollected ? 'success' : 'neutral'"
           >{{
-            room().clueCollected ? "Clue collected" : "No clue yet"
+            activity() === "PHONE_POINTS"
+              ? room().clueCollected ? "Retrieved key collected" : "No retrieved key yet"
+              : room().clueCollected ? "Clue collected" : "No clue yet"
           }}</ui-status-chip
         >
       }

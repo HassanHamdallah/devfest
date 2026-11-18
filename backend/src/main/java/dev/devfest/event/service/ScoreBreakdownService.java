@@ -18,6 +18,7 @@ import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.EventTeamRecord;
 import dev.devfest.event.repository.EventTeamRepository;
 import dev.devfest.event.repository.ManualScoreRepository;
+import dev.devfest.event.repository.RoomPointsRepository;
 import dev.devfest.event.repository.TeamFinalRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,6 +52,7 @@ public class ScoreBreakdownService {
   private final EventTeamRepository teams;
   private final DeductionRepository deductions;
   private final ManualScoreRepository manualScores;
+  private final RoomPointsRepository roomPoints;
   private final TeamFinalRepository finals;
   private final FinalContentReader contentReader;
   private final SentinelScoreService aiScores;
@@ -65,6 +67,7 @@ public class ScoreBreakdownService {
     EventTeamRepository teams,
     DeductionRepository deductions,
     ManualScoreRepository manualScores,
+    RoomPointsRepository roomPoints,
     TeamFinalRepository finals,
     FinalContentReader contentReader,
     SentinelScoreService aiScores,
@@ -78,6 +81,7 @@ public class ScoreBreakdownService {
     this.teams = teams;
     this.deductions = deductions;
     this.manualScores = manualScores;
+    this.roomPoints = roomPoints;
     this.finals = finals;
     this.contentReader = contentReader;
     this.aiScores = aiScores;
@@ -229,6 +233,10 @@ public class ScoreBreakdownService {
       case LINUX_TERMINAL -> {
         linuxScores.roomTotals(room).forEach((teamId, total) -> byTeam.put(teamId, RoomScoring.round(BigDecimal.valueOf(total))));
         yield new RoomBases("LINUX", byTeam);
+      }
+      case PHONE_POINTS -> {
+        roomPoints.totalsForRoom(room.id()).forEach((teamId, total) -> byTeam.put(teamId, RoomScoring.pointsBase(total)));
+        yield new RoomBases("POINTS", byTeam);
       }
       case CONTEST_RESULTS -> {
         contestScores.roomTotals(room).forEach((teamId, total) -> byTeam.put(teamId, RoomScoring.round(BigDecimal.valueOf(total))));

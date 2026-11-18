@@ -161,9 +161,10 @@ read from what the rooms and the final recorded; no total is stored. Every score
    | AI mission (rule 19) | its total out of 100 × 0.15 (99 gives 14.85) |
    | Linux terminal (rule 18.8) | its score out of 15 |
    | Contest (rule 20) | its score out of 15 |
-   | Any other room (Hardware today) | the score the room's manager types in, 0 to 15 (at most 2 decimals; audited with its value) |
+   | Points and phone number (rule 21) | its points out of 100 × 0.15 (80 gives 12.00) |
+   | Any other room | the score the room's manager types in, 0 to 15 (at most 2 decimals; audited with its value) |
 
-   A room is read by its **activity** (rule 1 of 18, 19, 20), not by its name. The typed score is a temporary input for a
+   A room is read by its **activity** (rule 1 of 18, 19, 20, 21), not by its name. The typed score is a temporary input for a
    room that has no automatic score; a room that has one refuses it ("This room's score comes from its activity; it cannot
    be typed in."). Only the room's manager and the admin type it.
 2. **Room score = MAX(0, base − 2 × active hints in that room − 7.5 if an active cheating violation exists for that
@@ -781,3 +782,52 @@ no answer form in this room.
      shows "Released, but no longer eligible" and the clue stays.
 7. **Resets and snapshots.** Resetting a team or the event deletes its results and release (after a snapshot that
    holds them) with the rest of its progress, like the collected clue; the contest link stays (content).
+
+## 21. Hardware room (points out of 100, phone number answer)
+
+The Hardware room (the room that scored by a typed 0 to 15 value until now) runs the **points and phone number**
+activity. Nothing else changes for other rooms: a room without an activity keeps the typed score and the plain answer
+form.
+
+1. **Which rooms (setting).** The admin switches the **Points and phone number activity** on per room, on the Content
+   page, at any time (audited; one activity per room like rules 18.1, 19.1 and 20.1, so it replaces any other). On a
+   fresh setup it is on for the Hardware room only (migration V25, which also converts that room's typed scores,
+   rule 21.5). The stored value is `PHONE_POINTS`.
+2. **Points ledger.** The room's manager or the admin adds or subtracts **whole points per team at any time** (a
+   number box with **Add** and **Subtract**; Enter adds). A change is a whole number from -100 to 100, never 0; every
+   change is an append-only ledger row (team, room, change, total after, who, when, request key). The team's total is the
+   sum of its rows and always stays between **0 and 100**: a change that would leave that is refused with "The total must
+   stay between 0 and 100 (now 85)." and nothing is written.
+   - **Undo last** adds a reversing row for the team's newest change that is not an undo and was not undone; it never
+     deletes rows, repeating it steps back through the history, and an undo row is never undone itself. With nothing
+     to undo it is refused ("There is nothing to undo."). The button names the change it will reverse ("Undo +10").
+   - Add and undo carry an `Idempotency-Key`: a repeat with the same key and the same change changes nothing (no second
+     row, audit entry or revision bump); the same key for a different change is a 409.
+   - The room board shows each team's "Points: 65 / 100 (= 9.75 / 15)", the number box, Add, Subtract, Undo last and a
+     collapsible history (time, +/-n, total after, who). The old 0-15 input is gone for this room.
+   - API (the room's manager or the admin; anyone else, a member included, and a room without the activity get a 404):
+     `POST /rooms/{id}/points/teams/{teamId}` (`{delta}`), `POST /rooms/{id}/points/teams/{teamId}/undo`,
+     `GET /rooms/{id}/points/teams/{teamId}/history` (newest first). Each add and undo is audited with the team, room,
+     change and new total only (`EVENT_POINTS_ADDED`, `EVENT_POINTS_UNDONE`).
+3. **Room score.** The room's base for the event score is the total x 0.15 rounded to 2 decimals (100 gives 15.00, 80
+   gives 12.00, 37 gives 5.55). Hints and cheating apply on top exactly as in rule 8.1; the score source reads POINTS.
+4. **Phone number answer.** The room's manager or the admin sets **Phone number (answer)** (up to 40 characters, at least
+   one digit) next to the room's key; it is room content like the key: read-only after the final opens ("Event content
+   is read-only after the final opens."), never sent to members, and audited without its value
+   (`EVENT_PHONE_NUMBER_SET room:… set:true|false`). The admin board shows a non-blocking alert
+   (`PHONE_NUMBER_MISSING`) while a points-and-phone room has none. The room's existing key is untouched.
+   - The team's answer form has **one field, "Phone number"** (no technical output; the server keeps the note "Phone
+     number answer"). The answer is compared with the room's number by **digits only**: everything that is not 0-9 is
+     removed from both, so "+970-59-881", "970 59 881" and "97059881" match; a value without any digit never matches.
+   - A correct number collects the room's **existing key** as the team's collected clue (a ROOM clue, the same one the
+     final's unlock uses), and the team sees it at once as its **Retrieved key**. A wrong one is stored as an incorrect
+     answer and the team reads "That number is not correct." The manager's Accept / Reject override (rule 5) still
+     works; a later change of the phone number never re-checks earlier answers.
+   - It is an ordinary room submission: the same rate limit, the same idempotent receipts (rule 4), the same room, timer
+     and open checks. A room without a phone number answers "This room is not ready yet. Ask the organizer."
+5. **Converting the old score.** Migration V25 turns each typed score s (0-15) of the room into one ledger row of
+   round(s / 0.15) points (a score of 0 needs no row), so the room score stays the same; the old table stays, unused.
+6. **Wording.** In this room (and the Linux room) the key is called **Retrieved key** on the team's room page, the
+   evidence card, the manager's room board and the key editor. Other rooms keep "Clue key".
+7. **Resets and snapshots.** Resetting a team or the event deletes its ledger rows (after a snapshot that holds them) with
+   the rest of its progress; the phone number and the key are content and stay.

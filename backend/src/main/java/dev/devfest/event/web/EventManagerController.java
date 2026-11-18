@@ -11,6 +11,10 @@ import dev.devfest.event.dto.CheatingRequest;
 import dev.devfest.event.dto.DeductionView;
 import dev.devfest.event.dto.HintRequest;
 import dev.devfest.event.dto.ManualScoreRequest;
+import dev.devfest.event.dto.PhoneNumberRequest;
+import dev.devfest.event.dto.PointsHistoryEntry;
+import dev.devfest.event.dto.PointsRequest;
+import dev.devfest.event.dto.PointsView;
 import dev.devfest.event.dto.ManualScoreView;
 import dev.devfest.event.dto.RoomBoard;
 import dev.devfest.event.dto.RoomContentRequest;
@@ -22,6 +26,8 @@ import dev.devfest.event.service.EventContentService;
 import dev.devfest.event.service.EventJudgingService;
 import dev.devfest.event.service.EventDeductionService;
 import dev.devfest.event.service.EventManualScoreService;
+import dev.devfest.event.service.RoomPhoneNumberService;
+import dev.devfest.event.service.RoomPointsService;
 import dev.devfest.event.service.EventRoomBoardService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -30,6 +36,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,6 +51,8 @@ public class EventManagerController {
   private final EventJudgingService judging;
   private final EventDeductionService deductions;
   private final EventManualScoreService manualScores;
+  private final RoomPointsService roomPoints;
+  private final RoomPhoneNumberService phoneNumbers;
   private final EventContentService content;
   private final EventClueReviewService clueReview;
   private final EventArrivalService arrivals;
@@ -53,6 +62,8 @@ public class EventManagerController {
     EventJudgingService judging,
     EventDeductionService deductions,
     EventManualScoreService manualScores,
+    RoomPointsService roomPoints,
+    RoomPhoneNumberService phoneNumbers,
     EventContentService content,
     EventClueReviewService clueReview,
     EventArrivalService arrivals
@@ -61,6 +72,8 @@ public class EventManagerController {
     this.judging = judging;
     this.deductions = deductions;
     this.manualScores = manualScores;
+    this.roomPoints = roomPoints;
+    this.phoneNumbers = phoneNumbers;
     this.content = content;
     this.clueReview = clueReview;
     this.arrivals = arrivals;
@@ -140,6 +153,46 @@ public class EventManagerController {
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
     return manualScores.save(principal, roomId, teamId, request);
+  }
+
+  /** Adds or subtracts whole points (a points-and-phone room's ledger); Idempotency-Key makes a repeat harmless. */
+  @PostMapping("/rooms/{roomId}/points/teams/{teamId}")
+  PointsView addPoints(
+    @PathVariable long roomId,
+    @PathVariable long teamId,
+    @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+    @Valid @RequestBody PointsRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return roomPoints.add(principal, roomId, teamId, idempotencyKey, request);
+  }
+
+  @PostMapping("/rooms/{roomId}/points/teams/{teamId}/undo")
+  PointsView undoPoints(
+    @PathVariable long roomId,
+    @PathVariable long teamId,
+    @RequestHeader("Idempotency-Key") UUID idempotencyKey,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return roomPoints.undo(principal, roomId, teamId, idempotencyKey);
+  }
+
+  @GetMapping("/rooms/{roomId}/points/teams/{teamId}/history")
+  List<PointsHistoryEntry> pointsHistory(
+    @PathVariable long roomId,
+    @PathVariable long teamId,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return roomPoints.history(principal, roomId, teamId);
+  }
+
+  @PutMapping("/rooms/{roomId}/phone-number")
+  void savePhoneNumber(
+    @PathVariable long roomId,
+    @Valid @RequestBody PhoneNumberRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    phoneNumbers.save(principal, roomId, request);
   }
 
   @PutMapping("/rooms/{roomId}/content")

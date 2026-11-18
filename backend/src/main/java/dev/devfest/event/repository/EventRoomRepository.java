@@ -17,7 +17,7 @@ public class EventRoomRepository {
 
   private static final String COLUMNS = """
     id, code, name, position, manager_id, is_open, clue_key, version,
-    terminal_enabled, activity, quiz_pass_score""";
+    terminal_enabled, activity, quiz_pass_score, phone_number""";
 
   private static final String WITH_MANAGER = """
     SELECT r.id, r.code, r.name, r.manager_id, u.name AS manager_name
@@ -77,6 +77,11 @@ public class EventRoomRepository {
     db.update("UPDATE event_room SET activity = ? WHERE id = ?", activity == null ? null : activity.name(), roomId);
   }
 
+  /** The phone number answer of a points-and-phone room (empty = not set). */
+  public void setPhoneNumber(long roomId, String phoneNumber) {
+    db.update("UPDATE event_room SET phone_number = ? WHERE id = ?", phoneNumber, roomId);
+  }
+
   public void setQuizPassScore(long roomId, int passScore) {
     db.update("UPDATE event_room SET quiz_pass_score = ? WHERE id = ?", passScore, roomId);
   }
@@ -112,7 +117,8 @@ public class EventRoomRepository {
       rs.getLong("version"),
       rs.getBoolean("terminal_enabled"),
       RoomActivity.fromStored(rs.getString("activity")),
-      rs.getInt("quiz_pass_score")
+      rs.getInt("quiz_pass_score"),
+      rs.getString("phone_number")
     );
   }
 

@@ -231,6 +231,10 @@ public class EventAdminBoardService {
         String message = "Room " + room.name() + " has the terminal enabled but no terminal files.";
         alerts.add(new AdminAlert("TERMINAL_WITHOUT_FILES", message, ROOM_BOARD_PAGE + room.id()));
       }
+      if (room.activity() == RoomActivity.PHONE_POINTS && !room.hasPhoneNumber()) {
+        String message = "Room " + room.name() + " runs the phone number answer but has no phone number, so teams cannot be given its key.";
+        alerts.add(new AdminAlert("PHONE_NUMBER_MISSING", message, ROOM_BOARD_PAGE + room.id()));
+      }
       if (room.activity() == RoomActivity.CONTEST_RESULTS) {
         String page = ROOM_BOARD_PAGE + room.id() + "/contest";
         if (!room.hasContestLink()) {

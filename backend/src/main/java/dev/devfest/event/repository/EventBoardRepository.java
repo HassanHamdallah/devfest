@@ -30,7 +30,8 @@ public class EventBoardRepository {
            ls.clue_answer AS last_clue_answer,
            (EXISTS(SELECT 1 FROM sentinel_evaluation e WHERE e.team_id = t.id AND e.room_id = r.id)
              OR EXISTS(SELECT 1 FROM terminal_form f WHERE f.team_id = t.id AND f.room_id = r.id AND f.submitted_at IS NOT NULL)
-             OR EXISTS(SELECT 1 FROM contest_release c2 WHERE c2.team_id = t.id AND c2.room_id = r.id)) AS result_recorded
+             OR EXISTS(SELECT 1 FROM contest_release c2 WHERE c2.team_id = t.id AND c2.room_id = r.id)
+             OR (r.activity = 'PHONE_POINTS' AND c.team_id IS NOT NULL)) AS result_recorded
     FROM event_room r
     JOIN event_team t ON t.id = ?
     LEFT JOIN room_judgement j ON j.room_id = r.id AND j.team_id = t.id
@@ -81,7 +82,8 @@ public class EventBoardRepository {
            count(t.id) FILTER (WHERE j.status = 'PASS') AS passed,
            count(t.id) FILTER (WHERE j.status = 'FAIL') AS failed,
            count(t.id) FILTER (WHERE sub.submitted AND COALESCE(j.status, 'PENDING') = 'PENDING') AS pending,
-           r.activity, EXISTS(SELECT 1 FROM contest_room_link l WHERE l.room_id = r.id) AS has_contest_link
+           r.activity, EXISTS(SELECT 1 FROM contest_room_link l WHERE l.room_id = r.id) AS has_contest_link,
+           r.phone_number ~ '[0-9]' AS has_phone_number
     FROM event_room r
     LEFT JOIN app_user u ON u.id = r.manager_id
     LEFT JOIN event_team t ON t.active
@@ -247,7 +249,8 @@ public class EventBoardRepository {
       rs.getInt("failed"),
       rs.getInt("pending"),
       RoomActivity.fromStored(rs.getString("activity")),
-      rs.getBoolean("has_contest_link")
+      rs.getBoolean("has_contest_link"),
+      rs.getBoolean("has_phone_number")
     );
   }
 }

@@ -117,7 +117,7 @@ public class EventSnapshotRepository {
         for (String table : List.of(
           "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_attempt",
           "collected_clue", "room_submission", "room_judgement_history", "room_judgement", "score_deduction",
-          "room_manual_score", "team_room_exception", "sentinel_run",
+          "room_manual_score", "room_points_entry", "team_room_exception", "sentinel_run",
           "sentinel_submission", "sentinel_evaluation", "terminal_form", "terminal_form_request",
           "terminal_form_override", "contest_result", "contest_release"
         )) {
@@ -133,7 +133,7 @@ public class EventSnapshotRepository {
           "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_attempt",
           "final_time_adjustment", "collected_clue", "room_submission", "submission_clue_verdict",
           "submission_clue_verdict_history", "room_judgement_history", "room_judgement", "score_deduction",
-          "room_manual_score", "team_room_exception", "room_arrival", "round_time_adjustment",
+          "room_manual_score", "room_points_entry", "team_room_exception", "room_arrival", "round_time_adjustment",
           "sentinel_run", "sentinel_submission", "sentinel_evaluation", "terminal_form",
           "terminal_form_request", "terminal_form_override", "contest_result", "contest_release"
         )) {

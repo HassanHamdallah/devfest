@@ -8,6 +8,8 @@ import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ClueCheck;
 import dev.devfest.event.domain.ClueOverride;
 import dev.devfest.event.domain.ClueVerdict;
+import dev.devfest.event.domain.PhoneNumber;
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.RoomAssignment;
 import dev.devfest.event.domain.RoomCode;
 import dev.devfest.event.domain.RoundPhase;
@@ -40,6 +42,8 @@ public class EventSubmissionService {
   static final int RECENT_RECEIPTS = 50;
   static final String NO_CLUE_ENTERED = "(no clue entered)";
   static final String ACTIVITY_ROOM = "This room records its result from its activity; there is no answer form.";
+  /** The technical output kept for a phone number answer (the team types the number only). */
+  static final String PHONE_ANSWER = "Phone number answer";
 
   private final EventAccessPolicy access;
   private final TeamWriteGate gate;
@@ -90,9 +94,13 @@ public class EventSubmissionService {
     requireMaxBytes(request.clueAnswer(), 500, "Clue answer");
     Optional<RoomCode> exception = exceptions.find(write.state().currentRound(), write.team().id());
     requireAcceptingSubmissions(write, room, clock.now(), exception);
-    if (room.activity() != null) throw fail(409, ACTIVITY_ROOM);
-    boolean correct = ClueCheck.isCorrect(request.clueAnswer(), room.clueKey());
-    RoomSubmissionRecord submission = store(write, room, write.state().currentRound(), idempotencyKey, request.technicalOutput(), request.clueAnswer(), correct);
+    boolean phoneRoom = room.activity() == RoomActivity.PHONE_POINTS;
+    if (room.activity() != null && !phoneRoom) throw fail(409, ACTIVITY_ROOM);
+    if (phoneRoom && !room.hasPhoneNumber()) throw fail(409, "This room is not ready yet. Ask the organizer.");
+    // A phone number room compares the digits with the room's number; a correct one collects the room's existing key.
+    boolean correct = phoneRoom ? PhoneNumber.matches(request.clueAnswer(), room.phoneNumber()) : ClueCheck.isCorrect(request.clueAnswer(), room.clueKey());
+    String output = phoneRoom ? PHONE_ANSWER : request.technicalOutput();
+    RoomSubmissionRecord submission = store(write, room, write.state().currentRound(), idempotencyKey, output, request.clueAnswer(), correct);
     states.bumpRevision();
     audit.record(principal.id(), "EVENT_ROOM_SUBMISSION", "submission:" + submission.id());
     return EventViews.receipt(submission);

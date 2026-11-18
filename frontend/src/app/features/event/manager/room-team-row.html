@@ -73,6 +73,20 @@
 </div>
 }
 
+@if (pointsLedger() && row().scheduledNow) {
+<div class="deductions" data-card-points>
+  <event-points-ledger
+    [roomId]="roomId()"
+    [teamId]="row().teamId"
+    [teamName]="row().teamName"
+    [pointsTotal]="row().pointsTotal"
+    [pointsScore]="row().pointsScore"
+    [undoDelta]="row().undoDelta"
+    (changed)="changed.emit()"
+  />
+</div>
+}
+
 @if (expanded()) {
 <div class="details" [id]="detailsId()">
   <section>
@@ -85,7 +99,20 @@
       (changed)="changed.emit()"
     />
   </section>
-  @if (manualScoring()) {
+  @if (pointsLedger() && !row().scheduledNow) {
+  <section>
+    <h4>Points</h4>
+    <event-points-ledger
+      [roomId]="roomId()"
+      [teamId]="row().teamId"
+      [teamName]="row().teamName"
+      [pointsTotal]="row().pointsTotal"
+      [pointsScore]="row().pointsScore"
+      [undoDelta]="row().undoDelta"
+      (changed)="changed.emit()"
+    />
+  </section>
+  } @if (manualScoring()) {
   <section>
     <h4>Room score</h4>
     <event-manual-score

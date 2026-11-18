@@ -22,7 +22,8 @@ export type EventAccountRole = "MANAGER" | "MEMBER";
 /** A manager's clue verdict on one submission; AUTOMATIC follows the room's clue key. */
 export type ClueOverride = "ACCEPT" | "REJECT" | "AUTOMATIC";
 /** A room's team activity (admin setting); a room without one keeps the plain answer form. */
-export type RoomActivity = "AI_QUIZ" | "LINUX_TERMINAL" | "CONTEST_RESULTS";
+/** PHONE_POINTS: the Hardware room, points out of 100 added by the manager and a phone number answer (rules §21). */
+export type RoomActivity = "AI_QUIZ" | "LINUX_TERMINAL" | "CONTEST_RESULTS" | "PHONE_POINTS";
 
 /** Room codes in position order (0..3) and group codes in index order (0..3). */
 export const ROOM_CODES: readonly RoomCode[] = [
@@ -313,6 +314,9 @@ export interface RoomBoardRoom {
   activity: RoomActivity | null;
   /** The room has no automatic score: its manager types a 0-15 score for each team. */
   manualScoring: boolean;
+  /** The room's phone number answer (manager and admin only); empty outside a PHONE_POINTS room. */
+  phoneNumber: string;
+  phoneNumberSet: boolean;
 }
 
 export interface RoomCounters {
@@ -389,6 +393,29 @@ export interface RoomTeamRow {
   cheating: boolean;
   /** The typed 0-15 score of a room without an automatic score; null while none is entered. */
   manualScore: number | null;
+  /** A PHONE_POINTS room's ledger: the total out of 100, its x 0.15 score and the change "Undo last" reverses. */
+  pointsTotal: number | null;
+  pointsScore: number | null;
+  undoDelta: number | null;
+}
+
+/** POST /rooms/{id}/points/teams/{teamId} and its undo. */
+export interface PointsView {
+  teamId: number;
+  roomId: number;
+  total: number;
+  score: number;
+  undoDelta: number | null;
+}
+
+export interface PointsHistoryEntry {
+  id: number;
+  undo: boolean;
+  delta: number;
+  totalAfter: number;
+  enteredBy: string;
+  enteredAt: string;
+  undone: boolean;
 }
 
 export interface JudgementView {

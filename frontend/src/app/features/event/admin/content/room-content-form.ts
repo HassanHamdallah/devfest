@@ -56,6 +56,10 @@ export class RoomContentForm {
   readonly changed = output<void>();
 
   protected readonly labels = FIELD_LABELS;
+  /** The Linux and Hardware rooms call their key the "Retrieved key". */
+  protected readonly keyLabel = computed(() =>
+    this.room().activity === "LINUX_TERMINAL" || this.room().activity === "PHONE_POINTS" ? "Retrieved key" : FIELD_LABELS.clueKey,
+  );
   protected readonly state = new ActionState();
   protected readonly terminalState = new ActionState();
   protected readonly activityState = new ActionState();
@@ -139,6 +143,18 @@ export class RoomContentForm {
     const saved = await this.activityState.run(
       () => this.eventApi.setRoomActivity(this.room().roomId, enabled ? "CONTEST_RESULTS" : null),
       enabled ? "Contest results activity enabled." : "Contest results activity disabled.",
+    );
+    if (!saved) box.checked = !enabled;
+    this.changed.emit();
+  }
+
+  /** Same endpoint again: the Hardware room, with points out of 100 and a phone number answer. */
+  protected async setPhonePoints(event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const enabled = box.checked;
+    const saved = await this.activityState.run(
+      () => this.eventApi.setRoomActivity(this.room().roomId, enabled ? "PHONE_POINTS" : null),
+      enabled ? "Points and phone number activity enabled." : "Points and phone number activity disabled.",
     );
     if (!saved) box.checked = !enabled;
     this.changed.emit();

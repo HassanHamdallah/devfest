@@ -17,6 +17,9 @@ import { ToastService } from "../../../shared/ui/toast/toast.service";
 import { UiInput } from "../../../shared/ui/ui-input/ui-input";
 import { UiStatusChip } from "../../../shared/ui/ui-status-chip/ui-status-chip";
 
+/** The rooms that call their key the "Retrieved key". */
+const RETRIEVED_KEY_ACTIVITIES = ["LINUX_TERMINAL", "PHONE_POINTS"];
+
 /** Shown instead of the key until the manager presses Show; a fixed length reveals nothing about the key. */
 const MASK = "••••••••";
 
@@ -187,7 +190,7 @@ export class EventClueKeyCard {
 
   readonly room = input.required<RoomBoardRoom>();
   /** The Linux room calls the room's key the "Retrieved key" (the team retrieves it from the server); the others "Clue key". */
-  protected readonly keyName = computed(() => (this.room().activity === "LINUX_TERMINAL" ? "Retrieved key" : "Clue key"));
+  protected readonly keyName = computed(() => (RETRIEVED_KEY_ACTIVITIES.includes(this.room().activity ?? "AI_QUIZ") ? "Retrieved key" : "Clue key"));
   readonly changed = output<void>();
 
   /**

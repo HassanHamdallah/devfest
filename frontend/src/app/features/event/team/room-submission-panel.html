@@ -1,7 +1,19 @@
 <ui-card>
   <h2 ui-card-header>Room answer</h2>
   @if (availability(); as state) { @if (state.open) {
-  <form (ngSubmit)="submit()">
+  <form (ngSubmit)="submit()" [attr.data-phone-form]="phoneRoom() ? '' : null">
+    @if (phoneRoom()) {
+    <p class="event-muted">
+      Enter the phone number you found for the {{ state.room.name }} room. You can try again while the room is open.
+    </p>
+    <ui-input
+      label="Phone number"
+      name="phoneNumber"
+      type="tel"
+      [required]="true"
+      [(ngModel)]="clueAnswer"
+    />
+    } @else {
     <p class="event-muted">
       Answer for the {{ state.room.name }} room. You can submit again while the
       room is open; every answer is kept.
@@ -19,6 +31,7 @@
       [required]="true"
       [(ngModel)]="clueAnswer"
     />
+    }
     @if (validationError(); as text) {
     <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
     }
@@ -44,7 +57,7 @@
     <div class="receipt__head">
       <h3 id="submission-receipt-heading">Receipt</h3>
       <ui-status-chip [variant]="saved.clueCorrect ? 'success' : 'danger'"
-        >{{ saved.clueCorrect ? "Correct" : "Incorrect — try again"
+        >{{ saved.clueCorrect ? "Correct" : phoneRoom() ? "That number is not correct." : "Incorrect — try again"
         }}</ui-status-chip
       >
     </div>
@@ -58,6 +71,16 @@
       <dd><code>{{ saved.id }}</code></dd>
     </dl>
     <ui-copy-button [text]="saved.id" label="Copy receipt ID" />
+    @if (phoneRoom() && saved.clueCorrect) {
+    <div class="receipt__key" data-retrieved-key>
+      <h4>Retrieved key</h4>
+      @if (retrievedKey(); as key) {
+      <event-masked-clue [value]="key" />
+      } @else {
+      <span class="event-muted">Your Retrieved key appears here in a moment.</span>
+      }
+    </div>
+    }
   </section>
   }
 </ui-card>

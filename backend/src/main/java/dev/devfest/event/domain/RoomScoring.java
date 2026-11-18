@@ -21,6 +21,11 @@ public final class RoomScoring {
     return round(total.multiply(AI_FACTOR));
   }
 
+  /** A points ledger room: total (0..100) x 0.15 rounded to 2 decimals (100 gives 15.00, 37 gives 5.55). */
+  public static BigDecimal pointsBase(int total) {
+    return round(BigDecimal.valueOf(total).multiply(AI_FACTOR));
+  }
+
   /** @param base the room's base score (0..15), already rounded */
   public static BigDecimal roomScore(BigDecimal base, int activeHints, boolean activeCheating) {
     BigDecimal score = base

@@ -7,7 +7,7 @@
   </div>
   <form [attr.aria-label]="formLabel()" [formGroup]="form" (ngSubmit)="save()">
     <ui-input
-      [label]="labels.clueKey"
+      [label]="keyLabel()"
       hint="Matching ignores letter case and extra spaces; punctuation must match."
       [error]="error('clueKey')"
       formControlName="clueKey"
@@ -89,6 +89,23 @@
       of the answer form; the room's manager types the results and releases the
       clue on the room board. A room has one activity: choosing this one
       replaces any other.
+    </p>
+  </div>
+  <div class="room-content__terminal">
+    <label class="room-content__toggle">
+      <input
+        type="checkbox"
+        name="phonePoints"
+        [checked]="room().activity === 'PHONE_POINTS'"
+        [disabled]="activityState.busy()"
+        (change)="setPhonePoints($event)"
+      />
+      <span>Points and phone number activity</span>
+    </label>
+    <p class="room-content__hint">
+      The room's manager adds points out of 100 for each team (the room score is the total x 0.15) and sets a phone
+      number; a team that types it gets the room's Retrieved key. A room has one activity: choosing this one replaces
+      any other.
     </p>
   </div>
 </ui-card>

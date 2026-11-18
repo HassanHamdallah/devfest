@@ -1,6 +1,7 @@
 package dev.devfest.event.service;
 
 import dev.devfest.auth.AuthService.Principal;
+import dev.devfest.event.domain.RoomActivity;
 import dev.devfest.event.domain.FinalStage;
 import dev.devfest.event.domain.FinalStageResolver;
 import dev.devfest.event.domain.RoomAssignment;
@@ -101,7 +102,8 @@ public class EventTeamBoardService {
 
   /**
    * {@code assigned}: this round's room (exception or rotation), which is the one marked "Now". A room with an
-   * activity has no receipt: its result is not a team submission (rules §19.7).
+   * activity has no receipt: its result is not a team submission (rules §19.7); a points-and-phone room is the exception,
+   * its phone number answer is an ordinary submission with an ordinary receipt (rules §21.3).
    */
   private static TeamRoomCard card(
     EventTeamRecord team,
@@ -120,7 +122,7 @@ public class EventTeamBoardService {
       assigned.filter(room.code()::equals).isPresent(),
       TeamRoomStatus.of(room.judgement(), room.hasSubmission()),
       room.clueCollected(),
-      room.hasSubmission() && room.activity() == null
+      room.hasSubmission() && (room.activity() == null || room.activity() == RoomActivity.PHONE_POINTS)
         ? EventViews.receipt(
           room.lastSubmissionId(),
           room.code(),
