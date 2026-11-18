@@ -146,13 +146,6 @@ class SentinelShippedFileTest {
     return stage(root, number);
   }
 
-  private static JsonNode withoutTexts(JsonNode stage) {
-    ObjectNode copy = (ObjectNode) stage.deepCopy();
-    copy.remove("fieldNote");
-    copy.remove("brief");
-    return copy;
-  }
-
   private static JsonNode withoutFigure(JsonNode stage) {
     ObjectNode copy = (ObjectNode) stage.deepCopy();
     copy.remove("figure");
