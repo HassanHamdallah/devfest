@@ -44,8 +44,8 @@ import {
   SentinelRunReceipt,
   SentinelSavedReceipt,
   Receipt,
-  RecoveryRequest,
-  RecoveryResult,
+  RecoverySolutions,
+  TeamRecovery,
   ResultsView,
   RoomActivity,
   RoomBoard,
@@ -81,7 +81,10 @@ const EVENT = "/event";
 /** Paths of the idempotent team POSTs, relative to the API base (what PendingRequest.path stores). */
 export const roomSubmissionPath = (roomId: number) =>
   `${EVENT}/team/rooms/${roomId}/submissions`;
-export const RECOVERY_PATH = `${EVENT}/team/final/recovery`;
+/** One run of the Arduino level's hidden tests. */
+export const RECOVERY_ARDUINO_PATH = `${EVENT}/team/final/recovery/arduino/run`;
+/** One ML recovery stage's check (stages 1 to 6). */
+export const recoveryMlPath = (stage: number) => `${EVENT}/team/final/recovery/ml/${stage}`;
 export const UNLOCK_PATH = `${EVENT}/team/final/unlock`;
 export const passphrasePath = (clue: number) => `${EVENT}/team/final/clues/${clue}/passphrase`;
 
@@ -125,8 +128,9 @@ export class EventApi {
   teamFinal() {
     return this.get<TeamFinal>("/team/final");
   }
-  submitRecovery(body: RecoveryRequest, key: string) {
-    return this.postIdempotent<RecoveryResult>(RECOVERY_PATH, body, key);
+  /** The team's recovery levels: the current stage's public data, the passed flags and the last test results. */
+  teamRecovery() {
+    return this.get<TeamRecovery>("/team/final/recovery");
   }
   startCase() {
     return this.send<FinalActionResult>("POST", "/team/final/start", {});
@@ -511,6 +515,10 @@ export class EventApi {
   }
   finalBoard() {
     return this.get<FinalBoardRow[]>("/admin/final/board");
+  }
+  /** Every recovery answer, the Arduino bug list and the right option (organizers only). */
+  recoverySolutions() {
+    return this.get<RecoverySolutions>("/admin/final/recovery-solutions");
   }
   /** The Final Investigation Reports of every team (organizers only). */
   finalReports() {

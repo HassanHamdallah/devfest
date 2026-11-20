@@ -148,7 +148,7 @@ export class EventFinalCase {
   protected readonly opensAt = computed(() => `${this.final().phase1Minutes ?? 15}:00`);
   protected readonly hint = computed(() =>
     this.locked()
-      ? `Decrypt all four files. Phase 2 opens at ${this.opensAt()} of the final's time.`
+      ? `Decrypt all four files. Phase 2 opens at ${this.opensAt()} of the final's time, or at once when the fourth file is decrypted.`
       : "The decryption phase is over. Phase 1 is read-only; use what you decrypted to choose the kidnapper.",
   );
 

@@ -1,0 +1,68 @@
+/* Shared by the six ML stage screens: the stage's controls inside the shared form shell. */
+:host {
+  display: block;
+  min-inline-size: 0;
+}
+
+.stage-group {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.stage-group > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+/* One checkbox or radio per row, a comfortable touch target. */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 44px;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  background: var(--color-surface);
+  border: var(--border-outline-thin);
+  border-radius: var(--radius-md);
+}
+
+.choice:hover {
+  background: var(--color-surface-subtle);
+}
+
+.choice:has(input:focus-visible) {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+.choice input {
+  inline-size: 20px;
+  block-size: 20px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.choice--on {
+  background: var(--color-primary-subtle);
+  border-color: var(--color-primary);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from "@angular/core";
+import { RouterLink } from "@angular/router";
 import { EventApi } from "../../../core/event/event-api";
 import { FinalReportRow } from "../../../core/event/event-models";
 import { reloadOnRevisionChange } from "../../../core/event/revision-sync";
@@ -26,7 +27,7 @@ const REFRESH_MS = 10000;
  * Investigation Report, with a filter and a print layout (one team per block, no application chrome). Organizers only.
  */
 @Component({
-  imports: [UiAlert, UiButton, UiCard, UiPageState, UiStatusChip],
+  imports: [RouterLink, UiAlert, UiButton, UiCard, UiPageState, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .filters {
@@ -99,6 +100,7 @@ const REFRESH_MS = 10000;
   template: `<header class="event-page-header">
       <h1>Final reports</h1>
       <div class="event-page-header__actions no-print">
+        <a routerLink="/event/admin/final-recovery-solutions" class="event-link-button" data-recovery-solutions-link>Recovery solutions</a>
         <ui-button variant="secondary" (click)="print()">Print</ui-button>
       </div>
     </header>

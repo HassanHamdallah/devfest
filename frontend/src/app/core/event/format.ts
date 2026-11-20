@@ -54,7 +54,6 @@ export function roundStatusLabel(currentRound: number): string {
 
 export const FINAL_STAGE_LABELS: Record<string, string> = {
   LOCKED: "Not open",
-  NOT_QUALIFIED: "Not qualified",
   RECOVERY: "Recovery",
   IN_FINAL: "In final",
   COMPLETED: "Completed",

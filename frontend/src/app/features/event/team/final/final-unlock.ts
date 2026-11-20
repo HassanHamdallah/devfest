@@ -10,7 +10,7 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { UNLOCK_PATH } from "../../../../core/event/event-api";
-import { FinalActionResult, UnlockRequest } from "../../../../core/event/event-models";
+import { FinalActionResult, RecoveredKey, UnlockRequest } from "../../../../core/event/event-models";
 import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
@@ -18,13 +18,14 @@ import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
 import { EventAttemptStatus } from "../attempt-status";
 import { PendingAttempt } from "../pending-attempt";
 import { FinalWait } from "./final-wait";
+import { EventRecoveryRecap } from "./recovery/recovery-recap";
 
 const CODE_MAX = 500;
 
 /** Screen 1: one input per room, labelled with the real room name. The answer never says which input was wrong. */
 @Component({
   selector: "event-final-unlock",
-  imports: [EventAttemptStatus, FormsModule, UiAlert, UiButton, UiCard, UiInput],
+  imports: [EventAttemptStatus, EventRecoveryRecap, FormsModule, UiAlert, UiButton, UiCard, UiInput],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     form {
@@ -40,6 +41,9 @@ const CODE_MAX = 500;
   template: `<ui-card data-final-screen="UNLOCK">
     <h2 ui-card-header>Open the case</h2>
     <form (ngSubmit)="submit()">
+      @if (recoveredKeys().length > 0) {
+        <event-recovery-recap [keys]="recoveredKeys()" />
+      }
       <p>
         Enter the output you collected in each room. All four must match their own room.
       </p>
@@ -70,6 +74,8 @@ const CODE_MAX = 500;
 })
 export class EventFinalUnlock {
   readonly roomNames = input.required<readonly string[]>();
+  /** The keys the team's recovery granted (empty for a team that needed none). */
+  readonly recoveredKeys = input<readonly RecoveredKey[]>([]);
   /** The server's wait at the last load; the page reloads after every answer. */
   readonly waitSeconds = input(0);
   readonly changed = output<void>();

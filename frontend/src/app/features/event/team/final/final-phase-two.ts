@@ -173,6 +173,9 @@ const CONTROLS = new RegExp("[" + String.fromCharCode(0) + "-" + String.fromChar
     }
   `,
   template: `<div class="column">
+      @if (solved() === 4) {
+        <ui-alert variant="success" data-all-decrypted>All four files decrypted: the investigation is open.</ui-alert>
+      }
       <event-final-decrypted
         [clues]="clues()"
         title="Recovered Evidence"

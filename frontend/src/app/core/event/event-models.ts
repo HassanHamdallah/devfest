@@ -4,12 +4,11 @@ export type RoomCode = "AI" | "PROBLEM_SOLVING" | "LINUX" | "HARDWARE";
 export type GroupCode = "A" | "B" | "C" | "D";
 export type JudgeStatus = "PENDING" | "PASS" | "FAIL";
 export type TeamRoomStatus = "NOT_STARTED" | "SUBMITTED" | "PASSED" | "FAILED";
-/** A team's status in the final: Not qualified / Recovery / In final / Completed (LOCKED before the final opens). */
-export type FinalStage = "LOCKED" | "NOT_QUALIFIED" | "RECOVERY" | "IN_FINAL" | "COMPLETED";
+/** A team's status in the final: Recovery / In final / Completed (LOCKED before the final opens). Every team plays. */
+export type FinalStage = "LOCKED" | "RECOVERY" | "IN_FINAL" | "COMPLETED";
 /** The screen the server says the team is on; the page only renders it. */
 export type FinalScreen =
   | "LOCKED"
-  | "NOT_QUALIFIED"
   | "RECOVERY"
   | "UNLOCK"
   | "MISSION"
@@ -237,8 +236,10 @@ export interface TeamFinal {
   cluesCollected: number;
   /** Seconds to wait before the next unlock try after five wrong answers in a row. */
   waitSeconds: number;
-  unlock: { roomNames: string[] } | null;
-  recovery: { question: string; attempts: number } | null;
+  /** The four room names and the keys the team's recovery granted (its own only). */
+  unlock: { roomNames: string[]; recoveredKeys: RecoveredKey[] } | null;
+  /** On the recovery screen: the levels the team must pass, in order. */
+  recovery: { levels: RecoveryLevel[] } | null;
   /** On the mission and case screens. */
   mission: FinalMission | null;
   /**
@@ -284,14 +285,187 @@ export interface PassphraseRequest {
   passphrase: string;
 }
 
-export interface RecoveryRequest {
-  answer: string;
+/** A room key granted by the team's recovery. */
+export interface RecoveredKey {
+  roomName: string;
+  key: string;
 }
 
-export interface RecoveryResult {
-  attemptId: string;
+// ---- The final's recovery levels (GET /team/final/recovery and the checks) ----
+
+export type RecoveryLevel = "ML" | "ARDUINO";
+export type RecoveryPathCode = "NONE" | "ML" | "ML_ARDUINO";
+
+export interface RecoveryStageFlag {
+  stage: number;
+  name: string;
+  passed: boolean;
+}
+
+/** One required level: its stages' passed flags, and its cosmetic token once the level is passed. */
+export interface RecoveryLevelProgress {
+  level: RecoveryLevel;
+  title: string;
+  stages: RecoveryStageFlag[];
+  passed: boolean;
+  tokenLabel: string | null;
+  token: string | null;
+}
+
+export interface RecoveryOption {
+  id: string;
+  label: string;
+}
+
+export interface RecoveryChoice {
+  label: string;
+  options: RecoveryOption[];
+}
+
+export interface RecoveryThresholdMetrics {
+  threshold: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  falseNegatives: number;
+}
+
+/** The current ML stage: its texts and exactly one of the six stage parts (the others are null). Never an answer. */
+export interface MlStageView {
+  stage: number;
+  name: string;
+  title: string;
+  prompt: string | null;
+  note: string;
+  action: string;
+  leakage: { features: string[] } | null;
+  pipeline: {
+    items: RecoveryOption[];
+    startOrder: string[];
+    relabel: { item: string; after: string; label: string } | null;
+  } | null;
+  cleaning: {
+    table: { columns: string[]; rows: string[][] };
+    missing: RecoveryChoice;
+    outliers: RecoveryChoice;
+  } | null;
+  model: { models: { id: string; name: string; precision: number; recall: number }[] } | null;
+  threshold: {
+    label: string;
+    slider: { min: number; max: number; step: number; start: number };
+    metrics: RecoveryThresholdMetrics[];
+  } | null;
+  evidence: {
+    records: { id: string; time: string; device: string; confidence: string }[];
+    inputLabel: string;
+    placeholder: string | null;
+  } | null;
+}
+
+/** The team's recovery: the current level and stage, every required stage's flag and, for the current stage, its data. */
+export interface TeamRecovery {
+  status: FinalStage;
+  levels: RecoveryLevel[];
+  finished: boolean;
+  currentLevel: RecoveryLevel | null;
+  currentStage: number | null;
+  progress: RecoveryLevelProgress[];
+  mlStage: MlStageView | null;
+  /** The Arduino level's program and texts while it is the current level (never a bug, an accepted line or the right option). */
+  arduino: ArduinoView | null;
+  lastTests: { id: string; name: string; passed: boolean }[];
+  waitSeconds: number;
+}
+
+/** The Arduino level: the program as numbered lines, the missing-behaviour choice, and the names of the hidden tests. */
+export interface ArduinoView {
+  title: string;
+  intro: string;
+  badge: string;
+  brief: string;
+  warning: string;
+  expectedBehaviour: string[];
+  fileName: string;
+  action: string;
+  lines: { n: number; code: string }[];
+  /** Placed after line {@code afterLine}; its options are lettered in this team's own order. */
+  slot: { afterLine: number; prompt: string; options: { letter: string; code: string }[] };
+  tests: { id: string; name: string }[];
+}
+
+/** One Arduino run: every line as the team edited it, and the letter of the chosen missing-behaviour option. */
+export interface ArduinoRunRequest {
+  lines: string[];
+  option: string;
+}
+
+// ---- The organizers' "Recovery solutions" (admin only) ----
+
+export interface RecoveryMlSolution {
+  stage: number;
+  name: string;
+  answer: string[];
+  why: string | null;
+}
+
+export interface RecoveryLineFix {
+  line: number;
+  original: string;
+  fix: string;
+}
+
+export interface RecoveryBugSolution {
+  id: string;
+  what: string | null;
+  /** REPLACE, REMOVE or SLOT (the missing behaviour). */
+  kind: string;
+  lines: RecoveryLineFix[];
+  acceptedVariants: string[];
+  failingTests: string[];
+}
+
+export interface RecoveryOptionSolution {
+  id: string;
+  code: string;
   correct: boolean;
-  stage: FinalStage;
+  why: string | null;
+}
+
+export interface RecoverySolutions {
+  /** Which private key (A to D) opens each evidence file, as the content's key index says. */
+  caseKeys: { clue: number; title: string; encFile: string; rsaFile: string; keyReference: string; key: string | null }[];
+  ml: RecoveryMlSolution[];
+  arduino: {
+    fileName: string;
+    bugs: RecoveryBugSolution[];
+    slot: { id: string; afterLine: number; prompt: string; correctOption: string; options: RecoveryOptionSolution[] };
+    tests: string[];
+  };
+}
+
+/** One ML stage's answer: the stage (path) decides which fields are read. */
+export interface MlCheckRequest {
+  features?: string[];
+  order?: string[];
+  missing?: string;
+  outliers?: string;
+  model?: string;
+  threshold?: number;
+  word?: string;
+}
+
+/** The answer to one recovery check; the message is the stage's neutral text, never what was wrong. */
+export interface RecoveryCheckResult {
+  checkId: string;
+  level: RecoveryLevel;
+  stage: number;
+  passed: boolean;
+  message: string;
+  tests: { id: string; name: string; passed: boolean }[];
+  metrics: RecoveryThresholdMetrics | null;
+  token: string | null;
+  recoveryFinished: boolean;
+  status: FinalStage;
   receivedAt: string;
 }
 
@@ -959,7 +1133,20 @@ export interface FinalBoardRow {
   unlockWrong: number;
   passphraseAttempts: number;
   passphraseWrong: number;
-  recoveryAttempts: number;
+  /** Recovery checks made (ML stage checks and Arduino runs). */
+  recoveryChecks: number;
+  /** The room keys the team held when the final opened (K). */
+  keysHeld: number;
+  /** NONE (4 keys), ML (3 keys) or ML_ARDUINO (0 to 2 keys). */
+  recoveryPath: RecoveryPathCode;
+  /** The level and stage the team is on; null when it needs none or has finished. */
+  recoveryLevel: RecoveryLevel | null;
+  recoveryStage: number | null;
+  /** The final's active seconds when the recovery was finished (null until then and for a team that needs none). */
+  recoveryFinishedAtSeconds: number | null;
+  /** The team's decryption window on the final's clock, in active seconds; null until its recovery is finished. */
+  cryptoFromSeconds: number | null;
+  cryptoToSeconds: number | null;
   suspect: string | null;
   suspectCorrect: boolean | null;
   activeSeconds: number | null;
