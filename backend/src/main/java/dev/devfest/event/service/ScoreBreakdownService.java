@@ -198,9 +198,13 @@ public class ScoreBreakdownService {
   }
 
   private static FinalScoreLine finalLine(TeamFinalRepository.Progress p, EventStateRecord state, boolean timeUp, int fullUntil) {
-    int clues = p == null ? 0 : p.clues();
-    boolean finalised = p != null && (p.finalised() || (timeUp && clues >= 3));
-    FinalStage status = FinalStageResolver.resolve(state.finalEverOpened(), clues, finalised);
+    boolean finalised = p != null && (p.finalised() || timeUp);
+    FinalStage status = FinalStageResolver.resolve(
+      state.finalEverOpened(),
+      p == null ? 0 : p.keysAtOpen(),
+      p != null && p.recoveryFinished(),
+      finalised
+    );
     int solved = p == null ? 0 : p.cluesSolved();
     Integer active = p == null ? null : p.activeSeconds();
     boolean suspectCorrect = p != null && p.suspectCorrect();

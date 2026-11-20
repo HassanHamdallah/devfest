@@ -1,6 +1,5 @@
 package dev.devfest.event.service;
 
-import dev.devfest.event.domain.FinalPhase;
 import dev.devfest.event.domain.RoundPhase;
 import dev.devfest.event.domain.RoundTimer;
 import dev.devfest.event.repository.EventStateRecord;
@@ -21,13 +20,8 @@ final class FinalClock {
     return timer.usedSeconds(now);
   }
 
-  /** The phase the final is in now, the same for every team (see {@link FinalPhase}). */
-  static FinalPhase phase(EventStateRecord state, int phase1Minutes, Instant now) {
-    return state.finalTimer().map(timer -> FinalPhase.at(activeSeconds(timer, now), phase1Minutes)).orElse(FinalPhase.DECRYPTION);
-  }
-
-  /** Active seconds until the investigation phase opens; null once open (or before the final has a timer). */
-  static Integer phase1EndsInSeconds(EventStateRecord state, int phase1Minutes, Instant now) {
-    return state.finalTimer().map(timer -> FinalPhase.phase1EndsInSeconds(activeSeconds(timer, now), phase1Minutes)).orElse(null);
+  /** Active seconds so far, 0 before the final has a timer. */
+  static int activeSeconds(EventStateRecord state, Instant now) {
+    return state.finalTimer().map(timer -> activeSeconds(timer, now)).orElse(0);
   }
 }

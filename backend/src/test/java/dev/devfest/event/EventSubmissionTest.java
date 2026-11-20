@@ -147,12 +147,12 @@ class EventSubmissionTest extends EventIntegrationTest {
   }
 
   @Test
-  void theTwentyFirstTeamPostWithinAMinuteIsRateLimited() {
+  void theSixtyFirstTeamPostWithinAMinuteIsRateLimited() {
     setRound(1);
     openRoom(RoomCode.AI);
-    for (int i = 0; i < 20; i++) expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o" + i, "x"));
+    for (int i = 0; i < 60; i++) expectOk(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o" + i, "x"));
     expectError(submit(alpha, RoomCode.AI, UUID.randomUUID(), "o", "x"), 429, "Too many attempts. Wait a moment and try again.");
-    assertEquals(20, submissionCount());
+    assertEquals(60, submissionCount());
   }
 
   private void assertClue(RoomCode room, String clue, boolean correct) {

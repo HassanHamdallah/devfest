@@ -91,8 +91,8 @@ class EventAuthorizationTest extends EventIntegrationTest {
   }
 
   /**
-   * D3: a member receives a room's clue key only for a finished room whose clue its own team collected; never a
-   * recovery answer, a passphrase or its hash, the correct suspect or another team's key. (collectClues answers with the key itself, so the
+   * D3: a member receives a room's clue key only for a finished room whose clue its own team collected (or its recovery
+   * granted); never a recovery answer, a passphrase or its hash, the correct suspect or another team's key. (collectClues answers with the key itself, so the
    * key texts of the collected rooms are the team's own answers too.)
    */
   @Test
@@ -117,7 +117,9 @@ class EventAuthorizationTest extends EventIntegrationTest {
     );
 
     List<String> after = new ArrayList<>();
-    after.add(expectOk(recover(member, UUID.randomUUID(), RECOVERY_ANSWER)).body());
+    after.add(expectOk(recoveryView(member)).body());
+    after.add(finishRecovery(member).body());
+    after.add(expectOk(recoveryView(member)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
     after.add(expectOk(unlockWithKeys(member)).body());
     after.add(expectOk(get("/team/final", member.token())).body());
@@ -165,8 +167,7 @@ class EventAuthorizationTest extends EventIntegrationTest {
     CLUE_KEYS.forEach((room, key) -> {
       if (!allowedKeys.contains(room)) assertFalse(body.contains(key), room + " clue key leaked: " + body);
     });
-    assertFalse(body.contains(RECOVERY_ANSWER), "recovery answer leaked: " + body);
-    for (String field : List.of("clueKey", "recoveryAnswer", "correctSuspect", "acceptedAnswers", "passphraseSha256", "suspectCorrect")) {
+    for (String field : List.of("clueKey", "\"accepted\":[", "\"kept\"", "\"answer\"", "\"correct\"", "correctSuspect", "passphraseSha256", "suspectCorrect")) {
       assertFalse(body.contains(field), field + " leaked: " + body);
     }
   }

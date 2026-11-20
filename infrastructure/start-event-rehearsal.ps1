@@ -52,7 +52,7 @@ function Reset-EventTestData {
   # event_state has no foreign keys and is reset in place, timer fields included.
   $reset=@(
    'SET client_min_messages=warning;',
-   'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score, recovery_attempt, team_final, final_unlock_attempt, final_clue_attempt, final_terminal_bundle, final_content, final_time_adjustment RESTART IDENTITY CASCADE;',
+   'TRUNCATE app_user, rate_bucket, audit_event, event_team, room_submission, room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score, recovery_check, team_recovery, team_final, final_unlock_attempt, final_clue_attempt, final_terminal_bundle, final_content, final_time_adjustment RESTART IDENTITY CASCADE;',
    "INSERT INTO event_room(code,name,position,terminal_enabled,activity) VALUES ('AI','AI',0,false,'AI_QUIZ'),('PROBLEM_SOLVING','Problem solving',1,false,NULL),('LINUX','Linux',2,true,NULL),('HARDWARE','Hardware',3,false,NULL) ON CONFLICT (code) DO NOTHING;",
    'UPDATE event_state SET current_round=0, round_started_at=NULL, round_minutes=25, round_phase=NULL, round_duration_seconds=NULL, round_elapsed_before_seconds=0, round_resumed_at=NULL, round_ended=false, final_open=false, final_started_at=NULL, final_closed_at=NULL, final_phase=NULL, final_duration_seconds=NULL, final_elapsed_before_seconds=0, final_resumed_at=NULL, final_ended=false, results_published=false, revision=revision+1, updated_at=now() WHERE id=1;'
   ) -join ' '

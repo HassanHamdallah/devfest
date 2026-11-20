@@ -18,7 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The admin's emergency controls for the final's one timer: pause, resume and added time. They apply to every team at
+ * The admin's emergency controls for the final's one timer: pause, resume and added time. The phase its view shows is the
+ * phase of a team that needed no recovery (S = 0); each team's own phase is on the final table. They apply to every team at
  * once, are audited, and never touch one team alone; the timer is never reset or restarted. Once the time has run out
  * the final is over and the timer can no longer be changed (teams are finalised against that moment). All the arithmetic
  * is {@link RoundTimer}.
@@ -123,9 +124,7 @@ public class EventFinalTimerService {
       timer.map(t -> t.remainingSeconds(now)).orElse(null),
       timer.map(RoundTimer::durationSeconds).orElse(null),
       now,
-      timer.isPresent() ? FinalClock.phase(state, phase1, now) : null,
-      phase1,
-      FinalClock.phase1EndsInSeconds(state, phase1, now)
+      phase1
     );
   }
 }

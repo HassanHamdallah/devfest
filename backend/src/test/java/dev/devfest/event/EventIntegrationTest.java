@@ -52,9 +52,26 @@ public abstract class EventIntegrationTest {
     RoomCode.LINUX, "WEST TOWER",
     RoomCode.HARDWARE, "+970-59-881"
   );
-  /** The Recovery Challenge of the content the tests import (in place of the shipped file's own). */
-  protected static final String RECOVERY_QUESTION = "How many bits are in a byte?";
-  protected static final String RECOVERY_ANSWER = "EIGHT BITS";
+  /** The right answer of each ML recovery stage (1 to 6) of the shipped content, as request bodies. */
+  protected static final List<String> ML_ANSWERS = List.of(
+    "{\"features\":[\"motion_score\",\"access_attempts\",\"signal_strength\",\"device_type\"]}",
+    "{\"order\":[\"load\",\"split\",\"fit_scaler\",\"transform\",\"train\",\"evaluate\"]}",
+    "{\"missing\":\"median\",\"outliers\":\"flag\"}",
+    "{\"model\":\"logreg\"}",
+    "{\"threshold\":0.47}",
+    "{\"word\":\" clue \"}"
+  );
+  /** A well-formed wrong answer of each ML stage (1 to 6). */
+  protected static final List<String> ML_WRONG = List.of(
+    "{\"features\":[\"motion_score\",\"access_attempts\",\"signal_strength\",\"device_type\",\"investigation_result\"]}",
+    "{\"order\":[\"load\",\"fit_scaler\",\"split\",\"transform\",\"train\",\"evaluate\"]}",
+    "{\"missing\":\"zero\",\"outliers\":\"flag\"}",
+    "{\"model\":\"tree\"}",
+    "{\"threshold\":0.60}",
+    "{\"word\":\"ULCE\"}"
+  );
+  /** The code of the right missing-behaviour option (B), whatever letter a team sees it under. */
+  protected static final String RIGHT_SLOT_CODE = "if (doorOpen && authorized) { entered = true; }\nif (!doorOpen && entered) { authorized = false; entered = false; }";
   /** The shipped case's correct suspect and a wrong one. */
   protected static final String CORRECT_SUSPECT = "S11";
   protected static final String WRONG_SUSPECT = "S05";
@@ -102,7 +119,7 @@ public abstract class EventIntegrationTest {
       """
       TRUNCATE audit_event, auth_session, refresh_token, rate_bucket, app_user, event_team, room_submission,
                room_judgement, room_judgement_history, collected_clue, score_deduction, room_manual_score,
-               recovery_attempt, team_final, final_unlock_attempt, final_clue_attempt, final_content,
+               recovery_check, team_recovery, team_final, final_unlock_attempt, final_clue_attempt, final_content,
                final_terminal_bundle, final_time_adjustment, sentinel_content
       RESTART IDENTITY CASCADE"""
     );
@@ -193,26 +210,49 @@ public abstract class EventIntegrationTest {
   }
 
   /**
-   * Moves the final's timer forward by the shipped decryption phase (15 minutes of active time), so the investigation
-   * phase is open: suspects are offered and accepted, passphrases and the terminal are refused. Works with any clock.
+   * Moves the final's timer forward by 15 minutes of active time and opens the investigation phase for every team that
+   * has a final row (test-only: a team normally opens it by decrypting its fourth file, whatever the clock says), so
+   * suspects are offered and accepted for it. A team that already decrypted all four keeps its own moment.
    */
   protected void openInvestigationPhase() {
     db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 900");
+    db.update("UPDATE team_final SET all_decrypted_at_seconds = 0 WHERE all_decrypted_at_seconds IS NULL");
   }
 
-  /** The shipped content file, with the Recovery Challenge the tests use. */
+  /** The shipped content file, as compact JSON (tests edit it by plain text replacement). */
   protected static String finalContentJson() {
     try {
       String shipped = java.nio.file.Files.readString(java.nio.file.Path.of("..", "docs", "final", "last-shipment-content.json"), StandardCharsets.UTF_8);
       tools.jackson.databind.ObjectMapper json = tools.jackson.databind.json.JsonMapper.builder().build();
-      tools.jackson.databind.node.ObjectNode tree = (tools.jackson.databind.node.ObjectNode) json.readTree(shipped);
-      tools.jackson.databind.node.ObjectNode recovery = tree.putObject("recovery");
-      recovery.put("question", RECOVERY_QUESTION);
-      recovery.putArray("acceptedAnswers").add(RECOVERY_ANSWER);
-      return json.writeValueAsString(tree);
+      return json.writeValueAsString(json.readTree(shipped));
     } catch (java.io.IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  /** The shipped Arduino program's lines, untouched. */
+  protected static List<String> arduinoProgram() {
+    tools.jackson.databind.JsonNode lines = tools.jackson.databind.json.JsonMapper.builder().build().readTree(finalContentJson()).get("recoveryLevels").get("arduino").get("lines");
+    List<String> program = new ArrayList<>();
+    for (tools.jackson.databind.JsonNode line : lines) program.add(line.get("code").asString());
+    return program;
+  }
+
+  /** The shipped program with its five line bugs fixed (B1 to B5). */
+  protected static List<String> fixedArduinoProgram() {
+    List<String> lines = arduinoProgram();
+    lines.set(39, "    authorized = false;");
+    lines.set(44, "  if (doorOpen && !authorized) {");
+    lines.set(49, "  // if (!doorOpen) {");
+    lines.set(50, "  //   alarmActive = false;");
+    lines.set(51, "  // }");
+    lines.set(55, "  if (motionDetected && doorOpen) {");
+    lines.set(74, "  authorized = false;");
+    return lines;
+  }
+
+  protected static String arduinoBody(List<String> lines, String letter) {
+    return tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(Map.of("lines", lines, "option", letter));
   }
 
   /** keys/clueN_secret.txt of the shipped case, unchanged (each ends with a line ending). */
@@ -309,8 +349,63 @@ public abstract class EventIntegrationTest {
     return teamPost(team, "/team/rooms/" + rooms.get(code) + "/submissions", key, body);
   }
 
-  protected Response recover(TestTeam team, UUID key, String answer) {
-    return teamPost(team, "/team/final/recovery", key, "{\"answer\":" + quote(answer) + "}");
+  protected Response recoveryView(TestTeam team) {
+    return get("/team/final/recovery", team.token());
+  }
+
+  /** One ML stage's check with a fresh Idempotency-Key. */
+  protected Response mlCheck(TestTeam team, int stage, String body) {
+    return mlCheck(team, stage, UUID.randomUUID(), body);
+  }
+
+  protected Response mlCheck(TestTeam team, int stage, UUID key, String body) {
+    return teamPost(team, "/team/final/recovery/ml/" + stage, key, body);
+  }
+
+  protected Response arduinoRun(TestTeam team, UUID key, String body) {
+    return teamPost(team, "/team/final/recovery/arduino/run", key, body);
+  }
+
+  /** The letter under which this team sees the right missing-behaviour option (read from its recovery view). */
+  protected String rightLetter(TestTeam team) {
+    List<Map<String, Object>> options = expectOk(recoveryView(team)).json("$.arduino.slot.options");
+    List<String> letters = options.stream().filter(o -> RIGHT_SLOT_CODE.equals(o.get("code"))).map(o -> (String) o.get("letter")).toList();
+    assertEquals(1, letters.size(), "the right option is offered once: " + options);
+    return letters.getFirst();
+  }
+
+  /**
+   * Records the team's recovery stages before {@code level}/{@code stage} as passed a minute ago (as if it had played
+   * them), so a test can play the rest through the API without waiting for the check rate limit.
+   */
+  protected void recordPassedBefore(TestTeam team, String level, int stage) {
+    int mlStages = "ML".equals(level) ? stage - 1 : 6;
+    for (int s = 1; s <= mlStages; s++) {
+      db.update(
+        "INSERT INTO recovery_check(id, team_id, level, stage, submission, passed, received_at, idempotency_key, request_hash) " +
+        "VALUES (gen_random_uuid(), ?, 'ML', ?, '{}', TRUE, now() - interval '1 minute', gen_random_uuid(), 'recorded')",
+        team.id(),
+        s
+      );
+    }
+  }
+
+  /**
+   * Finishes the team's recovery: every stage before its last required one is recorded as passed, the last one is played
+   * through the API (which grants the missing keys). The team must hold 0 to 3 keys and the final must be open.
+   */
+  protected Response finishRecovery(TestTeam team) {
+    List<String> levels = expectOk(recoveryView(team)).json("$.levels");
+    if (levels.contains("ARDUINO")) {
+      recordPassedBefore(team, "ARDUINO", 1);
+      Response run = expectOk(arduinoRun(team, UUID.randomUUID(), arduinoBody(fixedArduinoProgram(), rightLetter(team))));
+      assertEquals(true, run.json("$.recoveryFinished"), run.body());
+      return run;
+    }
+    recordPassedBefore(team, "ML", 6);
+    Response last = expectOk(mlCheck(team, 6, ML_ANSWERS.get(5)));
+    assertEquals(true, last.json("$.recoveryFinished"), last.body());
+    return last;
   }
 
   /** The four room outputs in room order (AI, Problem solving, Linux, Hardware). */

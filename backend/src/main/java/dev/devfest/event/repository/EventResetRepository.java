@@ -25,7 +25,8 @@ public class EventResetRepository {
     "DELETE FROM final_clue_attempt WHERE %s",
     "DELETE FROM final_unlock_attempt WHERE %s",
     "DELETE FROM team_final WHERE %s",
-    "DELETE FROM recovery_attempt WHERE %s",
+    "DELETE FROM recovery_check WHERE %s",
+    "DELETE FROM team_recovery WHERE %s",
     "DELETE FROM collected_clue WHERE %s",
     "DELETE FROM submission_clue_verdict_history WHERE submission_id IN (SELECT id FROM room_submission WHERE %s)",
     "DELETE FROM submission_clue_verdict WHERE submission_id IN (SELECT id FROM room_submission WHERE %s)",
@@ -52,12 +53,13 @@ public class EventResetRepository {
     db.queryForObject("SELECT set_config('devfest.allow_reset', 'on', true)", String.class);
   }
 
-  /** All final-phase progress: team finals, unlock and passphrase attempts, recovery attempts, RECOVERY clues, added time. */
+  /** All final-phase progress: team finals, unlock and passphrase attempts, recovery checks and rows (K), RECOVERY clues, added time. */
   public void deleteFinalProgress() {
     db.update("DELETE FROM final_clue_attempt");
     db.update("DELETE FROM final_unlock_attempt");
     db.update("DELETE FROM team_final");
-    db.update("DELETE FROM recovery_attempt");
+    db.update("DELETE FROM recovery_check");
+    db.update("DELETE FROM team_recovery");
     db.update("DELETE FROM collected_clue WHERE source = 'RECOVERY'");
     db.update("DELETE FROM final_time_adjustment");
   }

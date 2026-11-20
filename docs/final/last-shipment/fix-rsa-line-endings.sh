@@ -12,8 +12,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$here"
 
-# clue number : key letter : report name
-clues=("1:A:ORION_SHIPMENT_NOTICE" "2:B:SECURITY_ACCESS_REPORT" "3:C:WAREHOUSE_MOVEMENT_REPORT" "4:D:STAFF_ACTIVITY_AUDIT")
+# clue number : key letter : report name   (key shuffle: clue1 -> C, clue2 -> A, clue3 -> D, clue4 -> B)
+clues=("1:C:ORION_SHIPMENT_NOTICE" "2:A:SECURITY_ACCESS_REPORT" "3:D:WAREHOUSE_MOVEMENT_REPORT" "4:B:STAFF_ACTIVITY_AUDIT")
 # A folder next to the script (not /tmp): a Windows build of openssl cannot open Git Bash's /tmp.
 work=".fix-rsa-work"
 rm -rf "$work"; mkdir "$work"
@@ -31,7 +31,8 @@ for entry in "${clues[@]}"; do
 
   # The secret must open the unchanged .enc file before anything is written.
   openssl enc -d -aes-256-cbc -pbkdf2 -in "encrypted/${report}.enc" -out "$work/report_${n}.txt" -pass "file:$work/secret_${n}.txt"
-  cmp -s "$work/report_${n}.txt" "clues/${report}.txt" || { echo "clue${n}: decrypted report differs from clues/${report}.txt" >&2; exit 1; }
+  # Compared without CR: a Windows checkout may turn the plain-text copy in clues/ into CRLF; the .enc holds LF.
+  cmp -s <(tr -d '\r' <"$work/report_${n}.txt") <(tr -d '\r' <"clues/${report}.txt") || { echo "clue${n}: decrypted report differs from clues/${report}.txt" >&2; exit 1; }
 
   openssl pkeyutl -encrypt -pubin -inkey "keys/public_${x}.pem" -in "$work/secret_${n}.txt" -out "$work/clue${n}_key.rsa" \
     -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256

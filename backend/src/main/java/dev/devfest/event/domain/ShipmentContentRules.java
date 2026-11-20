@@ -4,6 +4,7 @@ import dev.devfest.event.domain.ShipmentContent.Clue;
 import dev.devfest.event.domain.ShipmentContent.KeyIndexEntry;
 import dev.devfest.event.domain.ShipmentContent.Mission;
 import dev.devfest.event.domain.ShipmentContent.Suspect;
+import dev.devfest.event.domain.recovery.RecoveryContentRules;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,7 +49,7 @@ public final class ShipmentContentRules {
     Set<String> references = clues(content.clues(), problems);
     keyIndex(content.keyIndex(), references, problems);
     suspects(content, problems);
-    recovery(content.recovery(), problems);
+    problems.addAll(RecoveryContentRules.problems(content.recoveryLevels()));
     return problems;
   }
 
@@ -158,24 +159,6 @@ public final class ShipmentContentRules {
     }
     if (content.correctSuspect() == null || !ids.contains(content.correctSuspect())) {
       problems.add("correctSuspect: must be the id of one of the suspects.");
-    }
-  }
-
-  private static void recovery(ShipmentContent.Recovery recovery, List<String> problems) {
-    if (recovery == null || recovery.question() == null || recovery.question().isBlank() || recovery.question().length() > MAX_TEXT) {
-      problems.add("recovery.question: required (at most " + MAX_TEXT + " characters).");
-      return;
-    }
-    List<String> answers = recovery.acceptedAnswers();
-    if (answers == null || answers.isEmpty() || answers.size() > 20) {
-      problems.add("recovery.acceptedAnswers: from 1 to 20 answers are required.");
-      return;
-    }
-    for (String answer : answers) {
-      if (answer == null || AnswerNormalizer.normalize(answer).isEmpty() || answer.length() > 500) {
-        problems.add("recovery.acceptedAnswers: every answer must be filled in (at most 500 characters).");
-        return;
-      }
     }
   }
 

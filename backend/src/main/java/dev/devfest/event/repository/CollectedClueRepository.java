@@ -84,9 +84,33 @@ public class CollectedClueRepository {
       .findFirst();
   }
 
-  /** Returns true when the recovery filled the team's missing room. */
-  public boolean collectFromRecovery(long teamId, long roomId, Instant collectedAt) {
-    return insertIfAbsent(teamId, roomId, "RECOVERY", null, collectedAt);
+  /**
+   * Grants the team every room key it does not hold (source RECOVERY, never removed by a recheck); a key it holds is
+   * kept. Returns how many were granted; a second call grants nothing.
+   */
+  public int grantMissingFromRecovery(long teamId, Instant collectedAt) {
+    return db.update(
+      """
+      INSERT INTO collected_clue(team_id, room_id, source, submission_id, collected_at)
+      SELECT ?, r.id, 'RECOVERY', NULL, ? FROM event_room r
+      ON CONFLICT (team_id, room_id) DO NOTHING""",
+      teamId,
+      timestamp(collectedAt)
+    );
+  }
+
+  /** A room key the team got from its recovery, with the room's name (for that team's unlock screen only). */
+  public record RecoveredKey(String roomName, String clueKey) {}
+
+  /** The team's RECOVERY keys in room order, as ONE statement. */
+  public List<RecoveredKey> recoveredKeys(long teamId) {
+    return db.query(
+      """
+      SELECT r.name, r.clue_key FROM collected_clue c JOIN event_room r ON r.id = c.room_id
+      WHERE c.team_id = ? AND c.source = 'RECOVERY' ORDER BY r.position""",
+      (rs, row) -> new RecoveredKey(rs.getString("name"), rs.getString("clue_key")),
+      teamId
+    );
   }
 
   public int countForTeam(long teamId) {

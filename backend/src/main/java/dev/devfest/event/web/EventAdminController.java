@@ -10,6 +10,8 @@ import dev.devfest.event.dto.FinalBoardRow;
 import dev.devfest.event.dto.FinalReportView;
 import dev.devfest.event.dto.FinalContentView;
 import dev.devfest.event.dto.RankingRow;
+import dev.devfest.event.dto.RecoveryProgressRow;
+import dev.devfest.event.dto.RecoverySolutionsView;
 import dev.devfest.event.dto.FinalTimerView;
 import dev.devfest.event.dto.TeamScoreBreakdown;
 import dev.devfest.event.dto.PublicationRequest;
@@ -22,6 +24,7 @@ import dev.devfest.event.service.EventControlService;
 import dev.devfest.event.service.EventDeductionService;
 import dev.devfest.event.service.EventFinalBoardService;
 import dev.devfest.event.service.EventFinalContentService;
+import dev.devfest.event.service.EventFinalRecoveryService;
 import dev.devfest.event.service.EventFinalTimerService;
 import dev.devfest.event.service.ScoreBreakdownService;
 import dev.devfest.event.service.EventExportService;
@@ -53,6 +56,7 @@ public class EventAdminController {
   private final EventDeductionService deductions;
   private final ScoreBreakdownService scores;
   private final EventFinalBoardService scoreViews;
+  private final EventFinalRecoveryService recovery;
 
   public EventAdminController(
     EventAdminBoardService boards,
@@ -63,7 +67,8 @@ public class EventAdminController {
     EventFinalContentService finalContent,
     EventDeductionService deductions,
     ScoreBreakdownService scores,
-    EventFinalBoardService scoreViews
+    EventFinalBoardService scoreViews,
+    EventFinalRecoveryService recovery
   ) {
     this.boards = boards;
     this.control = control;
@@ -74,6 +79,7 @@ public class EventAdminController {
     this.deductions = deductions;
     this.scores = scores;
     this.scoreViews = scoreViews;
+    this.recovery = recovery;
   }
 
   /** The body is optional; {@code {"anyway": true}} starts although AI mission rooms are not ready. */
@@ -182,6 +188,12 @@ public class EventAdminController {
     return finalContent.view(principal);
   }
 
+  /** Every recovery answer, the Arduino bug list and the right option (admin only; built from the imported file). */
+  @GetMapping("/final/recovery-solutions")
+  RecoverySolutionsView recoverySolutions(@AuthenticationPrincipal AuthService.Principal principal) {
+    return finalContent.recoverySolutions(principal);
+  }
+
   /** The whole content file as JSON; read-only once the final has opened. */
   @PutMapping(value = "/final/content", consumes = "application/json")
   FinalContentView importFinalContent(@RequestBody String body, @AuthenticationPrincipal AuthService.Principal principal) {
@@ -198,6 +210,12 @@ public class EventAdminController {
   @GetMapping("/scoreboard")
   List<RankingRow> scoreboard(@AuthenticationPrincipal AuthService.Principal principal) {
     return scoreViews.scoreboard(principal);
+  }
+
+  /** Every team's recovery: K, its levels, the stage it is on, its checks and when it finished. */
+  @GetMapping("/final/recovery")
+  List<RecoveryProgressRow> finalRecovery(@AuthenticationPrincipal AuthService.Principal principal) {
+    return recovery.adminProgress(principal);
   }
 
   /** The live final table: status, stage, attempts, answers and the parts of the final score of every team. */

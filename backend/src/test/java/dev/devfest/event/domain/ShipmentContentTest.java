@@ -71,7 +71,7 @@ class ShipmentContentTest {
   void eachClueMatchesItsSourceFilesAndKey() throws Exception {
     ShipmentContent content = parse(shipped());
     List<String> titles = List.of("ORION_SHIPMENT_NOTICE", "SECURITY_ACCESS_REPORT", "WAREHOUSE_MOVEMENT_REPORT", "STAFF_ACTIVITY_AUDIT");
-    List<String> keys = List.of("A", "B", "C", "D");
+    List<String> keys = List.of("C", "A", "D", "B"); // clue 1 -> C, clue 2 -> A, clue 3 -> D, clue 4 -> B
     for (int n = 1; n <= 4; n++) {
       ShipmentContent.Clue clue = content.clue(n);
       assertEquals(titles.get(n - 1), clue.title());
@@ -154,8 +154,8 @@ class ShipmentContentTest {
 
   @Test
   void theKeyIndexCoversEveryReferenceAndUsesEachKeyOnce() throws Exception {
-    List<String> twiceA = problemsAfter(tree -> ((ObjectNode) tree.get("keyIndex").get(0)).put("key", "A"));
-    assertTrue(twiceA.stream().anyMatch(p -> p.startsWith("keyIndex: key A must be used exactly once")), twiceA.toString());
+    List<String> twiceB = problemsAfter(tree -> ((ObjectNode) tree.get("keyIndex").get(0)).put("key", "B"));
+    assertTrue(twiceB.stream().anyMatch(p -> p.startsWith("keyIndex: key B must be used exactly once")), twiceB.toString());
     List<String> unknown = problemsAfter(tree -> ((ObjectNode) tree.get("keyIndex").get(0)).put("reference", "NV-REF-9"));
     assertTrue(unknown.contains("keyIndex: NV-REF-9 is not the keyReference of any clue."), unknown.toString());
     assertTrue(unknown.stream().anyMatch(p -> p.startsWith("keyIndex: the clue reference ") && p.endsWith(" has no entry.")), unknown.toString());
@@ -195,10 +195,13 @@ class ShipmentContentTest {
   }
 
   @Test
-  void theRecoveryChallengeIsRequired() throws Exception {
-    assertTrue(problemsAfter(tree -> tree.remove("recovery")).contains("recovery.question: required (at most 2000 characters)."));
-    List<String> noAnswers = problemsAfter(tree -> ((ObjectNode) tree.get("recovery")).putArray("acceptedAnswers"));
-    assertTrue(noAnswers.contains("recovery.acceptedAnswers: from 1 to 20 answers are required."), noAnswers.toString());
+  void theRecoveryLevelsAreRequiredAndValidatedWithTheRestOfTheFile() throws Exception {
+    assertEquals(List.of("recoveryLevels: required, with \"ml\" and \"arduino\"."), problemsAfter(tree -> tree.remove("recoveryLevels")));
+    List<String> both = problemsAfter(tree -> {
+      tree.put("correctSuspect", "S99");
+      ((ObjectNode) tree.get("recoveryLevels")).remove("arduino");
+    });
+    assertEquals(List.of("correctSuspect: must be the id of one of the suspects.", "recoveryLevels.arduino: required."), both, "every problem is listed");
   }
 
   @Test
@@ -207,12 +210,10 @@ class ShipmentContentTest {
   }
 
   @Test
-  void theCorrectSuspectAndTheRecoveryAnswerAreCheckedOnTheServer() throws Exception {
+  void theCorrectSuspectIsCheckedOnTheServer() throws Exception {
     ShipmentContent content = parse(shipped());
     assertTrue(content.isCorrectSuspect("S11"));
     assertFalse(content.isCorrectSuspect("S05"));
-    JsonNode recovery = JSON.readTree(shipped()).get("recovery");
-    assertTrue(content.acceptsRecoveryAnswer(" " + recovery.get("acceptedAnswers").get(0).asString().toLowerCase() + " "));
-    assertFalse(content.recoveryIsPlaceholder());
+    assertTrue(JSON.readTree(shipped()).get("recovery") == null, "the retired single question is gone from the shipped file");
   }
 }

@@ -146,21 +146,34 @@ class EventScoringTest extends EventIntegrationTest {
 
   @Test
   void theTeamEndpointsOfTheFinalAreForTeamsOnly() {
-    List<String> posts = List.of("/team/final/unlock", "/team/final/start", "/team/final/clues/1/passphrase", "/team/final/suspect", "/team/final/recovery");
+    List<String> posts = List.of(
+      "/team/final/unlock",
+      "/team/final/start",
+      "/team/final/clues/1/passphrase",
+      "/team/final/suspect",
+      "/team/final/recovery/ml/1",
+      "/team/final/recovery/arduino/run"
+    );
     for (String path : posts) {
       String body = switch (path) {
         case "/team/final/unlock" -> "{\"codes\":[\"a\",\"b\",\"c\",\"d\"]}";
         case "/team/final/clues/1/passphrase" -> "{\"passphrase\":\"x\"}";
         case "/team/final/suspect" -> "{\"suspectId\":\"S01\"}";
-        case "/team/final/recovery" -> "{\"answer\":\"x\"}";
+        case "/team/final/recovery/ml/1" -> "{\"features\":[]}";
+        case "/team/final/recovery/arduino/run" -> "{\"lines\":[],\"option\":\"A\"}";
         default -> null;
       };
       assertEquals(401, call(org.springframework.http.HttpMethod.POST, path, null, body, UUID.randomUUID().toString()).status(), path + " anonymous");
       assertEquals(403, call(org.springframework.http.HttpMethod.POST, path, admin, body, UUID.randomUUID().toString()).status(), path + " admin");
       assertEquals(403, call(org.springframework.http.HttpMethod.POST, path, managers.get(RoomCode.AI), body, UUID.randomUUID().toString()).status(), path + " manager");
     }
-    assertEquals(403, get("/team/final", admin).status());
-    assertEquals(403, get("/team/final", managers.get(RoomCode.AI)).status());
+    for (String path : List.of("/team/final", "/team/final/recovery")) {
+      assertEquals(401, get(path, null).status(), path + " anonymous");
+      assertEquals(403, get(path, admin).status(), path + " admin");
+      assertEquals(403, get(path, managers.get(RoomCode.AI)).status(), path + " manager");
+    }
+    assertEquals(403, get("/admin/final/recovery", alpha.token()).status(), "the admin's recovery table is not for members");
+    assertEquals(403, get("/admin/final/recovery", managers.get(RoomCode.AI)).status());
   }
 
   // ---- the admin's scoreboard and live final table ----------------------------------------------
@@ -190,8 +203,8 @@ class EventScoringTest extends EventIntegrationTest {
     assertEquals(List.of(11.25), board.json(statuses + ".cluePoints"));
     assertNull(((List<?>) board.json(statuses + ".suspect")).get(0), "no suspect yet");
     assertNull(((List<?>) board.json(statuses + ".suspectCorrect")).get(0));
-    assertEquals(List.of("NOT_QUALIFIED"), board.json("$[?(@.teamName == 'Bravo')].status"));
-    assertEquals(List.of("Not qualified"), board.json("$[?(@.teamName == 'Bravo')].stage"));
+    assertEquals(List.of("RECOVERY"), board.json("$[?(@.teamName == 'Bravo')].status"));
+    assertEquals(List.of("Recovery"), board.json("$[?(@.teamName == 'Bravo')].stage"));
 
     Response scoreboard = expectOk(get("/admin/scoreboard", admin));
     assertEquals(List.of("Alpha", "Bravo"), scoreboard.json("$[*].scores.teamName"));

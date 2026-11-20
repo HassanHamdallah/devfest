@@ -64,8 +64,8 @@ public class EventTeamBoardService {
     int cluesCollected = (int) progress.stream().filter(TeamRoomProgressRecord::clueCollected).count();
     Instant now = clock.now();
     TeamFinalRepository.BoardFacts facts = finals.boardFacts(team.id());
-    boolean finalised = facts.finalised() || (FinalClock.timeUp(state, now) && cluesCollected >= 3);
-    FinalStage stage = FinalStageResolver.resolve(state.finalEverOpened(), cluesCollected, finalised);
+    boolean finalised = facts.finalised() || FinalClock.timeUp(state, now);
+    FinalStage stage = FinalStageResolver.resolve(state.finalEverOpened(), facts.keysAtOpen(), facts.recoveryFinished(), finalised);
     Map<Integer, RoomCode> teamExceptions = exceptions.findForTeam(team.id());
     Optional<RoomCode> exception = Rotation.isRunningRound(state.currentRound())
       ? Optional.ofNullable(teamExceptions.get(state.currentRound()))
