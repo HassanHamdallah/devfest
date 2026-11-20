@@ -171,6 +171,10 @@ export class RoundTimerPanel {
       kind: "setRound",
       round: state.currentRound + 1,
       secondsLeft: timeLeft ? state.remainingSeconds : null,
+      next: {
+        from: roundStatusLabel(state.currentRound),
+        to: roundStatusLabel(state.currentRound + 1),
+      },
     });
   }
 

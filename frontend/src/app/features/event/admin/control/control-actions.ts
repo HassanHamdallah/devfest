@@ -8,8 +8,12 @@ import { ROOMS_FINISHED_ROUND } from "./control-view";
 export type ControlAction =
   | { kind: "openRoom"; room: AdminRoomCard }
   | { kind: "closeRoom"; room: AdminRoomCard }
-  /** `secondsLeft`: time left in the current round, when it is running or paused (asks before moving on). */
-  | { kind: "setRound"; round: number; secondsLeft?: number | null }
+  /**
+   * `secondsLeft`: time left in the current round, when it is running or paused (asks before moving on). `next`: set by
+   * the "Next round" button only (the names of the round it leaves and the one it opens); it changes the wording of the
+   * confirmation, never what is sent.
+   */
+  | { kind: "setRound"; round: number; secondsLeft?: number | null; next?: { from: string; to: string } }
   /**
    * `waiting`: rooms not confirmed ready; `warnings`: closed rooms and rooms without a clue key; `blockers`: AI mission
    * rooms that cannot run, so the request says "anyway".
@@ -52,7 +56,7 @@ export function confirmationFor(
         variant: "danger",
       };
     case "setRound":
-      return roundConfirmation(action.round, action.secondsLeft ?? null);
+      return roundConfirmation(action.round, action.secondsLeft ?? null, action.next ?? null);
     case "startTimer":
       return startConfirmation(action.waiting, action.warnings, action.blockers);
     case "endRound":
@@ -114,12 +118,23 @@ function startConfirmation(
 function roundConfirmation(
   round: number,
   secondsLeft: number | null,
+  next: { from: string; to: string } | null,
 ): ConfirmationCopy {
-  const copy = plainRoundConfirmation(round);
+  const copy = next ? nextRoundConfirmation(next) : plainRoundConfirmation(round);
   if (!secondsLeft || secondsLeft <= 0) return copy;
   return {
     ...copy,
     message: `The current round still has ${formatMinutesSeconds(secondsLeft)} left. ${copy.message}`,
+  };
+}
+
+/** The "Next round" button: it ends the current round for everyone, so it asks first. */
+function nextRoundConfirmation(next: { from: string; to: string }): ConfirmationCopy {
+  return {
+    title: "Move to the next round?",
+    message: `From ${next.from} to ${next.to}. This ends the current round for every team and opens the next one. This cannot be undone.`,
+    variant: "danger",
+    confirmLabel: "Move to next round",
   };
 }
 
