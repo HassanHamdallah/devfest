@@ -1,4 +1,4 @@
-import { JudgeStatus, RoomActivity, RoundClock, TeamFinal, TeamRoomStatus } from "./event-models";
+import { JudgeStatus, RoomActivity, TeamRoomStatus } from "./event-models";
 
 const EMPTY = "—";
 
@@ -89,16 +89,4 @@ function parse(iso: string | null): Date | null {
   if (!iso) return null;
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/** The seconds left in the decryption phase as a clock the shared phase clock reads; null outside that phase. */
-export function decryptionClock(final: TeamFinal): RoundClock | null {
-  if (final.phase !== "DECRYPTION" || final.phase1EndsInSeconds === null || final.timerPhase === null) return null;
-  return {
-    currentRound: 5,
-    phase: final.timerPhase,
-    remainingSeconds: final.phase1EndsInSeconds,
-    durationSeconds: null,
-    serverNow: final.serverNow,
-  };
 }

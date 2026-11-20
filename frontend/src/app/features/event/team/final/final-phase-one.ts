@@ -6,7 +6,6 @@ import {
   PassphraseRequest,
   TerminalBundleInfo,
 } from "../../../../core/event/event-models";
-import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { PendingAttempt } from "../pending-attempt";
 import { EventFinalClueCard } from "./final-clue-card";
@@ -18,12 +17,11 @@ const KEY_FILES = ["key_A.pem", "key_B.pem", "key_C.pem", "key_D.pem"];
 /**
  * Phase 1 — Decryption. Left: the progress, the Key Index, one card per clue (its files, its key reference and its
  * passphrase box) and the always-visible Command reference; the team types every command itself. Right: the terminal, which stays in view on a laptop while the cards scroll. Stacked on
- * phones. When the decryption phase is over the page is read-only: the terminal is gone (its VM is destroyed with it)
- * and each clue is either a solved report or "Not decrypted in time".
+ * phones. Phase 1 is never closed by time: it stays as it is, in both phases, until the final ends.
  */
 @Component({
   selector: "event-final-phase-one",
-  imports: [EventFinalClueCard, EventFinalCommandReference, EventFinalTerminal, UiAlert, UiCard],
+  imports: [EventFinalClueCard, EventFinalCommandReference, EventFinalTerminal, UiCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -127,9 +125,6 @@ const KEY_FILES = ["key_A.pem", "key_B.pem", "key_C.pem", "key_D.pem"];
     }
   `,
   template: `<div class="column">
-      @if (readOnly()) {
-        <ui-alert variant="info" data-phase-over>The decryption phase is over.</ui-alert>
-      }
       <div class="progress" data-decrypted-progress>
         <span>Decrypted <span class="progress__count" data-decrypted-count>{{ solved() }} / 4</span></span>
         <ul class="dots" aria-hidden="true">
@@ -138,7 +133,6 @@ const KEY_FILES = ["key_A.pem", "key_B.pem", "key_C.pem", "key_D.pem"];
           }
         </ul>
       </div>
-      @if (!readOnly()) {
       <ui-card>
         <h2 ui-card-header>Key Index</h2>
         <div class="keys">
@@ -160,32 +154,26 @@ const KEY_FILES = ["key_A.pem", "key_B.pem", "key_C.pem", "key_D.pem"];
           </ul>
         </div>
       </ui-card>
-      }
       <div class="clues">
         @for (clue of clues(); track clue.number) {
           <event-final-clue-card
             [clue]="clue"
             [attempt]="attempts[clue.number - 1]"
-            [readOnly]="readOnly()"
             (changed)="changed.emit()"
           />
         }
       </div>
       <event-final-command-reference />
     </div>
-    @if (!readOnly()) {
-      <div class="column column--terminal">
-        <event-final-terminal [bundle]="terminal()" [ended]="ended()" />
-      </div>
-    }`,
+    <div class="column column--terminal">
+      <event-final-terminal [bundle]="terminal()" [ended]="ended()" />
+    </div>`,
 })
 export class EventFinalPhaseOne {
   readonly clues = input.required<readonly FinalCaseClue[]>();
   readonly keyIndex = input.required<readonly FinalKeyIndexEntry[]>();
   readonly terminal = input<TerminalBundleInfo | null>(null);
   readonly ended = input(false);
-  /** The decryption phase is over: no terminal, no inputs; solved clues keep their reports. */
-  readonly readOnly = input(false);
   readonly changed = output<void>();
 
   protected readonly keyFiles = KEY_FILES;

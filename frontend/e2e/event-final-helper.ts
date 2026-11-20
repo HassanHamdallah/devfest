@@ -176,7 +176,6 @@ export interface FinalView {
   timerPhase: string | null;
   phase: string | null;
   phase1Minutes: number | null;
-  phase1EndsInSeconds: number | null;
   cluesCollected: number;
   waitSeconds: number;
   clues: { number: number; solved: boolean; waitSeconds: number; report: string | null }[];

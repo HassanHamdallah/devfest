@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { FinalScreen, FinalStage, RoundClock, TeamFinal } from "../../../../core/event/event-models";
-import { FINAL_STAGE_LABELS, decryptionClock } from "../../../../core/event/format";
-import { UiPhaseClock } from "../../../../shared/ui/ui-phase-clock/ui-phase-clock";
+import { FINAL_STAGE_LABELS } from "../../../../core/event/format";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 
@@ -26,7 +25,7 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
  */
 @Component({
   selector: "event-final-status",
-  imports: [UiCountdown, UiPhaseClock, UiStatusChip],
+  imports: [UiCountdown, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     /* The host adds no box, so the bar sticks within the whole page column instead of within its own height. */
@@ -132,9 +131,10 @@ const STEPS: readonly { label: string; screens: readonly FinalScreen[] }[] = [
         <ui-status-chip [variant]="variant()" data-final-status>{{ label() }}</ui-status-chip>
         <span class="bar__clues event-muted">{{ final().cluesCollected }} of 4 clues</span>
         @if (final().phase === 'DECRYPTION') {
-          <span class="bar__phase" data-final-phase-label>
-            Phase 1 — Decryption · ends in <ui-phase-clock [clock]="phaseClock()" />
-          </span>
+          <span class="bar__phase" data-final-phase-label>Phase 1 — Decryption</span>
+          @if (final().phase1Minutes; as minutes) {
+            <span class="bar__phase event-muted" data-estimated-time>Estimated time: {{ minutes }} min</span>
+          }
         } @else if (final().phase === 'INVESTIGATION') {
           <span class="bar__phase" data-final-phase-label>Phase 2 — Investigation</span>
         }
@@ -165,7 +165,6 @@ export class EventFinalStatus {
   readonly final = input.required<TeamFinal>();
 
   protected readonly steps = STEPS;
-  protected readonly phaseClock = computed(() => decryptionClock(this.final()));
   protected readonly label = computed(() => FINAL_STAGE_LABELS[this.final().status]);
   protected readonly variant = computed(() => STATUS_VARIANTS[this.final().status]);
   protected readonly current = computed(() =>

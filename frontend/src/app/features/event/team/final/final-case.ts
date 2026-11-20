@@ -1,7 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from "@angular/core";
 import { TeamFinal } from "../../../../core/event/event-models";
-import { decryptionClock } from "../../../../core/event/format";
-import { UiPhaseClock } from "../../../../shared/ui/ui-phase-clock/ui-phase-clock";
 import { EventFinalPhaseOne } from "./final-phase-one";
 import { EventFinalPhaseTwo } from "./final-phase-two";
 
@@ -12,14 +10,14 @@ const PHASE_KEY = "devfest.final.phase";
 const SWITCHED_KEY = "devfest.final.switched";
 
 /**
- * The case: two tabs, "Phase 1 — Decryption" (open first) and "Phase 2 — Investigation". The server decides the phase
- * from the final timer: during DECRYPTION the Phase 2 tab is locked and counts down to its opening; when the
- * INVESTIGATION phase starts the page moves to Phase 2 once, and Phase 1 stays readable but read-only. While hidden, the
- * tabs stay in the page, so the terminal keeps running when the team looks at the other one.
+ * The case: two tabs, "Phase 1 — Decryption" (open first) and "Phase 2 — Investigation". The server decides the phase:
+ * the Phase 2 tab is locked until the team has decrypted all four files (the time is only an estimate shown to the
+ * team); then the page moves to Phase 2 once and both tabs stay available until the final ends. While hidden, the tabs
+ * stay in the page, so the terminal keeps running when the team looks at the other one.
  */
 @Component({
   selector: "event-final-case",
-  imports: [EventFinalPhaseOne, EventFinalPhaseTwo, UiPhaseClock],
+  imports: [EventFinalPhaseOne, EventFinalPhaseTwo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -110,7 +108,7 @@ const SWITCHED_KEY = "devfest.final.switched";
       >
         Phase 2 — Investigation
         @if (locked()) {
-          <span data-phase-locked>Opens at {{ opensAt() }} · <ui-phase-clock [clock]="phaseClock()" [left]="true" /></span>
+          <span data-phase-locked>Opens when all four files are decrypted</span>
         }
       </button>
     </div>
@@ -121,7 +119,6 @@ const SWITCHED_KEY = "devfest.final.switched";
         [keyIndex]="final().keyIndex"
         [terminal]="final().terminal"
         [ended]="ended()"
-        [readOnly]="!locked()"
         (changed)="changed.emit()"
       />
     </div>
@@ -144,12 +141,10 @@ export class EventFinalCase {
   /** The investigation has not opened yet: Phase 2 is locked and Phase 1 is where the team works. */
   protected readonly locked = computed(() => this.final().phase !== "INVESTIGATION");
   protected readonly current = computed<Phase>(() => (this.locked() ? 1 : this.phase()));
-  protected readonly phaseClock = computed(() => decryptionClock(this.final()));
-  protected readonly opensAt = computed(() => `${this.final().phase1Minutes ?? 15}:00`);
   protected readonly hint = computed(() =>
     this.locked()
-      ? `Decrypt all four files. Phase 2 opens at ${this.opensAt()} of the final's time, or at once when the fourth file is decrypted.`
-      : "The decryption phase is over. Phase 1 is read-only; use what you decrypted to choose the kidnapper.",
+      ? "Decrypt all four files to open the investigation."
+      : "All four files are decrypted. Phase 1 stays open (terminal and commands); use the evidence to choose the kidnapper.",
   );
 
   constructor() {

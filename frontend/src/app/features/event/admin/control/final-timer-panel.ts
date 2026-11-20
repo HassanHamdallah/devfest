@@ -13,7 +13,6 @@ import { EventApi } from "../../../../core/event/event-api";
 import { FinalTimerView, RoundClock } from "../../../../core/event/event-models";
 import { reloadOnRevisionChange } from "../../../../core/event/revision-sync";
 import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
-import { UiPhaseClock } from "../../../../shared/ui/ui-phase-clock/ui-phase-clock";
 import { UiCountdown } from "../../../../shared/ui/ui-countdown/ui-countdown";
 import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-status-chip/ui-status-chip";
 import { newIdempotencyKey } from "../../../../core/event/pending-request";
@@ -36,7 +35,7 @@ const REFRESH_MS = 5000;
  */
 @Component({
   selector: "app-final-timer-panel",
-  imports: [ActionStatus, UiButton, UiCountdown, UiPhaseClock, UiStatusChip],
+  imports: [ActionStatus, UiButton, UiCountdown, UiStatusChip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { "data-final-timer-panel": "" },
   styles: `
@@ -102,11 +101,8 @@ const REFRESH_MS = 5000;
           }
         </div>
         <p class="hint" data-final-phase-line>
-          @if (timer.finalPhase === "INVESTIGATION") {
-            Investigation phase is open (it opened at {{ timer.phase1Minutes }}:00).
-          } @else {
-            Investigation opens at {{ timer.phase1Minutes }}:00 (in <ui-phase-clock [clock]="phaseClock()" />)
-          }
+          A team's investigation opens when it has decrypted all four files (estimated {{ timer.phase1Minutes }} min); nothing
+          closes Phase 1 before the final ends.
         </p>
         <app-action-status [state]="state" />
         <p class="hint event-muted">
@@ -128,18 +124,6 @@ export class FinalTimerPanel {
   protected readonly chip = computed(() => {
     const phase = this.view()?.phase;
     return phase ? (PHASE_CHIPS[phase] ?? null) : null;
-  });
-  /** The seconds until the investigation opens, in the shape the phase clock reads. */
-  protected readonly phaseClock = computed<RoundClock | null>(() => {
-    const timer = this.view();
-    if (!timer || timer.phase === null || timer.phase1EndsInSeconds === null) return null;
-    return {
-      currentRound: 5,
-      phase: timer.phase,
-      remainingSeconds: timer.phase1EndsInSeconds,
-      durationSeconds: null,
-      serverNow: timer.serverNow,
-    };
   });
   protected readonly clock = computed<RoundClock | null>(() => {
     const timer = this.view();

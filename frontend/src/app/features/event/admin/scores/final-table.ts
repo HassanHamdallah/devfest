@@ -125,11 +125,13 @@ export class FinalTable {
     return row.recoveryPath === "NONE" ? "—" : formatClock(row.recoveryFinishedAtSeconds);
   }
 
-  /** "from–to" on the final's clock ("12:30–27:30"); "—" until the recovery is finished. */
+  /**
+   * "from–to" on the final's clock ("12:30–19:10"): from the team's start until it decrypted its fourth file, "from–end"
+   * while it has not (it keeps Phase 1 until the final ends); "—" until the recovery is finished.
+   */
   protected cryptoWindow(row: FinalBoardRow): string {
-    return row.cryptoFromSeconds === null || row.cryptoToSeconds === null
-      ? "—"
-      : `${formatClock(row.cryptoFromSeconds)}–${formatClock(row.cryptoToSeconds)}`;
+    if (row.cryptoFromSeconds === null) return "—";
+    return `${formatClock(row.cryptoFromSeconds)}–${row.cryptoToSeconds === null ? "end" : formatClock(row.cryptoToSeconds)}`;
   }
 
   protected suspect(row: FinalBoardRow): string {

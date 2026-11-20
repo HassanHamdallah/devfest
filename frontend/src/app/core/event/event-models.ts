@@ -229,10 +229,9 @@ export interface TeamFinal {
   finalStartedAt: string | null;
   timerPhase: RoundPhase | null;
   remainingSeconds: number | null;
-  /** On the mission and case screens: the phase, its length in minutes and the active seconds until it ends (null after). */
+  /** On the mission and case screens: DECRYPTION until all four files are decrypted, then INVESTIGATION; and the content's estimate of Phase 1 in minutes (it closes nothing). */
   phase: FinalPhase | null;
   phase1Minutes: number | null;
-  phase1EndsInSeconds: number | null;
   cluesCollected: number;
   /** Seconds to wait before the next unlock try after five wrong answers in a row. */
   waitSeconds: number;
@@ -243,8 +242,8 @@ export interface TeamFinal {
   /** On the mission and case screens. */
   mission: FinalMission | null;
   /**
-   * The case screen only: the four files and the key index; the suspects only in the investigation phase and the final's
-   * terminal package only in the decryption phase.
+   * The case screen only: the four files and the key index; the suspects only in the investigation phase. The final's
+   * terminal package stays in both phases.
    */
   clues: FinalCaseClue[];
   keyIndex: FinalKeyIndexEntry[];
@@ -1164,10 +1163,8 @@ export interface FinalTimerView {
   remainingSeconds: number | null;
   durationSeconds: number | null;
   serverNow: string;
-  /** The phase every team is in now, the decryption phase's length and the active seconds until the investigation opens. */
-  finalPhase: FinalPhase | null;
+  /** The content's estimate of the decryption phase in minutes (it closes nothing). */
   phase1Minutes: number;
-  phase1EndsInSeconds: number | null;
 }
 
 /** The admin's summary of the final's own terminal package (kept apart from every room's package). */

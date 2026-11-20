@@ -24,8 +24,7 @@ import { EventFinalReport } from "./final-report";
 /**
  * One clue as one card: its number, the .enc and .rsa file names, its key reference, its status and the "Recovered
  * passphrase" box. There are no ready-made commands: the team types them from the Command reference. A solved clue
- * collapses to "Decrypted" and its report; once the decryption phase is over an unsolved one only says it was not
- * decrypted in time.
+ * collapses to "Decrypted" and its report. Nothing here is closed by time: the card stays until the final ends.
  */
 @Component({
   selector: "event-final-clue-card",
@@ -69,11 +68,6 @@ import { EventFinalReport } from "./final-report";
       border: var(--border-card);
       border-radius: var(--radius-sm);
     }
-    .missed {
-      margin: 0;
-      font-size: var(--font-size-sm);
-      color: var(--color-text-muted);
-    }
     .solved {
       display: grid;
       gap: var(--space-3);
@@ -96,8 +90,6 @@ import { EventFinalReport } from "./final-report";
       <h3>{{ label() }}</h3>
       @if (clue().solved) {
         <ui-status-chip variant="success" data-clue-status>Decrypted</ui-status-chip>
-      } @else if (readOnly()) {
-        <ui-status-chip variant="neutral" data-clue-status>Not decrypted in time</ui-status-chip>
       } @else {
         <ui-status-chip variant="neutral" data-clue-status>Locked</ui-status-chip>
       }
@@ -114,8 +106,6 @@ import { EventFinalReport } from "./final-report";
           <event-final-report [clue]="clue()" />
         }
       </div>
-    } @else if (readOnly()) {
-      <p class="missed" data-clue-missed>The decryption phase is over, so this file stays locked.</p>
     } @else {
       <dl>
         <dt>File</dt>
@@ -133,8 +123,6 @@ export class EventFinalClueCard {
   readonly clue = input.required<FinalCaseClue>();
   /** The stored attempt of this clue (so a retry after a lost response resends the same passphrase). */
   readonly attempt = input.required<PendingAttempt<PassphraseRequest, FinalActionResult>>();
-  /** The decryption phase is over: a solved clue keeps its report, an unsolved one stays locked. */
-  readonly readOnly = input(false);
   readonly changed = output<void>();
 
   protected readonly showing = signal(false);
