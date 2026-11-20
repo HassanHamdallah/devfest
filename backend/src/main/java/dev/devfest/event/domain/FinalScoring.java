@@ -6,8 +6,9 @@ import java.math.RoundingMode;
 /**
  * The final's 40 points. Clues (max 15): 3.75 for each of the four evidence files the team decrypted. Suspect: 10 for
  * the correct one. Time (max 15): t = active minutes from the final's start to the suspect submission; t <= fullUntil
- * gives 15, otherwise MAX(0, 40 - t), rounded to 2 decimals. Time points need all four clues solved AND a submitted
- * suspect, otherwise they are 0. Pure; computed on every read.
+ * gives 15, otherwise MAX(0, 40 - t). With the correct suspect that is the time score; with a WRONG suspect the team
+ * gets HALF of it (value / 2); both rounded to 2 decimals at the end. Time points need all four clues solved AND a
+ * submitted suspect, otherwise they are 0. Pure; computed on every read.
  */
 public final class FinalScoring {
 
@@ -36,7 +37,7 @@ public final class FinalScoring {
     boolean submitted = in.activeSeconds() != null;
     BigDecimal suspect = submitted && in.suspectCorrect() ? SUSPECT_POINTS : BigDecimal.ZERO;
     boolean timed = submitted && in.cluesSolved() == ShipmentContent.CLUE_COUNT;
-    BigDecimal time = timed ? timePoints(in.activeSeconds(), in.fullUntilMinutes()) : BigDecimal.ZERO;
+    BigDecimal time = timed ? timePoints(in.activeSeconds(), in.fullUntilMinutes(), in.suspectCorrect()) : BigDecimal.ZERO;
     return new Score(
       RoomScoring.round(clues),
       RoomScoring.round(suspect),
@@ -45,10 +46,20 @@ public final class FinalScoring {
     );
   }
 
-  /** 15 up to {@code fullUntilMinutes} of active time, then MAX(0, 40 - t) with t in minutes (exact, then rounded). */
+  /** The time points of a CORRECT suspect: 15 up to {@code fullUntilMinutes} of active time, then MAX(0, 40 - t), t in minutes. */
   public static BigDecimal timePoints(int activeSeconds, int fullUntilMinutes) {
-    if (activeSeconds <= fullUntilMinutes * 60L) return RoomScoring.round(TIME_MAX);
+    return RoomScoring.round(fullTime(activeSeconds, fullUntilMinutes));
+  }
+
+  /** The time points of a submission: the full value for the correct suspect, half of it for a wrong one (rounded once, at the end). */
+  public static BigDecimal timePoints(int activeSeconds, int fullUntilMinutes, boolean suspectCorrect) {
+    BigDecimal full = fullTime(activeSeconds, fullUntilMinutes);
+    return RoomScoring.round(suspectCorrect ? full : full.divide(BigDecimal.valueOf(2), 10, RoundingMode.HALF_UP));
+  }
+
+  private static BigDecimal fullTime(int activeSeconds, int fullUntilMinutes) {
+    if (activeSeconds <= fullUntilMinutes * 60L) return TIME_MAX;
     BigDecimal minutes = BigDecimal.valueOf(activeSeconds).divide(BigDecimal.valueOf(60), 10, RoundingMode.HALF_UP);
-    return RoomScoring.round(BigDecimal.valueOf(FINAL_MINUTES).subtract(minutes).max(BigDecimal.ZERO).min(TIME_MAX));
+    return BigDecimal.valueOf(FINAL_MINUTES).subtract(minutes).max(BigDecimal.ZERO).min(TIME_MAX);
   }
 }

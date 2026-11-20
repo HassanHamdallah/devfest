@@ -67,7 +67,27 @@ async function startFirstRound(page: Page) {
   await signIn(page, accounts.adminEmail, accounts.adminPassword);
   await expect(heading(page, "Event control")).toBeVisible();
   await expect(page.getByText("Not started").first()).toBeVisible();
-  await clickAndConfirm(page, button(page, "Next round"));
+  // Next round asks first; Cancel and Escape send nothing, "Move to next round" sends the one request.
+  await button(page, "Next round").click();
+  const next = page.getByRole("dialog");
+  await expect(next).toBeVisible();
+  await expect(next.getByRole("heading", { name: "Move to the next round?" })).toBeVisible();
+  await expect(next).toContainText(
+    "From Not started to Round 1 of 4. This ends the current round for every team and opens the next one. This cannot be undone.",
+  );
+  await button(next, "Cancel").click();
+  await expect(next).toBeHidden();
+  await expect(page.getByText("Not started").first()).toBeVisible();
+  await expect(page.getByText("Round 1 of 4", { exact: true })).toHaveCount(0);
+  await button(page, "Next round").click();
+  await expect(next).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(next).toBeHidden();
+  await expect(page.getByText("Round 1 of 4", { exact: true })).toHaveCount(0);
+  await button(page, "Next round").click();
+  await expect(next).toBeVisible();
+  await button(next, "Move to next round").click();
+  await expect(next).toBeHidden();
   await expect(page.getByText("Round 1 of 4").first()).toBeVisible();
   await expect(roundTimer(page).getByText("Assigned", { exact: true })).toBeVisible();
   const aiCard = page.locator('[data-room="AI"]');

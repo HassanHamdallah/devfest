@@ -6,6 +6,7 @@ import static dev.devfest.event.domain.TerminalTestPackages.zip;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -128,7 +129,7 @@ class EventFinalTerminalBundleTest extends EventIntegrationTest {
     assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "the final is not open");
     openFinal();
     assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "unlock screen");
-    assertEquals(404, download(TEAM_BUNDLE, bravo.token(), null).getStatus(), "not qualified");
+    assertEquals(404, download(TEAM_BUNDLE, bravo.token(), null).getStatus(), "recovery screen (no keys)");
     expectOk(unlockWithKeys(alpha));
     assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "mission screen");
     expectOk(startCase(alpha));
@@ -150,10 +151,48 @@ class EventFinalTerminalBundleTest extends EventIntegrationTest {
 
     assertEquals(403, download(TEAM_BUNDLE, admin, null).getStatus(), "a team endpoint");
     openInvestigationPhase();
-    assertEquals(409, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "the decryption phase is over: the terminal is not offered");
-    assertNull(expectOk(get("/team/final", alpha.token())).json("$.terminal"));
+    assertEquals(200, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "Phase 1 never closes before the final ends: the terminal is still served");
+    assertNotNull(expectOk(get("/team/final", alpha.token())).json("$.terminal"));
     expectOk(suspect(alpha, CORRECT_SUSPECT));
     assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "submitted");
+  }
+
+  @Test
+  void theTerminalIsServedInBothPhasesUntilTheFinalEnds() {
+    expectOk(uploadFinal(admin, shippedFinalPackage()));
+    openFinal();
+    playTo(alpha, 3);
+    assertEquals(200, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "three files: still the decryption phase");
+    expectOk(passphrase(alpha, 4, PASSPHRASES.get(3)));
+    assertEquals("INVESTIGATION", expectOk(get("/team/final", alpha.token())).json("$.phase"));
+    assertEquals(200, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "all four decrypted: Phase 2 is open and the terminal is still served");
+    assertNotNull(expectOk(get("/team/final", alpha.token())).json("$.terminal"));
+    db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 2400");
+    assertEquals(404, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "the final is over: the team's final is finished");
+  }
+
+  @Test
+  void aTeamThatRecoveredKeepsTheTerminalUntilTheFinalEnds() {
+    TestTeam bravo = team("Bravo", GroupCode.B);
+    for (RoomCode code : List.of(RoomCode.AI, RoomCode.PROBLEM_SOLVING, RoomCode.LINUX)) {
+      db.update("INSERT INTO collected_clue(team_id, room_id, source, collected_at) VALUES (?, ?, 'MANUAL', now())", bravo.id(), rooms.get(code));
+    }
+    expectOk(uploadFinal(admin, shippedFinalPackage()));
+    openFinal();
+    expectOk(unlockWithKeys(alpha));
+    expectOk(startCase(alpha));
+    // Bravo finishes its recovery 10 active minutes in: its case clock starts there (S = 600).
+    db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 600");
+    finishRecovery(bravo);
+    expectOk(unlockWithKeys(bravo));
+    expectOk(startCase(bravo));
+    db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 600");
+    assertEquals(200, download(TEAM_BUNDLE, alpha.token(), null).getStatus(), "20:00: nothing closes Phase 1");
+    assertEquals(200, download(TEAM_BUNDLE, bravo.token(), null).getStatus(), "20:00, 10 minutes after bravo's S");
+    assertEquals("DECRYPTION", expectOk(get("/team/final", bravo.token())).json("$.phase"));
+    db.update("UPDATE event_state SET final_elapsed_before_seconds = final_elapsed_before_seconds + 300");
+    assertEquals(200, download(TEAM_BUNDLE, bravo.token(), null).getStatus(), "25:00: still served for both");
+    assertEquals(200, download(TEAM_BUNDLE, alpha.token(), null).getStatus());
   }
 
   // ---- helpers ------------------------------------------------------------------------------------

@@ -107,7 +107,7 @@ public class EventSnapshotRepository {
     switch (scope) {
       case FINAL -> {
         for (String table : List.of(
-          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_attempt", "final_time_adjustment"
+          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_check", "team_recovery", "final_time_adjustment"
         )) {
           tables.put(table, "SELECT * FROM " + table);
         }
@@ -115,7 +115,7 @@ public class EventSnapshotRepository {
       }
       case TEAM -> {
         for (String table : List.of(
-          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_attempt",
+          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_check", "team_recovery",
           "collected_clue", "room_submission", "room_judgement_history", "room_judgement", "score_deduction",
           "room_manual_score", "room_points_entry", "team_room_exception", "sentinel_run",
           "sentinel_submission", "sentinel_evaluation", "terminal_form", "terminal_form_request",
@@ -130,7 +130,7 @@ public class EventSnapshotRepository {
       }
       case EVENT -> {
         for (String table : List.of(
-          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_attempt",
+          "team_final", "final_unlock_attempt", "final_clue_attempt", "recovery_check", "team_recovery",
           "final_time_adjustment", "collected_clue", "room_submission", "submission_clue_verdict",
           "submission_clue_verdict_history", "room_judgement_history", "room_judgement", "score_deduction",
           "room_manual_score", "room_points_entry", "team_room_exception", "room_arrival", "round_time_adjustment",

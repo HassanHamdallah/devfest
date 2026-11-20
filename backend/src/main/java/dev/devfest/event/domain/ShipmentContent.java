@@ -1,7 +1,7 @@
 package dev.devfest.event.domain;
 
+import dev.devfest.event.domain.recovery.RecoveryLevels;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -12,7 +12,8 @@ import java.util.Optional;
  * index names, gets the passphrase, and enters it. The file holds only the passphrase's SHA-256, never the passphrase.
  * A member may receive the mission texts, each clue's title, file names and key reference, the key index, the suspects
  * (id, name, position, statement) and the report of a clue the team solved; never a report of an unsolved clue, a
- * passphrase hash, the correct suspect or the Recovery Challenge's accepted answers.
+ * passphrase hash, the correct suspect or a recovery level's answers ({@link RecoveryLevels}: the views copy only their
+ * public parts).
  */
 public record ShipmentContent(
   Integer format,
@@ -23,7 +24,7 @@ public record ShipmentContent(
   List<KeyIndexEntry> keyIndex,
   List<Suspect> suspects,
   String correctSuspect,
-  Recovery recovery
+  RecoveryLevels recoveryLevels
 ) {
   public static final int FORMAT = 2;
   public static final int CLUE_COUNT = 4;
@@ -50,8 +51,6 @@ public record ShipmentContent(
 
   public record Suspect(String id, String name, String position, String statement) {}
 
-  public record Recovery(String question, List<String> acceptedAnswers) {}
-
   /** How long the decryption phase lasts (minutes of the final's active time); the default when the file has no value. */
   public int phase1OrDefault() {
     return phase1Minutes == null ? FinalPhase.DEFAULT_PHASE1_MINUTES : phase1Minutes;
@@ -73,14 +72,5 @@ public record ShipmentContent(
 
   public boolean isCorrectSuspect(String id) {
     return correctSuspect.equals(id);
-  }
-
-  /** The shipped file keeps an obvious placeholder until the real recovery question is written. */
-  public boolean recoveryIsPlaceholder() {
-    return recovery.question().strip().toUpperCase(Locale.ROOT).startsWith("PLACEHOLDER");
-  }
-
-  public boolean acceptsRecoveryAnswer(String answer) {
-    return recovery.acceptedAnswers().stream().anyMatch(accepted -> AnswerNormalizer.matches(answer, accepted));
   }
 }

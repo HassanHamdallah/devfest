@@ -108,9 +108,6 @@ public class EventAdminBoardService {
     EventContentGaps.find(finalFile.isPresent(), rooms).forEach(gap ->
       alerts.add(new AdminAlert(gap.code(), gap.message(), CONTENT_PAGE))
     );
-    finalFile.filter(dev.devfest.event.domain.ShipmentContent::recoveryIsPlaceholder).ifPresent(file ->
-      alerts.add(new AdminAlert("RECOVERY_PLACEHOLDER", "The Recovery Challenge is still the placeholder text.", CONTENT_PAGE))
-    );
     // Non-blocking: the final opens without it, but teams then see "The terminal package is not ready yet".
     if (finalPackage.find().isEmpty()) {
       alerts.add(new AdminAlert("MISSING_FINAL_TERMINAL_PACKAGE", "The final terminal package is not uploaded yet.", CONTENT_PAGE));

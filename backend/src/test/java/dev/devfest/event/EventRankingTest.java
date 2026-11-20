@@ -102,7 +102,7 @@ class EventRankingTest extends EventIntegrationTest {
     assertEquals(Integer.valueOf(1), ranks.get(0));
     assertEquals(Integer.valueOf(2), ranks.get(1));
     assertNull(ranks.get(2), "a disqualified team has no rank");
-    assertEquals("NOT_QUALIFIED", board.json("$.ranking[0].scores.finalScore.status"));
+    assertEquals("RECOVERY", board.json("$.ranking[0].scores.finalScore.status"), "every team plays the final");
     assertEquals(new BigDecimal("0.00"), finalTotal("Unqualified"));
   }
 

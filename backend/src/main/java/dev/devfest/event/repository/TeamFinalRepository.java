@@ -7,6 +7,7 @@ import static dev.devfest.event.repository.EventJdbc.uuid;
 
 import dev.devfest.event.domain.FinalReport;
 import dev.devfest.event.domain.RoomCode;
+import dev.devfest.event.domain.recovery.RecoveryPath;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * A team's progress in the final: its one team_final row, the unlock attempts and the passphrase attempts of the four
- * evidence files.
+ * evidence files (its recovery levels are {@link RecoveryRepository}).
  * Every "only once" rule is a guarded UPDATE/INSERT (WHERE ... IS NULL, ON CONFLICT DO NOTHING) so a race cannot
  * record anything twice, whatever the service checked first.
  */
@@ -48,13 +49,28 @@ public class TeamFinalRepository {
   /** Wrong answers since the last correct one, and when the latest attempt was evaluated. */
   public record Streak(int wrongInARow, Instant lastAttemptAt) {}
 
-  /** The team's clues: how many, and the position-first room it is missing (null at 4). */
-  public record ClueFacts(int clues, Long missingRoomId, int recoveryAttempts) {}
+  /**
+   * The team's clues now, K (the room keys it held when the final opened: its team_recovery row, or its own keys while
+   * it has none), the active final second it finished its recovery at (null while not finished or not needed) and the
+   * active second its fourth passphrase was accepted (null until then).
+   */
+  public record ClueFacts(int clues, int keysAtOpen, Integer recoveryFinishedAtSeconds, Integer allDecryptedAtSeconds) {
+    public boolean recoveryFinished() {
+      return recoveryFinishedAtSeconds != null;
+    }
+
+    /** S: the active second the team's case clock starts at; null while its recovery is not finished. */
+    public Integer caseStartSeconds() {
+      return RecoveryPath.caseStartSeconds(keysAtOpen, recoveryFinishedAtSeconds);
+    }
+  }
 
   /** One active team's progress as the scores and the status need it (one batch statement for all teams). */
   public record Progress(
     long teamId,
     int clues,
+    int keysAtOpen,
+    boolean recoveryFinished,
     List<RoomCode> clueRooms,
     Instant unlockedAt,
     int cluesSolved,
@@ -68,6 +84,9 @@ public class TeamFinalRepository {
       return finalisedAt != null;
     }
   }
+
+  /** K counted from the team's held keys, never from keys the recovery itself granted (before its row exists). */
+  private static final String OWN_KEYS = "(SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id AND c.source <> 'RECOVERY')";
 
   private static final String ROW = """
     SELECT team_id, unlocked_at, case_started_at, suspect_id, suspect_correct, submitted_at, active_seconds,
@@ -85,31 +104,30 @@ public class TeamFinalRepository {
     return db.query(ROW + "WHERE team_id = ?", TeamFinalRepository::mapRow, teamId).stream().findFirst();
   }
 
-  /** The team's clue count, its first missing room and its recovery attempts, as ONE statement. */
+  /** The team's clue count, K and its recovery finish, as ONE statement. */
   public ClueFacts clueFacts(long teamId) {
     return db.queryForObject(
       """
       SELECT (SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id) AS clues,
-             (SELECT r.id FROM event_room r
-              WHERE NOT EXISTS (SELECT 1 FROM collected_clue c WHERE c.team_id = t.id AND c.room_id = r.id)
-              ORDER BY r.position LIMIT 1) AS missing_room_id,
-             (SELECT count(*) FROM recovery_attempt ra WHERE ra.team_id = t.id) AS recovery_attempts
-      FROM event_team t WHERE t.id = ?""",
-      (rs, row) -> new ClueFacts(rs.getInt("clues"), nullableLongOf(rs, "missing_room_id"), rs.getInt("recovery_attempts")),
+             COALESCE(r.keys_at_open, %s) AS keys_at_open, r.finished_active_seconds,
+             (SELECT f.all_decrypted_at_seconds FROM team_final f WHERE f.team_id = t.id) AS all_decrypted
+      FROM event_team t LEFT JOIN team_recovery r ON r.team_id = t.id WHERE t.id = ?""".formatted(OWN_KEYS),
+      (rs, row) -> new ClueFacts(rs.getInt("clues"), rs.getInt("keys_at_open"), nullableInt(rs, "finished_active_seconds"), nullableInt(rs, "all_decrypted")),
       teamId
     );
   }
 
-  /** What the team board needs about the final and the hints, as ONE statement. */
-  public record BoardFacts(boolean finalised, int hintsUsed) {}
+  /** What the team board needs about the final (K, the recovery finish) and the hints, as ONE statement. */
+  public record BoardFacts(boolean finalised, int hintsUsed, int keysAtOpen, boolean recoveryFinished) {}
 
   public BoardFacts boardFacts(long teamId) {
     return db.queryForObject(
       """
       SELECT COALESCE((SELECT f.finalised_at IS NOT NULL FROM team_final f WHERE f.team_id = t.id), FALSE) AS finalised,
-             (SELECT count(*) FROM score_deduction d WHERE d.team_id = t.id AND d.kind = 'HINT' AND d.cancelled_at IS NULL) AS hints
-      FROM event_team t WHERE t.id = ?""",
-      (rs, row) -> new BoardFacts(rs.getBoolean("finalised"), rs.getInt("hints")),
+             (SELECT count(*) FROM score_deduction d WHERE d.team_id = t.id AND d.kind = 'HINT' AND d.cancelled_at IS NULL) AS hints,
+             COALESCE(r.keys_at_open, %s) AS keys_at_open, (r.finished_at IS NOT NULL) AS recovery_finished
+      FROM event_team t LEFT JOIN team_recovery r ON r.team_id = t.id WHERE t.id = ?""".formatted(OWN_KEYS),
+      (rs, row) -> new BoardFacts(rs.getBoolean("finalised"), rs.getInt("hints"), rs.getInt("keys_at_open"), rs.getBoolean("recovery_finished")),
       teamId
     );
   }
@@ -125,6 +143,11 @@ public class TeamFinalRepository {
       teamId,
       timestamp(at)
     );
+  }
+
+  /** Records the active second the fourth passphrase was accepted (once; false when it was already recorded). */
+  public boolean markAllDecrypted(long teamId, int activeSeconds) {
+    return db.update("UPDATE team_final SET all_decrypted_at_seconds = ? WHERE team_id = ? AND all_decrypted_at_seconds IS NULL", activeSeconds, teamId) == 1;
   }
 
   /** Marks "Start case" (the first time only, after the unlock). */
@@ -202,16 +225,13 @@ public class TeamFinalRepository {
     ) == 1;
   }
 
-  /**
-   * Finalises every active team that took part (holds at least 3 clues) and is not finalised yet, in ONE statement;
-   * returns how many. Teams with fewer than 3 clues never entered the final and stay "Not qualified".
-   */
+  /** Finalises every active team (every team plays the final) that is not finalised yet, in ONE statement; returns how many. */
   public int finaliseAllOpen(String cause, Instant at) {
     return db.update(
       """
       INSERT INTO team_final(team_id, finalised_at, finalised_cause)
       SELECT t.id, ?, ? FROM event_team t
-      WHERE t.active AND (SELECT count(*) FROM collected_clue c WHERE c.team_id = t.id) >= 3
+      WHERE t.active
       ON CONFLICT (team_id) DO UPDATE SET finalised_at = EXCLUDED.finalised_at, finalised_cause = EXCLUDED.finalised_cause
       WHERE team_final.finalised_at IS NULL""",
       timestamp(at),
@@ -313,13 +333,15 @@ public class TeamFinalRepository {
   public List<Progress> progressOfActiveTeams() {
     return db.query(
       """
-      SELECT t.id AS team_id, COALESCE(cl.n, 0) AS clues, cl.rooms AS clue_rooms, f.unlocked_at, COALESCE(cs.n, 0) AS clues_solved,
+      SELECT t.id AS team_id, COALESCE(cl.n, 0) AS clues, COALESCE(rc.keys_at_open, cl.own, 0) AS keys_at_open,
+             (rc.finished_at IS NOT NULL) AS recovery_finished, cl.rooms AS clue_rooms, f.unlocked_at, COALESCE(cs.n, 0) AS clues_solved,
              f.active_seconds, COALESCE(f.suspect_correct, FALSE) AS suspect_correct,
              f.submitted_at, f.finalised_at, f.finalised_cause
       FROM event_team t
       LEFT JOIN team_final f ON f.team_id = t.id
+      LEFT JOIN team_recovery rc ON rc.team_id = t.id
       LEFT JOIN (
-        SELECT c.team_id, count(*) AS n, array_agg(r.code ORDER BY r.position) AS rooms
+        SELECT c.team_id, count(*) AS n, count(*) FILTER (WHERE c.source <> 'RECOVERY') AS own, array_agg(r.code ORDER BY r.position) AS rooms
         FROM collected_clue c JOIN event_room r ON r.id = c.room_id GROUP BY c.team_id
       ) cl ON cl.team_id = t.id
       LEFT JOIN (SELECT team_id, count(*) AS n FROM final_clue_attempt WHERE correct GROUP BY team_id) cs ON cs.team_id = t.id
@@ -329,6 +351,8 @@ public class TeamFinalRepository {
         new Progress(
           rs.getLong("team_id"),
           rs.getInt("clues"),
+          rs.getInt("keys_at_open"),
+          rs.getBoolean("recovery_finished"),
           clueRooms(rs),
           instant(rs, "unlocked_at"),
           rs.getInt("clues_solved"),
@@ -350,7 +374,10 @@ public class TeamFinalRepository {
     int unlockWrong,
     int clueAttempts,
     int clueWrong,
-    int recoveryAttempts,
+    int recoveryChecks,
+    int keysAtOpen,
+    Integer recoveryFinishedAtSeconds,
+    Integer allDecryptedAtSeconds,
     String suspectId,
     Boolean suspectCorrect,
     Instant caseStartedAt,
@@ -368,10 +395,11 @@ public class TeamFinalRepository {
              (SELECT count(*) FROM final_unlock_attempt a WHERE a.team_id = t.id AND NOT a.correct) AS unlock_wrong,
              (SELECT count(*) FROM final_clue_attempt a WHERE a.team_id = t.id) AS clue_attempts,
              (SELECT count(*) FROM final_clue_attempt a WHERE a.team_id = t.id AND NOT a.correct) AS clue_wrong,
-             (SELECT count(*) FROM recovery_attempt a WHERE a.team_id = t.id) AS recovery_attempts,
+             (SELECT count(*) FROM recovery_check a WHERE a.team_id = t.id) AS recovery_checks,
+             COALESCE(r.keys_at_open, %s) AS keys_at_open, r.finished_active_seconds, f.all_decrypted_at_seconds AS all_decrypted,
              f.suspect_id, f.suspect_correct, f.case_started_at, f.finalised_cause
-      FROM event_team t LEFT JOIN team_final f ON f.team_id = t.id
-      WHERE t.active ORDER BY t.id""",
+      FROM event_team t LEFT JOIN team_final f ON f.team_id = t.id LEFT JOIN team_recovery r ON r.team_id = t.id
+      WHERE t.active ORDER BY t.id""".formatted(OWN_KEYS),
       (rs, row) ->
         new AdminCounts(
           rs.getLong("team_id"),
@@ -381,7 +409,10 @@ public class TeamFinalRepository {
           rs.getInt("unlock_wrong"),
           rs.getInt("clue_attempts"),
           rs.getInt("clue_wrong"),
-          rs.getInt("recovery_attempts"),
+          rs.getInt("recovery_checks"),
+          rs.getInt("keys_at_open"),
+          nullableInt(rs, "finished_active_seconds"),
+          nullableInt(rs, "all_decrypted"),
           rs.getString("suspect_id"),
           rs.getObject("suspect_correct", Boolean.class),
           instant(rs, "case_started_at"),
@@ -433,9 +464,5 @@ public class TeamFinalRepository {
       rs.getString("evidence4"),
       rs.getString("explanation")
     );
-  }
-
-  private static Long nullableLongOf(ResultSet rs, String column) throws SQLException {
-    return EventJdbc.nullableLong(rs, column);
   }
 }

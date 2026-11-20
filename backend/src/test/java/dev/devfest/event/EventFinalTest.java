@@ -35,19 +35,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 /**
- * The final "The Last Shipment": qualification, the one Recovery Challenge, unlock, the four evidence files and their
- * passphrases, the one-time suspect, the single 40-minute timer, time up, scoring and what a member may ever see.
+ * The final "The Last Shipment": every team plays (recovery first with fewer than 4 keys, see EventFinalRecoveryTest),
+ * unlock, the four evidence files and their passphrases, each team's own phases, the one-time suspect, the single 40-minute
+ * timer, time up, scoring and what a member may ever see.
  */
 @Import(ManualClock.Config.class)
 class EventFinalTest extends EventIntegrationTest {
 
-  private static final String NOT_QUALIFIED = "You did not qualify for the final.";
+  private static final String RECOVERY_FIRST = "Finish your recovery levels first.";
   private static final String WRONG_PASSPHRASE = "That passphrase does not open this clue.";
   /** One line of each report that appears nowhere else (REPORT_MARKS[n - 1] belongs to clue n). */
   private static final List<String> REPORT_MARKS = List.of("SHP-NTC-0412", "Visitor badge V-221", "Forklift FL-3", "Badge E-4412");
   /** Field names that must never appear in a member response (the private values, correctness, scores). */
   private static final Pattern FORBIDDEN_FIELDS = Pattern.compile(
-    "\"(passphraseSha256|passphrase|correctSuspect|suspectCorrect|acceptedAnswers|score|scores|total|rank|finalScore|roomScores|cluePoints)\"\\s*:"
+    "\"(passphraseSha256|passphrase|correctSuspect|suspectCorrect|acceptedAnswers|kept|order|answer|correct|bugs|requirement|score|scores|total|rank|finalScore|roomScores|cluePoints)\"\\s*:"
   );
 
   @Autowired
@@ -72,7 +73,7 @@ class EventFinalTest extends EventIntegrationTest {
   // ---- qualification and the single timer -------------------------------------------------------
 
   @Test
-  void theQualificationMatrixIsEnforcedOnTheServer() {
+  void everyTeamPlaysAndItsPathDependsOnTheKeysItHeldWhenTheFinalOpened() {
     TestTeam charlie = team("Charlie", GroupCode.C);
     TestTeam delta = team("Delta", GroupCode.D);
     clues(charlie, RoomCode.AI, RoomCode.LINUX);
@@ -81,27 +82,42 @@ class EventFinalTest extends EventIntegrationTest {
     expectError(unlockWithKeys(alpha), 409, "The final is not open.");
 
     openFinal();
+    assertEquals(List.of(4, 3, 2, 0), List.of(alpha, bravo, charlie, delta).stream().map(t -> count("SELECT keys_at_open FROM team_recovery WHERE team_id = " + t.id())).toList());
     assertEquals("IN_FINAL", view(alpha).json("$.status"));
     assertEquals("UNLOCK", view(alpha).json("$.screen"));
-    assertEquals("RECOVERY", view(bravo).json("$.status"));
-    assertEquals("RECOVERY", view(bravo).json("$.screen"));
-    for (TestTeam unqualified : List.of(charlie, delta)) {
-      Response v = view(unqualified);
-      assertEquals("NOT_QUALIFIED", v.json("$.status"));
-      assertEquals("NOT_QUALIFIED", v.json("$.screen"));
+    assertNull(view(alpha).json("$.recovery"));
+    assertEquals(List.of(), view(alpha).json("$.unlock.recoveredKeys"));
+    Map<TestTeam, List<String>> paths = Map.of(bravo, List.of("ML"), charlie, List.of("ML", "ARDUINO"), delta, List.of("ML", "ARDUINO"));
+    paths.forEach((team, levels) -> {
+      Response v = view(team);
+      assertEquals("RECOVERY", v.json("$.status"), team.name());
+      assertEquals("RECOVERY", v.json("$.screen"), team.name());
+      assertEquals(levels, v.json("$.recovery.levels"), team.name());
       assertNull(v.json("$.unlock"));
-      assertNull(v.json("$.recovery"));
+      assertNull(v.json("$.phase"), "no case clock before the recovery is finished");
       assertEquals(0, (int) v.json("$.clues.length()"));
-      expectError(unlockWithKeys(unqualified), 409, NOT_QUALIFIED);
-      expectError(startCase(unqualified), 409, NOT_QUALIFIED);
-      expectError(passphrase(unqualified, 1, PASSPHRASES.get(0)), 409, NOT_QUALIFIED);
-      expectError(suspect(unqualified, CORRECT_SUSPECT), 409, NOT_QUALIFIED);
-      expectError(recover(unqualified, UUID.randomUUID(), RECOVERY_ANSWER), 409, NOT_QUALIFIED);
-    }
+      expectError(unlockWithKeys(team), 409, RECOVERY_FIRST);
+      expectError(startCase(team), 409, "Open the case first.");
+      expectError(passphrase(team, 1, PASSPHRASES.get(0)), 409, RECOVERY_FIRST);
+      expectError(suspect(team, CORRECT_SUSPECT), 409, RECOVERY_FIRST);
+    });
+    expectError(mlCheck(alpha, 1, ML_ANSWERS.get(0)), 409, "Your team needs no recovery.");
     List<String> statuses = expectOk(get("/admin/scores", admin)).json("$[*].finalScore.status");
     assertEquals(4, statuses.size());
-    assertEquals(Set.of("IN_FINAL", "RECOVERY", "NOT_QUALIFIED"), Set.copyOf(statuses));
-    assertEquals(2, statuses.stream().filter("NOT_QUALIFIED"::equals).count());
+    assertEquals(3, statuses.stream().filter("RECOVERY"::equals).count());
+    assertEquals(1, statuses.stream().filter("IN_FINAL"::equals).count());
+  }
+
+  @Test
+  void aKeyGrantedAfterTheFinalOpenedDoesNotChangeThePath() {
+    openFinal();
+    clues(bravo, RoomCode.HARDWARE);
+    assertEquals("RECOVERY", view(bravo).json("$.status"), "K was taken when the final opened");
+    expectError(unlockWithKeys(bravo), 409, RECOVERY_FIRST);
+    // A team activated after the opening is counted from the keys it holds at its first look.
+    TestTeam late = team("Late", GroupCode.C);
+    clues(late, RoomCode.values());
+    assertEquals("IN_FINAL", view(late).json("$.status"));
   }
 
   @Test
@@ -136,47 +152,6 @@ class EventFinalTest extends EventIntegrationTest {
     assertTrue(codes.contains("MISSING_FINAL_CONTENT") && codes.contains("MISSING_CLUE_KEY"), codes.toString());
   }
 
-  // ---- the Recovery Challenge -------------------------------------------------------------------
-
-  @Test
-  void oneRecoveryChallengeCollectsTheMissingClueWithTheRemainingTimeAndNoPenalty() {
-    openFinal();
-    clock.advance(Duration.ofMinutes(5));
-    Response before = view(bravo);
-    assertEquals(RECOVERY_QUESTION, before.json("$.recovery.question"));
-    assertEquals(Set.of("question", "attempts"), ((Map<?, ?>) before.json("$.recovery")).keySet(), "one unified challenge, not a room's");
-    for (int i = 0; i < 3; i++) {
-      Response wrong = expectOk(recover(bravo, UUID.randomUUID(), "wrong " + i));
-      assertEquals(false, wrong.json("$.correct"));
-      assertEquals("RECOVERY", wrong.json("$.stage"));
-    }
-    assertEquals(0, count("SELECT count(*) FROM score_deduction"), "wrong answers cost nothing");
-    assertEquals(3, (int) view(bravo).json("$.cluesCollected"));
-    Response correct = expectOk(recover(bravo, UUID.randomUUID(), "  eight   bits "));
-    assertEquals(true, correct.json("$.correct"));
-    assertEquals("IN_FINAL", correct.json("$.stage"));
-    assertEquals("RECOVERY", db.queryForObject("SELECT source FROM collected_clue WHERE team_id = ? AND room_id = ?", String.class, bravo.id(), rooms.get(RoomCode.HARDWARE)));
-    assertEquals(4, count("SELECT count(*) FROM recovery_attempt"));
-    Response after = view(bravo);
-    assertEquals("IN_FINAL", after.json("$.status"));
-    assertEquals("UNLOCK", after.json("$.screen"));
-    assertEquals(2100, (int) after.json("$.remainingSeconds"), "it continues with the remaining time");
-    assertEquals(List.of(CLUE_KEYS.get(RoomCode.HARDWARE)), after.json("$.evidence[?(@.roomCode == 'HARDWARE')].clueValue"));
-    expectError(recover(bravo, UUID.randomUUID(), RECOVERY_ANSWER), 409, "Recovery is not available for your team.");
-    expectError(recover(alpha, UUID.randomUUID(), RECOVERY_ANSWER), 409, "Recovery is not available for your team.");
-  }
-
-  @Test
-  void aRecoveryRetryWithTheSameKeyReturnsTheSameAttempt() {
-    openFinal();
-    UUID key = UUID.randomUUID();
-    Response first = expectOk(recover(bravo, key, "nope"));
-    Response again = expectOk(recover(bravo, key, "nope"));
-    assertEquals((String) first.json("$.attemptId"), again.json("$.attemptId"));
-    expectError(recover(bravo, key, "different"), 409, "This Idempotency-Key was already used for a different request.");
-    assertEquals(1, count("SELECT count(*) FROM recovery_attempt"));
-  }
-
   // ---- unlock -----------------------------------------------------------------------------------
 
   @Test
@@ -207,10 +182,12 @@ class EventFinalTest extends EventIntegrationTest {
   @Test
   void aTeamMustHoldTheCluesItsCodesBelongTo() {
     openFinal();
-    // Bravo knows every key but never collected the Hardware clue: nothing opens before the Recovery Challenge.
-    expectError(unlockWithKeys(bravo), 409, "Solve the Recovery Challenge first.");
+    // Bravo knows every key but never collected the Hardware clue: nothing opens before its recovery.
+    expectError(unlockWithKeys(bravo), 409, RECOVERY_FIRST);
     expectOk(post("/admin/overrides/clue", admin, "{\"teamId\":%d,\"roomId\":%d,\"action\":\"REVOKE\",\"reason\":\"Taken back for the test\"}".formatted(alpha.id(), rooms.get(RoomCode.AI))));
-    expectError(unlockWithKeys(alpha), 409, "Solve the Recovery Challenge first.");
+    // Alpha held four keys when the final opened (no recovery); a key revoked later must be granted again.
+    expectError(unlockWithKeys(alpha), 409, "Your team does not hold all four room keys. Ask the organizer.");
+    assertEquals("UNLOCK", view(alpha).json("$.screen"));
     assertEquals(0, count("SELECT count(*) FROM final_unlock_attempt"));
   }
 
@@ -263,7 +240,7 @@ class EventFinalTest extends EventIntegrationTest {
     );
     assertEquals("ORION_SHIPMENT_NOTICE.enc", started.json("$.clues[0].encFile"));
     assertEquals("clue1_key.rsa", started.json("$.clues[0].rsaFile"));
-    assertEquals("NV-REF-1", started.json("$.clues[0].keyReference"));
+    assertEquals("NV-4K7", started.json("$.clues[0].keyReference"));
     assertEquals(
       Set.of("number", "title", "encFile", "rsaFile", "keyReference", "solved", "waitSeconds", "report"),
       ((Map<?, ?>) started.json("$.clues[0]")).keySet()
@@ -273,14 +250,12 @@ class EventFinalTest extends EventIntegrationTest {
     assertEquals(Set.of("A", "B", "C", "D"), Set.copyOf(started.<List<String>>json("$.keyIndex[*].key")));
     assertEquals("DECRYPTION", started.json("$.phase"));
     assertEquals(15, (int) started.json("$.phase1Minutes"));
-    assertEquals(900, (int) started.json("$.phase1EndsInSeconds"));
     assertEquals(0, (int) started.json("$.suspects.length()"), "no suspects while the decryption phase runs");
     assertEquals(false, started.json("$.submitted"));
     assertNull(started.json("$.terminal"), "no final terminal package uploaded");
     openInvestigationPhase();
     Response investigating = view(alpha);
     assertEquals("INVESTIGATION", investigating.json("$.phase"));
-    assertNull(investigating.json("$.phase1EndsInSeconds"));
     assertEquals(20, (int) investigating.json("$.suspects.length()"));
     assertEquals(Set.of("id", "name", "position", "statement"), ((Map<?, ?>) investigating.json("$.suspects[0]")).keySet());
     assertEquals(List.of("Samer Murad"), investigating.json("$.suspects[?(@.id == 'S11')].name"));
@@ -411,79 +386,245 @@ class EventFinalTest extends EventIntegrationTest {
   }
 
   // ---- the two phases ---------------------------------------------------------------------------
+  // There is no clock in the phase rule: Phase 2 opens for a team only when it has decrypted all four files; Phase 1
+  // never closes before the final ends (40:00). phase1Minutes (15) is only an estimate shown to the team.
+
+  private static final String DECRYPT_FIRST = "Decrypt all four files to open the investigation.";
 
   @Test
-  void suspectsAreRefusedAndHiddenInTheDecryptionPhaseAndPassphrasesAreRefusedInTheInvestigationPhase() {
-    // A shorter decryption phase (the content's phase1Minutes) is named in the refusal.
-    expectOk(importFinalContent(finalContentJson().replace("\"phase1Minutes\":15", "\"phase1Minutes\":10")));
+  void threeFilesAreStillPhaseOneAt39m59AndTheFinalEndsAt40m() {
     openFinal();
-    playTo(alpha, 2);
-    expectError(suspect(alpha, CORRECT_SUSPECT), 409, "The investigation phase starts at 10:00.");
-    assertEquals(0, count("SELECT count(*) FROM team_final WHERE team_id = " + alpha.id() + " AND suspect_id IS NOT NULL"));
-    clock.advance(Duration.ofMinutes(9).plusSeconds(59));
-    Response last = view(alpha);
-    assertEquals("DECRYPTION", last.json("$.phase"));
-    assertEquals(1, (int) last.json("$.phase1EndsInSeconds"));
-    assertEquals(0, (int) last.json("$.suspects.length()"));
-    expectOk(passphrase(alpha, 3, PASSPHRASES.get(2)));
+    playTo(alpha, 3);
+    for (Duration at : List.of(Duration.ofMinutes(15), Duration.ofMinutes(5), Duration.ofMinutes(19).plusSeconds(59))) {
+      // 15:00, 20:00, 39:59 of the final's time.
+      clock.advance(at);
+      TestTeam later = fresh(alpha);
+      assertEquals("DECRYPTION", view(later).json("$.phase"));
+      assertEquals(false, expectOk(passphrase(later, 4, "wrong " + at.toSeconds())).json("$.accepted"), "clue submission is still accepted");
+      expectError(suspect(later, CORRECT_SUSPECT), 409, DECRYPT_FIRST);
+    }
     clock.advance(Duration.ofSeconds(1));
-
-    Response now = view(alpha);
-    assertEquals("INVESTIGATION", now.json("$.phase"));
-    assertNull(now.json("$.phase1EndsInSeconds"));
-    assertEquals(20, (int) now.json("$.suspects.length()"));
-    assertNull(now.json("$.terminal"));
-    assertEquals(List.of(true, true, true, false), now.json("$.clues[*].solved"), "what was decrypted in time stays");
-    assertNull(now.json("$.clues[3].report"), "an unsolved report is never sent");
-    int attempts = count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id());
-    expectError(passphrase(alpha, 4, PASSPHRASES.get(3)), 409, "The decryption phase is over.");
-    expectError(passphrase(alpha, 4, "wrong"), 409, "The decryption phase is over.");
-    assertEquals(attempts, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id()), "a refused passphrase is not an attempt");
-    assertEquals(0, (int) view(alpha).json("$.clues[3].waitSeconds"), "and starts no wait");
-    expectOk(suspect(alpha, CORRECT_SUSPECT));
+    TestTeam over = fresh(alpha);
+    expectError(passphrase(over, 4, PASSPHRASES.get(3)), 409, "Time is up for the final.");
+    expectError(suspect(over, CORRECT_SUSPECT), 409, "Your final is already over.");
+    assertEquals("COMPLETED", view(over).json("$.status"));
+    admin = adminToken();
+    assertEquals(new BigDecimal("11.25"), finalPart("Alpha", "clues"));
+    assertEquals(new BigDecimal("0.00"), finalPart("Alpha", "suspect"));
+    assertEquals(new BigDecimal("0.00"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("11.25"), finalPart("Alpha", "total"));
   }
 
   @Test
-  void pausedMinutesDoNotCountTowardsTheDecryptionPhaseAndALateRecoveryFollowsTheSameClock() {
+  void theFourthFileAtEightMinutesOpensTheInvestigationAndACorrectSuspectAtTwentyScoresForty() {
     openFinal();
-    playTo(alpha, 1);
-    clock.advance(Duration.ofMinutes(10));
+    playTo(alpha, 3);
+    clock.advance(Duration.ofMinutes(8));
+    TestTeam at8 = fresh(alpha);
+    assertEquals("DECRYPTION", view(at8).json("$.phase"));
+    assertEquals(0, (int) view(at8).json("$.suspects.length()"));
+    assertEquals(true, expectOk(passphrase(at8, 4, PASSPHRASES.get(3))).json("$.accepted"));
+    Response now = view(at8);
+    assertEquals("INVESTIGATION", now.json("$.phase"), "the fourth file opens the investigation at once");
+    assertEquals(20, (int) now.json("$.suspects.length()"));
+    assertEquals(480, count("SELECT all_decrypted_at_seconds FROM team_final WHERE team_id = " + alpha.id()));
+    clock.advance(Duration.ofMinutes(12));
+    expectOk(suspect(fresh(alpha), CORRECT_SUSPECT));
     admin = adminToken();
-    expectOk(post("/admin/final/timer/pause", admin, null));
+    assertEquals(new BigDecimal("15.00"), finalPart("Alpha", "clues"));
+    assertEquals(new BigDecimal("10.00"), finalPart("Alpha", "suspect"));
+    assertEquals(new BigDecimal("15.00"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("40.00"), finalPart("Alpha", "total"));
+  }
+
+  @Test
+  void aWrongSuspectAtTwentyGetsHalfTheTimePoints() {
+    openFinal();
+    playTo(alpha, 4);
     clock.advance(Duration.ofMinutes(20));
-    Response paused = view(fresh(alpha));
-    assertEquals("DECRYPTION", paused.json("$.phase"));
-    assertEquals(300, (int) paused.json("$.phase1EndsInSeconds"), "the pause is not counted");
+    expectOk(suspect(fresh(alpha), WRONG_SUSPECT));
     admin = adminToken();
-    expectOk(post("/admin/final/timer/resume", admin, null));
-    // Bravo gets in late through the Recovery Challenge: no extra time, the same phase and the same seconds left.
+    assertEquals(new BigDecimal("15.00"), finalPart("Alpha", "clues"));
+    assertEquals(new BigDecimal("0.00"), finalPart("Alpha", "suspect"));
+    assertEquals(new BigDecimal("7.50"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("22.50"), finalPart("Alpha", "total"));
+  }
+
+  @Test
+  void atThirtyMinutesTheTimeIsTenForACorrectSuspectAndFiveForAWrongOne() {
+    TestTeam echo = team("Echo", GroupCode.C);
+    clues(echo, RoomCode.values());
+    openFinal();
+    playTo(alpha, 4);
+    playTo(echo, 4);
+    clock.advance(Duration.ofMinutes(30));
+    expectOk(suspect(fresh(alpha), CORRECT_SUSPECT));
+    expectOk(suspect(fresh(echo), WRONG_SUSPECT));
+    admin = adminToken();
+    assertEquals(new BigDecimal("10.00"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("35.00"), finalPart("Alpha", "total"));
+    assertEquals(new BigDecimal("5.00"), finalPart("Echo", "time"));
+    assertEquals(new BigDecimal("20.00"), finalPart("Echo", "total"));
+  }
+
+  @Test
+  void atTwentyFiveThirtyTheTimeIsFourteenFiftyForACorrectSuspectAndSevenTwentyFiveForAWrongOne() {
+    TestTeam echo = team("Echo", GroupCode.C);
+    clues(echo, RoomCode.values());
+    openFinal();
+    playTo(alpha, 4);
+    playTo(echo, 4);
+    clock.advance(Duration.ofMinutes(25).plusSeconds(30));
+    expectOk(suspect(fresh(alpha), CORRECT_SUSPECT));
+    expectOk(suspect(fresh(echo), WRONG_SUSPECT));
+    admin = adminToken();
+    assertEquals(new BigDecimal("14.50"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("7.25"), finalPart("Echo", "time"));
+    assertEquals(new BigDecimal("39.50"), finalPart("Alpha", "total"));
+    assertEquals(new BigDecimal("22.25"), finalPart("Echo", "total"));
+  }
+
+  @Test
+  void aFourthFileAtThirtyMinutesOpensThePhaseAtOnceAndACorrectSuspectAtThirtyEightScoresTwentySeven() {
+    openFinal();
+    playTo(alpha, 3);
+    clock.advance(Duration.ofMinutes(30));
+    TestTeam late = fresh(alpha);
+    assertEquals("DECRYPTION", view(late).json("$.phase"), "thirty minutes in, nothing has closed");
+    expectOk(passphrase(late, 4, PASSPHRASES.get(3)));
+    assertEquals("INVESTIGATION", view(late).json("$.phase"));
+    clock.advance(Duration.ofMinutes(8));
+    expectOk(suspect(fresh(alpha), CORRECT_SUSPECT));
+    admin = adminToken();
+    assertEquals(new BigDecimal("2.00"), finalPart("Alpha", "time"));
+    assertEquals(new BigDecimal("27.00"), finalPart("Alpha", "total"));
+  }
+
+  @Test
+  void phaseOneStaysOpenAfterTheInvestigationOpensAndARepeatedFileIsNotCountedTwice() {
+    openFinal();
+    playTo(alpha, 4);
+    assertEquals("INVESTIGATION", view(alpha).json("$.phase"));
+    assertEquals(4, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id() + " AND correct"));
+    for (int clue = 1; clue <= 4; clue++) {
+      expectError(passphrase(alpha, clue, PASSPHRASES.get(clue - 1)), 409, "This evidence file is already decrypted.");
+    }
+    assertEquals(4, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id() + " AND correct"));
+    assertEquals(4, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id()), "a refused repeat is not an attempt");
+    Response again = view(fresh(alpha));
+    assertEquals("INVESTIGATION", again.json("$.phase"));
+    assertEquals(List.of(true, true, true, true), again.json("$.clues[*].solved"));
+    assertEquals(4, ((List<?>) again.json("$.clues[?(@.report != null)]")).size(), "the reports stay readable");
+    assertEquals(1, count("SELECT count(*) FROM team_final WHERE team_id = " + alpha.id() + " AND all_decrypted_at_seconds IS NOT NULL"));
+  }
+
+  @Test
+  void aTeamThatRecoveredLateKeepsItsDecryptionPhaseUntilItHasAllFourFiles() {
+    openFinal();
+    clock.advance(Duration.ofMinutes(30));
+    // Bravo passes its last ML stage at 30:00 of active time: S = 1800. Nothing closes at 15 minutes from S.
     TestTeam late = fresh(bravo);
-    expectOk(recover(late, UUID.randomUUID(), "  eight   bits "));
-    playTo(late, 0);
-    clock.advance(Duration.ofMinutes(2));
-    Response lateView = view(fresh(bravo));
-    assertEquals("DECRYPTION", lateView.json("$.phase"));
-    assertEquals(180, (int) lateView.json("$.phase1EndsInSeconds"));
-    assertEquals(180, (int) view(fresh(alpha)).json("$.phase1EndsInSeconds"));
-    clock.advance(Duration.ofMinutes(3));
-    assertEquals("INVESTIGATION", view(fresh(bravo)).json("$.phase"));
+    recordPassedBefore(late, "ML", 6);
+    Response finished = expectOk(mlCheck(late, 6, ML_ANSWERS.get(5)));
+    assertEquals(true, finished.json("$.recoveryFinished"));
+    assertEquals(1800, count("SELECT finished_active_seconds FROM team_recovery WHERE team_id = " + bravo.id()));
+    playTo(late, 3);
+    clock.advance(Duration.ofMinutes(9));
+    late = fresh(late);
+    Response v = view(late);
+    assertEquals("DECRYPTION", v.json("$.phase"), "39:00: still Phase 1, 9 minutes after S");
+    expectError(suspect(late, CORRECT_SUSPECT), 409, DECRYPT_FIRST);
+    assertEquals(true, expectOk(passphrase(late, 4, PASSPHRASES.get(3))).json("$.accepted"), "it can still decrypt");
+    assertEquals("INVESTIGATION", view(late).json("$.phase"), "and reaches Phase 2 before 40:00");
+    clock.advance(Duration.ofSeconds(30));
+    expectOk(suspect(fresh(late), CORRECT_SUSPECT));
+    admin = adminToken();
+    Response board = expectOk(get("/admin/final/board", admin));
+    String row = "$[?(@.teamName == 'Bravo')]";
+    assertEquals(List.of(1800), board.json(row + ".cryptoFromSeconds"));
+    assertEquals(List.of(2340), board.json(row + ".cryptoToSeconds"), "the window ends when the fourth file was decrypted (39:00)");
+    assertEquals(new BigDecimal("0.50"), finalPart("Bravo", "time"), "39.5 minutes: 40 - 39.5");
+  }
+
+  @Test
+  void twoRequestsForTheFourthFileMakeOneTransition() throws Exception {
+    openFinal();
+    playTo(alpha, 3);
+    clock.advance(Duration.ofMinutes(7));
+    TestTeam at7 = fresh(alpha);
+    List<Callable<Integer>> calls = new ArrayList<>();
+    for (int i = 0; i < 6; i++) calls.add(() -> passphrase(at7, 4, PASSPHRASES.get(3)).status());
+    List<Integer> statuses = runTogether(calls);
+    assertEquals(1, statuses.stream().filter(s -> s == 200).count(), statuses.toString());
+    assertTrue(statuses.stream().noneMatch(s -> s >= 500), "no 500: " + statuses);
+    assertEquals(4, count("SELECT count(*) FROM final_clue_attempt WHERE team_id = " + alpha.id() + " AND correct"));
+    assertEquals(420, count("SELECT all_decrypted_at_seconds FROM team_final WHERE team_id = " + alpha.id()), "one transition, at the first acceptance");
     assertEquals("INVESTIGATION", view(fresh(alpha)).json("$.phase"));
   }
 
   @Test
-  void theAdminSeesThePhaseOfTheFinalAndOfEveryTeamOnTheCase() {
+  void pausedMinutesAreNotCountedInTheSubmissionTime() {
+    openFinal();
+    playTo(alpha, 4);
+    clock.advance(Duration.ofMinutes(20));
+    admin = adminToken();
+    expectOk(post("/admin/final/timer/pause", admin, null));
+    clock.advance(Duration.ofMinutes(5));
+    admin = adminToken();
+    expectOk(post("/admin/final/timer/resume", admin, null));
+    clock.advance(Duration.ofMinutes(10));
+    assertEquals("INVESTIGATION", view(fresh(alpha)).json("$.phase"));
+    expectOk(suspect(fresh(alpha), CORRECT_SUSPECT));
+    assertEquals(1800, count("SELECT active_seconds FROM team_final WHERE team_id = " + alpha.id()), "20 + 10 active minutes: the 5 paused ones are not counted");
+    admin = adminToken();
+    assertEquals(new BigDecimal("10.00"), finalPart("Alpha", "time"));
+  }
+
+  @Test
+  void atFortyMinutesEveryActionIsRefusedAndReadingTheBoardStillWorks() {
+    TestTeam echo = team("Echo", GroupCode.C);
+    clues(echo, RoomCode.values());
+    openFinal();
+    playTo(alpha, 3);
+    playTo(echo, 4);
+    clock.advance(Duration.ofMinutes(40));
+    TestTeam over = fresh(alpha);
+    expectError(passphrase(over, 4, PASSPHRASES.get(3)), 409, "Time is up for the final.");
+    expectError(suspect(fresh(echo), CORRECT_SUSPECT), 409, "Time is up for the final.");
+    expectError(suspect(over, CORRECT_SUSPECT), 409, "Your final is already over.");
+    expectError(startCase(over), 409, "Your final is already over.");
+    admin = adminToken();
+    Response board = expectOk(get("/admin/final/board", admin));
+    assertEquals(2, ((List<?>) board.json("$[?(@.teamName == 'Alpha' || @.teamName == 'Echo')]")).size());
+    expectOk(get("/admin/scores", admin));
+    expectOk(get("/admin/final/timer", admin));
+    assertEquals("COMPLETED", view(fresh(alpha)).json("$.status"));
+    assertEquals(new BigDecimal("15.00"), finalPart("Echo", "total"), "four files, time up before a suspect");
+  }
+
+  @Test
+  void theAdminSeesTheEstimateAndTheCryptoWindowOfEveryTeam() {
     openFinal();
     playTo(alpha, 1);
     admin = adminToken();
     Response timer = expectOk(get("/admin/final/timer", admin));
-    assertEquals("DECRYPTION", timer.json("$.finalPhase"));
     assertEquals(15, (int) timer.json("$.phase1Minutes"));
-    assertEquals(900, (int) timer.json("$.phase1EndsInSeconds"));
-    assertEquals(List.of("DECRYPTION"), expectOk(get("/admin/final/board", admin)).json("$[?(@.teamName == 'Alpha')].phase"));
+    assertFalse(((Map<?, ?>) timer.json("$")).containsKey("phase1EndsInSeconds"));
+    assertFalse(((Map<?, ?>) timer.json("$")).containsKey("finalPhase"));
+    String row = "$[?(@.teamName == 'Alpha')]";
+    Response before = expectOk(get("/admin/final/board", admin));
+    assertEquals(List.of("DECRYPTION"), before.json(row + ".phase"));
+    assertEquals(List.of(0), before.json(row + ".cryptoFromSeconds"));
+    assertEquals(0, ((List<?>) before.json(row + ".cryptoToSeconds")).stream().filter(java.util.Objects::nonNull).count(), "until the end: no end yet");
     clock.advance(Duration.ofMinutes(15));
     admin = adminToken();
-    assertEquals("INVESTIGATION", expectOk(get("/admin/final/timer", admin)).json("$.finalPhase"));
-    assertEquals(List.of("INVESTIGATION"), expectOk(get("/admin/final/board", admin)).json("$[?(@.teamName == 'Alpha')].phase"));
+    assertEquals(List.of("DECRYPTION"), expectOk(get("/admin/final/board", admin)).json(row + ".phase"), "15 minutes change nothing");
+    TestTeam later = fresh(alpha);
+    for (int clue = 2; clue <= 4; clue++) expectOk(passphrase(later, clue, PASSPHRASES.get(clue - 1)));
+    admin = adminToken();
+    Response after = expectOk(get("/admin/final/board", admin));
+    assertEquals(List.of("INVESTIGATION"), after.json(row + ".phase"));
+    assertEquals(List.of(900), after.json(row + ".cryptoToSeconds"));
   }
 
   // ---- the Final Investigation Report -----------------------------------------------------------
@@ -521,8 +662,8 @@ class EventFinalTest extends EventIntegrationTest {
   @Test
   void theReportIsRefusedWithTheSuspectInTheDecryptionPhaseAndStoresNothing() {
     openFinal();
-    playTo(alpha, 4);
-    expectError(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"too early\""), 409, "The investigation phase starts at 15:00.");
+    playTo(alpha, 3);
+    expectError(suspectWithReport(alpha, CORRECT_SUSPECT, "\"evidence1\":\"too early\""), 409, "Decrypt all four files to open the investigation.");
     assertNull(db.queryForObject("SELECT evidence1 FROM team_final WHERE team_id = ?", String.class, alpha.id()));
     assertNull(db.queryForObject("SELECT suspect_id FROM team_final WHERE team_id = ?", String.class, alpha.id()));
   }
@@ -639,7 +780,7 @@ class EventFinalTest extends EventIntegrationTest {
     assertEquals(new BigDecimal("10.00"), finalPart("Echo", "time"));
     assertEquals(new BigDecimal("0.00"), finalPart("Foxtrot", "suspect"));
     assertEquals(new BigDecimal("15.00"), finalPart("Foxtrot", "clues"));
-    assertEquals(new BigDecimal("1.00"), finalPart("Foxtrot", "time"), "39 active minutes: 40 - 39");
+    assertEquals(new BigDecimal("0.50"), finalPart("Foxtrot", "time"), "39 active minutes: 40 - 39 = 1, half of it for a wrong suspect");
     assertEquals(1500, (int) db.queryForObject("SELECT active_seconds FROM team_final WHERE team_id = ?", Integer.class, alpha.id()));
   }
 
@@ -797,7 +938,7 @@ class EventFinalTest extends EventIntegrationTest {
   }
 
   @Test
-  void closingTheFinalFinalisesEveryoneWhoTookPartOnceAndItCannotReopen() {
+  void closingTheFinalFinalisesEveryTeamOnceAndItCannotReopen() {
     TestTeam charlie = team("Charlie", GroupCode.C);
     clues(charlie, RoomCode.AI);
     openFinal();
@@ -805,13 +946,13 @@ class EventFinalTest extends EventIntegrationTest {
     expectOk(post("/admin/final/close", admin, null));
     assertEquals("COMPLETED", view(alpha).json("$.status"));
     assertEquals("COMPLETED", view(bravo).json("$.status"));
-    assertEquals("NOT_QUALIFIED", view(charlie).json("$.status"));
-    assertEquals(2, count("SELECT count(*) FROM team_final"));
-    assertEquals(2, count("SELECT count(*) FROM team_final WHERE finalised_cause = 'CLOSED'"));
+    assertEquals("COMPLETED", view(charlie).json("$.status"), "every team plays, so every team is finalised");
+    assertEquals(3, count("SELECT count(*) FROM team_final"));
+    assertEquals(3, count("SELECT count(*) FROM team_final WHERE finalised_cause = 'CLOSED'"));
     expectError(post("/admin/final/close", admin, null), 409, "The final is not open.");
     expectError(post("/admin/final/open", admin, null), 409, "The final was already opened once.");
     expectError(passphrase(alpha, 3, PASSPHRASES.get(2)), 409, "The final is not open.");
-    expectError(recover(bravo, UUID.randomUUID(), RECOVERY_ANSWER), 409, "The final is not open.");
+    expectError(mlCheck(bravo, 1, ML_ANSWERS.get(0)), 409, "The final is not open.");
   }
 
   // ---- content ----------------------------------------------------------------------------------
@@ -844,13 +985,8 @@ class EventFinalTest extends EventIntegrationTest {
     assertEquals(400, importFinalContent(good.replace("\"format\":2,", "\"format\":2,\"layers\":[],")).status(), "the old format's fields are refused");
     assertEquals(stored, db.queryForObject("SELECT content::text FROM final_content", String.class), "a refused import changes nothing");
 
-    String shipped = good.replace(RECOVERY_QUESTION, "PLACEHOLDER - question").replace(RECOVERY_ANSWER, "PLACEHOLDER-X");
-    Response imported = expectOk(importFinalContent(shipped));
-    assertEquals(true, imported.json("$.recoveryIsPlaceholder"));
+    Response imported = expectOk(importFinalContent(good));
     assertEquals(25, (int) imported.json("$.fullUntilMinutes"));
-    assertTrue(expectOk(get("/admin/board", admin)).<List<String>>json("$.alerts[*].code").contains("RECOVERY_PLACEHOLDER"));
-    expectOk(importFinalContent(good));
-    assertFalse(expectOk(get("/admin/board", admin)).<List<String>>json("$.alerts[*].code").contains("RECOVERY_PLACEHOLDER"));
 
     openFinal();
     expectError(importFinalContent(good), 409, "Event content is read-only after the final opens.");
@@ -874,8 +1010,15 @@ class EventFinalTest extends EventIntegrationTest {
     snapshot.run();
     openFinal();
     snapshot.run();
-    bodies.add(expectOk(recover(bravo, UUID.randomUUID(), "nope")).body());
-    bodies.add(expectOk(recover(bravo, UUID.randomUUID(), RECOVERY_ANSWER)).body());
+    for (int stage = 1; stage <= 6; stage++) {
+      bodies.add(expectOk(recoveryView(bravo)).body());
+      bodies.add(expectOk(mlCheck(bravo, stage, ML_WRONG.get(stage - 1))).body());
+      clock.advance(Duration.ofSeconds(2));
+      bodies.add(expectOk(mlCheck(bravo, stage, ML_ANSWERS.get(stage - 1))).body());
+      clock.advance(Duration.ofSeconds(2));
+    }
+    bodies.add(expectOk(recoveryView(bravo)).body());
+
     bodies.add(expectOk(unlock(alpha, "a", "b", "c", "d")).body());
     bodies.add(expectOk(unlockWithKeys(alpha)).body());
     snapshot.run();
@@ -900,7 +1043,7 @@ class EventFinalTest extends EventIntegrationTest {
       assertFalse(FORBIDDEN_FIELDS.matcher(body).find(), "a private field leaked: " + body);
       for (String hash : hashes) assertFalse(body.contains(hash), "a passphrase hash leaked: " + body);
       for (String secret : PASSPHRASES) assertFalse(body.contains(secret.strip()), "a passphrase leaked: " + body);
-      assertFalse(body.contains("acceptedAnswers") || body.contains(RECOVERY_ANSWER), body);
+      assertFalse(body.contains("split\",\"fit_scaler") || body.contains("authorized==false&&doorOpen"), "a recovery answer leaked: " + body);
     }
     // The published ranking shows scores and nothing else about how they were made.
     String published = expectOk(get("/results", alpha.token())).body();
@@ -919,6 +1062,9 @@ class EventFinalTest extends EventIntegrationTest {
     Map<String, java.util.function.Supplier<Response>> reads = new java.util.LinkedHashMap<>();
     reads.put("team final", () -> get("/team/final", alpha.token()));
     reads.put("team board", () -> get("/team/board", alpha.token()));
+    reads.put("team recovery", () -> get("/team/final/recovery", bravo.token()));
+    reads.put("team final (recovery)", () -> get("/team/final", bravo.token()));
+    reads.put("admin recovery", () -> get("/admin/final/recovery", admin));
     reads.put("admin board", () -> get("/admin/board", admin));
     reads.put("admin scores", () -> get("/admin/scores", admin));
     reads.put("admin final board", () -> get("/admin/final/board", admin));

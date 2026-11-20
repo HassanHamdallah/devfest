@@ -31,9 +31,14 @@ cancelled hint and one hint beyond the two allowed (refused with 409). The admin
 (docs/final/last-shipment-content.json) and opens the final, then all 16 teams start together: unlock (with wrong
 tries), the four evidence files' passphrases (the organizers' keys/clueN_secret.txt as they are, line ending included;
 some teams send wrong ones first, some solve the files in another order) and, once the investigation phase has opened
-(the content's phase1Minutes is 1 here, the suspects wait for it), the suspect, two teams through the
-Recovery Challenge, a share of the writes retried with the same Idempotency-Key, repeats of the one-time answers
-refused. The admin keeps the live final table and the scoreboard open (a GET every 5 s). Two teams never submit a
+(it opens when a team decrypts its fourth file; nothing opens or closes by the clock, phase1Minutes is only an estimate),
+the suspect (a wrong one earns half the time points), a share of the writes retried with
+the same Idempotency-Key, repeats of the one-time answers refused. Teams hold 4, 3, 2 or 0 room keys when the final
+opens and follow their recovery paths through the API: 3 keys pass the six ML stages (one wrong try on stages 4 and 5
+for some), 2 and 0 keys pass ML and then the Arduino level (a wrong option first for some), paced to the server's
+limits (one ML check per 2 s, one Arduino run per 3 s); the missing keys are then recovered, the case is unlocked and
+a team that decrypts its fourth file is in Phase 2 at once. The admin's final table must show each team's keys, path,
+finish time and crypto window (from the team's start until its fourth file, "until the end" when it never decrypted all four). The admin keeps the live final table and the scoreboard open (a GET every 5 s). Three teams never submit a
 suspect: the admin's close finalises them. Every team must be finalised exactly once (the finish time of a team that
 submitted does not move at the close, closing twice changes nothing), the final parts, the room scores with their
 deductions and the totals must be the ones the plans predict, no member response may carry a passphrase hash, the
@@ -1152,7 +1157,23 @@ FINAL_CONTENT = ROOT / "docs/final/last-shipment-content.json"
 # The four passphrases exactly as the organizers' key files hold them (the server trims the line ending).
 FINAL_PASSPHRASES = tuple((ROOT / f"docs/final/last-shipment/keys/clue{n}_secret.txt").read_text(encoding="ascii")
                           for n in range(1, 5))
-FINAL_RECOVERY_ANSWER = "EIGHT BITS"
+# The right answer of each ML recovery stage (1 to 6) of the shipped content, and the wrong tries some teams make first.
+FINAL_ML_ANSWERS = (
+    {"features": ["motion_score", "access_attempts", "signal_strength", "device_type"]},
+    {"order": ["load", "split", "fit_scaler", "transform", "train", "evaluate"]},
+    {"missing": "median", "outliers": "flag"},
+    {"model": "logreg"},
+    {"threshold": 0.47},
+    {"word": "CLUE"},
+)
+FINAL_ML_WRONG = {4: {"model": "tree"}, 5: {"threshold": 0.6}}
+# The shipped Arduino program with its five line bugs fixed (1-based line numbers), and the code of the options.
+FINAL_ARDUINO_FIXES = ((40, "    authorized = false;"), (45, "  if (doorOpen && !authorized) {"), (50, "  // if (!doorOpen) {"),
+                       (51, "  //   alarmActive = false;"), (52, "  // }"), (56, "  if (motionDetected && doorOpen) {"),
+                       (75, "  authorized = false;"))
+FINAL_RIGHT_OPTION, FINAL_WRONG_OPTION = "entered = true", "if (!doorOpen && authorized)"
+# The server's limits per team: one ML check every 2 s and one Arduino run every 3 s; the steps keep a little more.
+ML_CHECK_GAP, ARDUINO_RUN_GAP = 2.3, 3.3
 FINAL_RIGHT_SUSPECT, FINAL_WRONG_SUSPECT = "S11", "S05"
 ROOM_ORDER = ("AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE")
 # A member's final screens never carry one of these keys, at any depth (no hash, correctness, deduction or score).
@@ -1168,33 +1189,62 @@ FINAL_REFUSED_HINTS = {(1, 3)}
 
 
 def final_plan(team):
-    """What each of the 16 teams does in the final. Teams 12 and 16 never submit a suspect: the close finalises them."""
-    plan = {"clues": 4, "wrongUnlock": 0, "wrongPassphrases": 0, "order": (1, 2, 3, 4), "suspect": FINAL_RIGHT_SUSPECT,
-            "stopAfterFiles": None}
+    """What each of the 16 teams does in the final. Teams 11 (three files), 12 and 16 never submit a suspect: the close finalises them.
+    "keys" is the number of room keys the team holds when the final opens (it collects them in rounds 1 to keys):
+    teams 1 to 8, 11 and 12 hold 4, teams 13 and 15 hold 3 (ML), teams 9 and 14 hold 2 and teams 10 and 16 hold 0
+    (ML, then Arduino)."""
+    plan = {"keys": 4, "wrongUnlock": 0, "wrongPassphrases": 0, "order": (1, 2, 3, 4), "suspect": FINAL_RIGHT_SUSPECT,
+            "stopAfterFiles": None, "wrongMl": False, "wrongOption": False}
     if team % 2 == 1:
         plan["order"] = (4, 3, 2, 1)
     if team in (2, 5, 9):
         plan["wrongPassphrases"] = 1
     if team == 11:
-        plan["stopAfterFiles"] = 3  # submits a suspect with three files: no time points
+        plan.update(stopAfterFiles=3, suspect=None)  # three files: Phase 2 never opens, so no suspect can be sent
     if team == 12:
         plan["suspect"] = None
     if team == 13:
-        plan.update(suspect=FINAL_WRONG_SUSPECT, wrongPassphrases=2)
+        plan.update(keys=3, suspect=FINAL_WRONG_SUSPECT, wrongPassphrases=2, wrongMl=True)
     if team == 14:
-        plan.update(wrongUnlock=2, order=(2, 4, 1, 3))
-    if team in (15, 16):
-        plan["clues"] = 3
+        plan.update(keys=2, wrongUnlock=2, order=(2, 4, 1, 3), wrongOption=True)
+    if team == 15:
+        plan.update(keys=3)
+    if team == 9:
+        plan.update(keys=2, wrongMl=True)
+    if team == 10:
+        plan.update(keys=0, wrongOption=True)
     if team == 16:
-        plan.update(stopAfterFiles=2, suspect=None)
+        plan.update(keys=0, stopAfterFiles=2, suspect=None, wrongMl=True)
     return plan
+
+
+def recovery_levels(plan):
+    """The recovery path of a plan: none, ML, or ML then Arduino (the server's rule by keys held)."""
+    return [] if plan["keys"] == 4 else ["ML"] if plan["keys"] == 3 else ["ML", "ARDUINO"]
+
+
+def recovery_steps(plan):
+    """The checks the team sends, in order: (kind, argument, whether it must pass)."""
+    steps = []
+    for level in recovery_levels(plan):
+        if level == "ML":
+            for stage in range(1, 7):
+                if plan["wrongMl"] and stage in FINAL_ML_WRONG:
+                    steps.append(("ml", (stage, FINAL_ML_WRONG[stage]), False))
+                steps.append(("ml", (stage, FINAL_ML_ANSWERS[stage - 1]), True))
+        else:
+            if plan["wrongOption"]:
+                steps.append(("arduino", FINAL_WRONG_OPTION, False))
+            steps.append(("arduino", FINAL_RIGHT_OPTION, True))
+    return steps
 
 
 def final_expected(plan):
     """The final score parts the plan must produce (as the API rounds them)."""
     files = plan["stopAfterFiles"] or 4
     suspect = 10 if plan["suspect"] == FINAL_RIGHT_SUSPECT else 0
-    time_points = 15 if plan["suspect"] is not None and files == 4 else 0
+    # Time points: full (15) for the right suspect, half (7.5) for a wrong one (every team submits within the 25 full minutes).
+    time_points = (15 if plan["suspect"] == FINAL_RIGHT_SUSPECT else 7.5) if plan["suspect"] is not None and files == 4 else 0
     return {"cluesSolved": files, "clues": 3.75 * files, "suspect": suspect, "time": time_points,
             "total": 3.75 * files + suspect + time_points}
 
@@ -1249,7 +1299,7 @@ def run_room_round(run, rnd, teams, managers, team_ids, room_ids, plans, expecte
 
     def team_work(team):
         barrier.wait()
-        if plans[team]["clues"] == 3 and rnd == 4:
+        if rnd > plans[team]["keys"]:
             return
         code = code_of(team)
         key = str(uuid.uuid4())
@@ -1302,9 +1352,7 @@ class FinalTeamClient(Client):
     def __init__(self, run, token, team, plan, start_at, gap):
         super().__init__(run, token, "/event/team/final")
         self.team, self.plan, self.start_at, self.gap = team, plan, start_at, gap
-        self.steps = []
-        if plan["clues"] == 3:
-            self.steps += [("recovery", "WRONG ANSWER", False), ("recovery", FINAL_RECOVERY_ANSWER, True)]
+        self.steps = recovery_steps(plan)
         self.steps += [("unlock", None, False)] * plan["wrongUnlock"] + [("unlock", None, True), ("start", None, True)]
         files = plan["order"][:plan["stopAfterFiles"] or 4]
         self.steps += [("passphrase", (files[0], f"not-the-passphrase-{n}"), False) for n in range(plan["wrongPassphrases"])]
@@ -1343,14 +1391,18 @@ class FinalTeamClient(Client):
         kind, arg, expect = self.steps.pop(0)
         phase = self.board or {}
         if kind == "suspect" and phase.get("phase") == "DECRYPTION":
-            # The suspects are offered, and accepted, only once the investigation phase has opened: wait for it.
+            # The suspects are offered, and accepted, only once the team has decrypted its fourth file: wait for it.
             self.steps.insert(0, (kind, arg, expect))
-            return time.monotonic() + (phase.get("phase1EndsInSeconds") or 0) + 1
+            return time.monotonic() + 1
         key = str(uuid.uuid4())
         base = "/event/team/final"
-        if kind == "recovery":
-            status, data = self.write(f"{base}/recovery", {"answer": arg}, key)
-            ok = status == 200 and data.get("correct") is expect
+        if kind == "ml":
+            stage, body = arg
+            status, data = self.write(f"{base}/recovery/ml/{stage}", body, key)
+            ok = status == 200 and data.get("passed") is expect
+        elif kind == "arduino":
+            status, data = self.arduino_run(arg, key)
+            ok = status == 200 and data.get("passed") is expect
         elif kind == "unlock":
             codes = [PRACTICE_KEYS[code] for code in ROOM_ORDER]
             if not expect:
@@ -1375,7 +1427,26 @@ class FinalTeamClient(Client):
         if not ok:
             self.run_state.metrics.error(f"team {self.team}: step {kind} {arg} answered {status} {data}")
         self.refetch_board()
-        return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4) if self.steps else math.inf
+        if not self.steps:
+            return math.inf
+        if kind in ("ml", "arduino"):  # the server's rate limit, not the team's pace
+            return time.monotonic() + (ML_CHECK_GAP if kind == "ml" else ARDUINO_RUN_GAP) + random.uniform(0, 0.2)
+        return time.monotonic() + random.uniform(self.gap * 0.6, self.gap * 1.4)
+
+    def arduino_run(self, option_code, key):
+        """One Arduino run: the program as the server sent it with the bugs fixed, and the option holding option_code."""
+        status, view = self.request("GET", "/event/team/final/recovery")
+        self.leak_check(view)
+        program = (view or {}).get("arduino")
+        if status != 200 or not program:
+            return status, {"passed": None, "message": f"no Arduino program in the recovery view: {status}"}
+        lines = [line["code"] for line in program["lines"]]
+        for number, text in FINAL_ARDUINO_FIXES:
+            lines[number - 1] = text
+        letters = [o["letter"] for o in program["slot"]["options"] if option_code in o["code"]]
+        if len(letters) != 1:
+            return 0, {"passed": None, "message": f"option {option_code!r} offered {len(letters)} times"}
+        return self.write("/event/team/final/recovery/arduino/run", {"lines": lines, "option": letters[0]}, key)
 
 
 class FinalAdminClient(Client):
@@ -1395,7 +1466,6 @@ def final_run(args, api, config):
     managers = dict(zip(config["managers"], managers_list))
     set_clue_keys(api, managers_list)
     content = json.loads(FINAL_CONTENT.read_text(encoding="utf-8"))
-    content["recovery"] = {"question": "How many bits are in a byte?", "acceptedAnswers": [FINAL_RECOVERY_ANSWER]}
     content["phase1Minutes"] = FINAL_PHASE1_MINUTES  # a short decryption phase, so the run reaches the investigation phase
     api.setup("PUT", "/event/admin/final/content", admin, content)
     board = api.setup("GET", "/event/admin/board", admin)
@@ -1425,7 +1495,7 @@ def final_run(args, api, config):
     api.setup("POST", "/event/admin/final/open", admin)
 
     # Every team starts together; about 15 writes per team spread over about 70% of the run, but the decryption writes
-    # (everything before the suspect) all fit in the decryption phase (the files are refused after it).
+    # (everything before the suspect) keep pace with the run.
     gap = min(args.seconds * 0.7 / 16, FINAL_PHASE1_MINUTES * 60 * 0.6 / FINAL_DECRYPTION_WRITES / 1.4)
     start_at = time.monotonic() + 1
     run.begin(args.seconds)
@@ -1459,6 +1529,25 @@ def final_run(args, api, config):
                "time": row.get("timePoints"), "total": row.get("finalScore")}
         submitted = plan["suspect"] is not None
         problems = []
+        # The admin's table: the keys held when the final opened, the path, the finish and the team's own crypto window.
+        levels = recovery_levels(plan)
+        path = "NONE" if not levels else "ML" if levels == ["ML"] else "ML_ARDUINO"
+        if row.get("keysHeld") != plan["keys"] or row.get("recoveryPath") != path:
+            problems.append(f"table keys/path {row.get('keysHeld')}/{row.get('recoveryPath')}; expected {plan['keys']}/{path}")
+        if row.get("recoveryLevel") is not None:
+            problems.append(f"table still shows recovery level {row.get('recoveryLevel')} for a finished team")
+        started, closes = row.get("cryptoFromSeconds"), row.get("cryptoToSeconds")
+        # The window runs from the team's start until its fourth file; "until the end" (no end) when it never decrypted all four.
+        all_four = plan["stopAfterFiles"] is None
+        if started is None or (all_four and (closes is None or closes < started)) or (not all_four and closes is not None):
+            problems.append(f"crypto window {started}-{closes}; expected {'a window ending at the fourth file' if all_four else 'no end (until the end)'}")
+        finished_at = row.get("recoveryFinishedAtSeconds")
+        if levels and (finished_at is None or started != finished_at):
+            problems.append(f"recovery finished at {finished_at} but the window starts at {started}")
+        if not levels and (finished_at is not None or started != 0):
+            problems.append(f"a team that needs no recovery shows finish {finished_at} and window start {started}")
+        if row.get("recoveryChecks") != len(recovery_steps(plan)):
+            problems.append(f"recovery checks {row.get('recoveryChecks')} != {len(recovery_steps(plan))} sent")
         if row.get("status") != "COMPLETED":
             problems.append(f"not finalised: {row.get('status')}")
         else:

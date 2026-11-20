@@ -5,7 +5,9 @@ import static dev.devfest.api.Errors.fail;
 import dev.devfest.audit.AuditLog;
 import dev.devfest.auth.AuthService.Principal;
 import dev.devfest.event.domain.ShipmentContent;
+import dev.devfest.event.domain.recovery.RecoverySolutions;
 import dev.devfest.event.dto.FinalContentView;
+import dev.devfest.event.dto.RecoverySolutionsView;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
 import dev.devfest.event.repository.FinalContentRepository;
@@ -17,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The admin's import of the final's content file (format 2, docs/final/last-shipment-content.json). The whole file is
  * validated first (every problem is listed, nothing is saved when there is one); it can be replaced until the final
  * opens and is read-only after that, like all event content. The private values (passphrase hashes, the reports, the
- * correct suspect, the accepted recovery answers) live only here and in the stored file; a member receives a report
+ * correct suspect, the recovery levels' answers) live only here and in the stored file; a member receives a report
  * only once the team has solved its clue.
  */
 @Service
@@ -52,6 +54,13 @@ public class EventFinalContentService {
     return view(states.state());
   }
 
+  /** The organizers' recovery solutions, built from the imported file; 409 while no file is imported. One SQL statement. */
+  public RecoverySolutionsView recoverySolutions(Principal principal) {
+    access.requireAdmin(principal);
+    ShipmentContent file = reader.content().orElseThrow(() -> fail(409, "Import the final content first."));
+    return RecoverySolutionsView.of(RecoverySolutions.of(file.recoveryLevels()), file);
+  }
+
   @Transactional
   public FinalContentView importContent(Principal principal, String body) {
     access.requireAdmin(principal);
@@ -73,7 +82,6 @@ public class EventFinalContentService {
       state.finalEverOpened(),
       stored.map(FinalContentRepository.Stored::importedAt).orElse(null),
       stored.map(FinalContentRepository.Stored::fullUntilMinutes).orElse(null),
-      content.map(ShipmentContent::recoveryIsPlaceholder).orElse(false),
       stored.map(FinalContentRepository.Stored::json).orElse(null)
     );
   }

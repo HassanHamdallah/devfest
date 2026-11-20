@@ -6,11 +6,14 @@ import dev.devfest.event.dto.PassphraseRequest;
 import dev.devfest.event.dto.SuspectChoiceRequest;
 import dev.devfest.event.dto.UnlockRequest;
 import dev.devfest.event.dto.Receipt;
-import dev.devfest.event.dto.RecoveryRequest;
-import dev.devfest.event.dto.RecoveryResult;
+import dev.devfest.event.dto.ArduinoRunRequest;
+import dev.devfest.event.dto.MlCheckRequest;
+import dev.devfest.event.dto.RecoveryCheckResult;
+import dev.devfest.event.dto.TeamRecovery;
 import dev.devfest.event.dto.SubmissionRequest;
 import dev.devfest.event.dto.TeamBoard;
 import dev.devfest.event.dto.TeamFinal;
+import dev.devfest.event.service.EventFinalRecoveryService;
 import dev.devfest.event.service.EventFinalService;
 import dev.devfest.event.service.EventSubmissionService;
 import dev.devfest.event.service.EventTeamBoardService;
@@ -36,15 +39,18 @@ public class EventTeamController {
   private final EventTeamBoardService boards;
   private final EventSubmissionService submissions;
   private final EventFinalService finals;
+  private final EventFinalRecoveryService recovery;
 
   public EventTeamController(
     EventTeamBoardService boards,
     EventSubmissionService submissions,
-    EventFinalService finals
+    EventFinalService finals,
+    EventFinalRecoveryService recovery
   ) {
     this.boards = boards;
     this.submissions = submissions;
     this.finals = finals;
+    this.recovery = recovery;
   }
 
   @GetMapping("/board")
@@ -77,13 +83,31 @@ public class EventTeamController {
     return finals.view(principal);
   }
 
-  @PostMapping("/final/recovery")
-  RecoveryResult recover(
+  /** The team's recovery levels: the current stage's public data, the passed flags and the last test results. */
+  @GetMapping("/final/recovery")
+  TeamRecovery recovery(@AuthenticationPrincipal AuthService.Principal principal) {
+    return recovery.view(principal);
+  }
+
+  /** One ML stage's answer (stages 1 to 6, in order). */
+  @PostMapping("/final/recovery/ml/{stage}")
+  RecoveryCheckResult checkMl(
+    @PathVariable int stage,
     @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
-    @Valid @RequestBody RecoveryRequest request,
+    @Valid @RequestBody MlCheckRequest request,
     @AuthenticationPrincipal AuthService.Principal principal
   ) {
-    return finals.recover(principal, idempotencyKey, request);
+    return recovery.checkMl(principal, stage, idempotencyKey, request);
+  }
+
+  /** One run of the Arduino level's hidden tests. */
+  @PostMapping("/final/recovery/arduino/run")
+  RecoveryCheckResult runArduino(
+    @RequestHeader(IDEMPOTENCY_KEY) UUID idempotencyKey,
+    @Valid @RequestBody ArduinoRunRequest request,
+    @AuthenticationPrincipal AuthService.Principal principal
+  ) {
+    return recovery.runArduino(principal, idempotencyKey, request);
   }
 
   @PostMapping("/final/unlock")

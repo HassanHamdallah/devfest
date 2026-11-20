@@ -2,14 +2,15 @@
   "config": {
     "argv": [
       "C:\\Program Files\\nodejs\\node.exe",
-      "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
       "-c",
       "playwright.event.config.ts",
-      "event-sentinel-manager"
+      "event-final.spec.ts",
+      "event.spec.ts"
     ],
-    "configFile": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
-    "rootDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+    "configFile": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\playwright.event.config.ts",
+    "rootDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -25,7 +26,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
+        "outputDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -33,7 +34,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "c:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
+        "testDir": "C:/Users/hassa/OneDrive/Desktop/devfest/frontend/e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -65,15 +66,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
+        "outputDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
-        "snapshotDir": "c:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "testDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
+        "snapshotDir": "C:\\Users\\hassa\\OneDrive\\Desktop\\devfest\\frontend\\e2e",
         "testIgnore": [],
         "testMatch": [
           "event-ai-room.spec.ts",
@@ -138,18 +139,18 @@
   },
   "suites": [
     {
-      "title": "event-sentinel-manager.spec.ts",
-      "file": "event-sentinel-manager.spec.ts",
+      "title": "event-final.spec.ts",
+      "file": "event-final.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [
         {
-          "title": "sentinel manager page: import, pass score, Field Guide, live results, CSV and the manual verdict",
+          "title": "final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the rest, investigates and submits S11",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 420000,
+              "timeout": 900000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
@@ -159,7 +160,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 16563,
+                  "duration": 83931,
                   "errors": [],
                   "stdout": [
                     {
@@ -170,47 +171,51 @@
                   "retry": 0,
                   "steps": [
                     {
-                      "title": "the room board links to the SENTINEL page, which starts empty",
-                      "duration": 1004
+                      "title": "unlock: a wrong output gets one generic message; the right ones open the mission",
+                      "duration": 1083
                     },
                     {
-                      "title": "a bad file is refused whole with every problem listed",
-                      "duration": 340
+                      "title": "mission: clues 4/4, the content's title, intro and two phases",
+                      "duration": 425
                     },
                     {
-                      "title": "the right file is imported and shows ten stages worth 100",
-                      "duration": 383
+                      "title": "Start opens the case on Phase 1 with the files, key index, RSA keys and guide",
+                      "duration": 894
                     },
                     {
-                      "title": "Export JSON downloads the same mission",
-                      "duration": 303
+                      "title": "in the terminal, the typed commands decrypt clue 3 with key D and show the warehouse report",
+                      "duration": 11721
                     },
                     {
-                      "title": "the pass score is saved",
-                      "duration": 129
+                      "title": "View report opens the recovered report in place and keeps its lines",
+                      "duration": 181
                     },
                     {
-                      "title": "the Field Guide prints on one page and holds only the ideas",
-                      "duration": 627
+                      "title": "five wrong passphrases on clue 4 show the 30-second wait for that clue only",
+                      "duration": 361
                     },
                     {
-                      "title": "live results follow two teams: one finishes all ten stages, one saves a single stage",
-                      "duration": 4702
+                      "title": "clues 1 and 2 are solved through the API; past the estimate nothing switches and the suspect is refused",
+                      "duration": 50942
                     },
                     {
-                      "title": "at the round's end the other team is evaluated; the pass score and the import lock",
-                      "duration": 274
+                      "title": "the fourth file opens the investigation at once: the page moves to Phase 2 and Phase 1 stays available",
+                      "duration": 1479
                     },
                     {
-                      "title": "Export CSV lists each team with its per-stage points",
-                      "duration": 193
+                      "title": "Phase 2: recovered evidence, the suspects sheet, and one suspect after a confirmation",
+                      "duration": 2605
                     },
                     {
-                      "title": "the manager's manual verdict still decides the clue: Reject takes it back",
-                      "duration": 735
+                      "title": "Team 01 scored the full final: 15 + 10 + 15 = 40",
+                      "duration": 13
+                    },
+                    {
+                      "title": "the organizer's Final reports page shows the suspect, Correct and the written report",
+                      "duration": 999
                     }
                   ],
-                  "startTime": "2026-11-18T14:43:17.771Z",
+                  "startTime": "2026-11-20T23:05:58.829Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -218,18 +223,18 @@
               "status": "expected"
             }
           ],
-          "id": "a15f093d1ebf278b9b7b-b97e91aea670be3a1f06",
-          "file": "event-sentinel-manager.spec.ts",
-          "line": 72,
+          "id": "b86908d9453c435b0f84-e76ab03b7c0b56907942",
+          "file": "event-final.spec.ts",
+          "line": 129,
           "column": 5
         },
         {
-          "title": "sentinel manager page: another room's manager and teams cannot open it",
+          "title": "final: a 3-key team solves the six ML recovery stages and reaches the unlock with its recovered key",
           "ok": true,
           "tags": [],
           "tests": [
             {
-              "timeout": 120000,
+              "timeout": 900000,
               "annotations": [],
               "expectedStatus": "passed",
               "projectId": "",
@@ -239,7 +244,7 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 6945,
+                  "duration": 28385,
                   "errors": [],
                   "stdout": [
                     {
@@ -248,7 +253,53 @@
                   ],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-18T14:43:34.568Z",
+                  "steps": [
+                    {
+                      "title": "Team 02 (3 keys) sees the ML level: its path, six stages, the first one current, and no unlock",
+                      "duration": 1088
+                    },
+                    {
+                      "title": "the quick reference opens and shows the formulas",
+                      "duration": 75
+                    },
+                    {
+                      "title": "stage 1: every feature starts kept; dropping investigation_result passes",
+                      "duration": 195
+                    },
+                    {
+                      "title": "a refresh keeps the state: stage 2 is still the current one",
+                      "duration": 218
+                    },
+                    {
+                      "title": "stage 2: the steps move with real buttons (also by keyboard) and the scaler is relabelled after the split",
+                      "duration": 1924
+                    },
+                    {
+                      "title": "stage 3: the table and two selects; median and flag pass",
+                      "duration": 2429
+                    },
+                    {
+                      "title": "stage 4: a wrong model gets the neutral red message and stays; Logistic Regression passes",
+                      "duration": 4881
+                    },
+                    {
+                      "title": "stage 5: the slider shows live metrics; a wrong threshold is refused, a right one passes",
+                      "duration": 4576
+                    },
+                    {
+                      "title": "stage 6: the four records and the word; passing finishes the level and opens the unlock with the recovered key",
+                      "duration": 2471
+                    },
+                    {
+                      "title": "the unlock screen shows the path done, the level's token and this team's recovered key",
+                      "duration": 203
+                    },
+                    {
+                      "title": "the recovered team opens the case and reaches the mission",
+                      "duration": 125
+                    }
+                  ],
+                  "startTime": "2026-11-20T23:07:23.143Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -256,9 +307,405 @@
               "status": "expected"
             }
           ],
-          "id": "a15f093d1ebf278b9b7b-04fb6a8d54f839bf06ac",
-          "file": "event-sentinel-manager.spec.ts",
-          "line": 255,
+          "id": "b86908d9453c435b0f84-1b994b548148ab06446c",
+          "file": "event-final.spec.ts",
+          "line": 527,
+          "column": 5
+        },
+        {
+          "title": "final: a 0-key team passes ML, fixes the Arduino program (option A fails T7, the right one passes) and reaches the unlock with all four keys",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 33917,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "Team 05 (0 keys) passes the six ML stages (through the API; the page is covered by the 3-key test)",
+                      "duration": 13414
+                    },
+                    {
+                      "title": "the Arduino level is current: the path, the ML token, the two cards and the program",
+                      "duration": 412
+                    },
+                    {
+                      "title": "the lines are real inputs: Tab, Shift+Tab, Enter and the arrows move between them; none can be added or removed",
+                      "duration": 187
+                    },
+                    {
+                      "title": "the quick reference opens with the Arduino syntax as code",
+                      "duration": 102
+                    },
+                    {
+                      "title": "on a phone the editor scrolls inside its card and the page does not",
+                      "duration": 485
+                    },
+                    {
+                      "title": "Reset code asks first: Cancel keeps the edits, Confirm restores the original program",
+                      "duration": 719
+                    },
+                    {
+                      "title": "a changed line outside the faulty logic fails every test with the server's message",
+                      "duration": 369
+                    },
+                    {
+                      "title": "the run button waits out the server's 3-second limit with a countdown",
+                      "duration": 3332
+                    },
+                    {
+                      "title": "option A (ends the window before the door opens) fails T7 only; a refresh keeps the edits and the last results",
+                      "duration": 757
+                    },
+                    {
+                      "title": "the right option passes every test: the token shows and the team moves to the unlock",
+                      "duration": 2465
+                    },
+                    {
+                      "title": "the unlock screen shows the whole path done, both tokens and all four recovered keys",
+                      "duration": 196
+                    }
+                  ],
+                  "startTime": "2026-11-20T23:07:51.542Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-39b2bfc736eff9821535",
+          "file": "event-final.spec.ts",
+          "line": 743,
+          "column": 5
+        },
+        {
+          "title": "final: the organizer's final table shows keys, path, level, finish time and crypto window; Recovery solutions opens from Final reports and stays admin only",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 900000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24574,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "the Final tab lists the keys each team held, its path, its level and its crypto window",
+                      "duration": 713
+                    },
+                    {
+                      "title": "a team finishing its recovery shows Done, when, and its own window from that moment",
+                      "duration": 13215
+                    },
+                    {
+                      "title": "Recovery solutions opens from Final reports and shows every ML answer",
+                      "duration": 160
+                    },
+                    {
+                      "title": "the Arduino bug list has the fixed lines, and option B is the right one with the reason A is wrong",
+                      "duration": 404
+                    },
+                    {
+                      "title": "a team can neither open the page's data nor see it in its menu",
+                      "duration": 792
+                    }
+                  ],
+                  "startTime": "2026-11-20T23:08:25.473Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-09ff361c024773b10afc",
+          "file": "event-final.spec.ts",
+          "line": 922,
+          "column": 5
+        },
+        {
+          "title": "final: on the phone the mission and both phases fit 390 px; without a package the terminal says it is not ready",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 75385,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-20T23:08:50.059Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-4702803e5abb0840474c",
+          "file": "event-final.spec.ts",
+          "line": 1040,
+          "column": 5
+        },
+        {
+          "title": "final: Phase 2 stays locked until all four files are decrypted (no clock); Phase 1 stays open and the suspect is submitted",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 78426,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "with fewer than four files: Phase 2 is locked, the suspects are hidden and refused, and the estimate is shown",
+                      "duration": 610
+                    },
+                    {
+                      "title": "past the one-minute estimate nothing switches: no forced move to Phase 2, no closed terminal",
+                      "duration": 66103
+                    },
+                    {
+                      "title": "the fourth file opens Phase 2; Phase 1 stays available with its terminal",
+                      "duration": 636
+                    },
+                    {
+                      "title": "in Phase 2: a solved file is not counted twice, the terminal is still served, the suspects are sent and S11 is submitted",
+                      "duration": 747
+                    }
+                  ],
+                  "startTime": "2026-11-20T23:10:05.459Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-b9e7fb971c07400049f2",
+          "file": "event-final.spec.ts",
+          "line": 1090,
+          "column": 5
+        },
+        {
+          "title": "final: the shipped content shows 'Estimated time: 15 min' and no countdown to a forced switch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9995,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-20T23:11:23.900Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b86908d9453c435b0f84-4f0518ed1fc41de895bd",
+          "file": "event-final.spec.ts",
+          "line": 1185,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "event.spec.ts",
+      "file": "event.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "event: rounds, room clues, judging, hint, recovery, the case, ranking and publication",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 27871,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "buffer": "UmVoZWFyc2FsIGJhY2tlbmQgcmVzdGFydGVkIG9uIHJlc2V0IGRldmZlc3RfdGVzdCBkYXRhLg0K"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "AI manager sets the room's clue key on the board",
+                      "duration": 706
+                    },
+                    {
+                      "title": "the other managers set their keys; the admin imports the final content",
+                      "duration": 868
+                    },
+                    {
+                      "title": "admin moves to round 1 (assigned) and opens the AI room",
+                      "duration": 1385
+                    },
+                    {
+                      "title": "team is sent to the AI room; the form waits for the timer",
+                      "duration": 491
+                    },
+                    {
+                      "title": "AI manager confirms all teams are here",
+                      "duration": 229
+                    },
+                    {
+                      "title": "admin starts the timer although 3 rooms are not ready",
+                      "duration": 321
+                    },
+                    {
+                      "title": "team submits a wrong, then the correct AI clue",
+                      "duration": 330
+                    },
+                    {
+                      "title": "admin pauses; the team sees the round is paused",
+                      "duration": 98
+                    },
+                    {
+                      "title": "admin adds a minute and resumes",
+                      "duration": 211
+                    },
+                    {
+                      "title": "AI manager passes the team and gives a hint",
+                      "duration": 594
+                    },
+                    {
+                      "title": "admin ends the round; the team sees time is up",
+                      "duration": 278
+                    },
+                    {
+                      "title": "helper plays rounds 2-3 and finishes the rooms",
+                      "duration": 324
+                    },
+                    {
+                      "title": "team home shows three collected clues",
+                      "duration": 118
+                    },
+                    {
+                      "title": "admin opens the final",
+                      "duration": 510
+                    },
+                    {
+                      "title": "team recovers the missing Hardware clue",
+                      "duration": 13160
+                    },
+                    {
+                      "title": "team plays the case to the end",
+                      "duration": 309
+                    },
+                    {
+                      "title": "admin sees Team 01 first and publishes",
+                      "duration": 772
+                    },
+                    {
+                      "title": "team opens the published ranking",
+                      "duration": 257
+                    }
+                  ],
+                  "startTime": "2026-11-20T23:11:33.917Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "60714f07d4d913a19ac4-114e08b69a35571183e3",
+          "file": "event.spec.ts",
+          "line": 279,
           "column": 5
         }
       ]
@@ -266,9 +713,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-18T14:43:17.271Z",
-    "duration": 24491.934,
-    "expected": 2,
+    "startTime": "2026-11-20T23:05:58.413Z",
+    "duration": 364019.326,
+    "expected": 8,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

@@ -14,7 +14,7 @@
       "title": "ORION_SHIPMENT_NOTICE",
       "encFile": "ORION_SHIPMENT_NOTICE.enc",
       "rsaFile": "clue1_key.rsa",
-      "keyReference": "NV-REF-1",
+      "keyReference": "NV-4K7",
       "passphraseSha256": "bd9bde06878a5b29a8b1b0ebb2453f7fbf8758a0994cb89e81692f27f9da310e",
       "report": "NOVA TECHNOLOGIES\nInternal Shipment Notification\nCLASSIFICATION: CONFIDENTIAL\n\nFILE 01 · ORION_SHIPMENT_NOTICE\n\nNotice ID: SHP-NTC-0412 · Issued: 8:42 PM · Distribution: Restricted\nSubject: Final ORION Shipment — Inspection Schedule Update\n\nThe security inspection for the final outgoing equipment shipment has been rescheduled.\n\nOriginal Inspection Time: 9:30 PM\nUpdated Inspection Time: 9:15 PM\n\nReason for Change:\nUrgent security inspection requested by Noor.\n\nDue to the sensitive nature of the shipment, the updated inspection time was shared only with personnel directly\ninvolved in shipment processing.\n\nNotification Recipients — Updated Inspection Time\n• S01 — Yazan Al-Haddad\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S20 — Mazen Al-Dweik\n\nRecovered Note — Noor\n“The shipment was redirected after the inspection time changed. Whoever did it knew I was coming early.”\n\nStandard Shipment Notices — Same Evening (no schedule change)\nTime       Notice                                                  Recipient\n7:50 PM    Pallet count confirmed — outbound batch 14               S13 — Jad Younes\n8:20 PM    Dock Door 3 reserved for the 10:00 PM outbound transport   S08 — Fares Salim\n8:35 PM    Sensor-tag check scheduled for outbound crates            S17 — Jana Zaidan\n\nEND OF FILE"
     },
@@ -23,7 +23,7 @@
       "title": "SECURITY_ACCESS_REPORT",
       "encFile": "SECURITY_ACCESS_REPORT.enc",
       "rsaFile": "clue2_key.rsa",
-      "keyReference": "NV-REF-2",
+      "keyReference": "NV-9T2",
       "passphraseSha256": "98924134ab2dfa26d48de2eb7964d3980a035d483be7ecc786f285600fddf53f",
       "report": "NOVA TECHNOLOGIES\nSecurity Access Report\nCLASSIFICATION: RESTRICTED\n\nFILE 02 · SECURITY_ACCESS_REPORT\n\nSecurity Event Log — Evening Extract\n\nTime: 8:30 PM\nSystem: Main Lobby\nEvent: Visitor badge V-221 issued (routine)\n\nTime: 8:52 PM\nSystem: Main Lobby\nEvent: Visitor badge V-221 returned\n\nTime: 9:02 PM\nSystem: Level 2\nEvent: East fire-door test completed — Facilities\n\nTime: 9:10 PM\nSystem: Network Room door\nEvent: Badge-in — S04 Adam Hijazi\n\nTime: 9:15 PM – 9:20 PM\nSystem: Shipping Corridor CCTV\nEvent: Camera feed unavailable. Status: Scheduled Maintenance\n\nTime: 9:17 PM\nSystem: Shipping Corridor door\nEvent: A temporary shipping access card was used to enter the Shipping Corridor.\n\nTime: 9:20 PM\nSystem: Shipping Corridor CCTV\nEvent: Camera feed restored — maintenance window closed\n\nTime: 9:25 PM\nSystem: Elevator 2\nEvent: Routine maintenance ping\n\nRecorded Security Information — 9:17 PM Event\n\nSecurity Account: Rami Al-Khatib — S02\nAccess Type: Temporary Shipping Access\nCamera Verification: Unavailable\n\nNo visual identification of the person entering the corridor is available.\n\nEmployees Authorized for Temporary Shipping Access That Evening\n• S02 — Rami Al-Khatib\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S15 — Nader Shaheen\n• S19 — Hiba Qasem\n• S20 — Mazen Al-Dweik\n\nEND OF FILE"
     },
@@ -32,7 +32,7 @@
       "title": "WAREHOUSE_MOVEMENT_REPORT",
       "encFile": "WAREHOUSE_MOVEMENT_REPORT.enc",
       "rsaFile": "clue3_key.rsa",
-      "keyReference": "NV-REF-3",
+      "keyReference": "NV-1M8",
       "passphraseSha256": "5128010a6d6d7c069a21e23e5762a478414dbd0b1d0bff020a385ef8fbd592d5",
       "report": "NOVA TECHNOLOGIES\nWarehouse Movement Report\nCLASSIFICATION: INTERNAL INVESTIGATION\n\nFILE 03 · WAREHOUSE_MOVEMENT_REPORT\n\nWarehouse Activity Log — Evening Extract\n\nTime: 8:15 PM\nSource: Dock A Receiving\nEvent: Inbound pallet batch 12 received and scanned\n\nTime: 8:30 PM\nSource: Dock Scheduling Terminal\nEvent: Transport slot confirmed for the 10:00 PM outbound pickup\n\nTime: 8:48 PM\nSource: Logistics Yard\nEvent: Forklift FL-3 battery swap completed\n\nTime: 9:00 PM\nSource: Packing Station 2\nEvent: Final outgoing equipment shipment packed and sealed\n\nTime: 9:08 PM\nSource: Vendor Coordination Terminal\nEvent: A routing change was submitted for the final outgoing equipment shipment.\n\nTime: 9:11 PM\nSource: Dock Door 3\nEvent: Pre-departure door check completed\n\nTime: 9:18 PM\nSource: Old Storage Room\nEvent: The final shipment entered the Old Storage Room.\n\nTime: 9:21 PM\nSource: Wearable Telemetry\nEvent: Noor's emergency wearable transmitted its final recorded signal from the Old Storage Room. No additional signal from Noor's device was recorded after 9:21 PM.\n\nTime: 9:26 PM\nSource: Rack C4\nEvent: Inbound pallet batch 12 moved to storage\n\nRouting Change Detail — 9:08 PM\n\nOriginal Destination: Equipment Inspection Room\nNew Destination: Old Storage Room\nRequest Source: Vendor Coordination Terminal\n\nEmployees Authorized to Use the Vendor Coordination Terminal\n• S01 — Yazan Al-Haddad\n• S05 — Sara Awad\n• S11 — Samer Murad\n• S16 — Karam Fawzi\n• S19 — Hiba Qasem\n\nEND OF FILE"
     },
@@ -41,27 +41,27 @@
       "title": "STAFF_ACTIVITY_AUDIT",
       "encFile": "STAFF_ACTIVITY_AUDIT.enc",
       "rsaFile": "clue4_key.rsa",
-      "keyReference": "NV-REF-4",
+      "keyReference": "NV-6R3",
       "passphraseSha256": "405b22a81884caef6a9eafb07752c35931a8a0699f88783d0b35254c8a85bbfa",
       "report": "NOVA TECHNOLOGIES\nStaff Activity Audit\nCLASSIFICATION: CONFIDENTIAL — INVESTIGATION USE ONLY\n\nFILE 04 · STAFF_ACTIVITY_AUDIT\n\n============================================================\nSecurity System Information\n============================================================\nTemporary Shipping Access Cards require approval from an authorized Security Officer.\nThe Security Account displayed in an access log identifies the officer who approved the temporary access.\n\nIt does not necessarily identify the employee physically carrying the card.\n\nPersonal authentication: the Secure Procurement Room, the Secure Procurement Workstation and the Gate B Employee Exit Turnstile each require a personal smart badge plus fingerprint verification. A badge alone is not accepted.\n\n============================================================\nStaff Record — S05 Sara Awad (Procurement Analyst)\n============================================================\nStatement: “I was in the Procurement Department reviewing invoices.”\n\nTime:   9:12 PM\nSystem: Secure Procurement Room door\nRecord: Entry — S05 Sara Awad (smart badge + fingerprint)\n\nTime:   9:14 PM – 9:22 PM\nSystem: Secure Procurement Workstation\nRecord: Continuous authenticated activity — S05 Sara Awad (smart-badge + fingerprint login; session locks if the badge is removed)\n\nTime:   9:17 PM\nSystem: Secure Procurement Workstation\nRecord: Fingerprint re-verification recorded — S05 Sara Awad\n\nTime:   9:25 PM\nSystem: Secure Procurement Room door\nRecord: Exit — S05 Sara Awad (no other door event recorded for this room since 9:12 PM)\n\nWalking time between the Secure Procurement Room and the Shipping Corridor: approximately 6 minutes.\n\n============================================================\nStaff Record — S11 Samer Murad (Vendor Relations Officer)\n============================================================\nStatement: “I left the building at 9:00 PM.”\n\nGate B Employee Exit Turnstile — extract\n\nTime:     8:12 PM\nEmployee: Badge E-4412 (Day Shift)\nRecord:   Exit — smart badge + fingerprint\n\nTime:     8:47 PM\nEmployee: Badge E-3178 (Day Shift)\nRecord:   Exit — smart badge + fingerprint\n\nTime:     9:31 PM\nEmployee: S11 — Samer Murad\nRecord:   Exit — smart badge + fingerprint\n\nTime:     9:38 PM\nEmployee: Badge E-4890 (Evening Shift)\nRecord:   Exit — smart badge + fingerprint\n\nNo exit event for Samer Murad was recorded at or before 9:00 PM.\n\n============================================================\nAdditional Staff Records\n============================================================\nAvailable records for the following employees do not provide enough information to confirm or eliminate their presence near the Shipping Corridor during the critical period:\n• S01 — Yazan Al-Haddad\n• S19 — Hiba Qasem\n• S20 — Mazen Al-Dweik\n\n============================================================\nOther Routine Staff Records\n============================================================\nTime:   9:05 PM\nSystem: IoT Monitoring Console\nRecord: Sensor heartbeat check completed — S17 Jana Zaidan\n\nTime:   9:20 PM\nSystem: Shift Supervisor Terminal\nRecord: Evening handover report submitted — S13 Jad Younes\n\nEND OF FILE"
     }
   ],
   "keyIndex": [
     {
-      "reference": "NV-REF-3",
-      "key": "C"
-    },
-    {
-      "reference": "NV-REF-1",
+      "reference": "NV-9T2",
       "key": "A"
     },
     {
-      "reference": "NV-REF-4",
-      "key": "D"
+      "reference": "NV-6R3",
+      "key": "B"
     },
     {
-      "reference": "NV-REF-2",
-      "key": "B"
+      "reference": "NV-4K7",
+      "key": "C"
+    },
+    {
+      "reference": "NV-1M8",
+      "key": "D"
     }
   ],
   "suspects": [
@@ -187,10 +187,786 @@
     }
   ],
   "correctSuspect": "S11",
-  "recovery": {
-    "question": "TEST QUESTION (replace before the event). Rami hid one word in his last note with a Caesar cipher: every letter was moved 3 places forward in the alphabet (A became D, B became E). The note says ZDUHKRXVH. Decrypt it and enter the word.",
-    "acceptedAnswers": [
-      "WAREHOUSE"
-    ]
+  "recoveryLevels": {
+    "ml": {
+      "title": "ML Forensic Audit",
+      "intro": "One continuous investigation with six locked stages.",
+      "badge": "MULTI-STAGE • 15–25 MIN",
+      "tokenLabel": "ML RECOVERY TOKEN",
+      "token": "ML-8842",
+      "leakage": {
+        "name": "Data Leakage",
+        "title": "Stage 1 — Why is accuracy 96%?",
+        "prompt": "Remove any feature that would not exist at prediction time.",
+        "note": "Reported Accuracy: 96%",
+        "action": "Validate Feature Set",
+        "passMessage": "Leakage removed. Accuracy drops to 76%, exposing the real problem.",
+        "wrongMessage": "One selected feature contains post-investigation information.",
+        "features": [
+          "motion_score",
+          "access_attempts",
+          "signal_strength",
+          "device_type",
+          "investigation_result"
+        ],
+        "kept": [
+          "motion_score",
+          "access_attempts",
+          "signal_strength",
+          "device_type"
+        ]
+      },
+      "pipeline": {
+        "name": "Pipeline Repair",
+        "title": "Stage 2 — Repair the training pipeline",
+        "prompt": "Reorder the steps so preprocessing never learns from the test set.",
+        "note": "Hint: fitting preprocessing before the split leaks information.",
+        "action": "Validate Pipeline",
+        "passMessage": "Pipeline valid.",
+        "wrongMessage": "Pipeline still leaks validation information.",
+        "items": [
+          {
+            "id": "load",
+            "label": "Load Dataset"
+          },
+          {
+            "id": "fit_scaler",
+            "label": "Fit Scaler on Full Dataset"
+          },
+          {
+            "id": "split",
+            "label": "Split Train/Test"
+          },
+          {
+            "id": "transform",
+            "label": "Transform Train/Test"
+          },
+          {
+            "id": "train",
+            "label": "Train Model"
+          },
+          {
+            "id": "evaluate",
+            "label": "Evaluate"
+          }
+        ],
+        "relabel": {
+          "item": "fit_scaler",
+          "after": "split",
+          "label": "Fit Scaler on Training Data"
+        },
+        "startOrder": [
+          "load",
+          "fit_scaler",
+          "split",
+          "transform",
+          "train",
+          "evaluate"
+        ],
+        "order": [
+          "load",
+          "split",
+          "fit_scaler",
+          "transform",
+          "train",
+          "evaluate"
+        ]
+      },
+      "cleaning": {
+        "name": "Data Cleaning",
+        "title": "Stage 3 — Clean sensor data",
+        "note": "Choose a defensible cleaning strategy.",
+        "action": "Validate Cleaning",
+        "passMessage": "Cleaning accepted.",
+        "wrongMessage": "Cleaning rejected.",
+        "table": {
+          "columns": [
+            "Record",
+            "Motion",
+            "Signal",
+            "Attempts"
+          ],
+          "rows": [
+            [
+              "#01",
+              "0.21",
+              "-61",
+              "1"
+            ],
+            [
+              "#02",
+              "0.84",
+              "-45",
+              "5"
+            ],
+            [
+              "#03",
+              "0.67",
+              "NULL",
+              "3"
+            ],
+            [
+              "#04",
+              "0.11",
+              "-210",
+              "1"
+            ],
+            [
+              "#05",
+              "0.93",
+              "-42",
+              "6"
+            ]
+          ]
+        },
+        "missing": {
+          "label": "Missing values",
+          "options": [
+            {
+              "id": "zero",
+              "label": "Replace with 0"
+            },
+            {
+              "id": "drop",
+              "label": "Drop row"
+            },
+            {
+              "id": "median",
+              "label": "Impute using training median"
+            }
+          ]
+        },
+        "outliers": {
+          "label": "Outliers",
+          "options": [
+            {
+              "id": "ignore",
+              "label": "Ignore"
+            },
+            {
+              "id": "mean",
+              "label": "Replace with mean"
+            },
+            {
+              "id": "flag",
+              "label": "Clip / flag unreasonable values"
+            }
+          ]
+        },
+        "answer": {
+          "missing": "median",
+          "outliers": "flag"
+        }
+      },
+      "model": {
+        "name": "Model Selection",
+        "title": "Stage 4 — Choose the model",
+        "prompt": "Requirements: Recall ≥ 0.88 and Precision ≥ 0.75.",
+        "note": "Both requirements must be satisfied.",
+        "action": "Validate Model",
+        "passMessage": "Model accepted.",
+        "wrongMessage": "Model rejected. Check both constraints.",
+        "models": [
+          {
+            "id": "knn",
+            "name": "KNN",
+            "precision": 0.84,
+            "recall": 0.71
+          },
+          {
+            "id": "logreg",
+            "name": "Logistic Regression",
+            "precision": 0.79,
+            "recall": 0.89
+          },
+          {
+            "id": "tree",
+            "name": "Decision Tree",
+            "precision": 0.68,
+            "recall": 0.94
+          }
+        ],
+        "requirement": {
+          "minRecall": 0.88,
+          "minPrecision": 0.75
+        },
+        "answer": "logreg"
+      },
+      "threshold": {
+        "name": "Threshold Tuning",
+        "title": "Stage 5 — Tune the threshold",
+        "prompt": "Requirements: Recall ≥ 0.90, Precision ≥ 0.75, False Negatives ≤ 2.",
+        "note": "Tune the trade-off.",
+        "action": "Validate Threshold",
+        "passMessage": "Threshold validated.",
+        "wrongMessage": "Not all constraints are satisfied.",
+        "label": "Detection threshold",
+        "slider": {
+          "min": 0.25,
+          "max": 0.8,
+          "step": 0.01,
+          "start": 0.5
+        },
+        "requirement": {
+          "minRecall": 0.9,
+          "minPrecision": 0.75,
+          "maxFalseNegatives": 2
+        }
+      },
+      "evidence": {
+        "name": "Evidence Extraction",
+        "title": "Stage 6 — Extract the evidence",
+        "prompt": "Sort chronologically, then read the device suffix.",
+        "note": "Use chronological order.",
+        "action": "Submit Evidence",
+        "passMessage": "Evidence recovered.",
+        "wrongMessage": "Incorrect extraction.",
+        "records": [
+          {
+            "id": "#22",
+            "time": "21:24",
+            "device": "NODE-U",
+            "confidence": "0.88"
+          },
+          {
+            "id": "#07",
+            "time": "21:13",
+            "device": "NODE-C",
+            "confidence": "0.94"
+          },
+          {
+            "id": "#31",
+            "time": "21:31",
+            "device": "NODE-E",
+            "confidence": "0.86"
+          },
+          {
+            "id": "#14",
+            "time": "21:17",
+            "device": "NODE-L",
+            "confidence": "0.91"
+          }
+        ],
+        "inputLabel": "Recovered word",
+        "placeholder": "Enter word",
+        "answer": "CLUE"
+      }
+    },
+    "arduino": {
+      "title": "Security Controller Debugging",
+      "intro": "Basic Arduino concepts only. The difficulty comes from reading a longer program and fixing interacting logic errors.",
+      "badge": "BASIC CONCEPTS • HARD DEBUGGING",
+      "brief": "Multiple logic bugs, incorrect conditions, wrong resets, and one missing behavior. No advanced libraries or advanced Arduino topics are required.",
+      "warning": "Passing syntax is not enough. The hidden behavioral tests must all pass.",
+      "expectedBehaviour": [
+        "Authorization button opens a 5-second safe window.",
+        "Door can open safely only during that window.",
+        "Unauthorized door opening triggers alarm.",
+        "Motion counts only while the door is open.",
+        "Reset clears temporary states.",
+        "After a valid entry, authorization must end cleanly.",
+        "The alarm stays on until Reset is pressed."
+      ],
+      "fileName": "security_controller.ino",
+      "action": "Run Hidden Tests",
+      "tokenLabel": "RECOVERY TOKEN",
+      "token": "RCV-7314",
+      "passMessage": "All hidden tests pass.",
+      "wrongMessage": "Not all hidden tests pass yet.",
+      "outsideChangeMessage": "A line outside the faulty logic was changed.",
+      "lines": [
+        {
+          "n": 1,
+          "code": "const int doorPin = 2;"
+        },
+        {
+          "n": 2,
+          "code": "const int motionPin = 3;"
+        },
+        {
+          "n": 3,
+          "code": "const int authButtonPin = 4;"
+        },
+        {
+          "n": 4,
+          "code": "const int alarmLedPin = 8;"
+        },
+        {
+          "n": 5,
+          "code": "const int buzzerPin = 9;"
+        },
+        {
+          "n": 6,
+          "code": ""
+        },
+        {
+          "n": 7,
+          "code": "bool authorized = false;"
+        },
+        {
+          "n": 8,
+          "code": "bool alarmActive = false;"
+        },
+        {
+          "n": 9,
+          "code": "bool doorOpen = false;"
+        },
+        {
+          "n": 10,
+          "code": "bool motionDetected = false;"
+        },
+        {
+          "n": 11,
+          "code": ""
+        },
+        {
+          "n": 12,
+          "code": "unsigned long authStart = 0;"
+        },
+        {
+          "n": 13,
+          "code": "int motionEvents = 0;"
+        },
+        {
+          "n": 14,
+          "code": "bool entered = false;"
+        },
+        {
+          "n": 15,
+          "code": ""
+        },
+        {
+          "n": 16,
+          "code": "void setup() {"
+        },
+        {
+          "n": 17,
+          "code": "  pinMode(doorPin, INPUT);"
+        },
+        {
+          "n": 18,
+          "code": "  pinMode(motionPin, INPUT);"
+        },
+        {
+          "n": 19,
+          "code": "  pinMode(authButtonPin, INPUT);"
+        },
+        {
+          "n": 20,
+          "code": "  pinMode(alarmLedPin, OUTPUT);"
+        },
+        {
+          "n": 21,
+          "code": "  pinMode(buzzerPin, OUTPUT);"
+        },
+        {
+          "n": 22,
+          "code": "  Serial.begin(9600);"
+        },
+        {
+          "n": 23,
+          "code": "  digitalWrite(alarmLedPin, LOW);"
+        },
+        {
+          "n": 24,
+          "code": "  digitalWrite(buzzerPin, LOW);"
+        },
+        {
+          "n": 25,
+          "code": "}"
+        },
+        {
+          "n": 26,
+          "code": ""
+        },
+        {
+          "n": 27,
+          "code": "void readInputs() {"
+        },
+        {
+          "n": 28,
+          "code": "  doorOpen = digitalRead(doorPin) == HIGH;"
+        },
+        {
+          "n": 29,
+          "code": "  motionDetected = digitalRead(motionPin) == HIGH;"
+        },
+        {
+          "n": 30,
+          "code": ""
+        },
+        {
+          "n": 31,
+          "code": "  if (digitalRead(authButtonPin) == HIGH) {"
+        },
+        {
+          "n": 32,
+          "code": "    authorized = true;"
+        },
+        {
+          "n": 33,
+          "code": "    authStart = millis();"
+        },
+        {
+          "n": 34,
+          "code": "    Serial.println(\"ACCESS WINDOW STARTED\");"
+        },
+        {
+          "n": 35,
+          "code": "  }"
+        },
+        {
+          "n": 36,
+          "code": "}"
+        },
+        {
+          "n": 37,
+          "code": ""
+        },
+        {
+          "n": 38,
+          "code": "void updateAuthorization() {"
+        },
+        {
+          "n": 39,
+          "code": "  if (authorized && millis() - authStart > 5000) {"
+        },
+        {
+          "n": 40,
+          "code": "    authorized = true;"
+        },
+        {
+          "n": 41,
+          "code": "  }"
+        },
+        {
+          "n": 42,
+          "code": "}"
+        },
+        {
+          "n": 43,
+          "code": ""
+        },
+        {
+          "n": 44,
+          "code": "void checkDoor() {"
+        },
+        {
+          "n": 45,
+          "code": "  if (doorOpen && authorized == true) {"
+        },
+        {
+          "n": 46,
+          "code": "    alarmActive = true;"
+        },
+        {
+          "n": 47,
+          "code": "    Serial.println(\"UNAUTHORIZED DOOR OPEN\");"
+        },
+        {
+          "n": 48,
+          "code": "  }"
+        },
+        {
+          "n": 49,
+          "code": ""
+        },
+        {
+          "n": 50,
+          "code": "  if (!doorOpen) {"
+        },
+        {
+          "n": 51,
+          "code": "    alarmActive = false;"
+        },
+        {
+          "n": 52,
+          "code": "  }"
+        },
+        {
+          "n": 53,
+          "code": "}"
+        },
+        {
+          "n": 54,
+          "code": ""
+        },
+        {
+          "n": 55,
+          "code": "void checkMotion() {"
+        },
+        {
+          "n": 56,
+          "code": "  if (motionDetected) {"
+        },
+        {
+          "n": 57,
+          "code": "    motionEvents++;"
+        },
+        {
+          "n": 58,
+          "code": "    Serial.print(\"MOTION EVENT: \");"
+        },
+        {
+          "n": 59,
+          "code": "    Serial.println(motionEvents);"
+        },
+        {
+          "n": 60,
+          "code": "  }"
+        },
+        {
+          "n": 61,
+          "code": "}"
+        },
+        {
+          "n": 62,
+          "code": ""
+        },
+        {
+          "n": 63,
+          "code": "void updateAlarmOutputs() {"
+        },
+        {
+          "n": 64,
+          "code": "  if (alarmActive) {"
+        },
+        {
+          "n": 65,
+          "code": "    digitalWrite(alarmLedPin, HIGH);"
+        },
+        {
+          "n": 66,
+          "code": "    digitalWrite(buzzerPin, HIGH);"
+        },
+        {
+          "n": 67,
+          "code": "  } else {"
+        },
+        {
+          "n": 68,
+          "code": "    digitalWrite(alarmLedPin, LOW);"
+        },
+        {
+          "n": 69,
+          "code": "    digitalWrite(buzzerPin, LOW);"
+        },
+        {
+          "n": 70,
+          "code": "  }"
+        },
+        {
+          "n": 71,
+          "code": "}"
+        },
+        {
+          "n": 72,
+          "code": ""
+        },
+        {
+          "n": 73,
+          "code": "void resetSystem() {"
+        },
+        {
+          "n": 74,
+          "code": "  alarmActive = false;"
+        },
+        {
+          "n": 75,
+          "code": "  authorized = true;"
+        },
+        {
+          "n": 76,
+          "code": "  motionEvents = 0;"
+        },
+        {
+          "n": 77,
+          "code": "  digitalWrite(alarmLedPin, LOW);"
+        },
+        {
+          "n": 78,
+          "code": "  digitalWrite(buzzerPin, LOW);"
+        },
+        {
+          "n": 79,
+          "code": "  Serial.println(\"SYSTEM RESET\");"
+        },
+        {
+          "n": 80,
+          "code": "}"
+        },
+        {
+          "n": 81,
+          "code": ""
+        },
+        {
+          "n": 82,
+          "code": "void loop() {"
+        },
+        {
+          "n": 83,
+          "code": "  readInputs();"
+        },
+        {
+          "n": 84,
+          "code": "  updateAuthorization();"
+        },
+        {
+          "n": 85,
+          "code": "  checkDoor();"
+        },
+        {
+          "n": 86,
+          "code": "  checkMotion();"
+        },
+        {
+          "n": 87,
+          "code": "  updateAlarmOutputs();"
+        },
+        {
+          "n": 88,
+          "code": ""
+        },
+        {
+          "n": 89,
+          "code": "}"
+        }
+      ],
+      "slot": {
+        "id": "B6",
+        "afterLine": 88,
+        "prompt": "// MISSING BEHAVIOR: when the door closes after a valid authorized entry, the authorization state should end cleanly.",
+        "options": [
+          {
+            "id": "A",
+            "code": "if (!doorOpen && authorized) { authorized = false; }"
+          },
+          {
+            "id": "B",
+            "code": "if (doorOpen && authorized) { entered = true; }\nif (!doorOpen && entered) { authorized = false; entered = false; }"
+          },
+          {
+            "id": "C",
+            "code": "authorized = false;"
+          },
+          {
+            "id": "D",
+            "code": "if (doorOpen) { authorized = false; }"
+          }
+        ],
+        "correct": "B"
+      },
+      "bugs": [
+        {
+          "id": "B1",
+          "kind": "REPLACE",
+          "lines": [
+            40
+          ],
+          "accepted": [
+            "authorized=false;"
+          ]
+        },
+        {
+          "id": "B2",
+          "kind": "REPLACE",
+          "lines": [
+            45
+          ],
+          "accepted": [
+            "if(doorOpen&&!authorized){",
+            "if(doorOpen&&authorized==false){",
+            "if(!authorized&&doorOpen){",
+            "if(authorized==false&&doorOpen){"
+          ]
+        },
+        {
+          "id": "B3",
+          "kind": "REMOVE",
+          "lines": [
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "id": "B4",
+          "kind": "REPLACE",
+          "lines": [
+            56
+          ],
+          "accepted": [
+            "if(motionDetected&&doorOpen){",
+            "if(doorOpen&&motionDetected){"
+          ]
+        },
+        {
+          "id": "B5",
+          "kind": "REPLACE",
+          "lines": [
+            75
+          ],
+          "accepted": [
+            "authorized=false;"
+          ]
+        }
+      ],
+      "tests": [
+        {
+          "id": "T1",
+          "name": "Authorization starts correctly",
+          "bugs": []
+        },
+        {
+          "id": "T2",
+          "name": "Authorization expires after 5 seconds",
+          "bugs": [
+            "B1"
+          ]
+        },
+        {
+          "id": "T3",
+          "name": "Unauthorized door opening triggers alarm",
+          "bugs": [
+            "B2"
+          ]
+        },
+        {
+          "id": "T4",
+          "name": "Authorized opening does not trigger alarm",
+          "bugs": [
+            "B2"
+          ]
+        },
+        {
+          "id": "T5",
+          "name": "Motion counts only while door is open",
+          "bugs": [
+            "B4"
+          ]
+        },
+        {
+          "id": "T6",
+          "name": "Reset clears authorization",
+          "bugs": [
+            "B5"
+          ]
+        },
+        {
+          "id": "T7",
+          "name": "Authorization ends after valid entry",
+          "bugs": [
+            "B6"
+          ]
+        },
+        {
+          "id": "T8",
+          "name": "Alarm stays on until reset",
+          "bugs": [
+            "B3"
+          ]
+        }
+      ]
+    }
   }
 }

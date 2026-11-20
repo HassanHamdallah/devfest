@@ -143,11 +143,11 @@ class EventEvidenceTest extends EventIntegrationTest {
     assertEquals(null, evidence(before, RoomCode.HARDWARE, "clueValue"));
     assertFalse(before.body().contains(hardwareKey), before.body());
 
-    expectOk(recover(alpha, UUID.randomUUID(), RECOVERY_ANSWER));
+    finishRecovery(alpha);
     Response after = expectOk(get("/team/final", alpha.token()));
     assertEquals(true, evidence(after, RoomCode.HARDWARE, "clueCollected"));
     assertEquals(hardwareKey, evidence(after, RoomCode.HARDWARE, "clueValue"));
-    assertFalse(after.body().contains(RECOVERY_ANSWER), "never the recovery answer");
+    assertEquals(List.of(java.util.Map.of("roomName", "Hardware", "key", hardwareKey)), after.json("$.unlock.recoveredKeys"));
   }
 
   @Test

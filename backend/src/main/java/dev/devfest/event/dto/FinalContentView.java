@@ -8,6 +8,5 @@ public record FinalContentView(
   boolean readOnly,
   Instant importedAt,
   Integer fullUntilMinutes,
-  boolean recoveryIsPlaceholder,
   String content
 ) {}

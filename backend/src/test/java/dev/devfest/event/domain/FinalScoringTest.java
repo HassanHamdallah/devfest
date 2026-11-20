@@ -52,6 +52,38 @@ class FinalScoringTest {
   }
 
   @Test
+  void aWrongSuspectGetsHalfTheTimePointsAtEveryMoment() {
+    // Correct vs wrong at 10:00, 25:00, 25:30, 30:00, 40:00 (full-time until 25 minutes).
+    int[] seconds = { 10 * 60, 25 * 60, 25 * 60 + 30, 30 * 60, 40 * 60 };
+    String[] correct = { "15.00", "15.00", "14.50", "10.00", "0.00" };
+    String[] wrong = { "7.50", "7.50", "7.25", "5.00", "0.00" };
+    for (int i = 0; i < seconds.length; i++) {
+      assertEquals(d(correct[i]), score(4, seconds[i], true).time(), "correct at " + seconds[i]);
+      assertEquals(d(wrong[i]), score(4, seconds[i], false).time(), "wrong at " + seconds[i]);
+      assertEquals(d(correct[i]), FinalScoring.timePoints(seconds[i], 25, true));
+      assertEquals(d(wrong[i]), FinalScoring.timePoints(seconds[i], 25, false));
+    }
+    assertEquals(d("22.50"), score(4, 20 * 60, false).total(), "15 + 0 + 7.50");
+    assertEquals(d("20.00"), score(4, 30 * 60, false).total(), "15 + 0 + 5");
+    assertEquals(d("35.00"), score(4, 30 * 60, true).total(), "15 + 10 + 10");
+  }
+
+  @Test
+  void aWrongSuspectsHalfIsRoundedOnceAtTheEnd() {
+    // 25:01 -> 14.98333 -> 7.491666... -> 7.49 (not 14.98 / 2 = 7.49 by luck: 29:59 -> 10.0166 -> 5.0083 -> 5.01).
+    assertEquals(d("7.49"), FinalScoring.timePoints(25 * 60 + 1, 25, false));
+    assertEquals(d("5.01"), FinalScoring.timePoints(29 * 60 + 59, 25, false));
+    assertEquals(d("5.01"), score(4, 29 * 60 + 59, false).time());
+  }
+
+  @Test
+  void aWrongSuspectWithoutAllFourFilesOrWithoutASubmissionStillGetsNoTimePoints() {
+    assertEquals(d("0.00"), score(3, 600, false).time());
+    assertEquals(d("0.00"), score(4, null, false).time());
+    assertEquals(d("0.00"), score(0, 600, false).total());
+  }
+
+  @Test
   void timePointsAtTheBoundaries() {
     assertEquals(d("15.00"), FinalScoring.timePoints(0, 25));
     assertEquals(d("15.00"), FinalScoring.timePoints(25 * 60, 25));
@@ -80,13 +112,13 @@ class FinalScoringTest {
   void timePointsNeedAllFourCluesAndASubmittedSuspect() {
     for (int clues = 0; clues <= 3; clues++) assertEquals(d("0.00"), score(clues, 300, true).time(), clues + " clues");
     assertEquals(d("0.00"), score(4, null, false).time(), "no suspect submitted");
-    assertEquals(d("15.00"), score(4, 300, false).time(), "a wrong suspect still counts as submitted");
+    assertEquals(d("7.50"), score(4, 300, false).time(), "a wrong suspect still counts as submitted, for half the time points");
     assertEquals(d("21.25"), score(3, 300, true).total(), "3 files + suspect, no time points");
   }
 
   @Test
-  void aWrongSuspectStillEarnsCluesAndTime() {
-    assertEquals(d("30.00"), score(4, 20 * 60, false).total());
-    assertEquals(d("25.00"), score(4, 30 * 60, false).total(), "30 active minutes: 10 time points");
+  void aWrongSuspectStillEarnsCluesAndHalfTheTime() {
+    assertEquals(d("22.50"), score(4, 20 * 60, false).total(), "15 clues + 0 suspect + 7.50 (half of 15)");
+    assertEquals(d("20.00"), score(4, 30 * 60, false).total(), "30 active minutes: half of 10 = 5 time points");
   }
 }

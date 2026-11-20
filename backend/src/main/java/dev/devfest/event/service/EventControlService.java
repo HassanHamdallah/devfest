@@ -16,6 +16,7 @@ import dev.devfest.event.repository.EventRoomRecord;
 import dev.devfest.event.repository.EventRoomRepository;
 import dev.devfest.event.repository.EventStateRecord;
 import dev.devfest.event.repository.EventStateRepository;
+import dev.devfest.event.repository.RecoveryRepository;
 import dev.devfest.event.repository.RoomArrivalRepository;
 import dev.devfest.event.repository.TeamFinalRepository;
 import java.time.Instant;
@@ -38,6 +39,7 @@ public class EventControlService {
   private final AiRoomEvaluationService missionEvaluation;
   private final TerminalFormService terminalForms;
   private final TeamFinalRepository finals;
+  private final RecoveryRepository recoveries;
   private final FinalContentReader finalContent;
   private final AuditLog audit;
   private final EventClock clock;
@@ -51,6 +53,7 @@ public class EventControlService {
     AiRoomEvaluationService missionEvaluation,
     TerminalFormService terminalForms,
     TeamFinalRepository finals,
+    RecoveryRepository recoveries,
     FinalContentReader finalContent,
     AuditLog audit,
     EventClock clock
@@ -63,6 +66,7 @@ public class EventControlService {
     this.missionEvaluation = missionEvaluation;
     this.terminalForms = terminalForms;
     this.finals = finals;
+    this.recoveries = recoveries;
     this.finalContent = finalContent;
     this.audit = audit;
     this.clock = clock;
@@ -117,8 +121,9 @@ public class EventControlService {
   }
 
   /**
-   * Opens the final exactly once, for every team at the same moment: its one 40-minute timer starts now. A request
-   * while it is already open is a harmless repeat.
+   * Opens the final exactly once, for every team at the same moment: its one 40-minute timer starts now and every
+   * active team's K (the room keys it holds now) is recorded for its recovery path. A request while it is already open
+   * is a harmless repeat.
    */
   @Transactional
   public EventStateView openFinal(Principal principal) {
@@ -129,6 +134,7 @@ public class EventControlService {
     if (state.finalEverOpened()) throw fail(409, "The final was already opened once.");
     requireCompleteContent();
     states.openFinal(now, FinalScoring.FINAL_MINUTES * 60);
+    recoveries.snapshotKeysAtOpen();
     return changed(principal, "EVENT_FINAL_OPENED", "final", now);
   }
 

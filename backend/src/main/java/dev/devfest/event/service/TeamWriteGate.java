@@ -19,7 +19,8 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 class TeamWriteGate {
 
-  static final int TEAM_WRITES_PER_MINUTE = 20;
+  /** Per team and minute, for every team write; never lower than the recovery throttles (30 ML checks, 20 Arduino runs). */
+  static final int TEAM_WRITES_PER_MINUTE = 60;
   /** AI mission runs and stage submissions need their own, larger bucket. */
   static final int ACTIVITY_WRITES_PER_MINUTE = 60;
 

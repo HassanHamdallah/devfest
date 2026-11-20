@@ -138,9 +138,9 @@ class EventOverrideTest extends EventIntegrationTest {
   void manualCluesChangeTheFinalStageAndKeepRecoveryCluesUnlessAsked() {
     collectClues(alpha, RoomCode.AI, RoomCode.PROBLEM_SOLVING, RoomCode.LINUX);
     setRound(5);
-    openFinal();
-    assertEquals("RECOVERY", expectOk(get("/team/final", alpha.token())).json("$.status"));
+    // K counts admin grants made before the final opens (a grant after the opening never changes the path).
     expectOk(post("/admin/overrides/clue", admin, clue(alpha, RoomCode.HARDWARE, "GRANT", false)));
+    openFinal();
     assertEquals("IN_FINAL", expectOk(get("/team/final", alpha.token())).json("$.status"));
     assertEquals("MANUAL", source(alpha, RoomCode.HARDWARE));
 

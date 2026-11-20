@@ -18,7 +18,7 @@ There are exactly four rooms, always in this order:
 - Each room has at most one manager, and a manager can manage only one room.
 - Each room is either **open** or **closed**. Only the admin opens and closes rooms.
 - Each room holds one **clue key** (the answer teams must find), set by the room's manager at runtime
-  (rule 5). The final has one **Recovery Challenge** for everyone (rules 9 and 10).
+  (rule 5). In the final, teams with fewer than 4 room keys pass recovery levels first (rules 9 and 10).
 
 ## 2. Groups and rotation
 
@@ -190,35 +190,70 @@ read from what the rooms and the final recorded; no total is stored. Every score
    wrong accusation), the admin's time adjustment, adjusted time and the penalty tie-break no longer exist anywhere in the
    rules, the screens or the ranking. No other deduction exists. Past audit entries are kept.
 
-## 9. The final (qualification, recovery, timer)
+## 9. The final (recovery, timer, each team's phases)
 
 - The admin opens the final **once**, for all teams at the same moment; it cannot be reopened (the admin's *Reset final*
   override, rule 16.7, is the only way back). It opens only when the content is complete: the validated final content
   file (rule 10) and a clue key for every room.
 - **One server-side 40-minute timer** starts at that moment for everyone. The admin's emergency **pause / resume** and
   **added time** (1 second to 60 minutes, with an Idempotency-Key) apply to every team at once and are audited; the timer is
-  never per team and never reset. Once the time has run out it can no longer change.
-- **Status per team**, derived on the server from its collected clues:
+  never per team and never reset. Once the time has run out it can no longer change. Recovery has **no timer of its own**.
+- **Every team plays the final.** K = the room keys a team holds **when the final opens** (its collected clues, admin
+  manual grants included), recorded once per team (`team_recovery`; a team activated later is counted at its first look).
+  A key granted or revoked after the opening never changes K or the path.
 
-  | Clues | Status | What happens |
+  | K | Path | Status while on it |
   |---|---|---|
-  | 4 | **In final** | the unlock screen opens immediately |
-  | 3 | **Recovery** | the single unified Recovery Challenge starts at the same moment |
-  | 0–2 | **Not qualified** | "You did not qualify for the final", no recovery |
-  | — | **Completed** | the suspect was submitted, the time ran out or the final was closed |
+  | 4 | the unlock screen opens immediately | **In final** |
+  | 3 | **ML** level, then unlock | **Recovery** |
+  | 0–2 | **ML** level, then **ARDUINO** level, then unlock | **Recovery** |
+  | — | the suspect was submitted, the time ran out or the final was closed | **Completed** |
 
-- **Recovery Challenge**: one question for every team (not one per room); unlimited attempts, no penalty and no room
-  points. A correct answer (normalized like clue answers, rule 5.4) collects the team's missing clue (source *Recovery*) and
-  moves it to the case **with the remaining time**. Teams with 0–2 clues cannot use it.
-- Every rule is enforced on the server: a disqualified team, a not-open final, a paused final and a team that did not
-  qualify are all refused.
+- **Recovery levels** (content `recoveryLevels`, rule 10): levels and their stages are played **in order**, each stage
+  passed **once**, never skipped (a check of another stage is refused with 409 "Finish the earlier recovery stages
+  first.", "This stage is already passed." or "Your team does not play this level."). Checks are **unlimited** and cost
+  nothing; a wrong one returns only the stage's neutral message. **One ML check every 2 seconds and one Arduino run every
+  3 seconds per team** (429 "Wait N seconds before the next check."); a refused or malformed check (400) is not stored.
+  Every evaluated check is stored append-only (`recovery_check`, one passed row per team, level and stage) with an
+  Idempotency-Key: a retry returns the same answer.
+  - **ML** (six stages): 1 *leakage* — keep every feature except `investigation_result`; 2 *pipeline* — the order Load
+    Dataset, Split Train/Test, Fit Scaler on Training Data, Transform Train/Test, Train Model, Evaluate (the scaler step is
+    shown as "Fit Scaler on Full Dataset" until it is after the split); 3 *cleaning* — training median + clip / flag;
+    4 *model* — the one model with recall ≥ 0.88 and precision ≥ 0.75; 5 *threshold* — the slider 0.25 to 0.80 (step
+    0.01), the server rounds t to 2 decimals and computes r = clamp(1.05 − 0.28 t, 0.60, 0.97), p = clamp(0.56 + 0.46 t,
+    0.55, 0.92), fn = round((1 − r) × 20), F1 = 2pr / (p + r); it passes when r ≥ 0.90, p ≥ 0.75 and fn ≤ 2 (0.42 to
+    0.53); 6 *evidence* — the word read from the records (trimmed, any case). The stage view sends the slider's metrics
+    for display, never the passing range. Token "ML-8842" once passed (cosmetic).
+  - **ARDUINO**: the security controller program (numbered lines; every line is editable) and one choice slot for the
+    missing behaviour (four options, shuffled per team, sent and answered by letter). A run sends every line and a letter.
+    Any line outside the bug lines changed (whitespace ignored) fails every test with "A line outside the faulty logic was
+    changed."; bug lines are compared without whitespace against their accepted variants (a commented-out block must be
+    empty or `//` lines). Eight tests (T1 to T8), PASS / FAIL only; the level passes when all pass. Token "RCV-7314"
+    (cosmetic).
+- **Finishing**: passing the last required stage grants, in the same transaction and once, every room key the team does
+  not hold (source *Recovery*, never removed by a recheck) and records S (below). The team then goes to the unlock screen,
+  which shows **its own** recovered key values (`unlock.recoveredKeys`). Recovery **never restores room points**; scoring
+  is unchanged.
+- **Each team's case start**: S = the final's **active** seconds (pauses excluded) when the team passed its last required
+  level, 0 for K = 4. S **closes nothing**: no phase starts or ends by the clock (rule 10). It only says when the team's
+  case began (the admin's *Recovery finished* and the start of its *Crypto window*), and a team whose S is late simply has
+  less time left to decrypt and investigate. If the final ends first (during the recovery or the case), the team is
+  finalised as usual.
+- **API**: `GET /team/final/recovery` (status, levels, current level and stage with only that stage's public data, every
+  required stage's passed flag, the latest Arduino test results, `waitSeconds`); `POST /team/final/recovery/ml/{stage}`
+  and `POST /team/final/recovery/arduino/run` (Idempotency-Key). Nothing returned to a member holds a stage answer, an
+  accepted line, the correct option or the passing threshold range. `GET /admin/final/recovery`: every team's K, levels,
+  current stage, checks (all and on the current stage), latest check and finish time.
+- Every rule is enforced on the server: a disqualified team, a not-open final and a paused final are refused.
 
 ## 10. The final case: "The Last Shipment"
 
 State always comes from the server; a refresh resumes where the team was. Screens, in order:
 
-1. **Unlock**: four inputs labelled with the real room names (in room order). Each must match **that room's clue key**
-   (rule 5.4) **and** the team must hold that room's clue. A wrong try says only "These room outputs do not open the case."
+1. **Unlock** (after the recovery, when one is needed): four inputs labelled with the real room names (in room order),
+   and the key values the team's recovery granted (its own only). Each must match **that room's clue key** (rule 5.4)
+   **and** the team must hold that room's clue (a key revoked after the opening: 409 "Your team does not hold all four
+   room keys. Ask the organizer."). A wrong try says only "These room outputs do not open the case."
    (never which field); **5 wrong in a row = a 30-second wait**.
 2. **Mission**: the mission's title, case briefing and two phases from the content file ("Decrypt all four files (15
    minutes).", "Analyze the decrypted information and compare it with the Suspects Sheet (25 minutes)."). **Start** opens
@@ -236,23 +271,30 @@ State always comes from the server; a refresh resumes where the team was. Screen
    - **Suspect**: choose **one** of the listed suspects by its id (a row opens the suspect's full card, whose *Select as
      the kidnapper* only fills the select); confirmation; **one time only**; no free text. It can be submitted only in the
      investigation phase (it does not need the four files; the time points do).
-   **The two phases** are decided on the server from the final timer's **active seconds** (pauses excluded), so every team
-   is in the same phase at the same moment; a team that enters the case late (through the Recovery Challenge) follows the
-   same clock and gets no extra time. The content's `phase1Minutes` (1 to 39, default 15) is the decryption phase's length.
-   - **Decryption** (active time below `phase1Minutes` × 60): passphrase checks, the 30-second wait and the terminal work
-     as before; decrypted reports are visible; the suspects are **not** sent (an empty list) and a suspect is refused with
-     409 "The investigation phase starts at 15:00." (the real minutes).
-   - **Investigation** (from then until the final ends): a passphrase is refused with 409 "The decryption phase is over."
-     (no attempt row, no wait); the final's terminal bundle is refused (409) and no terminal is offered; the suspects are sent
-     and the one-time submission works. Reports decrypted in time stay visible; the other files stay locked ("Not decrypted
-     in time"). Nothing about an unsolved report, a hash or the correct suspect is ever sent.
-   The case view carries `phase`, `phase1Minutes` and `phase1EndsInSeconds` (active seconds until the investigation opens,
-   null after); the admin's timer view and final table carry the phase too. Scoring is unchanged.
+   **The two phases have no clock.** A team is in **Phase 1 (decryption)** until it has decrypted **all four** files and in
+   **Phase 2 (investigation)** from the moment its fourth passphrase is accepted, whenever that is. The active second of
+   that acceptance is stored once on the team's `team_final` row (`all_decrypted_at_seconds`, migration V27; idempotent: a
+   second request or a race changes nothing) and the one pure function `FinalPhase.of(allDecryptedAtSeconds)` decides the
+   phase everywhere (team view, suspect, passphrases, terminal package, admin table). Without the four files the team
+   stays in Phase 1 until the final ends at 40:00 and can **never** send a suspect: a suspect is refused with 409
+   "Decrypt all four files to open the investigation." The content's `phase1Minutes` (1 to 39, default 15) is only an
+   **estimate** the team sees ("Estimated time: 15 min"); it closes nothing.
+   - **Phase 1** (until the final ends, in both phases): passphrase checks (an already decrypted file keeps its 409 "This
+     evidence file is already decrypted.", no attempt row, no double count), the 30-second wait and the final's terminal
+     package (still served) work as before; decrypted reports stay visible; the suspects are **not** sent while the team
+     is in Phase 1 (an empty list).
+   - **Phase 2** (from the fourth file until the final ends): the suspects are sent and the one-time submission works.
+     Phase 1 stays open and reachable (terminal, reports, commands). Nothing about an unsolved report, a hash or the
+     correct suspect is ever sent.
+   The case view carries `phase` and `phase1Minutes`; the admin's final table carries each team's phase and its crypto
+   window (from S, or the final's start, until the fourth file was decrypted, or "until the end" while it was not), and the
+   timer view the estimate.
+   At 40:00 everything closes as before: the team is finalised and every action is refused.
    **Final Investigation Report** (written justification): the one-time suspect request may also carry `evidence1` to
    `evidence4` and `explanation`, each optional, trimmed (blank means none), at most **600 characters**, no control
    character except a new line (every failing field is listed at once). It is stored with the submission in the same
    guarded statement (`team_final`, migration V23), so it is recorded once and **cannot be changed afterwards** (the same
-   suspect sent again changes nothing); it is refused outside the investigation phase exactly like the suspect. It is for
+   suspect sent again changes nothing); it is refused outside Phase 2 exactly like the suspect. It is for
    the organizers: **it never changes a score, a time point or the ranking**, the audit entry never carries its text, and
    a team only ever sees its own (read-only, on the Submitted screen, with the suspect it chose). Organizers read every
    team's report in `GET /admin/final/reports` (team, submitted, suspect id and name, correct, submitted at, evidence,
@@ -266,26 +308,32 @@ State always comes from the server; a refresh resumes where the team was. Screen
 (default 25), `phase1Minutes` (the decryption phase's length, 1 to 39, default 15), the mission texts, exactly **four clues numbered 1 to 4** (title, `encFile`, `rsaFile`, `keyReference`,
 `passphraseSha256` = lower-case hex SHA-256 of the passphrase without any line ending, and the report), the **key index**
 (one entry per clue reference; each key A to D used exactly once), **2 to 30 suspects** with unique ids, the correct
-suspect (one of their ids) and the Recovery Challenge (question and accepted answers; the admin board warns while the
-question is still a placeholder). Every problem is listed at once and nothing is saved when there is one. A member never
+suspect (one of their ids) and `recoveryLevels` (`ml` and `arduino`: every text, value and answer of rule 9, each
+validated: ids unique, answers among the choices, a passing threshold on the slider, exactly one model meeting the
+requirement, every bug and the slot covered by a test, bug lines that exist and are not already fixed). A file with the
+retired single `recovery` question is refused with a message saying so. Every problem is listed at once and nothing is saved when there is one. A member never
 receives a passphrase hash, the report of an unsolved file, the correct suspect, a score or another team's data.
 
 **The final's terminal package** is stored apart from every room's package (rule 18): the admin uploads, replaces or
 deletes one ZIP (`PUT/GET/DELETE /admin/final/terminal-bundle`, multipart, at most 25 MB, validated and built exactly like a
 room's package, read-only once the final opens; it never touches a room's package or its ETag). A team downloads the built
-bundle (`GET /team/final/terminal-bundle`, ETag / 304 like a room's) **only while its final shows the case and the
-decryption phase is open** (409 "The decryption phase is over." after it); anyone else gets 404. While no package is uploaded the admin board shows the non-blocking alert *The final terminal package is not
+bundle (`GET /team/final/terminal-bundle`, ETag / 304 like a room's) **while its final shows the case, in both phases**
+(until the final ends); anyone else gets 404. While no package is uploaded the admin board shows the non-blocking alert *The final terminal package is not
 uploaded yet.* and the case screen says "The terminal package is not ready yet. Ask the organizer." The case terminal's
 saved copy (page refresh) is filed under the place *final*, never a room id, so a room's saved terminal is never restored
 in the final or the reverse.
 
-**Case screen layout**: two tabs, *Phase 1 — Decryption* (open first) and *Phase 2 — Investigation*. During the
-decryption phase the Phase 2 tab is visible but locked ("Opens at 15:00 · mm:ss left", a live countdown corrected on every
-refresh); when the investigation starts the page moves to Phase 2 once, and Phase 1 stays readable but read-only (no
-terminal, "The decryption phase is over.", solved files with View report, the others "Not decrypted in time"; the saved
-final terminal is deleted). The sticky bar shows "Phase 1 — Decryption · ends in mm:ss", then "Phase 2 — Investigation",
-beside the one 40-minute timer. Phase 1: the first step, the progress, the key index, one card per file with its five
-steps and the terminal. Phase 2: the recovered evidence, "My notes" (kept in this browser only), the suspects sheet (a
+**Case screen layout**: two tabs, *Phase 1 — Decryption* (open first) and *Phase 2 — Investigation*. While the team has
+not decrypted all four files the Phase 2 tab is visible but locked ("Opens when all four files are decrypted") and the
+page says "Decrypt all four files to open the investigation."; the status bar shows "Phase 1 — Decryption" and
+"Estimated time: 15 min" (the content's `phase1Minutes`, no countdown). When the fourth file is accepted the page moves to
+Phase 2 once, with the note "All four files decrypted: the investigation is open.", and **both tabs stay available** until
+the final ends (the terminal keeps running, Phase 1 keeps its cards, reports and Command reference). The sticky bar shows
+"Phase 2 — Investigation" beside the one 40-minute timer. Phase 1: the progress, the key index (in the content's order), one card per file (its
+number, `.enc` and `.rsa` file names, key reference, status and the *Recovered passphrase* box, with **no ready-made
+command, key picker or "send to terminal"**), the always-visible *Command reference* (the generic steps of the participant
+guide with N, X and REPORT_NAME highlighted and a Copy button per command; the team types every command itself) and the
+terminal. Phase 2: the recovered evidence, "My notes" (kept in this browser only), the suspects sheet (a
 search by id, name, position or statement; a row opens the full card) and *Who kidnapped Noor?* (one suspect), then the
 **Final Investigation Report** card ("Your answer must include a brief explanation of the evidence supporting your
 conclusion."; four *Evidence* boxes and an optional *Explanation*, a counter of 600 each, saved in this browser while
@@ -295,8 +343,10 @@ Organizers use it to judge your reasoning." The Submitted screen shows the chose
 
 **Final score (40)**: each decrypted evidence file **3.75** (at most 15); the correct suspect **10**; **time points (at
 most 15)** from t = the **active** minutes from the final's start to the suspect submission (pauses are not counted), for
-everyone including recovery teams: t ≤ the full-until minutes → 15, otherwise MAX(0, 40 − t). Time points need **all four
-files decrypted and a submitted suspect**, otherwise 0.
+everyone including recovery teams: t ≤ the full-until minutes → 15, otherwise MAX(0, 40 − t). **With a wrong suspect the
+team gets half of that value** (t = 20:00: 7.50; 25:30: 7.25; 30:00: 5.00; 40:00: 0), rounded to 2 decimals once at the end.
+Time points need **all four files decrypted and a submitted suspect**, otherwise 0 (a team with fewer than four files can
+never submit a suspect, rule 10).
 
 **Time up**: input stops, unanswered parts score 0, and the team's final is finalised **exactly once**, inside the same
 transaction as whatever first notices it (a team's write finds no time left, or the admin closes the final); there is no
@@ -318,7 +368,7 @@ scoreboard (four room lines with base and deductions, the final's parts, the tot
 final table (`GET /admin/final/board`: status, stage, unlock and passphrase attempts, files decrypted 0 to 4, suspect and
 whether it is correct, active time, finish time, score parts) and the full penalty log. The CSV export's final columns are
 cluesSolved, cluePoints, suspect, time, finalScore. The Content page imports the final content file and the final's
-terminal package; the Control page has the final timer's pause, resume and added time and the line "Investigation opens at 15:00 (in mm:ss)"; the live final table names each team's phase. The **Final reports** page (`/event/admin/final-reports`, under Scores)
+terminal package; the Control page has the final timer's pause, resume and added time and a line saying a team's investigation opens when it has decrypted all four files (estimated 15 min); the live final table names each team's phase. The **Final reports** page (`/event/admin/final-reports`, under Scores)
 shows one card per team (suspect, Correct or Wrong, the minute it submitted, the evidence and explanation), a filter (All, Correct,
 Wrong, Not submitted) and a Print layout (one team per block, no application chrome).
 
@@ -398,7 +448,7 @@ once in a single transaction.
    anything ("Your team has been disqualified. Contact the organizer.") and is listed last in the ranking, marked
    *Disqualified*, without a rank and outside the rank numbering. Reinstating restores normal play.
 6. **Reset final**: all final progress is deleted (unlock and passphrase attempts, suspect submissions, recovery
-   attempts and recovery clues, added time); the final closes, its timer is cleared, it may be opened again, and content
+   checks and recovery keys (K is taken again at the next opening), added time); the final closes, its timer is cleared, it may be opened again, and content
    becomes editable again. Hints, cheating records and room scores are room-phase data and stay.
 7. **Reset one team**: all of the team's progress is deleted; the team, its account and its group stay, and its
    device is signed out ("An organizer signed your team out.").
