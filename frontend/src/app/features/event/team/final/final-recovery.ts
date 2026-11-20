@@ -1,76 +1,96 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { RECOVERY_PATH } from "../../../../core/event/event-api";
-import { RecoveryRequest, RecoveryResult } from "../../../../core/event/event-models";
-import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
-import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
+import { ChangeDetectionStrategy, Component, effect, inject, input, output } from "@angular/core";
+import { EventApi } from "../../../../core/event/event-api";
+import { TeamFinal, TeamRecovery } from "../../../../core/event/event-models";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
-import { UiInput } from "../../../../shared/ui/ui-input/ui-input";
-import { EventAttemptStatus } from "../attempt-status";
-import { PendingAttempt } from "../pending-attempt";
+import { UiPageState } from "../../../../shared/ui/ui-page-state/ui-page-state";
+import { BoardLoader } from "../../manager/board-loader";
+import { EventArduinoDebug } from "./recovery/arduino-debug";
+import { EventArduinoReference } from "./recovery/arduino-reference";
+import { EventMlAudit } from "./recovery/ml-audit";
+import { EventRecoveryReference } from "./recovery/recovery-reference";
+import { EventRecoveryStrip } from "./recovery/recovery-strip";
 
-const ANSWER_MAX = 500;
-
-/** The one Recovery Challenge: unlimited attempts, no penalty. A correct answer collects the missing clue. */
+/**
+ * The recovery screen (a team that held fewer than 4 room keys when the final opened): the path as a progress strip, the
+ * level the server says is current, and a collapsible quick reference. The state always comes from the server, so a refresh
+ * resumes exactly where the team was; the screen loads the recovery again whenever the page's final changes.
+ */
 @Component({
   selector: "event-final-recovery",
-  imports: [EventAttemptStatus, FormsModule, UiAlert, UiButton, UiCard, UiInput],
+  imports: [EventArduinoDebug, EventArduinoReference, EventMlAudit, EventRecoveryReference, EventRecoveryStrip, UiCard, UiPageState],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
-    form {
-      display: grid;
-      gap: var(--space-3);
+    :host {
+      display: block;
+      min-inline-size: 0;
     }
-    blockquote {
+    .recovery {
+      display: grid;
+      gap: var(--space-4);
+      min-inline-size: 0;
+    }
+    .token {
       margin: 0;
-      padding: var(--space-3) var(--space-4);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      background: var(--color-surface-subtle);
-      border-radius: var(--radius-sm);
+      font-weight: var(--font-weight-bold);
+      color: var(--brand-green-ink);
+    }
+    code {
+      font-family: var(--font-mono);
     }
   `,
-  template: `<ui-card data-final-screen="RECOVERY">
-    <h2 ui-card-header>Recovery Challenge</h2>
-    <form (ngSubmit)="submit()">
-      <p>
-        Your team has 3 of 4 clues. Solve this challenge to collect the missing clue and join the case with the time
-        that is left.
-      </p>
-      <blockquote data-recovery-question>{{ recovery().question }}</blockquote>
-      <p class="event-muted">Wrong answers cost nothing. Attempts so far: {{ recovery().attempts }}.</p>
-      <ui-input label="Recovery answer" name="answer" [required]="true" [(ngModel)]="answer" />
-      @if (feedback(); as text) {
-        <ui-alert variant="error" [dismissible]="true">{{ text }}</ui-alert>
+  template: `<div data-final-screen="RECOVERY" class="recovery">
+    <ui-page-state
+      [loading]="loader.loading()"
+      loadingLabel="Loading your recovery…"
+      [skeletonCards]="1"
+      [error]="loader.initialError()"
+      (retry)="load()"
+    />
+    @if (recovery(); as view) {
+      <event-recovery-strip [levels]="view.levels" [progress]="view.progress" [finished]="view.finished" />
+      @if (view.currentLevel === "ML" && view.mlStage) {
+        <event-ml-audit [recovery]="view" (changed)="changed.emit()" />
+      } @else if (view.currentLevel === "ARDUINO") {
+        @if (mlToken(view); as token) {
+          <ui-card data-recovery-token="ML">
+            <p class="token">{{ token.label }}: <code>{{ token.value }}</code></p>
+          </ui-card>
+        }
+        @if (view.arduino; as program) {
+          <event-arduino-debug [program]="program" [lastTests]="view.lastTests" [waitSeconds]="view.waitSeconds" (changed)="changed.emit()" />
+        }
       }
-      <event-attempt-status [attempt]="attempt" (retry)="retry()" />
-      <ui-button type="submit" size="lg" [fullWidth]="true" [loading]="attempt.sending()"
-        >Submit recovery answer</ui-button
-      >
-    </form>
-  </ui-card>`,
+    }
+    @if (recovery()?.currentLevel === "ARDUINO") {
+      <event-arduino-reference />
+    } @else {
+      <event-recovery-reference />
+    }
+  </div>`,
 })
 export class EventFinalRecovery {
-  readonly recovery = input.required<{ question: string; attempts: number }>();
+  private readonly eventApi = inject(EventApi);
+
+  /** The page's final; a new one (after a check, a revision push or a reload) loads the recovery again. */
+  readonly final = input.required<TeamFinal>();
+  /** A check was answered: the page reloads, which moves the team to its next stage or to the unlock screen. */
   readonly changed = output<void>();
 
-  protected readonly attempt = new PendingAttempt<RecoveryRequest, RecoveryResult>("recovery");
-  protected readonly answer = signal("");
-  protected readonly feedback = signal<string | null>(null);
+  protected readonly loader = new BoardLoader<TeamRecovery>(() => this.eventApi.teamRecovery());
+  protected readonly recovery = this.loader.data;
+  protected readonly mlToken = (view: TeamRecovery) => {
+    const ml = view.progress.find((p) => p.level === "ML");
+    return ml?.token ? { label: ml.tokenLabel ?? "ML RECOVERY TOKEN", value: ml.token } : null;
+  };
 
-  protected async submit(): Promise<void> {
-    const answer = this.answer().trim();
-    this.feedback.set(!answer ? "Enter your recovery answer." : answer.length > ANSWER_MAX ? `Recovery answer is too long (max ${ANSWER_MAX} characters).` : null);
-    if (this.feedback()) return;
-    this.finish(await this.attempt.submit(RECOVERY_PATH, { answer }));
+  constructor() {
+    effect(() => {
+      this.final();
+      void this.loader.load();
+    });
   }
 
-  protected async retry(): Promise<void> {
-    this.finish(await this.attempt.retry());
-  }
-
-  private finish(result: RecoveryResult | null): void {
-    if (result && !result.correct) this.feedback.set("Not correct — try again.");
-    this.changed.emit();
+  protected load(): Promise<void> {
+    return this.loader.load();
   }
 }

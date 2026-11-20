@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   EventAdminShortcuts,
   EventApiSession,
+  PRACTICE_KEYS,
   RehearsalAccounts,
   readRehearsalAccounts,
   resetRehearsal,
@@ -14,8 +15,6 @@ import {
   FinalShortcuts,
   FinalView,
   PASSPHRASES,
-  RECOVERY_ANSWER,
-  RECOVERY_QUESTION,
   ROOMS,
   SHIPMENT_CONTENT,
   ScoreRow,
@@ -65,13 +64,18 @@ const PLANS = [
  * Content (with the given decryption phase length in minutes, or the file's own), the final's terminal package (unless
  * `withPackage` is false), the clues, then the final opens.
  */
-async function prepareFinal(admin: EventApiSession, withPackage = true, phase1Minutes?: number) {
+async function prepareFinal(
+  admin: EventApiSession,
+  withPackage = true,
+  phase1Minutes?: number,
+  plans: readonly { number: number; rooms: readonly (typeof ROOMS)[number][] }[] = PLANS,
+) {
   const control = new EventAdminShortcuts(admin);
   await control.setRoomActivity("AI", null);
   await setPracticeKeys(accounts, ROOMS);
   await admin.send("PUT", "/event/admin/final/content", JSON.parse(finalContentJson(phase1Minutes)));
   if (withPackage) await admin.upload("/event/admin/final/terminal-bundle", "final-package.zip", finalPackageZip());
-  await collectClues(accounts, admin, PLANS);
+  await collectClues(accounts, admin, plans);
   await control.openFinal();
   return control;
 }
@@ -185,7 +189,7 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(first.page.getByRole("tab", { name: "Phase 1 — Decryption" })).toHaveAttribute("aria-selected", "true");
       await expect(first.page.locator("[data-final-phase-label]")).toContainText("Phase 1 — Decryption · ends in ");
       await expect(first.page.locator("[data-phase-hint]")).toHaveText(
-        `Decrypt all four files. Phase 2 opens at ${MAIN_PHASE1_MINUTES}:00 of the final's time.`,
+        `Decrypt all four files. Phase 2 opens at ${MAIN_PHASE1_MINUTES}:00 of the final's time, or at once when the fourth file is decrypted.`,
       );
       for (let n = 1; n <= 4; n++) {
         const clue = SHIPMENT_CONTENT.clues[n - 1];
@@ -194,54 +198,66 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
         await expect(clueRow(first.page, n).locator("[data-key-reference]")).toHaveText(clue.keyReference);
         await expect(clueRow(first.page, n).locator("[data-clue-status]")).toHaveText("Locked");
       }
-      await expect(first.page.locator("[data-key-index] tbody tr")).toHaveCount(4);
+      // The Key Index keeps the content's order.
+      const indexRows = first.page.locator("[data-key-index] tbody tr");
+      await expect(indexRows).toHaveCount(4);
+      for (let i = 0; i < 4; i++) {
+        const entry = SHIPMENT_CONTENT.keyIndex[i];
+        await expect(indexRows.nth(i).locator("td").nth(0)).toHaveText(entry.reference);
+        await expect(indexRows.nth(i).locator("td").nth(1)).toHaveText(entry.key);
+      }
       await expect(first.page.locator("[data-rsa-keys]")).toContainText("key_D.pem");
-      // The first step is always in view; "How it works" is collapsed, with the general commands inside.
-      await expect(first.page.locator("[data-first-step]")).toContainText("cd ~/DevFest-Crypto && mkdir -p participant_test");
-      const how = first.page.locator("[data-how-it-works]");
-      await expect(how).not.toHaveAttribute("open", "");
-      await how.locator("summary").click();
-      await expect(how.locator("[data-guide-command]").first()).toContainText("key_X.pem");
-      await how.locator("summary").click();
+      // No ready-made commands anywhere: no "Start here", no key picker, no "Send to terminal", no filled commands.
+      await expect(first.page.locator("[data-first-step], [data-key-picker], [data-send-to-terminal], [data-how-it-works]")).toHaveCount(0);
+      await expect(first.page.getByRole("button", { name: "Send to terminal" })).toHaveCount(0);
+      for (let n = 1; n <= 4; n++) {
+        await expect(clueRow(first.page, n).locator("[data-final-command], li.step")).toHaveCount(0);
+        await expect(clueRow(first.page, n).locator("[data-passphrase-form]")).toBeVisible();
+        await expect(clueRow(first.page, n).getByRole("textbox", { name: "Recovered passphrase", exact: true })).toBeVisible();
+      }
+      // The Command reference sits below the cards, always open, with the generic commands and their placeholders.
+      const reference = first.page.locator("[data-command-reference]");
+      await expect(reference).toBeVisible();
+      await expect(reference.locator("[data-reference-command] code")).toHaveText([
+        "cd ~/DevFest-Crypto",
+        "mkdir -p participant_test",
+        "openssl pkeyutl -decrypt -inkey participant_package/keys/key_X.pem -in participant_package/clues/clueN/clueN_key.rsa -out participant_test/secret_N.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256",
+        "openssl enc -d -aes-256-cbc -pbkdf2 -in participant_package/clues/clueN/REPORT_NAME.enc -out participant_test/report_N.txt -pass file:participant_test/secret_N.txt",
+        "cat participant_test/report_N.txt",
+      ]);
+      await expect(reference.locator("[data-reference-command] [data-placeholder]").first()).toBeVisible();
+      await expect(reference.locator("[data-reference-note]")).toHaveText(
+        "Replace ALL N with the same clue number (1-4). Replace X with your key letter from the Key Index. Replace REPORT_NAME with the exact .enc file name (without .enc).",
+      );
+      await expect(reference.locator("[data-reference-prove]")).toHaveText(
+        "Prove a clue: run cat participant_test/secret_N.txt and paste it in the clue's box.",
+      );
+      await expect(reference.locator("[data-reference-command] ui-copy-button")).toHaveCount(5);
       await expect(first.page.locator(`[data-final-phase="1"] [data-decrypted-count]`)).toHaveText("0 / 4");
-      // Each clue is a card with five numbered steps; the RSA command waits for the key.
-      await expect(clueRow(first.page, 1).locator("li.step")).toHaveCount(5);
-      await expect(clueRow(first.page, 1).locator('[data-step="rsa"]')).toContainText("key_?.pem");
-      await expect(clueRow(first.page, 1).locator('[data-step="rsa"] [data-send-to-terminal]')).toHaveCount(0);
       // No report reaches the page before its file is decrypted.
       await expect(first.page.locator("body")).not.toContainText("Forklift FL-3");
     });
 
-    await test.step("in the terminal, the guide's commands decrypt clue 3 and show the warehouse report", async () => {
+    await test.step("in the terminal, the typed commands decrypt clue 3 with key D and show the warehouse report", async () => {
       await expect(terminal(first.page)).toHaveAttribute("data-state", "ready", BOOT);
       const key = keyLetter(3);
-      const report = SHIPMENT_CONTENT.clues[2].encFile;
-      // "Send to terminal" types the command without pressing Enter; the test adds its marker and runs it.
-      await first.page.locator("[data-first-step] [data-send-to-terminal]").getByRole("button").click();
-      await expect(first.page.locator("[data-first-step] [data-send-note]")).toContainText("Typed in the terminal");
-      await ask(first.page, '; echo "DIR=$(pwd)"', "DIR");
-      // Pick the key for clue 3: the RSA command is filled in and may now be sent.
-      await clueRow(first.page, 3).getByRole("combobox", { name: "Key letter" }).selectOption(key);
-      const rsa = clueRow(first.page, 3).locator('[data-step="rsa"]');
-      await expect(rsa).toContainText(`-inkey participant_package/keys/key_${key}.pem`);
-      await expect(rsa).toContainText("participant_package/clues/clue3/clue3_key.rsa");
-      await expect(rsa).toContainText("-out participant_test/secret_3.txt");
-      await expect(clueRow(first.page, 3).locator('[data-step="aes"]')).toContainText(`clues/clue3/${report}`);
-      await expect(clueRow(first.page, 3).locator('[data-step="prove"]')).toContainText("cat participant_test/secret_3.txt");
-      await rsa.locator("[data-send-to-terminal]").getByRole("button").click();
-      await expect(rsa.locator("[data-send-note]")).toContainText("Typed in the terminal");
-      await expect(terminal(first.page).locator(".xterm-rows")).toContainText(`key_${key}.pem`);
+      expect(key, "clue 3 opens with key D").toBe("D");
+      const report = SHIPMENT_CONTENT.clues[2].encFile.replace(/\.enc$/, "");
+      // The test types what the Command reference shows, with N = 3, X = D and REPORT_NAME replaced.
+      await ask(first.page, 'cd ~/DevFest-Crypto && mkdir -p participant_test; echo "DIR=$(pwd)"', "DIR");
       await shootBoth(first.page, "phase1-clue");
       await ask(
         first.page,
-        '; echo "RSA=$?"',
+        `openssl pkeyutl -decrypt -inkey participant_package/keys/key_${key}.pem -in participant_package/clues/clue3/clue3_key.rsa ` +
+          "-out participant_test/secret_3.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256; " +
+          'echo "RSA=$?"',
         "RSA",
         // The setup seeds the kernel's random pool (haveged), so even the first RSA decryption takes about a second.
         15000,
       );
       await ask(
         first.page,
-        `openssl enc -d -aes-256-cbc -pbkdf2 -in participant_package/clues/clue3/${report} -out participant_test/report_3.txt ` +
+        `openssl enc -d -aes-256-cbc -pbkdf2 -in participant_package/clues/clue3/${report}.enc -out participant_test/report_3.txt ` +
           `-pass file:participant_test/secret_3.txt; echo "AES=$?"`,
         "AES",
       );
@@ -253,7 +269,7 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(clueRow(first.page, 3).locator("[data-clue-status]")).toHaveText("Decrypted");
       await expect(first.page.locator(`[data-final-phase="1"] [data-decrypted-count]`)).toHaveText("1 / 4");
       // The solved clue collapses and focus lands on its View report button.
-      await expect(clueRow(first.page, 3).locator("li.step")).toHaveCount(0);
+      await expect(clueRow(first.page, 3).locator("[data-passphrase-form]")).toHaveCount(0);
       await expect(clueRow(first.page, 3).locator("[data-view-report] button")).toBeFocused();
       await shootBoth(first.page, "phase1");
       // The phone-width check above narrowed the window: the same Linux keeps running (nothing was restarted).
@@ -292,30 +308,30 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
       await expect(clueRow(first.page, 1).locator("[data-passphrase-check]")).toHaveText("Check");
     });
 
-    await test.step("clues 1, 2 and 4 are solved through the API; the page follows", async () => {
+    await test.step("clues 1 and 2 are solved through the API; with three files the suspect is still refused", async () => {
       firstApi = await EventApiSession.fromPage(first.page);
       const shortcuts = new FinalShortcuts(firstApi, keyFor);
       await shortcuts.passphrase(1, PASSPHRASES[0]);
       await shortcuts.passphrase(2, PASSPHRASES[1]);
+      await expect(first.page.locator(`[data-final-phase="1"] [data-decrypted-count]`)).toHaveText("3 / 4");
+      await expect(shortcuts.suspect(CORRECT_SUSPECT)).rejects.toThrow(
+        new RegExp(`409.*The investigation phase starts at ${MAIN_PHASE1_MINUTES}:00\\.`),
+      );
+      await expect(first.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-disabled", "true");
       await expect
         .poll(async () => (await shortcuts.view()).clues[3].waitSeconds, { timeout: 40000 })
         .toBe(0);
-      await shortcuts.passphrase(4, PASSPHRASES[3]);
-      await expect(first.page.locator(`[data-final-phase="1"] [data-decrypted-count]`)).toHaveText("4 / 4");
     });
 
-    await test.step("the investigation opens by itself: the page moves to Phase 2 and Phase 1 turns read-only", async () => {
-      const api = await EventApiSession.fromPage(first.page);
-      try {
-        await expect(new FinalShortcuts(api, keyFor).suspect(CORRECT_SUSPECT)).rejects.toThrow(
-          new RegExp(`409.*The investigation phase starts at ${MAIN_PHASE1_MINUTES}:00\\.`),
-        );
-      } finally {
-        await api.dispose();
-      }
+    await test.step("the fourth file opens the investigation at once: the page moves to Phase 2 and Phase 1 turns read-only", async () => {
+      const shortcuts = new FinalShortcuts(firstApi, keyFor);
+      await shortcuts.passphrase(4, PASSPHRASES[3]);
       await expect(first.page.getByRole("tab", { name: "Phase 2 — Investigation" })).toHaveAttribute("aria-selected", "true", {
-        timeout: 240000,
+        timeout: 30000,
       });
+      await expect(first.page.locator('[data-final-phase="2"] [data-all-decrypted]')).toHaveText(
+        "All four files decrypted: the investigation is open.",
+      );
       await expect(first.page.locator("[data-final-phase-label]")).toHaveText("Phase 2 — Investigation");
       await expect(first.page.locator("[data-phase-locked]")).toHaveCount(0);
       await first.page.getByRole("tab", { name: "Phase 1 — Decryption" }).click();
@@ -478,55 +494,536 @@ test("final: a 4-clue team unlocks, decrypts a clue in the terminal, solves the 
   expect(first.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
 });
 
-test("final: a 3-clue team passes the Recovery Challenge and reaches the mission; a 2-clue team is refused", async ({
+/** The ML recovery strip and stage list, read from the page (state comes from the server). */
+function mlStage(page: Page, n: number) {
+  return page.locator(`[data-ml-stages] [data-stage="${n}"]`);
+}
+
+/** Sets the threshold slider the way a pointer would: the value, then an input event. */
+async function setThreshold(page: Page, value: string) {
+  await page.locator("[data-ml-threshold]").evaluate((element, v) => {
+    const input = element as HTMLInputElement;
+    input.value = v;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+}
+
+function checkButton(page: Page, name: string) {
+  return page.getByRole("button", { name, exact: true });
+}
+
+test("final: a 3-key team solves the six ML recovery stages and reaches the unlock with its recovered key", async ({
   browser,
 }) => {
   test.setTimeout(900000);
   const admin = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
   const recovering = await openRolePage(browser, "team 02", WIDE);
-  const refused = await openRolePage(browser, "team 03", WIDE);
+  const page = recovering.page;
   let recoveringApi: EventApiSession | null = null;
   try {
     await prepareFinal(admin);
 
-    await test.step("Team 02 (3 clues) sees the Recovery Challenge and no unlock", async () => {
-      await signIn(recovering.page, accounts.members[1], accounts.seedPassword);
-      await recovering.page.goto("/event/team/final");
-      await expect(status(recovering.page)).toHaveText("Recovery");
-      await expect(screen(recovering.page, "RECOVERY")).toBeVisible();
-      await expect(recovering.page.locator("[data-recovery-question]")).toHaveText(RECOVERY_QUESTION);
-      await expect(screen(recovering.page, "UNLOCK")).toHaveCount(0);
-      recoveringApi = await EventApiSession.fromPage(recovering.page);
-      await expect(new FinalShortcuts(recoveringApi, keyFor).unlock()).rejects.toThrow(/409.*Solve the Recovery Challenge first/);
+    await test.step("Team 02 (3 keys) sees the ML level: its path, six stages, the first one current, and no unlock", async () => {
+      await signIn(page, accounts.members[1], accounts.seedPassword);
+      await page.goto("/event/team/final");
+      await expect(status(page)).toHaveText("Recovery");
+      await expect(screen(page, "RECOVERY")).toBeVisible();
+      await expect(screen(page, "UNLOCK")).toHaveCount(0);
+      const strip = page.locator("[data-recovery-strip]");
+      await expect(strip.locator("[data-step]")).toHaveText([/ML Recovery/, /Crypto/, /Final Investigation/]);
+      await expect(strip.locator('[data-step="ml"]')).toHaveAttribute("data-state", "current");
+      await expect(strip.locator('[data-step="crypto"]')).toHaveAttribute("data-state", "locked");
+      await expect(page.locator('[data-step="arduino"]')).toHaveCount(0);
+      await expect(page.locator("[data-ml-stages] li")).toHaveCount(6);
+      await expect(mlStage(page, 1)).toHaveAttribute("data-state", "current");
+      await expect(mlStage(page, 2)).toHaveAttribute("data-state", "locked");
+      await expect(page.locator("[data-ml-title]")).toHaveText("Stage 1 — Why is accuracy 96%?");
+      await expect(page.locator("[data-ml-note]")).toHaveText("Reported Accuracy: 96%");
+      recoveringApi = await EventApiSession.fromPage(page);
+      await expect(new FinalShortcuts(recoveringApi, keyFor).unlock()).rejects.toThrow(/409.*Finish your recovery levels first/);
+      await shootBoth(page, "recovery-ml-stage1");
     });
 
-    await test.step("a wrong answer costs nothing; the right one leads to the unlock, then the mission", async () => {
-      await recovering.page.getByRole("textbox", { name: "Recovery answer", exact: true }).fill("a wrong answer");
-      await recovering.page.getByRole("button", { name: "Submit recovery answer", exact: true }).click();
-      await expect(recovering.page.getByText("Not correct — try again.")).toBeVisible();
-      await recovering.page.getByRole("textbox", { name: "Recovery answer", exact: true }).fill(RECOVERY_ANSWER.toLowerCase());
-      await recovering.page.getByRole("button", { name: "Submit recovery answer", exact: true }).click();
-      await expect(screen(recovering.page, "UNLOCK")).toBeVisible();
-      await expect(status(recovering.page)).toHaveText("In final");
+    await test.step("the quick reference opens and shows the formulas", async () => {
+      const reference = page.locator("[data-recovery-reference]");
+      await expect(reference.locator("[data-formula]").first()).toBeHidden();
+      await reference.locator("summary").click();
+      await expect(reference.locator("[data-formula]").first()).toBeVisible();
+      await expect(reference.getByRole("math", { name: "Precision = TP / (TP + FP)" })).toBeVisible();
+      await expect(reference.getByRole("math", { name: "F1 = 2 × Precision × Recall / (Precision + Recall)" })).toBeVisible();
+      await expect(reference.getByRole("math", { name: "Probability ≥ Threshold → Positive" })).toBeVisible();
+      await reference.locator("summary").click();
+    });
+
+    await test.step("stage 1: every feature starts kept; dropping investigation_result passes", async () => {
+      for (const box of await page.locator("[data-ml-features] input").all()) await expect(box).toBeChecked();
+      await page.locator('[data-feature="investigation_result"]').uncheck();
+      await checkButton(page, "Validate Feature Set").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Leakage removed. Accuracy drops to 76%, exposing the real problem.");
+      await expect(page.locator("[data-recovery-result]")).toHaveAttribute("data-passed", "true");
+      await expect(mlStage(page, 1)).toHaveAttribute("data-state", "done");
+      await expect(mlStage(page, 2)).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("a refresh keeps the state: stage 2 is still the current one", async () => {
+      await page.reload();
+      await expect(mlStage(page, 2)).toHaveAttribute("data-state", "current");
+      await expect(mlStage(page, 1)).toHaveAttribute("data-state", "done");
+      await expect(page.locator("[data-ml-title]")).toHaveText("Stage 2 — Repair the training pipeline");
+    });
+
+    await test.step("stage 2: the steps move with real buttons (also by keyboard) and the scaler is relabelled after the split", async () => {
+      const steps = page.locator("[data-ml-pipeline] li");
+      await expect(steps).toHaveText([/Load Dataset/, /Fit Scaler on Full Dataset/, /Split Train\/Test/, /Transform Train\/Test/, /Train Model/, /Evaluate/]);
+      const down = page.getByRole("button", { name: "Move down: Fit Scaler on Full Dataset", exact: true });
+      await down.focus();
+      await page.keyboard.press("Enter");
+      await expect(steps).toHaveText([/Load Dataset/, /Split Train\/Test/, /Fit Scaler on Training Data/, /Transform Train\/Test/, /Train Model/, /Evaluate/]);
+      await expect(page.getByRole("button", { name: "Move down: Fit Scaler on Training Data", exact: true })).toBeFocused();
+      await checkButton(page, "Validate Pipeline").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Pipeline valid.");
+      await expect(mlStage(page, 3)).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("stage 3: the table and two selects; median and flag pass", async () => {
+      await expect(page.locator("[data-ml-table] tbody tr")).toHaveCount(5);
+      await expect(page.locator("[data-ml-table] tbody tr").nth(2)).toContainText("NULL");
+      await page.getByLabel("Missing values", { exact: true }).selectOption("median");
+      await page.getByLabel("Outliers", { exact: true }).selectOption("flag");
+      await checkButton(page, "Validate Cleaning").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Cleaning accepted.");
+      await expect(mlStage(page, 4)).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("stage 4: a wrong model gets the neutral red message and stays; Logistic Regression passes", async () => {
+      await expect(page.locator("[data-ml-models] [data-model]")).toHaveText([
+        /KNN\s*Precision 0\.84 • Recall 0\.71/,
+        /Logistic Regression\s*Precision 0\.79 • Recall 0\.89/,
+        /Decision Tree\s*Precision 0\.68 • Recall 0\.94/,
+      ]);
+      await expect(page.locator("[data-ml-prompt]")).toHaveText("Requirements: Recall ≥ 0.88 and Precision ≥ 0.75.");
+      await expect(checkButton(page, "Validate Model")).toBeDisabled();
+      await page.locator('[data-model="tree"]').click();
+      await checkButton(page, "Validate Model").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Model rejected. Check both constraints.");
+      await expect(page.locator("[data-recovery-result]")).toHaveAttribute("data-passed", "false");
+      await expect(mlStage(page, 4)).toHaveAttribute("data-state", "current");
+      await page.locator('[data-model="logreg"]').click();
+      await checkButton(page, "Validate Model").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Model accepted.");
+      await expect(page.locator("[data-recovery-result]")).toHaveAttribute("data-passed", "true");
+      await expect(mlStage(page, 5)).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("stage 5: the slider shows live metrics; a wrong threshold is refused, a right one passes", async () => {
+      const metric = (name: string) => page.locator(`[data-metric="${name}"]`);
+      await expect(page.locator("[data-ml-threshold-value]")).toHaveText("0.50");
+      await expect(metric("recall")).toHaveText("0.91");
+      await shootBoth(page, "recovery-ml-stage5");
+      // The arrow keys move the slider by one step.
+      await page.locator("[data-ml-threshold]").focus();
+      await page.keyboard.press("ArrowLeft");
+      await expect(page.locator("[data-ml-threshold-value]")).toHaveText("0.49");
+      await setThreshold(page, "0.60");
+      await expect(page.locator("[data-ml-threshold-value]")).toHaveText("0.60");
+      await expect(metric("precision")).toHaveText("0.84");
+      await expect(metric("recall")).toHaveText("0.88");
+      await expect(metric("f1")).toHaveText("0.86");
+      await expect(metric("falseNegatives")).toHaveText("2");
+      await checkButton(page, "Validate Threshold").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Not all constraints are satisfied.");
+      await expect(mlStage(page, 5)).toHaveAttribute("data-state", "current");
+      await setThreshold(page, "0.47");
+      await expect(metric("recall")).toHaveText("0.92");
+      await checkButton(page, "Validate Threshold").click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Threshold validated.");
+      await expect(mlStage(page, 6)).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("stage 6: the four records and the word; passing finishes the level and opens the unlock with the recovered key", async () => {
+      await expect(page.locator("[data-ml-records] li")).toHaveText([
+        /#22\s*21:24 • NODE-U • 0\.88/,
+        /#07\s*21:13 • NODE-C • 0\.94/,
+        /#31\s*21:31 • NODE-E • 0\.86/,
+        /#14\s*21:17 • NODE-L • 0\.91/,
+      ]);
+      await expect(checkButton(page, "Submit Evidence")).toBeDisabled();
+      await page.getByRole("textbox", { name: "Recovered word", exact: true }).fill("clue");
+      await checkButton(page, "Submit Evidence").click();
+      await expect(screen(page, "UNLOCK")).toBeVisible();
+      await expect(screen(page, "RECOVERY")).toHaveCount(0);
+      await expect(status(page)).toHaveText("In final");
+    });
+
+    await test.step("the unlock screen shows the path done, the level's token and this team's recovered key", async () => {
+      await expect(page.locator("[data-recovery-tokens]")).toContainText("ML RECOVERY TOKEN: ML-8842");
+      await expect(page.locator('[data-recovery-strip] [data-step="ml"]')).toHaveAttribute("data-state", "done");
+      await expect(page.locator('[data-recovery-strip] [data-step="crypto"]')).toHaveAttribute("data-state", "current");
+      const keys = page.locator("[data-recovered-keys]");
+      await expect(keys).toContainText("Hardware");
+      await expect(keys).toContainText(PRACTICE_KEYS.HARDWARE);
+      await expect(keys.locator("li")).toHaveCount(1);
       expect((await recoveringApi!.send<FinalView>("GET", "/event/team/final")).remainingSeconds).toBeLessThan(2400);
-      await typeCodes(recovering.page, UNLOCK_CODES);
-      await recovering.page.getByRole("button", { name: "Open the case", exact: true }).click();
-      await expect(screen(recovering.page, "MISSION")).toBeVisible();
-      await expect(recovering.page.locator("[data-mission-clues]")).toHaveText("CLUES COLLECTED 4/4");
+      await shootBoth(page, "recovery-unlock");
     });
 
-    await test.step("Team 03 (2 clues) is refused: no unlock, no recovery", async () => {
-      await signIn(refused.page, accounts.members[2], accounts.seedPassword);
-      await refused.page.goto("/event/team/final");
-      await expect(status(refused.page)).toHaveText("Not qualified");
-      await expect(screen(refused.page, "NOT_QUALIFIED")).toContainText("You did not qualify for the final");
-      await expect(refused.page.getByRole("textbox")).toHaveCount(0);
+    await test.step("the recovered team opens the case and reaches the mission", async () => {
+      await typeCodes(page, UNLOCK_CODES);
+      await page.getByRole("button", { name: "Open the case", exact: true }).click();
+      await expect(screen(page, "MISSION")).toBeVisible();
+      await expect(page.locator("[data-mission-clues]")).toHaveText("CLUES COLLECTED 4/4");
     });
   } finally {
     await Promise.all([admin.dispose(), recoveringApi?.dispose()]);
-    await Promise.all([recovering, refused].map((role) => role.page.context().close()));
+    await recovering.page.context().close();
   }
-  expect([...recovering.problems, ...refused.problems].filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
+  expect(recovering.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
+});
+
+/** The right answer of each ML stage, as request bodies (the 3-key test plays the same stages through the page). */
+const ML_ANSWERS = [
+  { features: ["motion_score", "access_attempts", "signal_strength", "device_type"] },
+  { order: ["load", "split", "fit_scaler", "transform", "train", "evaluate"] },
+  { missing: "median", outliers: "flag" },
+  { model: "logreg" },
+  { threshold: 0.47 },
+  { word: "CLUE" },
+];
+
+/** The five line bugs of the shipped program, fixed (line numbers as shown in the editor). */
+const FIXED_LINES: ReadonlyArray<readonly [number, string]> = [
+  [40, "    authorized = false;"],
+  [45, "  if (doorOpen && !authorized) {"],
+  [50, "  // if (!doorOpen) {"],
+  [51, "  //   alarmActive = false;"],
+  [52, "  // }"],
+  [56, "  if (motionDetected && doorOpen) {"],
+  [75, "  authorized = false;"],
+];
+
+function codeLine(page: Page, n: number) {
+  return page.locator(`input[data-line="${n}"]`);
+}
+
+async function fixBugs(page: Page) {
+  for (const [n, text] of FIXED_LINES) await codeLine(page, n).fill(text);
+}
+
+/** Picks the missing-behaviour option by a piece of its code: a team sees the four options in its own order. */
+async function chooseOption(page: Page, codeFragment: string) {
+  const value = await page.locator("[data-arduino-option] option", { hasText: codeFragment }).first().getAttribute("value");
+  await page.locator("[data-arduino-option]").selectOption(value!);
+}
+
+function runButton(page: Page) {
+  return page.locator("[data-arduino-run] button");
+}
+
+function testRow(page: Page, id: string) {
+  return page.locator(`[data-arduino-tests] [data-test="${id}"]`);
+}
+
+/** The ids of the tests whose status is `status`, in order. */
+async function testsWith(page: Page, status: string): Promise<string[]> {
+  return page.locator(`[data-arduino-tests] [data-status="${status}"]`).evaluateAll((rows) => rows.map((row) => row.getAttribute("data-test")!));
+}
+
+test("final: a 0-key team passes ML, fixes the Arduino program (option A fails T7, the right one passes) and reaches the unlock with all four keys", async ({
+  browser,
+}) => {
+  test.setTimeout(900000);
+  const admin = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
+  const team = await openRolePage(browser, "team 05", WIDE);
+  const page = team.page;
+  let teamApi: EventApiSession | null = null;
+  try {
+    await prepareFinal(admin, true, undefined, [...PLANS, { number: 5, rooms: [] }]);
+
+    await test.step("Team 05 (0 keys) passes the six ML stages (through the API; the page is covered by the 3-key test)", async () => {
+      await signIn(page, accounts.members[4], accounts.seedPassword);
+      await page.goto("/event/team/final");
+      await expect(status(page)).toHaveText("Recovery");
+      await expect(page.locator('[data-recovery-strip] [data-step]')).toHaveText([/ML Recovery/, /Arduino Recovery/, /Crypto/, /Final Investigation/]);
+      teamApi = await EventApiSession.fromPage(page);
+      for (let stage = 1; stage <= 6; stage++) {
+        await page.waitForTimeout(2100);
+        const answer = await teamApi.send<{ passed: boolean }>("POST", `/event/team/final/recovery/ml/${stage}`, ML_ANSWERS[stage - 1], keyFor());
+        expect(answer.passed, `stage ${stage}`).toBe(true);
+      }
+      await page.reload();
+    });
+
+    await test.step("the Arduino level is current: the path, the ML token, the two cards and the program", async () => {
+      const strip = page.locator("[data-recovery-strip]");
+      await expect(strip.locator('[data-step="ml"]')).toHaveAttribute("data-state", "done");
+      await expect(strip.locator('[data-step="arduino"]')).toHaveAttribute("data-state", "current");
+      await expect(strip.locator('[data-step="crypto"]')).toHaveAttribute("data-state", "locked");
+      await expect(page.locator('[data-recovery-token="ML"]')).toContainText("ML RECOVERY TOKEN: ML-8842");
+      await expect(page.locator("[data-ml-stages]")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Security Controller Debugging", exact: true })).toBeVisible();
+      const expected = page.locator("[data-arduino-expected] li");
+      await expect(expected).toHaveCount(7);
+      await expect(expected.nth(0)).toHaveText("Authorization button opens a 5-second safe window.");
+      await expect(expected.nth(6)).toHaveText("The alarm stays on until Reset is pressed.");
+      await expect(page.locator("[data-arduino-brief]")).toContainText("Multiple logic bugs, incorrect conditions, wrong resets, and one missing behavior.");
+      await expect(page.locator("[data-arduino-brief]")).toContainText("Passing syntax is not enough. The hidden behavioral tests must all pass.");
+      await expect(page.locator("[data-arduino-file]")).toHaveText("security_controller.ino");
+      await expect(page.locator("input[data-line]")).toHaveCount(89);
+      await expect(codeLine(page, 1)).toHaveValue("const int doorPin = 2;");
+      await expect(codeLine(page, 14)).toHaveValue("bool entered = false;");
+      // The missing behaviour sits in loop(), right after line 88: a select with the four options.
+      await expect(page.locator('[data-row="88"] + [data-arduino-slot]')).toBeVisible();
+      await expect(page.locator("[data-arduino-option] option")).toHaveCount(5);
+      await expect(page.locator("[data-arduino-tests] li")).toHaveCount(8);
+      expect(await testsWith(page, "NOT RUN")).toHaveLength(8);
+      await expect(runButton(page)).toBeDisabled();
+      await expect(page.getByText("Choose the missing behaviour in the program before running the tests.")).toBeVisible();
+      // Basic syntax colouring: the first line starts with the keyword "const", and the numbers are coloured.
+      await expect(page.locator('[data-row="1"] .hl .keyword').first()).toHaveText("const");
+      await expect(page.locator('[data-row="1"] .hl .number')).toHaveText("2");
+      await expect(page.locator('[data-row="7"] .hl .keyword').first()).toHaveText("bool");
+    });
+
+    await test.step("the lines are real inputs: Tab, Shift+Tab, Enter and the arrows move between them; none can be added or removed", async () => {
+      await codeLine(page, 1).focus();
+      await page.keyboard.press("Tab");
+      await expect(codeLine(page, 2)).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(codeLine(page, 3)).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(codeLine(page, 2)).toBeFocused();
+      await page.keyboard.press("ArrowDown");
+      await expect(codeLine(page, 3)).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(codeLine(page, 4)).toBeFocused();
+      await page.keyboard.press("ArrowUp");
+      await expect(codeLine(page, 3)).toBeFocused();
+      await expect(page.locator("input[data-line]")).toHaveCount(89);
+      await expect(page.locator("[data-arduino-editor] textarea")).toHaveCount(0);
+    });
+
+    await test.step("the quick reference opens with the Arduino syntax as code", async () => {
+      const reference = page.locator('[data-recovery-reference="ARDUINO"]');
+      await expect(page.locator("[data-recovery-reference]")).toHaveCount(1);
+      await expect(reference.locator("[data-code-text]").first()).toBeHidden();
+      await reference.locator("summary").click();
+      await expect(reference).toContainText("int value = digitalRead(sensorPin);");
+      await expect(reference).toContainText("if (millis() - startTime >= 5000) {");
+      await expect(reference).toContainText('Serial.println(value);');
+      await reference.locator("summary").click();
+    });
+
+    await test.step("on a phone the editor scrolls inside its card and the page does not", async () => {
+      await shootBoth(page, "recovery-arduino");
+      await page.setViewportSize(PHONE);
+      const scroller = page.locator("[data-arduino-scroller]");
+      const sizes = await scroller.evaluate((element) => ({ scroll: element.scrollWidth, client: element.clientWidth }));
+      expect(sizes.scroll, "the editor is wider than its card").toBeGreaterThan(sizes.client);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(PHONE.width + 1);
+      await page.setViewportSize(WIDE);
+    });
+
+    await test.step("Reset code asks first: Cancel keeps the edits, Confirm restores the original program", async () => {
+      await codeLine(page, 40).fill("    authorized = false;");
+      await chooseOption(page, "entered = true");
+      await page.locator("[data-arduino-reset] button").click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(codeLine(page, 40)).toHaveValue("    authorized = false;");
+      await page.locator("[data-arduino-reset] button").click();
+      await dialog.getByRole("button", { name: "Reset code", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(codeLine(page, 40)).toHaveValue("    authorized = true;");
+      await expect(page.locator("[data-arduino-option]")).toHaveValue("");
+      await expect(runButton(page)).toBeDisabled();
+    });
+
+    await test.step("a changed line outside the faulty logic fails every test with the server's message", async () => {
+      await fixBugs(page);
+      await chooseOption(page, "if (!doorOpen && authorized)");
+      await codeLine(page, 31).fill("  if (digitalRead(authButtonPin) == LOW) {");
+      await runButton(page).click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("A line outside the faulty logic was changed.");
+      await expect(page.locator("[data-recovery-result]")).toHaveAttribute("data-passed", "false");
+      expect(await testsWith(page, "FAIL")).toHaveLength(8);
+      await expect(page.locator('[data-recovery-strip] [data-step="arduino"]')).toHaveAttribute("data-state", "current");
+    });
+
+    await test.step("the run button waits out the server's 3-second limit with a countdown", async () => {
+      await expect(page.locator("[data-arduino-run]")).toContainText(/Wait [123] s/);
+      await expect(runButton(page)).toBeDisabled();
+      await expect(page.locator("[data-arduino-run]")).toContainText("Run Hidden Tests");
+    });
+
+    await test.step("option A (ends the window before the door opens) fails T7 only; a refresh keeps the edits and the last results", async () => {
+      await codeLine(page, 31).fill("  if (digitalRead(authButtonPin) == HIGH) {");
+      await runButton(page).click();
+      await expect(page.locator("[data-recovery-result]")).toHaveText("Not all hidden tests pass yet.");
+      await expect(testRow(page, "T7")).toHaveAttribute("data-status", "FAIL");
+      await expect(testRow(page, "T7")).toContainText("Authorization ends after valid entry");
+      expect(await testsWith(page, "PASS")).toEqual(["T1", "T2", "T3", "T4", "T5", "T6", "T8"]);
+      await shootBoth(page, "recovery-arduino-run");
+
+      await page.reload();
+      await expect(codeLine(page, 40)).toHaveValue("    authorized = false;");
+      await expect(codeLine(page, 45)).toHaveValue("  if (doorOpen && !authorized) {");
+      await expect(page.locator("[data-arduino-chosen]")).toContainText("if (!doorOpen && authorized)");
+      await expect(testRow(page, "T7")).toHaveAttribute("data-status", "FAIL");
+      expect(await testsWith(page, "PASS")).toEqual(["T1", "T2", "T3", "T4", "T5", "T6", "T8"]);
+    });
+
+    await test.step("the right option passes every test: the token shows and the team moves to the unlock", async () => {
+      await chooseOption(page, "entered = true");
+      await expect(page.locator("[data-arduino-chosen]")).toContainText("if (!doorOpen && entered) { authorized = false; entered = false; }");
+      await runButton(page).click();
+      await expect(screen(page, "UNLOCK")).toBeVisible();
+      await expect(screen(page, "RECOVERY")).toHaveCount(0);
+      await expect(status(page)).toHaveText("In final");
+    });
+
+    await test.step("the unlock screen shows the whole path done, both tokens and all four recovered keys", async () => {
+      await expect(page.locator("[data-recovery-tokens]")).toContainText("ML RECOVERY TOKEN: ML-8842");
+      await expect(page.locator("[data-recovery-tokens]")).toContainText("RECOVERY TOKEN: RCV-7314");
+      const strip = page.locator("[data-recovery-strip]");
+      await expect(strip.locator('[data-step="ml"]')).toHaveAttribute("data-state", "done");
+      await expect(strip.locator('[data-step="arduino"]')).toHaveAttribute("data-state", "done");
+      await expect(strip.locator('[data-step="crypto"]')).toHaveAttribute("data-state", "current");
+      const keys = page.locator("[data-recovered-keys] li");
+      await expect(keys).toHaveCount(4);
+      for (const [index, room] of ["AI", "Problem solving", "Linux", "Hardware"].entries()) await expect(keys.nth(index)).toContainText(room);
+      for (const key of Object.values(PRACTICE_KEYS)) await expect(page.locator("[data-recovered-keys]")).toContainText(key);
+      // The saved draft goes once the level is passed (the app's own session keys stay).
+      expect(await page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.startsWith("devfest.event.recovery.arduino")))).toEqual([]);
+      await typeCodes(page, UNLOCK_CODES);
+      await page.getByRole("button", { name: "Open the case", exact: true }).click();
+      await expect(screen(page, "MISSION")).toBeVisible();
+    });
+  } finally {
+    await Promise.all([admin.dispose(), teamApi?.dispose()]);
+    await team.page.context().close();
+  }
+  expect(team.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
+});
+
+test("final: the organizer's final table shows keys, path, level, finish time and crypto window; Recovery solutions opens from Final reports and stays admin only", async ({
+  browser,
+}) => {
+  test.setTimeout(900000);
+  const admin = await EventApiSession.signIn(accounts.adminEmail, accounts.adminPassword);
+  const organizer = await openRolePage(browser, "organizer", WIDE);
+  const page = organizer.page;
+  let member: EventApiSession | null = null;
+  try {
+    await prepareFinal(admin, true, undefined, [...PLANS, { number: 5, rooms: [] }]);
+    member = await EventApiSession.signIn(accounts.members[1], accounts.seedPassword);
+
+    const row = (n: number) => page.locator(`[data-final-table] tr[data-team="${teamName(n)}"]`);
+
+    await test.step("the Final tab lists the keys each team held, its path, its level and its crypto window", async () => {
+      await signIn(page, accounts.adminEmail, accounts.adminPassword);
+      await page.getByRole("link", { name: "Scores", exact: true }).click();
+      await page.getByRole("tab", { name: "Final", exact: true }).click();
+      await expect(page.locator("[data-final-table] thead th")).toContainText([
+        "Keys held",
+        "Recovery path",
+        "Recovery level",
+        "Recovery finished",
+        "Crypto window",
+      ]);
+      const expected: ReadonlyArray<readonly [number, string, string, string, string]> = [
+        // team, keys, path, level, crypto window
+        [1, "4", "None", "—", "0:00–15:00"],
+        [2, "3", "ML", "ML · stage 1 of 6", "—"],
+        [3, "2", "ML + Arduino", "ML · stage 1 of 6", "—"],
+        [5, "0", "ML + Arduino", "ML · stage 1 of 6", "—"],
+      ];
+      for (const [n, keys, path, level, window] of expected) {
+        await expect(row(n).locator("[data-keys-held]")).toHaveText(keys);
+        await expect(row(n).locator("[data-recovery-path]")).toHaveText(path);
+        await expect(row(n).locator("[data-recovery-level]")).toHaveText(level);
+        await expect(row(n).locator("[data-crypto-window]")).toHaveText(window);
+        await expect(row(n).locator("[data-recovery-finished]")).toHaveText("—");
+      }
+    });
+
+    await test.step("a team finishing its recovery shows Done, when, and its own window from that moment", async () => {
+      for (let stage = 1; stage <= 6; stage++) {
+        await page.waitForTimeout(2100);
+        await member.send("POST", `/event/team/final/recovery/ml/${stage}`, ML_ANSWERS[stage - 1], keyFor());
+      }
+      await page.reload();
+      await page.getByRole("tab", { name: "Final", exact: true }).click();
+      await expect(row(2).locator("[data-recovery-level]")).toHaveText("Done");
+      const finished = (await row(2).locator("[data-recovery-finished]").innerText()).trim();
+      expect(finished).toMatch(/^\d+:\d\d$/);
+      const window = (await row(2).locator("[data-crypto-window]").innerText()).trim();
+      const [from, to] = window.split("–").map((part) => {
+        const [minutes, seconds] = part.split(":").map(Number);
+        return minutes * 60 + seconds;
+      });
+      const [finishedMinutes, finishedSeconds] = finished.split(":").map(Number);
+      expect(from).toBe(finishedMinutes * 60 + finishedSeconds);
+      expect(to - from, "the decryption phase is 15 minutes long").toBe(900);
+      await expect(row(2).locator("[data-recovery-path]")).toHaveText("ML");
+      await expect(row(3).locator("[data-recovery-level]")).toHaveText("ML · stage 1 of 6");
+      await shootBoth(page, "admin-recovery-table");
+    });
+
+    await test.step("Recovery solutions opens from Final reports and shows every ML answer", async () => {
+      await page.getByRole("link", { name: "Final reports", exact: true }).click();
+      await page.locator("[data-recovery-solutions-link]").click();
+      await expect(page.getByRole("heading", { name: "Recovery solutions", exact: true })).toBeVisible();
+      await expect(page.locator("[data-ml-solution]")).toHaveCount(6);
+      await expect(page.locator('[data-ml-solution="1"] [data-ml-answer]')).toContainText("Remove: investigation_result");
+      await expect(page.locator('[data-ml-solution="2"] [data-ml-answer] li')).toHaveText([
+        "1. Load Dataset",
+        "2. Split Train/Test",
+        "3. Fit Scaler on Training Data",
+        "4. Transform Train/Test",
+        "5. Train Model",
+        "6. Evaluate",
+      ]);
+      await expect(page.locator('[data-ml-solution="4"] [data-ml-answer]')).toContainText("Choose Logistic Regression");
+      await expect(page.locator('[data-ml-solution="5"] [data-ml-answer]')).toContainText("Any threshold from 0.42 to 0.53");
+      await expect(page.locator('[data-ml-solution="6"] [data-ml-answer]')).toContainText("Word: CLUE");
+    });
+
+    await test.step("the Arduino bug list has the fixed lines, and option B is the right one with the reason A is wrong", async () => {
+      await expect(page.locator("[data-bug]")).toHaveText([/B1/, /B2/, /B3/, /B4/, /B5/, /B6/]);
+      await expect(page.locator('[data-bug="B1"] [data-original]')).toHaveText("authorized = true;");
+      await expect(page.locator('[data-bug="B1"] [data-fix]')).toHaveText("authorized = false;");
+      await expect(page.locator('[data-bug="B2"] [data-fix]')).toHaveText("if (doorOpen && !authorized) {");
+      await expect(page.locator('[data-bug="B3"] [data-bug-lines] [data-original]')).toHaveText(["if (!doorOpen) {", "alarmActive = false;", "}"]);
+      await expect(page.locator('[data-bug="B4"] [data-fix]')).toHaveText("if (motionDetected && doorOpen) {");
+      await expect(page.locator('[data-bug="B5"] [data-fix]')).toHaveText("authorized = false;");
+      await expect(page.locator('[data-bug="B2"] [data-bug-tests]')).toContainText("T3");
+      await expect(page.locator('[data-option="B"]')).toHaveAttribute("data-correct", "true");
+      await expect(page.locator('[data-option="B"]')).toContainText("entered = true");
+      for (const wrong of ["A", "C", "D"]) await expect(page.locator(`[data-option="${wrong}"]`)).toHaveAttribute("data-correct", "false");
+      await expect(page.locator('[data-option="A"] [data-option-why]')).toContainText("before the door was ever opened");
+      await expect(page.locator("[data-arduino-tests] li")).toHaveCount(8);
+      await shootBoth(page, "admin-recovery-solutions");
+    });
+
+    await test.step("a team can neither open the page's data nor see it in its menu", async () => {
+      await expect(member!.send("GET", "/event/admin/final/recovery-solutions")).rejects.toThrow(/403/);
+      const team = await openRolePage(browser, "team 02", WIDE);
+      try {
+        await signIn(team.page, accounts.members[1], accounts.seedPassword);
+        await expect(team.page.getByRole("link", { name: "Final reports", exact: true })).toHaveCount(0);
+        await team.page.goto("/event/admin/final-recovery-solutions");
+        await expect(team.page.locator("[data-recovery-solutions]")).toHaveCount(0);
+      } finally {
+        await team.page.context().close();
+      }
+    });
+  } finally {
+    await Promise.all([admin.dispose(), member?.dispose()]);
+    await organizer.page.context().close();
+  }
+  expect(organizer.problems.filter((problem) => !/40[0-9] \(Conflict\)|429/.test(problem))).toEqual([]);
 });
 
 test("final: on the phone the mission and both phases fit 390 px; without a package the terminal says it is not ready", async ({
@@ -549,10 +1046,8 @@ test("final: on the phone the mission and both phases fit 390 px; without a pack
     await expect(phone.page.locator("[data-final-terminal-missing]")).toHaveText(
       "The terminal package is not ready yet. Ask the organizer.",
     );
-    await phone.page.locator("[data-first-step] [data-send-to-terminal]").getByRole("button").click();
-    await expect(phone.page.locator("[data-first-step] [data-send-note]")).toHaveText(
-      "The terminal package is not ready yet. Ask the organizer.",
-    );
+    await expect(phone.page.locator("[data-command-reference]")).toBeVisible();
+    await expect(phone.page.locator("[data-send-to-terminal]")).toHaveCount(0);
     await expectFitsPhone(phone.page);
     await saveScreenshot(phone.page, shot("phase1-390-no-package"));
     await expect(phone.page.locator("[data-phase-locked]")).toContainText("Opens at 1:00 · ");

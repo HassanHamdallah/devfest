@@ -13,7 +13,7 @@ import { ChangeDetectionStrategy, Component } from "@angular/core";
       display: block;
       flex-shrink: 0;
       padding: var(--space-4) var(--space-4) var(--space-5);
-      font-size: var(--font-size-xs);
+      font-size: var(--font-size-s);
       line-height: var(--line-height-tight);
       text-align: center;
       color: var(--color-text-muted);

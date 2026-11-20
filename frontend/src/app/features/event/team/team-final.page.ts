@@ -72,7 +72,7 @@ export class EventTeamFinalPage {
     // Once the team's final is over its saved case terminal is of no use (a room's saved terminal is left alone).
     effect(() => {
       const screen = this.final()?.screen;
-      if (screen === "SUBMITTED" || screen === "NOT_QUALIFIED") void terminalSnapshots.clearPlace("final");
+      if (screen === "SUBMITTED") void terminalSnapshots.clearPlace("final");
     });
     // When the decryption phase is over the terminal is gone for good: its saved copy goes with it (once the page has
     // dropped the terminal, so nothing saves it again).

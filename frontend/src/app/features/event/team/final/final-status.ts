@@ -7,7 +7,6 @@ import { UiStatusChip, UiStatusChipVariant } from "../../../../shared/ui/ui-stat
 
 const STATUS_VARIANTS: Record<FinalStage, UiStatusChipVariant> = {
   LOCKED: "warning",
-  NOT_QUALIFIED: "neutral",
   RECOVERY: "accent",
   IN_FINAL: "accent",
   COMPLETED: "success",
@@ -170,7 +169,7 @@ export class EventFinalStatus {
   protected readonly label = computed(() => FINAL_STAGE_LABELS[this.final().status]);
   protected readonly variant = computed(() => STATUS_VARIANTS[this.final().status]);
   protected readonly current = computed(() =>
-    this.final().status === "NOT_QUALIFIED" || this.final().status === "RECOVERY" || this.final().status === "LOCKED"
+    this.final().status === "RECOVERY" || this.final().status === "LOCKED"
       ? -1
       : STEPS.findIndex((step) => step.screens.includes(this.final().screen)),
   );

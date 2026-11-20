@@ -21,16 +21,23 @@ interface ShipmentFile {
   keyIndex: { reference: string; key: string }[];
   suspects: { id: string; name: string; position: string; statement: string }[];
   correctSuspect: string;
-  recovery: { question: string; acceptedAnswers: string[] };
 }
 
 /** The shipped content file, as the admin imports it (texts and answers of the specs come from it). */
 export const SHIPMENT_CONTENT = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf8")) as ShipmentFile;
-export const RECOVERY_QUESTION = SHIPMENT_CONTENT.recovery.question;
-export const RECOVERY_ANSWER = SHIPMENT_CONTENT.recovery.acceptedAnswers[0];
 export const CORRECT_SUSPECT = SHIPMENT_CONTENT.correctSuspect;
 export const WRONG_SUSPECT = SHIPMENT_CONTENT.suspects.find((s) => s.id !== CORRECT_SUSPECT)!.id;
 export const suspectName = (id: string) => SHIPMENT_CONTENT.suspects.find((s) => s.id === id)!.name;
+
+/** The right answer of each ML recovery stage of the shipped content, as request bodies. */
+export const ML_RIGHT_ANSWERS: readonly object[] = [
+  { features: ["motion_score", "access_attempts", "signal_strength", "device_type"] },
+  { order: ["load", "split", "fit_scaler", "transform", "train", "evaluate"] },
+  { missing: "median", outliers: "flag" },
+  { model: "logreg" },
+  { threshold: 0.47 },
+  { word: "CLUE" },
+];
 
 /** keys/clueN_secret.txt exactly as the organizers have them (with their line ending). Test code only. */
 export const PASSPHRASES: readonly string[] = [1, 2, 3, 4].map((n) =>
@@ -122,8 +129,13 @@ export class FinalShortcuts {
     return this.team.send<FinalAnswer>("POST", `/event/team/final/clues/${clue}/passphrase`, { passphrase }, this.newKey());
   }
 
-  recover(answer: string) {
-    return this.team.send<{ correct: boolean }>("POST", "/event/team/final/recovery", { answer }, this.newKey());
+  /** Passes the six ML recovery stages with their right answers (one check per 2 seconds is the server's limit). */
+  async passMl() {
+    for (let stage = 1; stage <= ML_RIGHT_ANSWERS.length; stage++) {
+      await new Promise((resolve) => setTimeout(resolve, 2100));
+      const result = await this.team.send<{ passed: boolean }>("POST", `/event/team/final/recovery/ml/${stage}`, ML_RIGHT_ANSWERS[stage - 1], this.newKey());
+      if (!result.passed) throw new Error(`ML stage ${stage} was not passed.`);
+    }
   }
 
   suspect(suspectId: string) {

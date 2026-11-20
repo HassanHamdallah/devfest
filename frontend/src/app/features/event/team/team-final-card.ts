@@ -54,9 +54,7 @@ export class EventTeamFinalCard {
   protected readonly openText = computed(() =>
     this.board().finalStage === "COMPLETED"
       ? "Your team's final answer is recorded."
-      : this.board().finalStage === "NOT_QUALIFIED"
-        ? "Your team did not qualify for the final."
-        : "The final is open for all teams.",
+      : "The final is open for all teams.",
   );
   protected readonly lockedReason = computed(() =>
     "The final opens for all teams at the same time.",

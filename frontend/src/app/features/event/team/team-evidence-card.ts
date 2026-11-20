@@ -118,7 +118,7 @@ import { EventMaskedClue } from "./masked-clue";
 })
 export class EventTeamEvidenceCard {
   readonly evidence = input.required<RoomEvidence>();
-  /** True when this is the one missing clue a team with 3 clues can still win back in the final. */
+  /** True when this is a missing clue the team's recovery in the final can still win back. */
   readonly recoverable = input(false);
 
   /** The Hardware room calls its key the "Retrieved key". */

@@ -94,7 +94,7 @@ export class EventTeamRoomCard {
   readonly activity = input<RoomActivity | null>(null);
   /** The room's evidence once its round is over for this team: the answers and the clue, shown inside the card. */
   readonly evidence = input<RoomEvidence | null>(null);
-  /** True when this is the one missing clue a team with 3 clues can still win back in the final. */
+  /** True when this is a missing clue the team's recovery in the final can still win back. */
   readonly recoverable = input(false);
 
   protected readonly statusVariant = computed(

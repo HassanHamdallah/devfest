@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal, viewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal } from "@angular/core";
 import { Api } from "../../../../core/api";
 import { EventApi } from "../../../../core/event/event-api";
 import { TerminalBundleInfo, TerminalStartFiles } from "../../../../core/event/event-models";
@@ -11,10 +11,6 @@ import { FINAL_SNAPSHOT_PLACE, SnapshotScope } from "../../terminal/terminal-sna
 const WIDE_QUERY = "(min-width: 1000px)";
 /** The final is not a room round; its saved terminal is filed under this round number with the place "final". */
 const FINAL_ROUND = 5;
-/** What typing a command into the terminal came to: "sent", or why it could not be. */
-export type SendResult = "sent" | "missing" | "closed" | "starting";
-/** Types a command into the running terminal (no Enter). */
-export type TerminalSender = (text: string) => SendResult;
 
 const BANNER = "The Last Shipment: the case files are in ~/DevFest-Crypto. There is no internet in this terminal.";
 
@@ -79,8 +75,6 @@ export class EventFinalTerminal {
   /** The final's time is over (or the final is paused for good): the terminal stops. */
   readonly ended = input(false);
 
-  private readonly linux = viewChild(EventLinuxTerminal);
-
   protected readonly banner = BANNER;
   /**
    * The terminal is shown: at once on a laptop, after "Open anyway" on a phone. Once shown it stays, even when the
@@ -97,13 +91,6 @@ export class EventFinalTerminal {
     return { files: [], bundle: view.terminal };
   };
   protected readonly loadBundle = () => this.eventApi.finalTerminalBundle();
-
-  /** Types a command into the running terminal for the team to review and run; says why when it cannot. */
-  readonly send: TerminalSender = (text) => {
-    if (!this.bundle()) return "missing";
-    if (!this.opened()) return "closed";
-    return this.linux()?.type(text) ? "sent" : "starting";
-  };
 
   constructor() {
     const media = matchMedia(WIDE_QUERY);

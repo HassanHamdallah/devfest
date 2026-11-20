@@ -1,7 +1,7 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { FinalShortcuts, RECOVERY_ANSWER, RECOVERY_QUESTION, finalContentJson } from "./event-final-helper";
+import { FinalShortcuts, finalContentJson } from "./event-final-helper";
 import {
   EventAdminShortcuts,
   EventApiSession,
@@ -195,11 +195,18 @@ async function recoverMissingClue(page: Page) {
   await page.getByRole("link", { name: "Open final", exact: true }).click();
   await expect(heading(page, "Final")).toBeVisible();
   await expect(page.locator("[data-final-status]")).toHaveText("Recovery");
-  await expect(page.locator("[data-recovery-question]")).toHaveText(RECOVERY_QUESTION);
-  await textbox(page, "Recovery answer").fill(RECOVERY_ANSWER);
-  await button(page, "Submit recovery answer").click();
+  // Three keys: the ML level, six stages (the page's own stage screens are covered by event-final.spec.ts).
+  await expect(page.locator('[data-recovery-level="ML"]')).toBeVisible();
+  const team = await EventApiSession.fromPage(page);
+  try {
+    await new FinalShortcuts(team, () => randomUUID()).passMl();
+  } finally {
+    await team.dispose();
+  }
+  await page.reload();
   await expect(page.locator("[data-final-status]")).toHaveText("In final");
   await expect(page.locator('[data-final-screen="UNLOCK"]')).toBeVisible();
+  await expect(page.locator("[data-recovered-keys]")).toContainText("Hardware");
   await expectFitsPhone(page);
   await saveScreenshot(page, path.join(docs, "event-team-final.png"));
 }

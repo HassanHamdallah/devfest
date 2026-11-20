@@ -1,10 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject, input } from "@angular/core";
-import { FinalBoardRow, FinalPhase } from "../../../../core/event/event-models";
-import { FINAL_STAGE_LABELS, formatAdjustedSeconds, formatPoints, formatTime } from "../../../../core/event/format";
+import { FinalBoardRow, FinalPhase, RecoveryPathCode } from "../../../../core/event/event-models";
+
+const PATH_LABELS: Record<RecoveryPathCode, string> = { NONE: "None", ML: "ML", ML_ARDUINO: "ML + Arduino" };
+import { FINAL_STAGE_LABELS, formatAdjustedSeconds, formatClock, formatPoints, formatTime } from "../../../../core/event/format";
 import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
 
 /**
- * The live final table: every team's status and stage, its attempts, the evidence files it decrypted (0 to 4), its
+ * The live final table: every team's status and stage, its recovery (the keys it held, its path, the level it is on, when
+ * it finished and its crypto window on the final's clock), its attempts, the evidence files it decrypted (0 to 4), its
  * suspect and the parts of its final score. Organizers only: it shows correctness that a team never sees.
  */
 @Component({
@@ -21,10 +24,15 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
           <th scope="col">Status</th>
           <th scope="col">Stage</th>
           <th scope="col">Room clues</th>
+          <th scope="col">Keys held</th>
+          <th scope="col">Recovery path</th>
+          <th scope="col">Recovery level</th>
+          <th scope="col">Recovery finished</th>
+          <th scope="col">Crypto window</th>
           <th scope="col">Clues (0-4)</th>
           <th scope="col">Unlock tries</th>
           <th scope="col">Passphrase tries</th>
-          <th scope="col">Recovery tries</th>
+          <th scope="col">Recovery checks</th>
           <th scope="col">Suspect</th>
           <th scope="col">Active time</th>
           <th scope="col">Finished</th>
@@ -45,10 +53,15 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
             <td data-status>{{ statusLabel(row) }}</td>
             <td data-stage-cell>{{ row.stage }}@if (row.phase) { · {{ phaseLabel(row.phase) }}}</td>
             <td class="event-num">{{ row.clues }}</td>
+            <td class="event-num" data-keys-held>{{ row.keysHeld }}</td>
+            <td data-recovery-path>{{ pathLabel(row) }}</td>
+            <td data-recovery-level>{{ levelLabel(row) }}</td>
+            <td class="event-num" data-recovery-finished>{{ recoveryFinished(row) }}</td>
+            <td class="event-num" data-crypto-window>{{ cryptoWindow(row) }}</td>
             <td class="event-num" data-clues-solved>{{ row.cluesSolved }}</td>
             <td class="event-num">{{ row.unlockAttempts }} ({{ row.unlockWrong }} wrong)</td>
             <td class="event-num">{{ row.passphraseAttempts }} ({{ row.passphraseWrong }} wrong)</td>
-            <td class="event-num">{{ row.recoveryAttempts }}</td>
+            <td class="event-num">{{ row.recoveryChecks }}</td>
             <td data-suspect>{{ suspect(row) }}</td>
             <td class="event-num">{{ active(row) }}</td>
             <td class="event-num">{{ finished(row) }}</td>
@@ -59,7 +72,7 @@ import { TeamDrawerService } from "../../../../core/shell/team-drawer.service";
           </tr>
         } @empty {
           <tr>
-            <td colspan="15" class="muted">No active teams yet.</td>
+            <td colspan="20" class="muted">No active teams yet.</td>
           </tr>
         }
       </tbody>
@@ -94,6 +107,29 @@ export class FinalTable {
 
   protected statusLabel(row: FinalBoardRow): string {
     return FINAL_STAGE_LABELS[row.status] + (row.disqualified ? " (disqualified)" : "");
+  }
+
+  protected pathLabel(row: FinalBoardRow): string {
+    return PATH_LABELS[row.recoveryPath];
+  }
+
+  /** "ML · stage 3 of 6", "Arduino", "Done" once finished, "—" when the team needs no recovery. */
+  protected levelLabel(row: FinalBoardRow): string {
+    if (row.recoveryPath === "NONE") return "—";
+    if (row.recoveryLevel === null) return "Done";
+    return row.recoveryLevel === "ML" ? `ML · stage ${row.recoveryStage} of 6` : "Arduino";
+  }
+
+  /** The active clock at which the recovery was finished ("12:30"); "—" while it is not, and for a team that needs none. */
+  protected recoveryFinished(row: FinalBoardRow): string {
+    return row.recoveryPath === "NONE" ? "—" : formatClock(row.recoveryFinishedAtSeconds);
+  }
+
+  /** "from–to" on the final's clock ("12:30–27:30"); "—" until the recovery is finished. */
+  protected cryptoWindow(row: FinalBoardRow): string {
+    return row.cryptoFromSeconds === null || row.cryptoToSeconds === null
+      ? "—"
+      : `${formatClock(row.cryptoFromSeconds)}–${formatClock(row.cryptoToSeconds)}`;
   }
 
   protected suspect(row: FinalBoardRow): string {

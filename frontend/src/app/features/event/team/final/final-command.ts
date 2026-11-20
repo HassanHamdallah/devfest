@@ -1,28 +1,39 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from "@angular/core";
-import { UiButton } from "../../../../shared/ui/ui-button/ui-button";
+import { ChangeDetectionStrategy, Component, computed, input } from "@angular/core";
 import { UiCopyButton } from "../../../../shared/ui/ui-copy-button/ui-copy-button";
-import { SendResult, TerminalSender } from "./final-terminal";
 
-const NOTES: Record<SendResult, string> = {
-  sent: "Typed in the terminal. Check it, then press Enter there.",
-  missing: "The terminal package is not ready yet. Ask the organizer.",
-  closed: "Open the terminal first (the Terminal card), then send the command.",
-  starting: "The terminal is still starting. Try again in a moment.",
-};
+/** The placeholders of the generic commands: REPORT_NAME, the clue number N and the key letter X. */
+const PLACEHOLDER = /REPORT_NAME|(?<=clue)N|(?<=_)[NX](?=[._])/g;
+
+/** One piece of a command: plain text or a placeholder the team must replace. */
+export interface CommandPart {
+  readonly text: string;
+  readonly placeholder: boolean;
+}
+
+/** Splits a command at its placeholders, which are kept literally. */
+export function commandParts(command: string): readonly CommandPart[] {
+  const parts: CommandPart[] = [];
+  let from = 0;
+  for (const match of command.matchAll(PLACEHOLDER)) {
+    if (match.index > from) parts.push({ text: command.slice(from, match.index), placeholder: false });
+    parts.push({ text: match[0], placeholder: true });
+    from = match.index + match[0].length;
+  }
+  if (from < command.length) parts.push({ text: command.slice(from), placeholder: false });
+  return parts;
+}
 
 /**
- * One command in a light box: long lines wrap (no sideways scroll), Copy, and "Send to terminal", which types it into
- * the running terminal without pressing Enter. `ready` false (a command still waiting for a choice) shows `waiting`
- * in place of the buttons.
+ * One generic command in a light box: long lines wrap (no sideways scroll), its placeholders are highlighted and a
+ * Copy button copies the text exactly as shown. Nothing here sends anything to the terminal.
  */
 @Component({
   selector: "event-final-command",
-  imports: [UiButton, UiCopyButton],
+  imports: [UiCopyButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
-      display: grid;
-      gap: var(--space-1);
+      display: block;
       min-inline-size: 0;
     }
     .command {
@@ -41,54 +52,28 @@ const NOTES: Record<SendResult, string> = {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
+    .placeholder {
+      padding: 0 2px;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary-text);
+      background: var(--color-surface);
+      border: var(--border-outline-thin);
+      border-radius: var(--radius-sm);
+    }
     .actions {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-2);
     }
-    .waiting,
-    .note {
-      margin: 0;
-      font-size: var(--font-size-sm);
-      color: var(--color-text-muted);
-    }
-    .note--problem {
-      color: var(--color-error);
-    }
   `,
   template: `<div class="command" data-final-command>
-      <code>{{ command() }}</code>
-      <div class="actions">
-        @if (ready()) {
-          <ui-copy-button [text]="command()" />
-          @if (send(); as sender) {
-            <ui-button variant="secondary" data-send-to-terminal (click)="sendNow(sender)">Send to terminal</ui-button>
-          }
-        } @else {
-          <span class="waiting">{{ waiting() }}</span>
-        }
-      </div>
-    </div>
-    @if (note(); as text) {
-      <p class="note" [class.note--problem]="result() !== 'sent'" role="status" data-send-note>{{ text }}</p>
-    }`,
+    <code>@for (part of parts(); track $index) {<span [class.placeholder]="part.placeholder" [attr.data-placeholder]="part.placeholder ? '' : null">{{ part.text }}</span>}</code>
+    <div class="actions"><ui-copy-button [text]="command()" /></div>
+  </div>`,
 })
 export class EventFinalCommand {
   readonly command = input.required<string>();
-  /** The command is complete and may be copied or sent. */
-  readonly ready = input(true);
-  readonly waiting = input("");
-  /** Types into the terminal; none means the box only offers Copy (a command with placeholders). */
-  readonly send = input<TerminalSender | null>(null);
 
-  protected readonly result = signal<SendResult | null>(null);
-  protected readonly note = computed(() => {
-    const result = this.result();
-    return result ? NOTES[result] : null;
-  });
-
-  protected sendNow(sender: TerminalSender): void {
-    this.result.set(sender(this.command()));
-  }
+  protected readonly parts = computed(() => commandParts(this.command()));
 }

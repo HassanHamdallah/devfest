@@ -83,13 +83,13 @@ export class EventTeamHomePage {
     return this.finishedEvidence().find((entry) => entry.roomCode === code) ?? null;
   }
 
-  /** The single missing clue of a team with 3 clues can still be won back by the recovery challenge. */
+  /** Every team plays the final: a clue it is missing can still be won back by its recovery levels. */
   protected isRecoverable(board: TeamBoard, code: RoomCode): boolean {
     const evidence = this.finishedEvidenceOf(code);
     return (
       !!evidence &&
       !evidence.clueCollected &&
-      board.cluesCollected === 3 &&
+      board.cluesCollected < 4 &&
       (board.finalStage === "LOCKED" || board.finalStage === "RECOVERY")
     );
   }

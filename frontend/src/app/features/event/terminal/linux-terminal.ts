@@ -68,8 +68,6 @@ export const ROOM_THEME: ITheme = {
   brightCyan: "#34e2e2",
   brightWhite: "#eeeeec",
 };
-/** Ctrl-E (end of line) then Ctrl-U (delete to the start of the line). */
-const CLEAR_LINE = String.fromCharCode(5, 21);
 const NEWLINE = String.fromCharCode(13, 10);
 const NOT_SAVABLE = "Your terminal cannot be saved in this browser. A page refresh will restart it.";
 const NOT_RESTORED = "Your saved terminal could not be restored, so a new one was started.";
@@ -191,18 +189,6 @@ export class EventLinuxTerminal {
       this.terminal?.dispose();
       this.terminal = null;
     });
-  }
-
-  /**
-   * Types `text` at the shell prompt as if the team had typed it (no Enter, so they review it and press Enter
-   * themselves); whatever was half typed on the line is cleared first. False while the terminal is not running.
-   */
-  type(text: string): boolean {
-    if (this.state() !== "ready" || !this.session) return false;
-    this.session.send(CLEAR_LINE + text);
-    this.scheduler?.touch();
-    this.terminal?.focus();
-    return true;
   }
 
   /**

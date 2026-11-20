@@ -56,6 +56,14 @@ const eventRoutes: Routes = [
       ),
   },
   {
+    path: "event/admin/final-recovery-solutions",
+    canActivate: [eventAdminGuard],
+    loadComponent: () =>
+      import("./app/features/event/admin/admin-recovery-solutions.page").then(
+        (m) => m.EventAdminRecoverySolutionsPage,
+      ),
+  },
+  {
     path: "event/admin/content",
     canActivate: [eventAdminGuard],
     loadComponent: () =>

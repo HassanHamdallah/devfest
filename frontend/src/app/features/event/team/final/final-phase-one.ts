@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, viewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, computed, input, output } from "@angular/core";
 import {
   FinalActionResult,
   FinalCaseClue,
@@ -10,23 +10,20 @@ import { UiAlert } from "../../../../shared/ui/ui-alert/ui-alert";
 import { UiCard } from "../../../../shared/ui/ui-card/ui-card";
 import { PendingAttempt } from "../pending-attempt";
 import { EventFinalClueCard } from "./final-clue-card";
-import { EventFinalCommand } from "./final-command";
-import { EventFinalGuide } from "./final-guide";
-import { EventFinalTerminal, TerminalSender } from "./final-terminal";
+import { EventFinalCommandReference } from "./final-command-reference";
+import { EventFinalTerminal } from "./final-terminal";
 
 const KEY_FILES = ["key_A.pem", "key_B.pem", "key_C.pem", "key_D.pem"];
-/** The one command every clue starts from: the case folder and a folder for the team's work. */
-const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
 
 /**
- * Phase 1 — Decryption. Left: the first step, the progress, the Key Index and one card per clue with its steps (and a
- * collapsed "How it works"). Right: the terminal, which stays in view on a laptop while the cards scroll. Stacked on
+ * Phase 1 — Decryption. Left: the progress, the Key Index, one card per clue (its files, its key reference and its
+ * passphrase box) and the always-visible Command reference; the team types every command itself. Right: the terminal, which stays in view on a laptop while the cards scroll. Stacked on
  * phones. When the decryption phase is over the page is read-only: the terminal is gone (its VM is destroyed with it)
  * and each clue is either a solved report or "Not decrypted in time".
  */
 @Component({
   selector: "event-final-phase-one",
-  imports: [EventFinalClueCard, EventFinalCommand, EventFinalGuide, EventFinalTerminal, UiAlert, UiCard],
+  imports: [EventFinalClueCard, EventFinalCommandReference, EventFinalTerminal, UiAlert, UiCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     :host {
@@ -54,15 +51,6 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
     h2 {
       margin: 0;
       font-size: var(--font-size-lg);
-    }
-    .first {
-      display: grid;
-      gap: var(--space-2);
-    }
-    .first p {
-      margin: 0;
-      font-size: var(--font-size-sm);
-      color: var(--color-text-muted);
     }
     .progress {
       display: flex;
@@ -137,26 +125,10 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
       display: grid;
       gap: var(--space-4);
     }
-    summary {
-      min-block-size: 32px;
-      font-weight: var(--font-weight-semibold);
-      cursor: pointer;
-    }
-    details[open] > summary {
-      margin-block-end: var(--space-3);
-    }
   `,
   template: `<div class="column">
       @if (readOnly()) {
         <ui-alert variant="info" data-phase-over>The decryption phase is over.</ui-alert>
-      } @else {
-        <ui-card data-first-step>
-          <h2 ui-card-header>Start here</h2>
-          <div class="first">
-            <p>Open the case folder and make a folder for your work. Do this once.</p>
-            <event-final-command [command]="firstStep" [send]="send" />
-          </div>
-        </ui-card>
       }
       <div class="progress" data-decrypted-progress>
         <span>Decrypted <span class="progress__count" data-decrypted-count>{{ solved() }} / 4</span></span>
@@ -194,20 +166,12 @@ const FIRST_STEP = "cd ~/DevFest-Crypto && mkdir -p participant_test";
           <event-final-clue-card
             [clue]="clue"
             [attempt]="attempts[clue.number - 1]"
-            [send]="send"
             [readOnly]="readOnly()"
             (changed)="changed.emit()"
           />
         }
       </div>
-      @if (!readOnly()) {
-        <ui-card>
-          <details data-how-it-works>
-            <summary>How it works</summary>
-            <event-final-guide />
-          </details>
-        </ui-card>
-      }
+      <event-final-command-reference />
     </div>
     @if (!readOnly()) {
       <div class="column column--terminal">
@@ -224,15 +188,10 @@ export class EventFinalPhaseOne {
   readonly readOnly = input(false);
   readonly changed = output<void>();
 
-  protected readonly firstStep = FIRST_STEP;
   protected readonly keyFiles = KEY_FILES;
   protected readonly solved = computed(() => this.clues().filter((clue) => clue.solved).length);
   /** One stored attempt per file, so a retry after a lost response resends exactly that file's passphrase. */
   protected readonly attempts = ([1, 2, 3, 4] as const).map(
     (n) => new PendingAttempt<PassphraseRequest, FinalActionResult>(`clue-${n}`),
   );
-
-  private readonly terminalView = viewChild(EventFinalTerminal);
-  /** Typing a command into the terminal; the terminal answers why when it cannot. */
-  protected readonly send: TerminalSender = (text) => this.terminalView()?.send(text) ?? "starting";
 }

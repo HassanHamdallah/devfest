@@ -29,20 +29,15 @@
           <p class="event-muted">{{ cluesLine() }}</p>
         </div>
       </ui-card>
-      } @case ("NOT_QUALIFIED") {
-      <ui-card data-final-screen="NOT_QUALIFIED">
-        <div class="final-state">
-          <p class="final-state__title">You did not qualify for the final</p>
-          <p>{{ cluesLine() }}</p>
-          <p class="event-muted">
-            The final needs at least 3 clues, so your team cannot take part in it. Thank you for playing.
-          </p>
-        </div>
-      </ui-card>
-      } @case ("RECOVERY") { @if (view.recovery; as recovery) {
-      <event-final-recovery [recovery]="recovery" (changed)="reload()" />
-      } } @case ("UNLOCK") { @if (view.unlock; as unlock) {
-      <event-final-unlock [roomNames]="unlock.roomNames" [waitSeconds]="view.waitSeconds" (changed)="reload()" />
+      } @case ("RECOVERY") {
+      <event-final-recovery [final]="view" (changed)="reload()" />
+      } @case ("UNLOCK") { @if (view.unlock; as unlock) {
+      <event-final-unlock
+        [roomNames]="unlock.roomNames"
+        [recoveredKeys]="unlock.recoveredKeys"
+        [waitSeconds]="view.waitSeconds"
+        (changed)="reload()"
+      />
       } } @case ("MISSION") { @if (view.mission; as mission) {
       <event-final-mission [mission]="mission" [cluesCollected]="view.cluesCollected" (changed)="reload()" />
       } } @case ("SUBMITTED") { @if (view.submission; as submission) {
