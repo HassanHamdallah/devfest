@@ -10,7 +10,7 @@ action's HTTP response to the matching "revision" event. Results are written to 
 
 Mode "sentinel": the AI mission room (SENTINEL) in one compressed round. The AI manager imports the shipped mission
 file, the admin sends all 16 teams to the AI room (room exceptions for groups B-D) and starts round 1; every team runs
-its experiments (stage 3 spends its whole budget and then probes a fifth run, which must be refused), submits its ten
+its experiments (stage 10 spends its whole budget of 3 and then probes a fourth run, which must be refused), submits its ten
 stages in a random order, some with a full-marks answer and some with a worthless one, retries a share of its writes
 with the same Idempotency-Key and probes locked stages. Teams 15 and 16 never submit their last stage: the round's end
 evaluates them. The manager keeps the results page open (a GET every 5 s). Every team must be evaluated exactly once
@@ -320,7 +320,12 @@ def prepare_round_one(api, admin):
     """Round 1 with every room open and its timer running (25 min by default, longer than any run) gives every
     group an open scheduled room for the whole run. A new round is only ASSIGNED, so the timer is started here."""
     api.setup("POST", "/event/admin/round", admin, {"round": 1})
-    for room in api.setup("GET", "/event/admin/board", admin)["rooms"]:
+    rooms = api.setup("GET", "/event/admin/board", admin)["rooms"]
+    # A fresh rehearsal has the AI room on its mission activity without mission content, which blocks the timer start
+    # ("The AI mission is not ready"). These runs use plain submissions, so every room's activity is switched off first.
+    for room in rooms:
+        api.setup("PUT", f"/event/admin/rooms/{room['id']}/activity", admin, {"activity": None})
+    for room in rooms:
         api.setup("POST", f"/event/admin/rooms/{room['id']}/open", admin)
     api.setup("POST", "/event/admin/round/timer/start", admin)
 
@@ -600,19 +605,20 @@ STAGE_ANSWERS = {
                      "plate-number": "DROP", "exit-camera-time": "DROP"}},
         {"choices": {"entry-gate": "DROP", "entry-time": "DROP", "vehicle-type": "DROP", "previous-visits": "DROP",
                      "plate-number": "USE", "exit-camera-time": "USE"}}),
-    3: ({"config": "tree-5"}, {"config": "knn-1"}),
+    3: ({"option": "a"}, {"option": "c"}),  # a multiple-choice stage: the option id (a wrong one saves 0)
     4: ({"k1": "Car", "k5": "Van", "reliable": 5}, {"k1": "Van", "k5": "Car", "reliable": 1}),
     5: ({"tp": 6, "fp": 2, "fn": 4, "tn": 8, "precision": 0.75, "recall": 0.6, "metric": "Recall"},
         {"tp": 0, "fp": 0, "fn": 0, "tn": 0, "precision": 0, "recall": 0, "metric": "Accuracy"}),
-    6: ({"size": 6, "x": 7.5, "y": 6.5}, {"size": 1, "x": 0, "y": 0}),
+    6: ({"answer": "101001"}, {"answer": "000000"}),  # typed stages: the answer as text
     7: ({"order": ["lib", "lab", "dor", "adm", "gar", "g3"], "path": ["lib", "lab", "adm", "gar", "g3"],
          "cost": 15}, {"order": ["lib"], "path": ["lib"], "cost": 0}),
-    8: ({"threat": 0.00012, "normal": 0.0010125, "label": "Normal"}, {"threat": 1, "normal": 1, "label": "Threat"}),
-    9: ({"conclusion": "insider-involved"}, {"conclusion": "cover-up"}),
+    8: ({"answer": "0.19"}, {"answer": "0.9"}),
+    9: ({"answer": "4"}, {"answer": "7"}),
     10: ({"config": "large-1"}, {"config": "small-1"}),
 }
-# Experiments before submitting: stage 3 spends its whole budget of 4 (then probes a fifth), stages 1 and 10 run two.
-STAGE_RUNS = {1: ["iqr-1.5", "iqr-3"], 3: ["knn-1", "knn-5", "tree-2", "tree-5"], 10: ["small-1", "large-1"]}
+# Experiments before submitting (stages 3, 6, 8 and 9 have none): stage 10 spends its whole budget of 3 (then probes a
+# fourth configuration), stage 1 has no limit and runs two.
+STAGE_RUNS = {1: ["iqr-1.5", "iqr-3"], 10: ["small-1", "small-3", "large-1"]}
 # Teams that never submit stage 10: the round's end evaluates them.
 SENTINEL_UNFINISHED_TEAMS = (15, 16)
 
@@ -676,8 +682,8 @@ class SentinelTeamClient(Client):
         for stage in stages:
             for config in STAGE_RUNS.get(stage, []):
                 self.plan.append(("run", stage, config))
-            if stage == 3:
-                self.plan.append(("budget-probe", stage, "knn-15"))
+            if stage == 10:
+                self.plan.append(("budget-probe", stage, "large-3"))
             self.plan.append(("submit", stage, None))
         self.final_stage = stages[-1]
 
@@ -1149,7 +1155,8 @@ def linux_run(args, api, config):
 
 # ---- Final mode ("The Last Shipment") -----------------------------------------------------------------------
 
-# The final's decryption phase in this run (minutes); the suspects wait for the investigation phase after it.
+# The content's phase1Minutes in this run: only an estimate shown to the teams. Nothing opens or closes by the clock;
+# a team's investigation opens when it has decrypted its fourth file. It also paces the writes (see main).
 FINAL_PHASE1_MINUTES = 1
 # The most writes one team makes before its suspect (recovery, unlock tries, start, wrong and right passphrases, repeats).
 FINAL_DECRYPTION_WRITES = 12
@@ -1175,6 +1182,8 @@ FINAL_RIGHT_OPTION, FINAL_WRONG_OPTION = "entered = true", "if (!doorOpen && aut
 # The server's limits per team: one ML check every 2 s and one Arduino run every 3 s; the steps keep a little more.
 ML_CHECK_GAP, ARDUINO_RUN_GAP = 2.3, 3.3
 FINAL_RIGHT_SUSPECT, FINAL_WRONG_SUSPECT = "S11", "S05"
+# What a team with fewer than four decrypted files is told when it tries to send a suspect.
+FINAL_DECRYPT_FIRST = "Decrypt all four files to open the investigation."
 ROOM_ORDER = ("AI", "PROBLEM_SOLVING", "LINUX", "HARDWARE")
 # A member's final screens never carry one of these keys, at any depth (no hash, correctness, deduction or score).
 FINAL_FORBIDDEN_KEYS = {"cheating", "deduction", "deductions", "score", "scores", "total", "points", "cluePoints",
@@ -1359,6 +1368,9 @@ class FinalTeamClient(Client):
         self.steps += [("passphrase", (clue, FINAL_PASSPHRASES[clue - 1]), True) for clue in files]
         if plan["suspect"] is not None:
             self.steps.append(("suspect", plan["suspect"], True))
+        elif plan["stopAfterFiles"] is not None:
+            # Fewer than four files: Phase 2 never opens, so a suspect is refused with the rule's own message.
+            self.steps.append(("early_suspect", FINAL_RIGHT_SUSPECT, True))
 
     def first_action(self):
         return self.start_at + random.uniform(0, 0.3)
@@ -1419,6 +1431,11 @@ class FinalTeamClient(Client):
             ok = status == 200 and data.get("accepted") is expect
             if ok and expect:
                 self.repeat(path, {"passphrase": value}, str(uuid.uuid4()))  # an already decrypted file
+        elif kind == "early_suspect":
+            status, data = self.request("POST", f"{base}/suspect", {"suspectId": arg}, None, conflict_expected=True)
+            self.leak_check(data)
+            ok = status == 409 and isinstance(data, dict) and data.get("detail") == FINAL_DECRYPT_FIRST
+            self.run_state.final.refusal(ok, f"team {self.team} suspect with fewer than four files", status, data)
         else:
             status, data = self.write(f"{base}/suspect", {"suspectId": arg}, None)
             ok = status == 200 and data.get("accepted") is True

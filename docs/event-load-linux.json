@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-11-06T22:49:06.044037+00:00",
+  "testedAt": "2026-11-21T02:03:35.927680+00:00",
   "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic Linux room traffic; no WAN latency.",
   "baseUrl": "http://127.0.0.1:8082/api/v1",
   "mode": "linux",
@@ -9,117 +9,117 @@
   "packageUnpackedBytes": 20970496,
   "endpoints": {
     "GET /event/admin/board": {
-      "requests": 5,
+      "requests": 3,
       "errors": 0,
-      "p50Ms": 11.7,
-      "p95Ms": 44.0,
-      "p99Ms": 44.0,
-      "maxMs": 44.0
+      "p50Ms": 15.6,
+      "p95Ms": 19.5,
+      "p99Ms": 19.5,
+      "maxMs": 19.5
     },
     "GET /event/revision": {
       "requests": 162,
       "errors": 0,
-      "p50Ms": 3.7,
-      "p95Ms": 23.5,
-      "p99Ms": 29.0,
-      "maxMs": 29.4
+      "p50Ms": 3.1,
+      "p95Ms": 23.6,
+      "p99Ms": 27.7,
+      "maxMs": 28.4
     },
     "GET /event/rooms/{id}/board": {
-      "requests": 4,
+      "requests": 3,
       "errors": 0,
-      "p50Ms": 8.5,
-      "p95Ms": 32.2,
-      "p99Ms": 32.2,
-      "maxMs": 32.2
+      "p50Ms": 6.8,
+      "p95Ms": 8.7,
+      "p99Ms": 8.7,
+      "maxMs": 8.7
     },
     "GET /event/rooms/{id}/terminal-dashboard": {
       "requests": 19,
       "errors": 0,
-      "p50Ms": 5.7,
-      "p95Ms": 31.4,
-      "p99Ms": 31.4,
-      "maxMs": 31.4
+      "p50Ms": 5.8,
+      "p95Ms": 28.6,
+      "p99Ms": 28.6,
+      "maxMs": 28.6
     },
     "GET /event/rooms/{id}/terminal-dashboard.csv": {
       "requests": 1,
       "errors": 0,
-      "p50Ms": 9.5,
-      "p95Ms": 9.5,
-      "p99Ms": 9.5,
-      "maxMs": 9.5
+      "p50Ms": 4.2,
+      "p95Ms": 4.2,
+      "p99Ms": 4.2,
+      "maxMs": 4.2
     },
     "GET /event/team/board": {
-      "requests": 72,
+      "requests": 51,
       "errors": 0,
-      "p50Ms": 5.6,
-      "p95Ms": 25.7,
-      "p99Ms": 35.9,
-      "maxMs": 35.9
+      "p50Ms": 3.9,
+      "p95Ms": 26.5,
+      "p99Ms": 35.0,
+      "maxMs": 35.0
     },
     "GET /event/team/rooms/{id}/terminal-files": {
       "requests": 16,
       "errors": 0,
-      "p50Ms": 6.3,
-      "p95Ms": 17.1,
-      "p99Ms": 17.1,
-      "maxMs": 17.1
+      "p50Ms": 5.2,
+      "p95Ms": 35.7,
+      "p99Ms": 35.7,
+      "maxMs": 35.7
     },
     "GET /event/team/rooms/{id}/terminal-form": {
       "requests": 94,
       "errors": 0,
-      "p50Ms": 4.7,
-      "p95Ms": 25.6,
-      "p99Ms": 29.4,
-      "maxMs": 29.4
+      "p50Ms": 3.4,
+      "p95Ms": 27.3,
+      "p99Ms": 29.0,
+      "maxMs": 29.0
     },
     "GET conditional /event/team/rooms/{id}/terminal-bundle": {
       "requests": 16,
       "errors": 0,
-      "p50Ms": 5.2,
-      "p95Ms": 24.9,
-      "p99Ms": 24.9,
-      "maxMs": 24.9
+      "p50Ms": 4.3,
+      "p95Ms": 25.2,
+      "p99Ms": 25.2,
+      "maxMs": 25.2
     },
     "GET download /event/team/rooms/{id}/terminal-bundle": {
       "requests": 16,
       "errors": 0,
-      "p50Ms": 33.9,
-      "p95Ms": 345.7,
-      "p99Ms": 345.7,
-      "maxMs": 345.7
+      "p50Ms": 19.5,
+      "p95Ms": 128.1,
+      "p99Ms": 128.1,
+      "maxMs": 128.1
     },
     "GET download tools /terminal/devfest-tools.tgz": {
       "requests": 16,
       "errors": 0,
-      "p50Ms": 10.7,
-      "p95Ms": 46.5,
-      "p99Ms": 46.5,
-      "maxMs": 46.5
+      "p50Ms": 10.4,
+      "p95Ms": 34.5,
+      "p99Ms": 34.5,
+      "maxMs": 34.5
     },
     "POST /event/team/rooms/{id}/terminal-form/save": {
-      "requests": 100,
+      "requests": 95,
       "errors": 0,
-      "p50Ms": 7.7,
-      "p95Ms": 28.3,
-      "p99Ms": 32.9,
-      "maxMs": 39.0
+      "p50Ms": 6.2,
+      "p95Ms": 26.3,
+      "p99Ms": 32.5,
+      "maxMs": 32.5
     },
     "POST /event/team/rooms/{id}/terminal-form/submit": {
-      "requests": 15,
+      "requests": 17,
       "errors": 0,
-      "p50Ms": 9.0,
-      "p95Ms": 19.2,
-      "p99Ms": 19.2,
-      "maxMs": 19.2
+      "p50Ms": 7.3,
+      "p95Ms": 26.6,
+      "p99Ms": 26.6,
+      "maxMs": 26.6
     }
   },
   "totals": {
-    "requests": 536,
+    "requests": 509,
     "errors": 0,
-    "p95ExcludingBundleDownloadMs": 26.3,
-    "worstEndpointP95ExcludingBundleDownloadMs": 44.0,
+    "p95ExcludingBundleDownloadMs": 25.8,
+    "worstEndpointP95ExcludingBundleDownloadMs": 35.7,
     "submittedForms": 16,
-    "retries": 21,
+    "retries": 18,
     "retryMismatches": 0,
     "conditionalRestarts304": 16
   },
@@ -127,265 +127,279 @@
     "count": 16,
     "downloads": [
       {
-        "team": 3,
-        "bytes": 20977096,
-        "ms": 340.4
+        "team": 6,
+        "bytes": 20977097,
+        "ms": 128.1
       },
       {
         "team": 12,
-        "bytes": 20977096,
-        "ms": 345.7
+        "bytes": 20977097,
+        "ms": 95.2
       },
       {
         "team": 4,
-        "bytes": 20977096,
-        "ms": 29.0
-      },
-      {
-        "team": 9,
-        "bytes": 20977096,
-        "ms": 118.0
+        "bytes": 20977097,
+        "ms": 19.5
       },
       {
         "team": 8,
-        "bytes": 20977096,
-        "ms": 37.1
-      },
-      {
-        "team": 16,
-        "bytes": 20977096,
-        "ms": 66.5
-      },
-      {
-        "team": 1,
-        "bytes": 20977096,
-        "ms": 33.9
-      },
-      {
-        "team": 13,
-        "bytes": 20977096,
-        "ms": 34.8
-      },
-      {
-        "team": 15,
-        "bytes": 20977096,
-        "ms": 53.1
-      },
-      {
-        "team": 7,
-        "bytes": 20977096,
-        "ms": 30.7
-      },
-      {
-        "team": 2,
-        "bytes": 20977096,
-        "ms": 25.8
-      },
-      {
-        "team": 6,
-        "bytes": 20977096,
-        "ms": 35.8
-      },
-      {
-        "team": 14,
-        "bytes": 20977096,
-        "ms": 25.6
-      },
-      {
-        "team": 11,
-        "bytes": 20977096,
-        "ms": 29.6
-      },
-      {
-        "team": 5,
-        "bytes": 20977096,
-        "ms": 32.8
+        "bytes": 20977097,
+        "ms": 20.8
       },
       {
         "team": 10,
-        "bytes": 20977096,
-        "ms": 32.9
+        "bytes": 20977097,
+        "ms": 19.7
+      },
+      {
+        "team": 7,
+        "bytes": 20977097,
+        "ms": 18.6
+      },
+      {
+        "team": 9,
+        "bytes": 20977097,
+        "ms": 22.8
+      },
+      {
+        "team": 11,
+        "bytes": 20977097,
+        "ms": 35.6
+      },
+      {
+        "team": 2,
+        "bytes": 20977097,
+        "ms": 17.7
+      },
+      {
+        "team": 13,
+        "bytes": 20977097,
+        "ms": 20.9
+      },
+      {
+        "team": 16,
+        "bytes": 20977097,
+        "ms": 17.4
+      },
+      {
+        "team": 15,
+        "bytes": 20977097,
+        "ms": 17.2
+      },
+      {
+        "team": 1,
+        "bytes": 20977097,
+        "ms": 18.2
+      },
+      {
+        "team": 3,
+        "bytes": 20977097,
+        "ms": 17.8
+      },
+      {
+        "team": 5,
+        "bytes": 20977097,
+        "ms": 18.9
+      },
+      {
+        "team": 14,
+        "bytes": 20977097,
+        "ms": 31.1
       }
     ],
-    "maxMs": 345.7
+    "maxMs": 128.1
   },
   "toolsDownloads": {
     "count": 16,
-    "bytes": 1886271,
-    "maxMs": 46.5
+    "bytes": 4723997,
+    "maxMs": 34.5
   },
   "serverHeap": {
     "before": {
-      "pid": 22556,
-      "heapCommittedMb": 298.0,
-      "heapUsedMb": 39.6,
+      "pid": 21044,
+      "heapCommittedMb": 308.0,
+      "heapUsedMb": 83.9,
       "liveThreads": 30,
-      "workingSetMb": 473.7
+      "workingSetMb": 481.0
     },
     "after": {
-      "pid": 22556,
-      "heapCommittedMb": 298.0,
-      "heapUsedMb": 227.6,
+      "pid": 21044,
+      "heapCommittedMb": 308.0,
+      "heapUsedMb": 271.4,
       "liveThreads": 30,
-      "workingSetMb": 488.2
+      "workingSetMb": 500.7
     },
-    "samplesDuringDownloads": 22,
-    "maxHeapUsedMb": 191.2,
-    "maxWorkingSetMb": 503.5,
+    "samplesDuringDownloads": 24,
+    "maxHeapUsedMb": 235.8,
+    "maxWorkingSetMb": 503.4,
     "samples": [
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 39.7,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 84.0,
         "liveThreads": 30,
-        "workingSetMb": 473.9
+        "workingSetMb": 482.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 42.9,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 86.6,
         "liveThreads": 30,
-        "workingSetMb": 467.9
+        "workingSetMb": 485.3
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 43.9,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 87.5,
         "liveThreads": 30,
-        "workingSetMb": 468.9
+        "workingSetMb": 485.6
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 44.4,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 88.3,
         "liveThreads": 30,
-        "workingSetMb": 469.3
+        "workingSetMb": 484.4
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 45.1,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 89.7,
         "liveThreads": 30,
-        "workingSetMb": 481.3
+        "workingSetMb": 476.8
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 177.2,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 90.1,
         "liveThreads": 30,
-        "workingSetMb": 497.2
+        "workingSetMb": 477.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 178.0,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 220.9,
         "liveThreads": 30,
-        "workingSetMb": 497.5
+        "workingSetMb": 498.1
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 178.9,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 222.9,
         "liveThreads": 30,
-        "workingSetMb": 503.5
+        "workingSetMb": 500.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 179.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 224.0,
         "liveThreads": 30,
-        "workingSetMb": 474.9
+        "workingSetMb": 490.5
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 180.7,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 224.6,
         "liveThreads": 30,
-        "workingSetMb": 481.6
+        "workingSetMb": 496.9
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 181.4,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 225.2,
         "liveThreads": 30,
-        "workingSetMb": 481.7
+        "workingSetMb": 497.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 181.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 225.5,
         "liveThreads": 30,
-        "workingSetMb": 485.8
+        "workingSetMb": 503.4
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 182.4,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 225.9,
         "liveThreads": 30,
-        "workingSetMb": 476.2
+        "workingSetMb": 491.1
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 182.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 226.7,
         "liveThreads": 30,
-        "workingSetMb": 476.2
+        "workingSetMb": 493.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 186.1,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 226.8,
         "liveThreads": 30,
-        "workingSetMb": 480.2
+        "workingSetMb": 493.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 186.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 227.4,
         "liveThreads": 30,
-        "workingSetMb": 480.5
+        "workingSetMb": 493.2
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 187.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 230.6,
         "liveThreads": 30,
-        "workingSetMb": 481.0
+        "workingSetMb": 490.6
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 188.1,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 231.4,
         "liveThreads": 30,
-        "workingSetMb": 481.1
+        "workingSetMb": 492.8
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 188.3,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 231.6,
         "liveThreads": 30,
-        "workingSetMb": 481.1
+        "workingSetMb": 492.8
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 189.6,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 233.1,
         "liveThreads": 30,
-        "workingSetMb": 481.6
+        "workingSetMb": 493.9
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 190.9,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 233.8,
         "liveThreads": 30,
-        "workingSetMb": 481.7
+        "workingSetMb": 495.0
       },
       {
-        "pid": 22556,
-        "heapCommittedMb": 298.0,
-        "heapUsedMb": 191.2,
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 233.9,
         "liveThreads": 30,
-        "workingSetMb": 481.7
+        "workingSetMb": 495.1
+      },
+      {
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 235.3,
+        "liveThreads": 30,
+        "workingSetMb": 495.3
+      },
+      {
+        "pid": 21044,
+        "heapCommittedMb": 308.0,
+        "heapUsedMb": 235.8,
+        "liveThreads": 30,
+        "workingSetMb": 495.4
       }
     ]
   },
@@ -536,7 +550,7 @@
       "status": "SUBMITTED",
       "total": 6,
       "expectedTotal": 6,
-      "cluesCollected": 1,
+      "cluesCollected": 0,
       "cause": "TIME_UP",
       "ok": true
     },

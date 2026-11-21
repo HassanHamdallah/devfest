@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-10-24T21:27:03.585058+00:00",
+  "testedAt": "2026-11-21T02:19:51.050346+00:00",
   "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic event traffic; no WAN latency.",
   "baseUrl": "http://127.0.0.1:8082/api/v1",
   "scale": 1,
@@ -14,78 +14,78 @@
     "GET /event/admin/board": {
       "requests": 30,
       "errors": 0,
-      "p50Ms": 11.9,
-      "p95Ms": 34.1,
-      "p99Ms": 36.5,
-      "maxMs": 36.5
+      "p50Ms": 10.1,
+      "p95Ms": 31.2,
+      "p99Ms": 32.5,
+      "maxMs": 32.5
     },
     "GET /event/revision": {
-      "requests": 629,
+      "requests": 630,
       "errors": 0,
-      "p50Ms": 3.9,
-      "p95Ms": 25.0,
-      "p99Ms": 31.1,
-      "maxMs": 37.3
+      "p50Ms": 2.6,
+      "p95Ms": 25.6,
+      "p99Ms": 27.3,
+      "maxMs": 32.9
     },
     "GET /event/rooms/{id}/board": {
-      "requests": 179,
+      "requests": 178,
       "errors": 0,
-      "p50Ms": 6.9,
-      "p95Ms": 30.1,
-      "p99Ms": 34.9,
-      "maxMs": 40.5
+      "p50Ms": 4.7,
+      "p95Ms": 25.3,
+      "p99Ms": 28.6,
+      "maxMs": 28.8
     },
     "GET /event/team/board": {
-      "requests": 479,
+      "requests": 480,
       "errors": 0,
-      "p50Ms": 5.0,
-      "p95Ms": 27.6,
-      "p99Ms": 34.5,
-      "maxMs": 44.7
+      "p50Ms": 3.4,
+      "p95Ms": 24.2,
+      "p99Ms": 28.0,
+      "maxMs": 34.0
     },
     "POST /event/team/rooms/{id}/submissions": {
-      "requests": 91,
+      "requests": 105,
       "errors": 0,
-      "p50Ms": 8.8,
-      "p95Ms": 34.2,
-      "p99Ms": 46.1,
-      "maxMs": 46.1
+      "p50Ms": 5.9,
+      "p95Ms": 28.9,
+      "p99Ms": 30.5,
+      "maxMs": 31.0
     },
     "PUT /event/rooms/{id}/judgements/{id}": {
-      "requests": 59,
+      "requests": 58,
       "errors": 0,
-      "p50Ms": 9.3,
-      "p95Ms": 32.8,
-      "p99Ms": 42.0,
-      "maxMs": 42.0
+      "p50Ms": 5.8,
+      "p95Ms": 27.5,
+      "p99Ms": 28.2,
+      "maxMs": 28.2
     }
   },
   "totals": {
-    "requests": 1467,
+    "requests": 1481,
     "errors": 0,
     "expectedJudgementConflicts": 0,
-    "acceptedSubmissions": 79,
-    "retries": 12,
+    "acceptedSubmissions": 82,
+    "retries": 23,
     "retryMismatches": 0,
     "duplicateReceiptIds": 0
   },
   "submissionCrossCheck": [
     {
       "team": 1,
-      "accepted": 5,
-      "listed": 5,
-      "complete": true
-    },
-    {
-      "team": 2,
       "accepted": 6,
       "listed": 6,
       "complete": true
     },
     {
+      "team": 2,
+      "accepted": 5,
+      "listed": 5,
+      "complete": true
+    },
+    {
       "team": 3,
-      "accepted": 4,
-      "listed": 4,
+      "accepted": 5,
+      "listed": 5,
       "complete": true
     },
     {
@@ -102,8 +102,8 @@
     },
     {
       "team": 6,
-      "accepted": 5,
-      "listed": 5,
+      "accepted": 6,
+      "listed": 6,
       "complete": true
     },
     {
@@ -120,8 +120,8 @@
     },
     {
       "team": 9,
-      "accepted": 5,
-      "listed": 5,
+      "accepted": 6,
+      "listed": 6,
       "complete": true
     },
     {
@@ -150,14 +150,14 @@
     },
     {
       "team": 14,
-      "accepted": 4,
-      "listed": 4,
+      "accepted": 5,
+      "listed": 5,
       "complete": true
     },
     {
       "team": 15,
-      "accepted": 5,
-      "listed": 5,
+      "accepted": 4,
+      "listed": 4,
       "complete": true
     },
     {

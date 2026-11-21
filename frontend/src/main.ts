@@ -7,6 +7,7 @@ import {
   codingGuard,
   eventAdminGuard,
   eventResultsGuard,
+  loginGuard,
   managerGuard,
   memberGuard,
   roleHomeGuard,
@@ -204,6 +205,7 @@ bootstrapApplication(App, {
     provideRouter([
       {
         path: "login",
+        canActivate: [loginGuard],
         loadComponent: () =>
           import("./app/features/login").then((m) => m.Login),
       },

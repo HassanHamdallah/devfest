@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-11-20T00:29:34.755387+00:00",
+  "testedAt": "2026-11-21T02:13:44.394281+00:00",
   "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic final traffic; no WAN latency.",
   "baseUrl": "http://127.0.0.1:8082/api/v1",
   "mode": "final",
@@ -8,65 +8,65 @@
   "teams": 16,
   "endpoints": {
     "GET /event/admin/board": {
-      "requests": 7,
+      "requests": 5,
       "errors": 0,
-      "p50Ms": 11.7,
-      "p95Ms": 14.5,
-      "p99Ms": 14.5,
-      "maxMs": 14.5
+      "p50Ms": 22.2,
+      "p95Ms": 26.8,
+      "p99Ms": 26.8,
+      "maxMs": 26.8
     },
     "GET /event/admin/final/board": {
-      "requests": 55,
+      "requests": 53,
       "errors": 0,
-      "p50Ms": 8.4,
-      "p95Ms": 25.9,
-      "p99Ms": 32.0,
-      "maxMs": 32.0
+      "p50Ms": 8.2,
+      "p95Ms": 29.3,
+      "p99Ms": 32.9,
+      "maxMs": 32.9
     },
     "GET /event/admin/scoreboard": {
       "requests": 48,
       "errors": 0,
-      "p50Ms": 5.2,
-      "p95Ms": 24.2,
-      "p99Ms": 28.1,
-      "maxMs": 28.1
+      "p50Ms": 5.5,
+      "p95Ms": 29.2,
+      "p99Ms": 30.2,
+      "maxMs": 30.2
     },
     "GET /event/revision": {
       "requests": 432,
       "errors": 0,
-      "p50Ms": 2.1,
-      "p95Ms": 21.7,
-      "p99Ms": 26.7,
-      "maxMs": 27.3
+      "p50Ms": 2.2,
+      "p95Ms": 23.7,
+      "p99Ms": 26.4,
+      "maxMs": 28.6
     },
     "GET /event/rooms/{id}/board": {
       "requests": 64,
       "errors": 0,
-      "p50Ms": 8.0,
-      "p95Ms": 30.2,
-      "p99Ms": 57.5,
-      "maxMs": 57.5
+      "p50Ms": 9.3,
+      "p95Ms": 32.8,
+      "p99Ms": 63.8,
+      "maxMs": 63.8
     },
     "GET /event/team/final": {
-      "requests": 455,
+      "requests": 405,
       "errors": 0,
-      "p50Ms": 4.7,
-      "p95Ms": 26.0,
-      "p99Ms": 29.5,
-      "maxMs": 30.4
+      "p50Ms": 5.1,
+      "p95Ms": 27.1,
+      "p99Ms": 29.7,
+      "maxMs": 31.9
     },
     "GET /event/team/final/recovery": {
       "requests": 6,
       "errors": 0,
-      "p50Ms": 3.6,
-      "p95Ms": 14.0,
-      "p99Ms": 14.0,
-      "maxMs": 14.0
+      "p50Ms": 3.5,
+      "p95Ms": 19.3,
+      "p99Ms": 19.3,
+      "maxMs": 19.3
     },
     "POST /event/admin/final/close": {
       "requests": 2,
       "errors": 0,
-      "p50Ms": 2.6,
+      "p50Ms": 2.2,
       "p95Ms": 6.2,
       "p99Ms": 6.2,
       "maxMs": 6.2
@@ -74,101 +74,101 @@
     "POST /event/deductions/{id}/cancel": {
       "requests": 1,
       "errors": 0,
-      "p50Ms": 17.7,
-      "p95Ms": 17.7,
-      "p99Ms": 17.7,
-      "maxMs": 17.7
+      "p50Ms": 18.1,
+      "p95Ms": 18.1,
+      "p99Ms": 18.1,
+      "maxMs": 18.1
     },
     "POST /event/rooms/{id}/cheating": {
       "requests": 3,
       "errors": 0,
-      "p50Ms": 15.1,
-      "p95Ms": 23.1,
-      "p99Ms": 23.1,
-      "maxMs": 23.1
+      "p50Ms": 7.2,
+      "p95Ms": 29.3,
+      "p99Ms": 29.3,
+      "maxMs": 29.3
     },
     "POST /event/rooms/{id}/hints": {
       "requests": 13,
       "errors": 0,
-      "p50Ms": 20.8,
-      "p95Ms": 63.3,
-      "p99Ms": 63.3,
-      "maxMs": 63.3
+      "p50Ms": 19.4,
+      "p95Ms": 106.4,
+      "p99Ms": 106.4,
+      "maxMs": 106.4
     },
     "POST /event/team/final/clues/{id}/passphrase": {
-      "requests": 140,
+      "requests": 136,
       "errors": 0,
-      "p50Ms": 5.7,
-      "p95Ms": 28.2,
-      "p99Ms": 30.5,
-      "maxMs": 31.4
+      "p50Ms": 6.1,
+      "p95Ms": 28.5,
+      "p99Ms": 30.6,
+      "maxMs": 32.5
     },
     "POST /event/team/final/recovery/arduino/run": {
       "requests": 6,
       "errors": 0,
-      "p50Ms": 9.4,
-      "p95Ms": 31.1,
-      "p99Ms": 31.1,
-      "maxMs": 31.1
+      "p50Ms": 8.2,
+      "p95Ms": 34.9,
+      "p99Ms": 34.9,
+      "maxMs": 34.9
     },
     "POST /event/team/final/recovery/ml/{id}": {
-      "requests": 52,
+      "requests": 47,
       "errors": 0,
-      "p50Ms": 7.2,
-      "p95Ms": 30.8,
-      "p99Ms": 32.2,
-      "maxMs": 32.2
+      "p50Ms": 8.0,
+      "p95Ms": 27.4,
+      "p99Ms": 31.2,
+      "maxMs": 31.2
     },
     "POST /event/team/final/start": {
       "requests": 16,
       "errors": 0,
-      "p50Ms": 5.6,
-      "p95Ms": 28.6,
-      "p99Ms": 28.6,
-      "maxMs": 28.6
+      "p50Ms": 4.7,
+      "p95Ms": 29.5,
+      "p99Ms": 29.5,
+      "maxMs": 29.5
     },
     "POST /event/team/final/suspect": {
       "requests": 28,
       "errors": 0,
-      "p50Ms": 4.6,
-      "p95Ms": 21.9,
-      "p99Ms": 25.9,
-      "maxMs": 25.9
+      "p50Ms": 4.5,
+      "p95Ms": 25.7,
+      "p99Ms": 27.6,
+      "maxMs": 27.6
     },
     "POST /event/team/final/unlock": {
-      "requests": 21,
+      "requests": 20,
       "errors": 0,
-      "p50Ms": 9.0,
-      "p95Ms": 28.5,
-      "p99Ms": 35.7,
-      "maxMs": 35.7
+      "p50Ms": 7.8,
+      "p95Ms": 22.5,
+      "p99Ms": 37.6,
+      "maxMs": 37.6
     },
     "POST /event/team/rooms/{id}/submissions": {
-      "requests": 62,
+      "requests": 58,
       "errors": 0,
-      "p50Ms": 37.8,
-      "p95Ms": 140.6,
-      "p99Ms": 166.7,
-      "maxMs": 166.7
+      "p50Ms": 34.0,
+      "p95Ms": 128.3,
+      "p99Ms": 134.6,
+      "maxMs": 134.6
     },
     "PUT /event/rooms/{id}/manual-scores/{id}": {
       "requests": 64,
       "errors": 0,
-      "p50Ms": 17.4,
-      "p95Ms": 61.2,
-      "p99Ms": 145.5,
-      "maxMs": 145.5
+      "p50Ms": 21.9,
+      "p95Ms": 48.2,
+      "p99Ms": 59.0,
+      "maxMs": 59.0
     }
   },
   "totals": {
-    "requests": 1475,
+    "requests": 1407,
     "errors": 0,
-    "worstP95Ms": 140.6,
-    "retries": 38,
+    "worstP95Ms": 128.3,
+    "retries": 24,
     "retryMismatches": 0,
-    "refusalProbes": 76,
-    "refusalsAnswered": 76,
-    "expectedConflicts": 77,
+    "refusalProbes": 77,
+    "refusalsAnswered": 77,
+    "expectedConflicts": 78,
     "finalisedTeams": 16,
     "activeHints": 11,
     "activeCheating": 3,
@@ -378,20 +378,20 @@
     {
       "team": 11,
       "finalised": true,
-      "finishedBy": "SUBMITTED",
+      "finishedBy": "CLOSED",
       "got": {
         "cluesSolved": 3,
         "clues": 11.25,
-        "suspect": 10.0,
+        "suspect": 0.0,
         "time": 0.0,
-        "total": 21.25
+        "total": 11.25
       },
       "expected": {
         "cluesSolved": 3,
         "clues": 11.25,
-        "suspect": 10,
+        "suspect": 0,
         "time": 0,
-        "total": 21.25
+        "total": 11.25
       },
       "ok": true
     },
@@ -423,15 +423,15 @@
         "cluesSolved": 4,
         "clues": 15.0,
         "suspect": 0.0,
-        "time": 15.0,
-        "total": 30.0
+        "time": 7.5,
+        "total": 22.5
       },
       "expected": {
         "cluesSolved": 4,
         "clues": 15.0,
         "suspect": 0,
-        "time": 15,
-        "total": 30.0
+        "time": 7.5,
+        "total": 22.5
       },
       "ok": true
     },
