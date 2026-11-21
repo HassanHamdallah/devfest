@@ -321,3 +321,59 @@ test("event: rounds, room clues, judging, hint, recovery, the case, ranking and 
   }
   expect([...admin.problems, ...member.problems, ...manager.problems]).toEqual([]);
 });
+
+test("login: Back or a typed /login with a session lands on the role home for every role; sign out and no session show the form", async ({ browser }) => {
+  test.setTimeout(240000);
+  const roles = [
+    { label: "admin", email: () => accounts.adminEmail, password: () => accounts.adminPassword, home: /\/event\/admin$/ },
+    { label: "manager", email: () => accounts.managers.AI, password: () => accounts.seedPassword, home: /\/event\/room(\/\d+)?$/ },
+    { label: "team", email: () => accounts.members[0], password: () => accounts.seedPassword, home: /\/event\/team$/ },
+  ];
+  const problems: string[] = [];
+  for (const role of roles) {
+    const opened = await openRolePage(browser, `login ${role.label}`, DESKTOP);
+    const page = opened.page;
+    try {
+      // No session: the form shows and nothing redirects.
+      await page.goto("/login");
+      await expect(button(page, "Sign in")).toBeVisible();
+      await expect(page).toHaveURL(/\/login$/);
+      await signIn(page, role.email(), role.password());
+      await expect(page).toHaveURL(role.home);
+
+      // Back to the /login history entry: the user lands on the role home, never on the form inside the signed-in layout.
+      await page.goBack();
+      await expect(page).toHaveURL(role.home);
+      await expect(button(page, "Sign out")).toBeVisible();
+      await expect(button(page, "Sign in")).toHaveCount(0);
+      // The redirect replaced the /login entry: Back again leaves the app (the page before it) instead of bouncing
+      // between /login and the home, and Forward comes back to the home, still signed in.
+      await page.goBack();
+      await expect(page).toHaveURL("about:blank");
+      await page.goForward();
+      await expect(page).toHaveURL(role.home);
+      await expect(button(page, "Sign out")).toBeVisible();
+      await expect(button(page, "Sign in")).toHaveCount(0);
+
+      // A typed or refreshed /login with a valid session also goes to the role home.
+      await page.goto("/login");
+      await expect(page).toHaveURL(role.home);
+      await expect(button(page, "Sign out")).toBeVisible();
+
+      // Everything up to here, the Back and redirect flows included, logged nothing.
+      expect(opened.problems, `${role.label}: console errors before signing out`).toEqual([]);
+
+      // Sign out still lands on /login and shows the form.
+      await button(page, "Sign out").click();
+      await expect(page).toHaveURL(/\/login$/);
+      await expect(button(page, "Sign in")).toBeVisible();
+      await expect(button(page, "Sign out")).toHaveCount(0);
+    } finally {
+      await page.context().close();
+    }
+    // After the click the session is revoked while the live pages may still have a poll or a board refetch in flight:
+    // the browser logs those as 401 resource errors (existing behaviour of sign-out, nothing to do with /login).
+    problems.push(...opened.problems.filter((problem) => !/status of 401 \(Unauthorized\) \(http:\/\/localhost:4202\/api\/v1\/event\//.test(problem)));
+  }
+  expect(problems).toEqual([]);
+});

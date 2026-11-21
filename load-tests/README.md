@@ -39,7 +39,7 @@ What it does:
 - Setup (not measured): signs in the admin, the 4 seeded room managers and the 16 seeded teams once each (inside the 10 logins per account per minute limit), sets round 1 and opens all four rooms, so every group has an open scheduled room for the whole run.
 - Clients: `--scale 1` runs 16 team clients, `--scale 3` runs 48 (three clients share each team's token, like three browser tabs), plus 4 managers and 1 admin.
 - Every client polls `GET /event/revision` every 10 s (jittered start) and refetches its one board when the revision changes (`/event/team/board`, `/event/rooms/{id}/board` or `/event/admin/board`).
-- Each team client submits to its scheduled room about every 60 s with a fresh `Idempotency-Key`; about 20% are immediately retried with the same key and body and must return the identical receipt. This stays well under the 20 attempts per minute per team limit.
+- Each team client submits to its scheduled room about every 60 s with a fresh `Idempotency-Key`; about 20% are immediately retried with the same key and body and must return the identical receipt. This stays well under the per-team limit of 60 writes per minute.
 - Each manager saves a judgement for a team in its room about every 20 s; a 409 version conflict is counted separately as expected and followed by a board refetch.
 - After the run, `GET /event/team/submissions` for each team must list every receipt that team was given.
 - `--seconds` is limited to 30–780 because access tokens last 15 minutes and the harness signs in only once.
@@ -56,6 +56,31 @@ python load-tests/event_load.py --mode sse --streams 150
 ```
 Setup as above (sign-ins, clue keys, round 1 with all rooms open and the timer running), then it takes `--streams` single-use tickets round-robin over the 21 seeded accounts (inside the 30 tickets per account per minute limit), opens that many `GET /event/stream` connections, and performs `--actions` (default 20) admin actions, alternating timer pause and resume `--gap-ms` (default 500) apart. For every action and stream it records when the first `revision` event with at least the action's revision arrived. Output `docs/event-load-sse-<N>.json`: deliveries vs. expected, missing deliveries, p50/p95/max/min of the time from the action's HTTP response to the event (negative = the event arrived before the client finished reading the response) and from the request start, admin action latency, errors, and the backend JVM's heap, live threads and working set (via `jcmd` and `tasklist`) before, with the streams open and after the actions. It exits non-zero on any error or missing delivery. Both SSE runs can follow each other on the same rehearsal.
 
+### Final mode ("The Last Shipment")
+
+```
+./infrastructure/start-event-rehearsal.ps1
+python load-tests/event_load.py --mode final --seconds 240
+./infrastructure/stop-event-rehearsal.ps1
+```
+Setup (not measured): sign-ins, clue keys and the four rooms' rounds, so that each of the 16 teams collects the keys of its
+plan (teams 1 to 8, 11 and 12 hold 4 keys, 13 and 15 hold 3, 9 and 14 hold 2, 10 and 16 hold 0); hints and cheating records by
+the managers; then the admin imports `docs/final/last-shipment-content.json` (with `phase1Minutes` 1, an estimate only) and opens
+the final. The 16 teams then play their paths through the API at once: 3 keys pass the six ML stages, 2 or 0 keys pass ML and then
+the Arduino level (some with a wrong try first), paced to the server's recovery limits (one ML check per 2 s, one Arduino run
+per 3 s), then unlock (some with wrong tries), start the case, decrypt the files (some with wrong passphrases, in different
+orders) and send the suspect. About 20 % of the writes are retried with the same Idempotency-Key and must return the identical
+answer; repeats of one-time answers must be refused. Team 11 stops after 3 files and team 16 after 2: a suspect from them must be
+refused with 409 "Decrypt all four files to open the investigation." (a team's investigation opens only when it has decrypted all
+four files; nothing opens or closes by the clock). Team 13 sends a wrong suspect. The admin keeps the final table and the scoreboard
+open, then closes the final; the teams that never sent a suspect are finalised by the close.
+
+Afterwards, for every team the admin table must show the expected keys, path, recovery finish, crypto window (from the team's start
+until its fourth file, none for a team that never decrypted four), recovery checks and the expected score: 3.75 per file, 10 for the
+right suspect, time points 15 for the right suspect and half (7.50) for a wrong one when sent within 25 minutes, and 0 without four
+files or without a suspect. Output `docs/event-load-final.json`; the script exits non-zero on any unexpected error, retry mismatch,
+unanswered refusal probe, wrong score or an endpoint p95 ≥ 300 ms.
+
 ### Sentinel mode (AI mission room)
 
 ```
@@ -66,8 +91,8 @@ python load-tests/event_load.py --mode sentinel --seconds 120
 Setup (not measured): sign-ins and clue keys as above; the admin switches the AI mission on for the AI room, the AI
 manager imports `docs/ai-room/sentinel-content.json` (pass score 60), the admin sets round 1, sends the 12 teams of
 groups B–D to the AI room with room exceptions, opens the room and starts the timer, so all 16 teams play in one round.
-Each team client runs its experiments (stage 3 spends its whole budget of 4 and then probes a fifth run, which must be
-refused with 409) and submits its ten stages in a random order (about 80 % of `--seconds` for all writes), each stage with
+Each team client runs its experiments (stage 10 spends its whole budget of 3 and then probes a fourth run, which must be
+refused with 409; stage 3 is a multiple-choice stage answered by option id and stages 6, 8 and 9 are typed answers: none of them has experiments) and submits its ten stages in a random order (about 80 % of `--seconds` for all writes), each stage with
 a full-marks or a worthless answer, so team 1 earns 0 and team 7 exactly 60; after each write it fetches the activity
 again, like the page. About 20 % of writes are retried with the same Idempotency-Key and must return the identical
 body; about 10 % of submissions are followed by a different answer with a new key, which must be refused with 409

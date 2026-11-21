@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-10-26T19:43:58.578192+00:00",
+  "testedAt": "2026-11-21T01:52:55.145915+00:00",
   "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic SSE clients; no WAN latency.",
   "baseUrl": "http://127.0.0.1:8082/api/v1",
   "mode": "sse",
@@ -7,53 +7,53 @@
   "accounts": 21,
   "actions": 20,
   "gapMs": 500,
-  "lastRevision": 716,
+  "lastRevision": 520,
   "deliveries": 3000,
   "expectedDeliveries": 3000,
   "missingDeliveries": 0,
   "latencyAfterResponseMs": {
     "count": 3000,
-    "p50": 1.4,
-    "p95": 3.8,
-    "max": 5.5,
-    "min": -4.3
+    "p50": 2.4,
+    "p95": 7.0,
+    "max": 13.2,
+    "min": -2.0
   },
   "latencyAfterRequestStartMs": {
     "count": 3000,
-    "p50": 6.7,
-    "p95": 22.4,
-    "max": 29.4,
-    "min": 2.6
+    "p50": 9.4,
+    "p95": 32.2,
+    "max": 41.6,
+    "min": 3.9
   },
   "adminActionMs": {
     "count": 20,
-    "p50": 4.5,
-    "p95": 18.0,
-    "max": 26.6,
-    "min": 3.4
+    "p50": 6.7,
+    "p95": 26.0,
+    "max": 31.3,
+    "min": 4.6
   },
   "errors": [],
   "javaMemory": {
     "before": {
-      "pid": 25132,
+      "pid": 28464,
       "heapCommittedMb": 84.0,
-      "heapUsedMb": 70.2,
-      "liveThreads": 45,
-      "workingSetMb": 269.5
+      "heapUsedMb": 68.7,
+      "liveThreads": 30,
+      "workingSetMb": 260.7
     },
     "streamsOpen": {
-      "pid": 25132,
+      "pid": 28464,
       "heapCommittedMb": 84.0,
-      "heapUsedMb": 58.5,
-      "liveThreads": 45,
-      "workingSetMb": 260.4
+      "heapUsedMb": 65.6,
+      "liveThreads": 171,
+      "workingSetMb": 272.4
     },
     "afterActions": {
-      "pid": 25132,
+      "pid": 28464,
       "heapCommittedMb": 84.0,
-      "heapUsedMb": 67.7,
-      "liveThreads": 45,
-      "workingSetMb": 265.7
+      "heapUsedMb": 75.5,
+      "liveThreads": 170,
+      "workingSetMb": 268.0
     }
   }
 }

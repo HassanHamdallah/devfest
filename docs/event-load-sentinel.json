@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-11-08T03:02:16.053053+00:00",
+  "testedAt": "2026-11-21T02:00:58.390803+00:00",
   "environment": "Local Windows, PostgreSQL devfest_test, API 8082. Synthetic AI mission traffic; no WAN latency.",
   "baseUrl": "http://127.0.0.1:8082/api/v1",
   "mode": "sentinel",
@@ -11,76 +11,76 @@
     "GET /event/admin/board": {
       "requests": 3,
       "errors": 0,
-      "p50Ms": 23.0,
-      "p95Ms": 57.8,
-      "p99Ms": 57.8,
-      "maxMs": 57.8
+      "p50Ms": 53.6,
+      "p95Ms": 54.1,
+      "p99Ms": 54.1,
+      "maxMs": 54.1
     },
     "GET /event/revision": {
       "requests": 216,
       "errors": 0,
-      "p50Ms": 2.4,
-      "p95Ms": 21.4,
-      "p99Ms": 26.5,
-      "maxMs": 27.3
+      "p50Ms": 2.5,
+      "p95Ms": 24.8,
+      "p99Ms": 27.3,
+      "maxMs": 29.3
     },
     "GET /event/rooms/{id}/board": {
       "requests": 3,
       "errors": 0,
-      "p50Ms": 8.0,
-      "p95Ms": 26.8,
-      "p99Ms": 26.8,
-      "maxMs": 26.8
+      "p50Ms": 5.9,
+      "p95Ms": 6.8,
+      "p99Ms": 6.8,
+      "maxMs": 6.8
     },
     "GET /event/rooms/{id}/mission/results": {
       "requests": 23,
       "errors": 0,
-      "p50Ms": 4.7,
-      "p95Ms": 25.1,
-      "p99Ms": 28.4,
-      "maxMs": 28.4
+      "p50Ms": 5.0,
+      "p95Ms": 27.8,
+      "p99Ms": 28.0,
+      "maxMs": 28.0
     },
     "GET /event/team/board": {
-      "requests": 49,
+      "requests": 50,
       "errors": 0,
-      "p50Ms": 3.9,
-      "p95Ms": 27.3,
-      "p99Ms": 28.6,
-      "maxMs": 28.6
+      "p50Ms": 4.5,
+      "p95Ms": 27.6,
+      "p99Ms": 29.6,
+      "maxMs": 29.6
     },
     "GET /event/team/rooms/{id}/activity": {
-      "requests": 298,
+      "requests": 246,
       "errors": 0,
-      "p50Ms": 4.1,
-      "p95Ms": 25.0,
-      "p99Ms": 28.0,
-      "maxMs": 30.3
+      "p50Ms": 5.1,
+      "p95Ms": 26.2,
+      "p99Ms": 28.8,
+      "maxMs": 42.9
     },
     "POST /event/team/rooms/{id}/activity/stages/{id}/runs": {
-      "requests": 156,
+      "requests": 102,
       "errors": 0,
-      "p50Ms": 5.3,
-      "p95Ms": 29.1,
-      "p99Ms": 30.0,
-      "maxMs": 30.1
+      "p50Ms": 6.7,
+      "p95Ms": 27.0,
+      "p99Ms": 29.5,
+      "maxMs": 33.4
     },
     "POST /event/team/rooms/{id}/activity/stages/{id}/submit": {
-      "requests": 206,
+      "requests": 216,
       "errors": 0,
-      "p50Ms": 5.6,
-      "p95Ms": 28.9,
-      "p99Ms": 31.1,
+      "p50Ms": 6.6,
+      "p95Ms": 28.3,
+      "p99Ms": 31.7,
       "maxMs": 33.0
     }
   },
   "totals": {
-    "requests": 954,
+    "requests": 859,
     "errors": 0,
-    "worstP95Ms": 57.8,
-    "retries": 50,
+    "worstP95Ms": 54.1,
+    "retries": 57,
     "retryMismatches": 0,
-    "refusalProbes": 30,
-    "refusalsAnswered409": 30,
+    "refusalProbes": 29,
+    "refusalsAnswered409": 29,
     "passScore": 60,
     "evaluations": 16,
     "passed": 5,
